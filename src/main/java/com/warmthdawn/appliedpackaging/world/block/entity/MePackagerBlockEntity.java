@@ -1,15 +1,20 @@
 package com.warmthdawn.appliedpackaging.world.block.entity;
 
 import appeng.api.storage.MEStorage;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.capabilities.Capabilities;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
@@ -45,10 +50,12 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     public static final int SLOT_OUTPUT = 1;
     public static final int SLOT_CAPACITY = 2;
     public static final int SLOT_FILTER = 3;
-    private static final int SLOT_COUNT = 4;
+    public static final int SLOT_MARKER = 4;
+    private static final int SLOT_COUNT = 5;
     private static final String ITEMS_TAG = "items";
     private static final String POWERED_TAG = "powered";
     private static final String SELECTED_COLOR_TAG = "selected_color";
+    private static final String MARKER_MODE_TAG = "marker_mode";
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -65,12 +72,15 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             if (slot == SLOT_FILTER) {
                 return PackageFilter.fromTemplate(stack).isPresent();
             }
+            if (slot == SLOT_MARKER) {
+                return isMarkerItem(stack);
+            }
             return false;
         }
 
         @Override
         public int getSlotLimit(int slot) {
-            if (slot == SLOT_CAPACITY || slot == SLOT_FILTER) {
+            if (slot == SLOT_CAPACITY || slot == SLOT_FILTER || slot == SLOT_MARKER) {
                 return 1;
             }
             return super.getSlotLimit(slot);
@@ -84,6 +94,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
     private boolean powered;
     private PackageColor selectedColor = PackageColor.FLUIX;
+    private MarkerMergeMode markerMode = MarkerMergeMode.RETAIN;
 
     public MePackagerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.ME_PACKAGER.get(), pos, blockState);
@@ -100,6 +111,20 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     public void setSelectedColor(PackageColor selectedColor) {
         this.selectedColor = selectedColor == null ? PackageColor.FLUIX : selectedColor;
         setChanged();
+    }
+
+    public MarkerMergeMode markerMode() {
+        return markerMode;
+    }
+
+    public void setMarkerMode(MarkerMergeMode markerMode) {
+        this.markerMode = markerMode == null ? MarkerMergeMode.RETAIN : markerMode;
+        setChanged();
+    }
+
+    public void cycleMarkerMode() {
+        MarkerMergeMode[] values = MarkerMergeMode.values();
+        setMarkerMode(values[(markerMode.ordinal() + 1) % values.length]);
     }
 
     @Override
@@ -172,11 +197,14 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     private MachineResult packOne(MEStorage source) {
         PackageFilter filter = configuredFilter();
         PackageColor color = filter.color().orElse(selectedColor);
+        PackageFilter packingFilter = configuredPackingFilter(filter);
         Optional<MEStoragePackagePlan> plan = MEStoragePackageTransactions.planPack(
                 source,
                 color,
                 configuredCapacityProfile(),
-                filter);
+                packingFilter,
+                markerMode,
+                configuredOverrideMarker(filter));
         if (plan.isEmpty()) {
             return MachineResult.NO_CONTENTS;
         }
@@ -200,11 +228,14 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     private MachineResult packOne(IItemHandler source) {
         PackageFilter filter = configuredFilter();
         PackageColor color = filter.color().orElse(selectedColor);
+        PackageFilter packingFilter = configuredPackingFilter(filter);
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 source,
                 color,
                 configuredCapacityProfile(),
-                filter);
+                packingFilter,
+                markerMode,
+                configuredOverrideMarker(filter));
         if (plan.isEmpty()) {
             return MachineResult.NO_CONTENTS;
         }
@@ -277,6 +308,23 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     private PackageFilter configuredFilter() {
         return PackageFilter.fromTemplate(items.getStackInSlot(SLOT_FILTER))
                 .orElse(PackageFilter.any());
+    }
+
+    private PackageFilter configuredPackingFilter(PackageFilter filter) {
+        return new PackageFilter(filter.color(), Optional.empty(), filter.requiredContents());
+    }
+
+    private Optional<MarkerSpec> configuredOverrideMarker(PackageFilter filter) {
+        if (markerMode != MarkerMergeMode.OVERRIDE) {
+            return Optional.empty();
+        }
+        ItemStack markerStack = items.getStackInSlot(SLOT_MARKER);
+        if (isMarkerItem(markerStack)) {
+            ItemStack keyStack = markerStack.copy();
+            keyStack.setCount(1);
+            return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
+        }
+        return filter.marker();
     }
 
     public static Optional<PackageCapacityProfile> capacityProfileFromItem(ItemStack stack) {
@@ -356,6 +404,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         tag.put(ITEMS_TAG, items.serializeNBT());
         tag.putBoolean(POWERED_TAG, powered);
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
+        tag.putString(MARKER_MODE_TAG, markerMode.name());
     }
 
     @Override
@@ -366,6 +415,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         }
         powered = tag.getBoolean(POWERED_TAG);
         selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
+        markerMode = markerModeByName(tag.getString(MARKER_MODE_TAG));
     }
 
     @Override
@@ -404,6 +454,23 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     public record ActionResult(boolean consumed, String messageKey) {
         public static ActionResult consumed(String messageKey) {
             return new ActionResult(true, messageKey);
+        }
+    }
+
+    private static boolean isMarkerItem(ItemStack stack) {
+        return !stack.isEmpty()
+                && !(stack.getItem() instanceof PackageItem)
+                && !PackagePatternDataStorage.canStore(stack);
+    }
+
+    private static MarkerMergeMode markerModeByName(String name) {
+        if (name == null || name.isBlank()) {
+            return MarkerMergeMode.RETAIN;
+        }
+        try {
+            return MarkerMergeMode.valueOf(name);
+        } catch (IllegalArgumentException e) {
+            return MarkerMergeMode.RETAIN;
         }
     }
 }

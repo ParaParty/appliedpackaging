@@ -418,7 +418,7 @@ while stack.count > 0:
 ```text
 me_packager 已注册为方块、方块实体和方块物品。
 非潜行右键打开 ME Packager GUI。
-GUI 提供输入槽、输出槽、容量槽、过滤槽、玩家背包、17 色 swatch 和 Pack Once 图标按钮。
+GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮和 marker 策略图标按钮。
 潜行右键保留快速交互：
   手持合法包裹时放入输入槽。
   空手或非包裹物品时先尝试取出输出槽。
@@ -431,11 +431,14 @@ GUI 提供输入槽、输出槽、容量槽、过滤槽、玩家背包、17 色 
 过滤槽接受已编码 package_pattern、packaged_processing_pattern 或带 PackageData 的包裹。
 过滤模板会提供颜色、marker 与 requiredContents：
   打包时颜色优先使用过滤模板颜色，否则使用 GUI swatch selectedColor。
-  打包时过滤模板 marker 作为 override marker 写入新包裹。
   打包内容过滤只选择 requiredContents 中仍缺少的 loose item，避免无关物品先占满容量。
+  marker 策略由 GUI 独立设置为 retain、override 或 clear。
+  retain 会保留源包裹 marker；多个源包裹 marker 冲突时计划失败。
+  override 优先使用 marker 槽物品作为输出 marker；marker 槽为空时兼容使用过滤模板 marker。
+  clear 会生成无 marker 的输出包裹。
   拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
 AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
-当前不含独立 marker retain/override/clear UI、Forge fluid handler endpoint 和周期红石模式。
+当前不含 Forge fluid handler endpoint 和周期红石模式。
 ```
 
 ## 9. 样板与终端

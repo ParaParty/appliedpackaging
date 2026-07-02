@@ -139,21 +139,21 @@ GameTest
   方块掉落表
   内部输入/输出 item handler
   非潜行右键打开 GUI/Menu
-  GUI 输入槽、输出槽、容量槽、过滤槽、玩家背包、17 色 swatch 和 Pack Once 图标按钮
+  GUI 输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮和 marker 策略图标按钮
   潜行右键放入包裹、取出输出、触发一次操作
   红石上升沿触发一次操作
   背面 Forge item handler 打包/拆包事务
   容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
   selectedColor 控制无过滤模板时的输出包裹颜色
   过滤槽接受已编码 package_pattern、packaged_processing_pattern 或合法包裹
-  过滤模板用于打包输出颜色、marker override、requiredContents 打包过滤和拆包包裹过滤
+  过滤模板用于打包输出颜色、requiredContents 打包过滤和拆包包裹过滤
+  marker retain/override/clear 策略由 GUI 独立配置，override 可使用 marker 槽物品或过滤模板 marker 作为兼容回退
   背面优先识别 AE2 MEStorage capability，可接入相邻 ME Interface 暴露的子网存储
   AE2 MEStorage 打包/拆包事务，支持 GenericStack/AEKey 和源包裹展开
-  item-only GameTest
+  item-only GameTest，覆盖显式 marker retain/override/clear
   MEStorage endpoint GameTest
 
 待实现：
-  独立 marker retain/override/clear 策略 UI
   Forge fluid handler endpoint
   周期红石模式
   真实 AE 网络/Interface 世界内 smoke

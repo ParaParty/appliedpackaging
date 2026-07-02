@@ -7,6 +7,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
@@ -28,13 +29,27 @@ public final class MEStoragePackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             PackageFilter filter) {
+        PackageFilter effectiveFilter = filter == null ? PackageFilter.any() : filter;
+        Optional<MarkerSpec> overrideMarker = effectiveFilter.marker();
+        MarkerMergeMode markerMode = overrideMarker.isPresent()
+                ? MarkerMergeMode.OVERRIDE
+                : MarkerMergeMode.RETAIN;
+        return planPack(source, color, capacityProfile, effectiveFilter, markerMode, overrideMarker);
+    }
+
+    public static Optional<MEStoragePackagePlan> planPack(
+            MEStorage source,
+            PackageColor color,
+            PackageCapacityProfile capacityProfile,
+            PackageFilter filter,
+            MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker) {
         List<GenericStack> looseContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
         List<GenericStack> extractions = new ArrayList<>();
         PackageFilter effectiveFilter = filter == null ? PackageFilter.any() : filter;
-        MarkerMergeMode markerMode = effectiveFilter.marker().isPresent()
-                ? MarkerMergeMode.OVERRIDE
-                : MarkerMergeMode.RETAIN;
+        MarkerMergeMode effectiveMarkerMode = markerMode == null ? MarkerMergeMode.RETAIN : markerMode;
+        Optional<MarkerSpec> effectiveOverrideMarker = overrideMarker == null ? Optional.empty() : overrideMarker;
 
         for (var entry : source.getAvailableStacks()) {
             AEKey key = entry.getKey();
@@ -52,7 +67,8 @@ public final class MEStoragePackageTransactions {
                 if (tryPackageCandidate(
                         color,
                         capacityProfile,
-                        markerMode,
+                        effectiveMarkerMode,
+                        effectiveOverrideMarker,
                         effectiveFilter,
                         looseContents,
                         sourcePackages,
@@ -67,7 +83,8 @@ public final class MEStoragePackageTransactions {
             long amount = largestFittingAmount(
                     color,
                     capacityProfile,
-                    markerMode,
+                    effectiveMarkerMode,
+                    effectiveOverrideMarker,
                     effectiveFilter,
                     looseContents,
                     sourcePackages,
@@ -86,8 +103,8 @@ public final class MEStoragePackageTransactions {
                         color,
                         looseContents,
                         sourcePackages,
-                        markerMode,
-                        effectiveFilter.marker(),
+                        effectiveMarkerMode,
+                        effectiveOverrideMarker,
                         capacityProfile,
                         0)
                 .data()
@@ -149,6 +166,7 @@ public final class MEStoragePackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
             PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
@@ -160,7 +178,7 @@ public final class MEStoragePackageTransactions {
                         looseContents,
                         trialPackages,
                         markerMode,
-                        filter.marker(),
+                        overrideMarker,
                         capacityProfile,
                         0)
                 .success();
@@ -233,6 +251,7 @@ public final class MEStoragePackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
             PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
@@ -242,7 +261,16 @@ public final class MEStoragePackageTransactions {
         long high = maxAmount;
         while (low < high) {
             long mid = (low + high + 1) / 2;
-            if (fitsLooseAmount(color, capacityProfile, markerMode, filter, looseContents, sourcePackages, key, mid)) {
+            if (fitsLooseAmount(
+                    color,
+                    capacityProfile,
+                    markerMode,
+                    overrideMarker,
+                    filter,
+                    looseContents,
+                    sourcePackages,
+                    key,
+                    mid)) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -255,6 +283,7 @@ public final class MEStoragePackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
             PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
@@ -270,7 +299,7 @@ public final class MEStoragePackageTransactions {
                         trialContents,
                         sourcePackages,
                         markerMode,
-                        filter.marker(),
+                        overrideMarker,
                         capacityProfile,
                         0)
                 .success();

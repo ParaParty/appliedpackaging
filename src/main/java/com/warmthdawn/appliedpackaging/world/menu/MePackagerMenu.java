@@ -1,5 +1,6 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
@@ -19,9 +20,10 @@ import net.minecraftforge.items.SlotItemHandler;
 
 public class MePackagerMenu extends AbstractContainerMenu {
     public static final int BUTTON_PACK_ONCE = 0;
+    public static final int BUTTON_MARKER_MODE = 1;
     public static final int BUTTON_COLOR_BASE = 10;
 
-    private static final int MACHINE_SLOT_COUNT = 4;
+    private static final int MACHINE_SLOT_COUNT = 5;
     private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
     private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
     private static final int HOTBAR_END = PLAYER_INVENTORY_END + 9;
@@ -29,6 +31,7 @@ public class MePackagerMenu extends AbstractContainerMenu {
     private final MePackagerBlockEntity blockEntity;
     private final ContainerLevelAccess access;
     private final DataSlot selectedColorSlot;
+    private final DataSlot markerModeSlot;
 
     public MePackagerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -52,13 +55,29 @@ public class MePackagerMenu extends AbstractContainerMenu {
                 }
             }
         };
+        this.markerModeSlot = new DataSlot() {
+            @Override
+            public int get() {
+                return blockEntity.markerMode().ordinal();
+            }
+
+            @Override
+            public void set(int value) {
+                MarkerMergeMode[] values = MarkerMergeMode.values();
+                if (value >= 0 && value < values.length) {
+                    blockEntity.setMarkerMode(values[value]);
+                }
+            }
+        };
 
         addSlot(new SlotItemHandler(blockEntity.getItems(), MePackagerBlockEntity.SLOT_INPUT, 35, 34));
         addSlot(new OutputPackageSlot(blockEntity, 123, 34));
         addSlot(new SlotItemHandler(blockEntity.getItems(), MePackagerBlockEntity.SLOT_CAPACITY, 35, 60));
         addSlot(new SlotItemHandler(blockEntity.getItems(), MePackagerBlockEntity.SLOT_FILTER, 61, 60));
+        addSlot(new SlotItemHandler(blockEntity.getItems(), MePackagerBlockEntity.SLOT_MARKER, 87, 60));
         addPlayerInventory(playerInventory);
         addDataSlot(selectedColorSlot);
+        addDataSlot(markerModeSlot);
     }
 
     @Override
@@ -66,6 +85,12 @@ public class MePackagerMenu extends AbstractContainerMenu {
         if (id >= BUTTON_COLOR_BASE && id < BUTTON_COLOR_BASE + PackageColor.values().length) {
             if (!player.level().isClientSide) {
                 blockEntity.setSelectedColor(PackageColor.values()[id - BUTTON_COLOR_BASE]);
+            }
+            return true;
+        }
+        if (id == BUTTON_MARKER_MODE) {
+            if (!player.level().isClientSide) {
+                blockEntity.cycleMarkerMode();
             }
             return true;
         }
@@ -84,6 +109,15 @@ public class MePackagerMenu extends AbstractContainerMenu {
         int index = selectedColorSlot.get();
         if (index < 0 || index >= values.length) {
             return PackageColor.FLUIX;
+        }
+        return values[index];
+    }
+
+    public MarkerMergeMode markerMode() {
+        MarkerMergeMode[] values = MarkerMergeMode.values();
+        int index = markerModeSlot.get();
+        if (index < 0 || index >= values.length) {
+            return MarkerMergeMode.RETAIN;
         }
         return values[index];
     }

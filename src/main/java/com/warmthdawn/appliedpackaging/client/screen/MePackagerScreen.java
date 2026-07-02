@@ -3,6 +3,7 @@ package com.warmthdawn.appliedpackaging.client.screen;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
+import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.ImageButton;
@@ -16,6 +17,12 @@ import net.minecraft.world.entity.player.Inventory;
 public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
     private static final ResourceLocation PACK_ONCE_ICON =
             new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/pack_once.png");
+    private static final ResourceLocation MARKER_RETAIN_ICON =
+            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_retain.png");
+    private static final ResourceLocation MARKER_OVERRIDE_ICON =
+            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_override.png");
+    private static final ResourceLocation MARKER_CLEAR_ICON =
+            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_clear.png");
     private static final int PANEL = 0xffd6dbde;
     private static final int PANEL_DARK = 0xff4a5058;
     private static final int PANEL_MID = 0xff879198;
@@ -49,6 +56,7 @@ public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
                 Component.translatable("gui.appliedpackaging.me_packager.pack_once"));
         packButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.me_packager.pack_once")));
         addRenderableWidget(packButton);
+        addRenderableWidget(new MarkerModeButton(leftPos + 104, topPos + 35));
 
         for (int index = 0; index < PackageColor.values().length; index++) {
             PackageColor color = PackageColor.values()[index];
@@ -78,7 +86,8 @@ public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
         renderSlot(graphics, x + 122, y + 33);
         renderSlot(graphics, x + 34, y + 59);
         renderSlot(graphics, x + 60, y + 59);
-        graphics.hLine(x + 54, x + 104, y + 42, PANEL_DARK);
+        renderSlot(graphics, x + 86, y + 59);
+        graphics.hLine(x + 54, x + 118, y + 42, PANEL_DARK);
         graphics.fill(x + 88, y + 40, x + 91, y + 45, PANEL_DARK);
         graphics.fill(x + 91, y + 39, x + 94, y + 46, menu.selectedColor().swatchArgb());
         graphics.fill(x + 8, y + 81, x + 164, y + 92, 0xffaeb7bd);
@@ -139,6 +148,48 @@ public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
         @Override
         protected void updateWidgetNarration(NarrationElementOutput output) {
             defaultButtonNarrationText(output);
+        }
+    }
+
+    private class MarkerModeButton extends AbstractButton {
+        private MarkerModeButton(int x, int y) {
+            super(x, y, 16, 16, Component.empty());
+            setMessage(markerModeMessage());
+            setTooltip(Tooltip.create(markerModeMessage()));
+        }
+
+        @Override
+        public void onPress() {
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, MePackagerMenu.BUTTON_MARKER_MODE);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            Component message = markerModeMessage();
+            setMessage(message);
+            setTooltip(Tooltip.create(message));
+            int border = isHoveredOrFocused() ? 0xffffffff : 0xff2a3036;
+            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
+            graphics.blit(markerModeIcon(), getX(), getY(), 0, 0, width, height, width, height);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
+
+        private Component markerModeMessage() {
+            return Component.translatable(
+                    "gui.appliedpackaging.me_packager.marker_mode."
+                            + menu.markerMode().name().toLowerCase(Locale.ROOT));
+        }
+
+        private ResourceLocation markerModeIcon() {
+            return switch (menu.markerMode()) {
+                case RETAIN -> MARKER_RETAIN_ICON;
+                case OVERRIDE -> MARKER_OVERRIDE_ICON;
+                case CLEAR -> MARKER_CLEAR_ICON;
+            };
         }
     }
 }

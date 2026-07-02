@@ -279,9 +279,30 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐 ME Packager 独立 marker 策略 UI：
+  新增 marker 槽，接受非包裹、非样板物品作为 override marker key
+  新增 retain/override/clear 策略状态，并写入方块实体 NBT
+  ME Packager GUI 新增 marker 策略图标按钮，使用 marker_retain/marker_override/marker_clear 图标
+  retain 保留源包裹 marker，冲突由 PackagePlanBuilder 拒绝
+  override 优先使用 marker 槽物品；marker 槽为空时兼容回退到过滤模板 marker
+  clear 生成无 marker 的输出包裹
+  item handler 与 AE2 MEStorage 打包事务均新增显式 marker 策略入口
+新增 GameTest：
+  itemHandlerPackPlanRetainsMarkerFromExplicitMode
+  itemHandlerPackPlanOverridesMarkerFromExplicitMode
+  itemHandlerPackPlanClearsMarkerFromExplicitMode
+  meStoragePackPlanClearsMarkerFromExplicitMode
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，43 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
-继续补齐独立 marker 策略 UI、Forge fluid handler endpoint、处理样板多包裹工作流等发布阻塞项。
+继续补齐 Forge fluid handler endpoint、处理样板多包裹工作流等发布阻塞项。
 ```

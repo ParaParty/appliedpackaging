@@ -393,6 +393,68 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void itemHandlerPackPlanRetainsMarkerFromExplicitMode(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(1);
+        MarkerSpec marker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1));
+        source.setStackInSlot(0, packageStack(
+                PackageColor.RED,
+                markedIronPackageData(PackageColor.RED, Items.GOLD_INGOT)));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.BLUE,
+                PackageCapacityProfile.DEFAULT,
+                PackageFilter.any(),
+                MarkerMergeMode.RETAIN,
+                Optional.empty());
+
+        helper.assertTrue(plan.isPresent(), "Explicit retain mode should package marked source packages");
+        helper.assertTrue(plan.get().data().marker().map(actual -> actual.sameAs(marker)).orElse(false),
+                "Explicit retain mode should keep the source marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanOverridesMarkerFromExplicitMode(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(1);
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        MarkerSpec marker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.BLUE,
+                PackageCapacityProfile.DEFAULT,
+                PackageFilter.any(),
+                MarkerMergeMode.OVERRIDE,
+                Optional.of(marker));
+
+        helper.assertTrue(plan.isPresent(), "Explicit override mode should package loose contents");
+        helper.assertTrue(plan.get().data().marker().map(actual -> actual.sameAs(marker)).orElse(false),
+                "Explicit override mode should write the configured marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanClearsMarkerFromExplicitMode(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(1);
+        source.setStackInSlot(0, packageStack(
+                PackageColor.RED,
+                markedIronPackageData(PackageColor.RED, Items.GOLD_INGOT)));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.BLUE,
+                PackageCapacityProfile.DEFAULT,
+                PackageFilter.any(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty());
+
+        helper.assertTrue(plan.isPresent(), "Explicit clear mode should package marked source packages");
+        helper.assertTrue(plan.get().data().marker().isEmpty(), "Explicit clear mode should remove the marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void itemHandlerPackPlanUsesLargerCapacityProfile(GameTestHelper helper) {
         ItemStackHandler source = new ItemStackHandler(1);
         source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 640));
@@ -505,6 +567,27 @@ public final class PackageDataGameTests {
                 "Existing package contents should be flattened");
         helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
                 "Loose MEStorage contents should be merged");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void meStoragePackPlanClearsMarkerFromExplicitMode(GameTestHelper helper) {
+        MemoryMEStorage source = new MemoryMEStorage();
+        ItemStack sourcePackage = packageStack(
+                PackageColor.RED,
+                markedIronPackageData(PackageColor.RED, Items.GOLD_INGOT));
+        source.add(AEItemKey.of(sourcePackage), 1);
+
+        Optional<MEStoragePackagePlan> plan = MEStoragePackageTransactions.planPack(
+                source,
+                PackageColor.BLUE,
+                PackageCapacityProfile.DEFAULT,
+                PackageFilter.any(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty());
+
+        helper.assertTrue(plan.isPresent(), "MEStorage explicit clear mode should package marked source packages");
+        helper.assertTrue(plan.get().data().marker().isEmpty(), "MEStorage explicit clear mode should remove the marker");
         helper.succeed();
     }
 

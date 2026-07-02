@@ -4,6 +4,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
@@ -36,13 +37,27 @@ public final class ItemPackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             PackageFilter filter) {
+        PackageFilter effectiveFilter = filter == null ? PackageFilter.any() : filter;
+        Optional<MarkerSpec> overrideMarker = effectiveFilter.marker();
+        MarkerMergeMode markerMode = overrideMarker.isPresent()
+                ? MarkerMergeMode.OVERRIDE
+                : MarkerMergeMode.RETAIN;
+        return planPack(source, color, capacityProfile, effectiveFilter, markerMode, overrideMarker);
+    }
+
+    public static Optional<ItemPackagePlan> planPack(
+            IItemHandler source,
+            PackageColor color,
+            PackageCapacityProfile capacityProfile,
+            PackageFilter filter,
+            MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker) {
         List<GenericStack> looseContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
         List<SlotExtraction> extractions = new ArrayList<>();
         PackageFilter effectiveFilter = filter == null ? PackageFilter.any() : filter;
-        MarkerMergeMode markerMode = effectiveFilter.marker().isPresent()
-                ? MarkerMergeMode.OVERRIDE
-                : MarkerMergeMode.RETAIN;
+        MarkerMergeMode effectiveMarkerMode = markerMode == null ? MarkerMergeMode.RETAIN : markerMode;
+        Optional<MarkerSpec> effectiveOverrideMarker = overrideMarker == null ? Optional.empty() : overrideMarker;
 
         for (int slot = 0; slot < source.getSlots(); slot++) {
             ItemStack stack = source.getStackInSlot(slot);
@@ -59,7 +74,8 @@ public final class ItemPackageTransactions {
                 if (tryPackageCandidate(
                         color,
                         capacityProfile,
-                        markerMode,
+                        effectiveMarkerMode,
+                        effectiveOverrideMarker,
                         effectiveFilter,
                         looseContents,
                         sourcePackages,
@@ -77,7 +93,8 @@ public final class ItemPackageTransactions {
             int amount = largestFittingAmount(
                     color,
                     capacityProfile,
-                    markerMode,
+                    effectiveMarkerMode,
+                    effectiveOverrideMarker,
                     effectiveFilter,
                     looseContents,
                     sourcePackages,
@@ -98,8 +115,8 @@ public final class ItemPackageTransactions {
                 color,
                 looseContents,
                 sourcePackages,
-                markerMode,
-                effectiveFilter.marker(),
+                effectiveMarkerMode,
+                effectiveOverrideMarker,
                 capacityProfile,
                 0);
         return result.data()
@@ -153,6 +170,7 @@ public final class ItemPackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
             PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
@@ -164,7 +182,7 @@ public final class ItemPackageTransactions {
                         looseContents,
                         trialPackages,
                         markerMode,
-                        filter.marker(),
+                        overrideMarker,
                         capacityProfile,
                         0)
                 .success();
@@ -243,6 +261,7 @@ public final class ItemPackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
             PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
@@ -252,7 +271,16 @@ public final class ItemPackageTransactions {
         int high = maxAmount;
         while (low < high) {
             int mid = (low + high + 1) / 2;
-            if (fitsLooseAmount(color, capacityProfile, markerMode, filter, looseContents, sourcePackages, key, mid)) {
+            if (fitsLooseAmount(
+                    color,
+                    capacityProfile,
+                    markerMode,
+                    overrideMarker,
+                    filter,
+                    looseContents,
+                    sourcePackages,
+                    key,
+                    mid)) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -265,6 +293,7 @@ public final class ItemPackageTransactions {
             PackageColor color,
             PackageCapacityProfile capacityProfile,
             MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
             PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
@@ -280,7 +309,7 @@ public final class ItemPackageTransactions {
                         trialContents,
                         sourcePackages,
                         markerMode,
-                        filter.marker(),
+                        overrideMarker,
                         capacityProfile,
                         0)
                 .success();
