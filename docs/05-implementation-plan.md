@@ -338,7 +338,7 @@ runClient smoke
 runClientSmoke GUI screenshot smoke
 检查 jar、mods.toml、license、changelog
 生成发布清单
-tag 1.0.0
+按当前版本生成发布 tag
 ```
 
 验收：
@@ -362,9 +362,9 @@ AE2 1.20.1 API 对自定义 Pattern Provider/Molecular Assembler 风格集成的
 AE2 总线 Part API 风险：
 
 ```text
-Part API 可能需要较重集成。
-先交付方块形态 Package Storage/Export/Unpacking Port，再实现真正 cable part。
-如果发布前 Part API 阻塞，需在需求中明确改名和玩法等价性。
+Package Pattern Terminal 已实现为 AE2 cable part item，并保留兼容方块路径。
+Package Storage/Export/Unpacking Bus 当前交付为 AE2 可连接方块端点，不作为 cable part 发布。
+后续如果要把总线也迁移为 AE2 cable part，需要重新设计放置、持久化、菜单定位和掉落迁移，不阻塞 0.1.0-dev。
 ```
 
 GenericStack 范围风险：
