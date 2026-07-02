@@ -1,11 +1,15 @@
 package com.warmthdawn.appliedpackaging.world.block.entity;
 
 import appeng.api.storage.MEStorage;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.capabilities.Capabilities;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
+import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackagePlan;
+import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
@@ -23,6 +27,7 @@ import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import java.util.Optional;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -41,6 +46,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
@@ -182,16 +188,34 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             return packOne(meStorage.get());
         }
 
-        Optional<IItemHandler> target = findTargetItemHandler();
-        if (target.isEmpty()) {
+        Optional<IItemHandler> itemTarget = findTargetItemHandler();
+        Optional<IFluidHandler> fluidTarget = findTargetFluidHandler();
+        if (itemTarget.isEmpty() && fluidTarget.isEmpty()) {
             return MachineResult.NO_TARGET;
         }
 
         ItemStack input = items.getStackInSlot(SLOT_INPUT);
         if (!input.isEmpty()) {
-            return unpackOne(target.get(), input);
+            Optional<PackageData> data = PackageDataStorage.read(input);
+            if (data.isEmpty()) {
+                return MachineResult.INVALID_INPUT;
+            }
+            if (itemTarget.isPresent() && containsOnly(data.get(), key -> AEItemKey.is(key))) {
+                return unpackOne(itemTarget.get(), input);
+            }
+            if (fluidTarget.isPresent() && containsOnly(data.get(), key -> AEFluidKey.is(key))) {
+                return unpackOne(fluidTarget.get(), input);
+            }
+            return MachineResult.TARGET_BLOCKED;
         }
-        return packOne(target.get());
+
+        if (itemTarget.isPresent()) {
+            MachineResult result = packOne(itemTarget.get());
+            if (result != MachineResult.NO_CONTENTS || fluidTarget.isEmpty()) {
+                return result;
+            }
+        }
+        return packOne(fluidTarget.get());
     }
 
     private MachineResult packOne(MEStorage source) {
@@ -256,6 +280,37 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         return MachineResult.PACKED;
     }
 
+    private MachineResult packOne(IFluidHandler source) {
+        PackageFilter filter = configuredFilter();
+        PackageColor color = filter.color().orElse(selectedColor);
+        PackageFilter packingFilter = configuredPackingFilter(filter);
+        Optional<FluidPackagePlan> plan = FluidPackageTransactions.planPack(
+                source,
+                color,
+                configuredCapacityProfile(),
+                packingFilter,
+                markerMode,
+                configuredOverrideMarker(filter));
+        if (plan.isEmpty()) {
+            return MachineResult.NO_CONTENTS;
+        }
+        if (!FluidPackageTransactions.canExtract(source, plan.get())) {
+            return MachineResult.SOURCE_CHANGED;
+        }
+
+        ItemStack packageStack = new ItemStack(APItems.packageItems().get(color).get());
+        PackageDataStorage.write(packageStack, plan.get().data());
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
+        if (!remainder.isEmpty()) {
+            return MachineResult.OUTPUT_BLOCKED;
+        }
+
+        FluidPackageTransactions.commitExtract(source, plan.get());
+        items.insertItem(SLOT_OUTPUT, packageStack, false);
+        setChanged();
+        return MachineResult.PACKED;
+    }
+
     private MachineResult unpackOne(IItemHandler target, ItemStack input) {
         if (!(input.getItem() instanceof PackageItem packageItem)) {
             return MachineResult.INVALID_INPUT;
@@ -300,6 +355,28 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         return MachineResult.UNPACKED;
     }
 
+    private MachineResult unpackOne(IFluidHandler target, ItemStack input) {
+        if (!(input.getItem() instanceof PackageItem packageItem)) {
+            return MachineResult.INVALID_INPUT;
+        }
+        Optional<PackageData> data = PackageDataStorage.read(input);
+        if (data.isEmpty()) {
+            return MachineResult.INVALID_INPUT;
+        }
+        if (!configuredFilter().matches(packageItem.color(), data.get())) {
+            return MachineResult.FILTER_REJECTED;
+        }
+        if (!FluidPackageTransactions.canInsertPackageContents(data.get(), target)) {
+            return MachineResult.TARGET_BLOCKED;
+        }
+        if (!FluidPackageTransactions.insertPackageContents(data.get(), target, false)) {
+            return MachineResult.TARGET_BLOCKED;
+        }
+        items.extractItem(SLOT_INPUT, 1, false);
+        setChanged();
+        return MachineResult.UNPACKED;
+    }
+
     private PackageCapacityProfile configuredCapacityProfile() {
         return capacityProfileFromItem(items.getStackInSlot(SLOT_CAPACITY))
                 .orElse(PackageCapacityProfile.DEFAULT);
@@ -325,6 +402,15 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
         }
         return filter.marker();
+    }
+
+    private static boolean containsOnly(PackageData data, Predicate<AEKey> keyPredicate) {
+        for (GenericStack stack : data.contents()) {
+            if (!keyPredicate.test(stack.what())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static Optional<PackageCapacityProfile> capacityProfileFromItem(ItemStack stack) {
@@ -380,6 +466,19 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         }
         LazyOptional<MEStorage> capability = targetBlockEntity.getCapability(
                 Capabilities.STORAGE,
+                targetDirection.getOpposite());
+        return capability.resolve();
+    }
+
+    private Optional<IFluidHandler> findTargetFluidHandler() {
+        Direction facing = getBlockState().getValue(AbstractHorizontalMachineBlock.FACING);
+        Direction targetDirection = facing.getOpposite();
+        BlockEntity targetBlockEntity = level.getBlockEntity(worldPosition.relative(targetDirection));
+        if (targetBlockEntity == null) {
+            return Optional.empty();
+        }
+        LazyOptional<IFluidHandler> capability = targetBlockEntity.getCapability(
+                ForgeCapabilities.FLUID_HANDLER,
                 targetDirection.getOpposite());
         return capability.resolve();
     }

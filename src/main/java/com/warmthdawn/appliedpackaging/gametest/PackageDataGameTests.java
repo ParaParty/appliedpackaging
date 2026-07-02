@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.gametest;
 
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -11,6 +12,8 @@ import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
+import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackagePlan;
+import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
@@ -40,8 +43,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.items.ItemStackHandler;
 
 @GameTestHolder(AppliedPackaging.MOD_ID)
@@ -588,6 +595,64 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(plan.isPresent(), "MEStorage explicit clear mode should package marked source packages");
         helper.assertTrue(plan.get().data().marker().isEmpty(), "MEStorage explicit clear mode should remove the marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void fluidHandlerPackPlanExtractsFluidContents(GameTestHelper helper) {
+        FluidTank source = new FluidTank(4000);
+        source.fill(new FluidStack(Fluids.WATER, 2000), IFluidHandler.FluidAction.EXECUTE);
+
+        Optional<FluidPackagePlan> plan = FluidPackageTransactions.planPack(
+                source,
+                PackageColor.FLUIX,
+                PackageCapacityProfile.DEFAULT,
+                PackageFilter.any(),
+                MarkerMergeMode.RETAIN,
+                Optional.empty());
+
+        helper.assertTrue(plan.isPresent(), "Fluid handler should produce a package plan");
+        helper.assertTrue(FluidPackageTransactions.canExtract(source, plan.get()),
+                "Fluid handler extraction should simulate");
+        FluidPackageTransactions.commitExtract(source, plan.get());
+
+        helper.assertTrue(source.getFluidAmount() == 0, "Source tank should be drained");
+        helper.assertTrue(amountOf(plan.get().data(), AEFluidKey.of(Fluids.WATER)) == 2000,
+                "Package should contain the drained water");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void fluidHandlerUnpackInsertsAllContents(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)),
+                Optional.empty(),
+                0);
+        FluidTank target = new FluidTank(1000);
+
+        helper.assertTrue(FluidPackageTransactions.canInsertPackageContents(data, target),
+                "Fluid target should simulate accepting all package contents");
+        helper.assertTrue(FluidPackageTransactions.insertPackageContents(data, target, false),
+                "Fluid target should accept all package contents");
+        helper.assertTrue(target.getFluidAmount() == 1000
+                        && target.getFluid().isFluidEqual(new FluidStack(Fluids.WATER, 1000)),
+                "Target tank should contain one bucket of water");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void fluidHandlerUnpackRejectsFullTarget(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)),
+                Optional.empty(),
+                0);
+        FluidTank target = new FluidTank(1000);
+        target.fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE);
+
+        helper.assertFalse(FluidPackageTransactions.canInsertPackageContents(data, target),
+                "Full incompatible fluid target should reject complete package contents");
         helper.succeed();
     }
 

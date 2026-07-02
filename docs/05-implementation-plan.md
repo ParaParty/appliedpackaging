@@ -150,11 +150,12 @@ GameTest
   marker retain/override/clear 策略由 GUI 独立配置，override 可使用 marker 槽物品或过滤模板 marker 作为兼容回退
   背面优先识别 AE2 MEStorage capability，可接入相邻 ME Interface 暴露的子网存储
   AE2 MEStorage 打包/拆包事务，支持 GenericStack/AEKey 和源包裹展开
+  Forge fluid handler 打包/拆包事务，支持 AEFluidKey/FluidStack 和相邻流体槽
   item-only GameTest，覆盖显式 marker retain/override/clear
   MEStorage endpoint GameTest
+  fluid handler endpoint GameTest
 
 待实现：
-  Forge fluid handler endpoint
   周期红石模式
   真实 AE 网络/Interface 世界内 smoke
 ```
@@ -312,5 +313,5 @@ GenericStack 范围风险：
 ```text
 1.0 垂直切片优先验证物品。
 数据模型完整支持 AEKey；对未知 key 保守拒绝拆包，避免吞资源。
-流体 adapter 在 Packager endpoint 完成后接入。
+流体 adapter 已在 Packager Forge fluid handler endpoint 接入；后续仍需真实世界 smoke。
 ```

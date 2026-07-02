@@ -300,9 +300,28 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐 ME Packager Forge fluid handler endpoint：
+  新增 FluidPackageTransactions 与 FluidPackagePlan
+  新增 SimulatedFluidHandler，用于拆包前累计模拟多项流体插入
+  ME Packager 背面无 AE2 MEStorage 时同时识别 Forge item handler 与 fluid handler
+  输入包裹只含物品时拆入 item handler，只含流体时拆入 fluid handler
+  没有 MEStorage 时，混合物品+流体包裹保守拒绝拆入单一 Forge endpoint
+  打包时物品 endpoint 优先；物品无可打包内容时可从相邻 fluid handler 打包 AEFluidKey
+新增 GameTest：
+  fluidHandlerPackPlanExtractsFluidContents
+  fluidHandlerUnpackInsertsAllContents
+  fluidHandlerUnpackRejectsFullTarget
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，46 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
-继续补齐 Forge fluid handler endpoint、处理样板多包裹工作流等发布阻塞项。
+继续补齐处理样板多包裹工作流等发布阻塞项。
 ```

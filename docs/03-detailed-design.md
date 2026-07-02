@@ -424,9 +424,9 @@ GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背
   空手或非包裹物品时先尝试取出输出槽。
   输出槽为空时触发一次 pack/unpack。
 红石上升沿触发一次 pack/unpack。
-机器背面优先识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；若无 AE2 storage，则回落到 Forge item handler。
+机器背面优先识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；若无 AE2 storage，则回落到 Forge item handler / fluid handler。
 输入槽存在合法包裹时执行整包拆包。
-输入槽为空时从背面库存选择当前容量档可承载的物品生成包裹。
+输入槽为空时从背面库存或流体槽选择当前容量档可承载的内容生成包裹。
 容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell。
 过滤槽接受已编码 package_pattern、packaged_processing_pattern 或带 PackageData 的包裹。
 过滤模板会提供颜色、marker 与 requiredContents：
@@ -438,7 +438,8 @@ GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背
   clear 会生成无 marker 的输出包裹。
   拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
 AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
-当前不含 Forge fluid handler endpoint 和周期红石模式。
+Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽打包和整包拆入流体槽；没有 MEStorage 时，混合物品+流体包裹不会拆入单一 Forge 端点。
+当前不含周期红石模式。
 ```
 
 ## 9. 样板与终端

@@ -74,7 +74,10 @@ MEStorage 打包计划可从 AE2 storage 抽取 GenericStack 内容
 MEStorage 拆包可把包裹完整插入 AE2 storage
 MEStorage 打包计划会展开 storage 中已有源包裹再封装
 MEStorage 打包计划在显式 clear 模式移除源包裹 marker
-当前最新执行：.\gradlew.bat runGameTestServer 成功，43 个必需 GameTest 全部通过。
+fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
+fluid handler 拆包可把包裹完整插入 Forge FluidTank
+fluid handler 拆包在目标流体不兼容且已满时拒绝
+当前最新执行：.\gradlew.bat runGameTestServer 成功，46 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
