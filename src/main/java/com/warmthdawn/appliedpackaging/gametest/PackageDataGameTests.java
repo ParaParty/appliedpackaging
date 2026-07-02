@@ -9,9 +9,14 @@ import appeng.api.storage.MEStorage;
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.networking.crafting.CalculationStrategy;
+import appeng.api.networking.crafting.ICraftingPlan;
+import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
 import appeng.blockentity.crafting.PatternProviderBlockEntity;
+import appeng.blockentity.storage.DriveBlockEntity;
 import appeng.core.definitions.AEBlocks;
+import appeng.core.definitions.AEItems;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
@@ -42,10 +47,15 @@ import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatter
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -1157,6 +1167,90 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void ae2CraftingCpuJobPushesIntoPackageAssembler(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos drivePos = new BlockPos(1, 0, 0);
+        BlockPos cpuPos = new BlockPos(2, 0, 0);
+        BlockPos providerPos = new BlockPos(3, 0, 0);
+        BlockPos assemblerPos = new BlockPos(4, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(drivePos),
+                AEBlocks.DRIVE.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(cpuPos),
+                AEBlocks.CRAFTING_STORAGE_64K.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(providerPos),
+                AEBlocks.PATTERN_PROVIDER.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(assemblerPos),
+                APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState(),
+                3);
+        CpuCraftingJob craftingJob = new CpuCraftingJob(helper, providerPos, AEItemKey.of(Items.DIAMOND), 1);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    PatternProviderBlockEntity provider =
+                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    helper.assertTrue(provider.getMainNode().isActive(),
+                            "Pattern Provider grid node should be active before configuring the job");
+                    helper.assertTrue(provider.getMainNode().hasGridBooted(),
+                            "Pattern Provider grid should finish booting before configuring the job");
+                })
+                .thenExecute(() -> {
+                    DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+                    PatternProviderBlockEntity provider =
+                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+                    ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                            new GenericStack[] {
+                                    new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                                    new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
+                            },
+                            new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+                    provider.getLogic().getPatternInv().addItems(pattern);
+                    provider.getLogic().updatePatterns();
+                    var grid = provider.getMainNode().getGrid();
+                    var source = IActionSource.ofMachine(provider);
+                    var storage = grid.getStorageService().getInventory();
+                    long insertedIron = storage.insert(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.MODULATE, source);
+                    long insertedCopper = storage.insert(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.MODULATE, source);
+                    helper.assertTrue(insertedIron == 64, "AE2 network should accept iron crafting inputs");
+                    helper.assertTrue(insertedCopper == 32, "AE2 network should accept copper crafting inputs");
+                })
+                .thenWaitUntil(craftingJob::tickUntilStarted)
+                .thenIdle(2)
+                .thenWaitUntil(() -> {
+                    PatternProviderBlockEntity provider =
+                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
+                    ItemStack output =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+                    helper.assertTrue(!output.isEmpty(), "Crafting CPU job should push inputs into Package Assembler");
+                    PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "CPU-pushed iron should be packaged");
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                            "CPU-pushed copper should be packaged");
+                    long requestedDiamonds = provider.getMainNode()
+                            .getGrid()
+                            .getCraftingService()
+                            .getRequestedAmount(AEItemKey.of(Items.DIAMOND));
+                    helper.assertTrue(requestedDiamonds == 1,
+                            "Crafting CPU should wait for the processing pattern output after pushing inputs");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageItemStorageExposesOnlyLegalPackages(GameTestHelper helper) {
         ItemStackHandler target = new ItemStackHandler(3);
         ItemStack legalPackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
@@ -1647,6 +1741,66 @@ public final class PackageDataGameTests {
             }
         }
         return amount;
+    }
+
+    private static final class CpuCraftingJob {
+        private final GameTestHelper helper;
+        private final BlockPos providerPos;
+        private final AEKey output;
+        private final long amount;
+        private Future<ICraftingPlan> planFuture;
+        private ICraftingPlan plan;
+        private boolean submitted;
+
+        private CpuCraftingJob(GameTestHelper helper, BlockPos providerPos, AEKey output, long amount) {
+            this.helper = helper;
+            this.providerPos = providerPos;
+            this.output = output;
+            this.amount = amount;
+        }
+
+        private void tickUntilStarted() {
+            PatternProviderBlockEntity provider = (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+            var node = provider.getMainNode().getNode();
+            if (node == null || !node.isActive() || !node.hasGridBooted()) {
+                throw new GameTestAssertException("AE2 grid is not ready for crafting calculation");
+            }
+            var grid = node.getGrid();
+            if (!grid.getCraftingService().isCraftable(output)) {
+                throw new GameTestAssertException("AE2 crafting service has not indexed the processing pattern");
+            }
+            var source = IActionSource.ofMachine(provider);
+            if (planFuture == null) {
+                planFuture = grid.getCraftingService().beginCraftingCalculation(
+                        helper.getLevel(),
+                        () -> source,
+                        output,
+                        amount,
+                        CalculationStrategy.REPORT_MISSING_ITEMS);
+            }
+            if (plan == null) {
+                try {
+                    plan = planFuture.get(0, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new GameTestAssertException("AE2 crafting calculation was interrupted");
+                } catch (ExecutionException e) {
+                    throw new GameTestAssertException("AE2 crafting calculation failed: " + e.getMessage());
+                } catch (TimeoutException e) {
+                    throw new GameTestAssertException("AE2 crafting calculation did not finish yet");
+                }
+            }
+            if (plan.simulation()) {
+                throw new GameTestAssertException("AE2 crafting plan is incomplete: " + plan.missingItems());
+            }
+            if (!submitted) {
+                ICraftingSubmitResult result = grid.getCraftingService().submitJob(plan, null, null, true, source);
+                if (!result.successful()) {
+                    throw new GameTestAssertException("AE2 crafting job submit failed: " + result.errorCode());
+                }
+                submitted = true;
+            }
+        }
     }
 
     private record DummyPatternDetails(GenericStack output) implements IPatternDetails {

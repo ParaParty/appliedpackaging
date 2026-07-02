@@ -68,6 +68,7 @@ item handler 拆包可完整插入目标
 装配室可把旧 11 槽库存 NBT 迁移为当前 12 槽库存并补空容量槽
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送处理样板输入到装配室
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送彩色处理样板输入到装配室
+真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider 方块网络可提交自动合成 job，并把 processing pattern 输入推送到装配室
 AE2 PackageItemStorage 只暴露合法包裹
 AE2 PackageItemStorage 拒绝散装物品插入
 AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
@@ -103,7 +104,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，70 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，71 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

@@ -269,6 +269,7 @@ pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物
 一次 pushPattern 产生多个包裹时，先输出第一个，剩余包裹写入待输出队列；输出槽清空后 server tick/tryAssemble 继续吐出。
 待输出队列写入方块实体 NBT，破坏方块时以合法包裹掉落。
 已通过 GameTest 验证真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送到 package_assembler。
+已通过 GameTest 验证真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider 自动合成 job 会从 AE 网络抽取输入，并把 processing pattern 输入推入 package_assembler。
 ```
 
 方块实体状态：

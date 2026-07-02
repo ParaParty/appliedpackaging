@@ -213,10 +213,10 @@ GameTest/客户端验证
   彩色 pushPattern 产生多个包裹时通过 pending queue 顺序输出并持久化保存
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler GameTest smoke
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler 彩色处理样板 GameTest smoke
+  真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider + Package Assembler 自动合成 job smoke
   装配室基础 GameTest
 
 待实现：
-  完整 AE2 crafting CPU 自动合成 job smoke test
   客户端验证
 ```
 

@@ -544,10 +544,25 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐真实 AE2 crafting CPU 自动合成 job smoke：
+  新增 ae2CraftingCpuJobPushesIntoPackageAssembler GameTest
+  测试内构建真实 AE2 Creative Energy Cell、Drive、64k item cell、Crafting Storage、Pattern Provider 和 Package Assembler 网络
+  通过 AE2 ICraftingService.beginCraftingCalculation 计算 diamond processing pattern job
+  通过 AE2 ICraftingService.submitJob 提交到真实 Crafting CPU
+  Crafting CPU 从 AE 网络库存抽取 iron/copper，并经 Pattern Provider 推送到 Package Assembler
+  Package Assembler 输出包含 iron/copper 的 Fluix 包裹
+  AE2 CraftingService 进入等待 diamond 输出的真实 processing pattern 状态
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，71 个必需 GameTest 全部通过
+```
+
 下一步：
 
 ```text
-补齐完整 AE2 crafting CPU 自动合成 job smoke test。
 补齐处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
+补跑客户端 GUI/模型 smoke，重点看 Package Assembler 新容量槽和终端输入槽色标。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```
