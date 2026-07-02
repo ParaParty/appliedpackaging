@@ -94,7 +94,7 @@ runGameTestServer: passed, 90 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas
-runClientSmoke:    opened and captured package assembler, packager, pattern terminal, and package bus screens
+runClientSmoke:    opened and captured package assembler, packager, pattern terminal, and all three package bus screens
 runServer smoke:   reached dedicated server EULA gate without Applied Packaging client-class loading errors
 ```
 

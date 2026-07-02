@@ -217,8 +217,8 @@ GameTest/客户端验证
   真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider + Package Assembler 自动合成 job smoke
   装配室基础 GameTest
 
-待实现：
-  客户端验证
+客户端验证：
+  runClientSmoke 已覆盖 Package Assembler GUI 打开与截图
 ```
 
 验收：
@@ -261,7 +261,7 @@ GameTest/服务器 smoke test
   Package Bus 配置 UI 不消耗玩家光标或背包中的模板物品
   Package Bus 配置 UI 支持手工编辑颜色、marker ghost 和 3 个 required content ghost slots
   手工 Package Bus 过滤器以 PackageFilter NBT 保存，并兼容旧 filter_template 读取
-  runClientSmoke 可 quick-play 单人世界、摆放关键方块、打开真实菜单、截图 Package Assembler/ME Packager/Package Pattern Terminal/Package Storage Bus 后退出
+  runClientSmoke 可 quick-play 单人世界、摆放关键方块、打开真实菜单、截图 Package Assembler/ME Packager/Package Pattern Terminal/Package Storage Bus/Package Export Bus/Package Unpacking Bus 后退出
   PackageItemStorage/总线过滤 GameTest
   package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern

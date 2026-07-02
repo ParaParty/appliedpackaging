@@ -222,12 +222,14 @@ run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load mod
 已观察到的剩余警告为 Forge/AE2/Vanilla 常规开发环境警告。
 
 2026-07-03 新增并执行 .\gradlew.bat runClientSmoke 成功。
-runClientSmoke 使用 --quickPlaySingleplayer 进入本地单人世界，自动摆放 4 个关键方块，依次通过真实服务器玩家和 NetworkHooks.openScreen 打开菜单，截图后退出客户端。
+runClientSmoke 使用 --quickPlaySingleplayer 进入本地单人世界，自动摆放 6 个关键方块，依次通过真实服务器玩家和 NetworkHooks.openScreen 打开菜单，截图后退出客户端。
 已生成并人工检查以下截图，均为真实 Minecraft 客户端菜单画面，不是原型图或静态 mock：
   run/screenshots/appliedpackaging-client-smoke-package_assembler.png
   run/screenshots/appliedpackaging-client-smoke-me_packager.png
   run/screenshots/appliedpackaging-client-smoke-package_pattern_terminal.png
   run/screenshots/appliedpackaging-client-smoke-package_storage_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_export_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_unpacking_bus.png
 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture 或客户端 smoke timeout。
 默认 quick-play 世界名为 New World；可用 -Pappliedpackaging.clientSmoke.world="世界名" 覆盖。
 ```

@@ -787,3 +787,26 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat runGameTestServer 成功，90 个必需 GameTest 全部通过
 验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现 ClientSmokeRunner 或其他客户端类误加载；完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
 ```
+
+最新进展：
+
+```text
+扩展客户端 GUI screenshot smoke：
+  runClientSmoke 现在同时摆放并打开 Package Storage Bus、Package Export Bus、Package Unpacking Bus
+  客户端 smoke 覆盖 Package Assembler、ME Packager、Package Pattern Terminal 和三种 Package Bus 真实菜单
+  docs/05 中 Package Assembler 客户端验证待办已按 runClientSmoke 当前覆盖状态校准
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张截图：
+  run/screenshots/appliedpackaging-client-smoke-package_assembler.png
+  run/screenshots/appliedpackaging-client-smoke-me_packager.png
+  run/screenshots/appliedpackaging-client-smoke-package_pattern_terminal.png
+  run/screenshots/appliedpackaging-client-smoke-package_storage_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_export_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_unpacking_bus.png
+人工查看 6 张截图，确认均为真实 Minecraft 客户端菜单画面
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture 或客户端 smoke timeout
+本次仅扩展客户端 smoke 覆盖面；GameTest 已按规则考虑，未新增行为 GameTest
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runGameTestServer 成功，90 个必需 GameTest 全部通过
+验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现 ClientSmokeRunner 或其他客户端类误加载；完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
+```

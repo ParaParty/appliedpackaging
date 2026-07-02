@@ -36,7 +36,9 @@ public final class ClientSmokeRunner {
             new SmokeStep("package_assembler", APBlocks.PACKAGE_ASSEMBLER, PackageAssemblerScreen.class),
             new SmokeStep("me_packager", APBlocks.ME_PACKAGER, MePackagerScreen.class),
             new SmokeStep("package_pattern_terminal", APBlocks.PACKAGE_PATTERN_TERMINAL, PackagePatternTerminalScreen.class),
-            new SmokeStep("package_storage_bus", APBlocks.PACKAGE_STORAGE_BUS, PackageBusScreen.class)
+            new SmokeStep("package_storage_bus", APBlocks.PACKAGE_STORAGE_BUS, PackageBusScreen.class),
+            new SmokeStep("package_export_bus", APBlocks.PACKAGE_EXPORT_BUS, PackageBusScreen.class),
+            new SmokeStep("package_unpacking_bus", APBlocks.PACKAGE_UNPACKING_BUS, PackageBusScreen.class)
     };
 
     private static final ClientSmokeRunner INSTANCE = new ClientSmokeRunner();
