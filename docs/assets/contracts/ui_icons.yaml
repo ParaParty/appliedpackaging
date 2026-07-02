@@ -1,0 +1,51 @@
+asset_id: ui_icons
+asset_kind: item
+generation_mode: icon_set
+target_game: minecraft_java
+target_texture_resolution: 16
+style:
+  name: ae2_fluix_packaging_ui
+  palette_reference: docs/assets/palette.md
+asset_brief:
+  summary: GUI icons, status lights, and logo draft for Applied Packaging.
+  source_brief: docs/assets/asset-briefs/ui-and-icons.md
+materials:
+  - dark_metal
+  - quartz_panel
+  - fluix_core
+  - warning_light
+required_visual_parts:
+  - symbolic icons without text
+  - status lights with shape and color differences
+  - marker and filter icons
+  - pack and unpack action icons
+  - transparent logo draft
+forbidden_visual_parts:
+  - text
+  - numbers
+  - watermark
+  - photorealistic buttons
+  - dense decoration
+conversion_requirements:
+  transparent_background: true
+  readable_at_8x8: true
+  icon_ids:
+    - color_select
+    - marker
+    - capacity
+    - blocking_mode
+    - auto_export
+    - pack_once
+    - marker_retain
+    - marker_override
+    - marker_clear
+    - package_filter
+    - unpack_filter
+    - status_error
+    - status_ready
+    - status_blocked
+harness_assumptions:
+  output_namespace: appliedpackaging
+  icon_dir: src/main/resources/assets/appliedpackaging/textures/gui/icons
+  logo_path: src/main/resources/assets/appliedpackaging/logo.png
+  report_path: docs/assets/reports/ui-and-icons.md

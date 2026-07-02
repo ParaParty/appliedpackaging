@@ -47,6 +47,15 @@ PackageDataStorage 只接受当前 schema version，且必须通过完整 canoni
   unsupportedVersionIsRejected
 新增 gameteststructures/empty.snbt，并由 copyGameTestStructures 在 runGameTestServer 前复制到 run/gameteststructures
 验证 .\gradlew.bat runGameTestServer 成功，5 个必需 GameTest 全部通过
+建立 docs/assets 执行文档：
+  palette.md
+  acceptance.md
+  asset-briefs/packages.md
+  asset-briefs/machines.md
+  asset-briefs/terminal-and-buses.md
+  asset-briefs/ui-and-icons.md
+  contracts/*.yaml
+验证 5 个资产 contract 均通过 assetgen validate-contract
 ```
 
 关键决策：
@@ -80,6 +89,6 @@ AE2 1.20.1 Storage Cells 指南
 下一步：
 
 ```text
-提交 PackageDataStorage、canonical hash、容量档、包裹 tooltip 和 GameTest。
-建立资产 brief 目录，按 AGENTS.md 准备材质任务。
+提交资产 brief 和 contract。
+按 AGENTS.md 派发材质 subagent，并整合当前已注册物品的图标和 item model。
 ```

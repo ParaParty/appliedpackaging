@@ -1,0 +1,38 @@
+asset_id: terminal_and_buses
+asset_kind: block
+generation_mode: multi_asset_concept_to_model
+target_game: minecraft_java
+target_texture_resolution: 32
+visual_output_protocol: VOP-2x2-Minecraft-Asset-v1
+style:
+  name: ae2_fluix_packaging
+  palette_reference: docs/assets/palette.md
+asset_brief:
+  summary: Package pattern terminal and package-only AE2 bus family.
+  source_brief: docs/assets/asset-briefs/terminal-and-buses.md
+materials:
+  - quartz_panel
+  - dark_metal
+  - fluix_core
+  - shadow_slot
+required_visual_parts:
+  - package_pattern_terminal screen with colored package cards
+  - package_storage_bus sealed package storage symbol
+  - package_export_bus package output flow form
+  - package_unpacking_bus opened seal form
+forbidden_visual_parts:
+  - text labels
+  - arrows with text
+  - cardboard box
+  - full machine body for bus parts
+  - brass gears
+conversion_requirements:
+  cuboid_friendly: true
+  small_part_readability: true
+  keep_bus_family_distinct: true
+harness_assumptions:
+  output_namespace: appliedpackaging
+  texture_dir: src/main/resources/assets/appliedpackaging/textures/block
+  block_model_dir: src/main/resources/assets/appliedpackaging/models/block
+  item_model_dir: src/main/resources/assets/appliedpackaging/models/item
+  report_path: docs/assets/reports/terminal-and-buses.md

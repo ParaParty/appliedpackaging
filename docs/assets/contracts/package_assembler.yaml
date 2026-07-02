@@ -1,0 +1,48 @@
+asset_id: package_assembler
+asset_kind: block
+generation_mode: concept_to_cuboid_model
+target_game: minecraft_java
+target_texture_resolution: 32
+visual_output_protocol: VOP-2x2-Minecraft-Asset-v1
+target_volume: [16, 16, 16]
+panel_order:
+  top_left: front
+  top_right: right_side
+  bottom_left: top
+  bottom_right: isometric
+style:
+  name: ae2_fluix_packaging
+  palette_reference: docs/assets/palette.md
+asset_brief:
+  summary: AE2-style package assembler chamber for colored pattern-driven package creation.
+  source_brief: docs/assets/asset-briefs/machines.md
+materials:
+  - quartz_panel
+  - dark_metal
+  - fluix_core
+  - glass_channel
+required_visual_parts:
+  - transparent fluix assembly chamber
+  - suspended package projection
+  - pattern interface slot
+  - 17-color small light strip
+  - blocking/output status light
+forbidden_visual_parts:
+  - cardboard box body
+  - brass gear
+  - text label
+  - exposed thin wires
+  - cluttered micro machinery
+conversion_requirements:
+  max_major_components: 8
+  cuboid_friendly: true
+  front_is_north: true
+  keep_inside_block_volume: true
+harness_assumptions:
+  output_namespace: appliedpackaging
+  block_id: package_assembler
+  texture_dir: src/main/resources/assets/appliedpackaging/textures/block
+  block_model_dir: src/main/resources/assets/appliedpackaging/models/block
+  item_model_dir: src/main/resources/assets/appliedpackaging/models/item
+  blockstate_dir: src/main/resources/assets/appliedpackaging/blockstates
+  report_path: docs/assets/reports/machines.md

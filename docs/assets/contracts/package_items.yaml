@@ -1,0 +1,58 @@
+asset_id: appliedpackaging_package_items
+asset_kind: item
+generation_mode: variant_family
+target_game: minecraft_java
+target_texture_resolution: 32
+style:
+  name: ae2_fluix_packaging
+  palette_reference: docs/assets/palette.md
+asset_brief:
+  summary: AE2-style sealed data package item icons, plus package pattern items.
+  source_brief: docs/assets/asset-briefs/packages.md
+materials:
+  - quartz_panel
+  - dark_metal
+  - fluix_core
+  - color_band
+required_visual_parts:
+  - centered sealed package silhouette
+  - light quartz body
+  - dark metal corner clamps
+  - fluix diamond seal
+  - one clear color band per variant
+forbidden_visual_parts:
+  - cardboard box
+  - text labels
+  - numbers
+  - arrows
+  - watermark
+  - brass gears
+conversion_requirements:
+  centered_object: true
+  transparent_background: true
+  keep_readable_at_16x16: true
+  variants:
+    - fluix_package
+    - white_package
+    - orange_package
+    - magenta_package
+    - light_blue_package
+    - yellow_package
+    - lime_package
+    - pink_package
+    - gray_package
+    - light_gray_package
+    - cyan_package
+    - purple_package
+    - blue_package
+    - brown_package
+    - green_package
+    - red_package
+    - black_package
+    - package_pattern
+    - packaged_processing_pattern
+harness_assumptions:
+  output_namespace: appliedpackaging
+  texture_dir: src/main/resources/assets/appliedpackaging/textures/item
+  model_dir: src/main/resources/assets/appliedpackaging/models/item
+  report_path: docs/assets/reports/packages.md

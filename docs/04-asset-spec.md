@@ -183,3 +183,23 @@ blockstate/item model 文件
 预览或截图
 验收记录
 ```
+
+## 8. 执行文件
+
+资产生成和验收使用 `docs/assets/` 下的执行文件：
+
+```text
+docs/assets/palette.md
+docs/assets/acceptance.md
+docs/assets/asset-briefs/packages.md
+docs/assets/asset-briefs/machines.md
+docs/assets/asset-briefs/terminal-and-buses.md
+docs/assets/asset-briefs/ui-and-icons.md
+docs/assets/contracts/package_items.yaml
+docs/assets/contracts/me_packager.yaml
+docs/assets/contracts/package_assembler.yaml
+docs/assets/contracts/terminal_and_buses.yaml
+docs/assets/contracts/ui_icons.yaml
+```
+
+当前 5 个 contract 已通过本地 `assetgen validate-contract`。
