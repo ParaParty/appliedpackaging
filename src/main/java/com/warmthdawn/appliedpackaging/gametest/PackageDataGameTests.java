@@ -14,6 +14,7 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
 import appeng.blockentity.crafting.PatternProviderBlockEntity;
+import appeng.blockentity.misc.InterfaceBlockEntity;
 import appeng.blockentity.storage.DriveBlockEntity;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
@@ -1555,6 +1556,83 @@ public final class PackageDataGameTests {
                             .getRequestedAmount(AEItemKey.of(Items.DIAMOND));
                     helper.assertTrue(requestedDiamonds == 1,
                             "Crafting CPU should wait for the processing pattern output after pushing inputs");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerPackagesAndUnpacksThroughAe2Interface(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos drivePos = new BlockPos(1, 0, 0);
+        BlockPos interfacePos = new BlockPos(2, 0, 0);
+        BlockPos packagerPos = new BlockPos(3, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(drivePos),
+                AEBlocks.DRIVE.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(interfacePos),
+                AEBlocks.INTERFACE.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    InterfaceBlockEntity aeInterface =
+                            (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+                    helper.assertTrue(aeInterface.getMainNode().isActive(),
+                            "AE2 Interface grid node should be active before ME Packager smoke");
+                    helper.assertTrue(aeInterface.getMainNode().hasGridBooted(),
+                            "AE2 Interface grid should finish booting before ME Packager smoke");
+                })
+                .thenExecute(() -> {
+                    DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+                    InterfaceBlockEntity aeInterface =
+                            (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+                    MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+                    drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+                    var storage = aeInterface.getMainNode().getGrid().getStorageService().getInventory();
+                    var source = IActionSource.ofMachine(aeInterface);
+                    long insertedIron = storage.insert(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.MODULATE, source);
+                    long insertedCopper = storage.insert(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.MODULATE, source);
+                    helper.assertTrue(insertedIron == 64,
+                            "AE2 Interface network should accept iron before packager smoke");
+                    helper.assertTrue(insertedCopper == 32,
+                            "AE2 Interface network should accept copper before packager smoke");
+
+                    MePackagerBlockEntity.MachineResult packResult = packager.runOnce();
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(packResult == MePackagerBlockEntity.MachineResult.PACKED,
+                            "ME Packager should package from the adjacent AE2 Interface");
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "AE2 Interface package should contain iron");
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                            "AE2 Interface package should contain copper");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
+                            "ME Packager should remove packaged iron from the AE2 Interface network");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.SIMULATE, source) == 0,
+                            "ME Packager should remove packaged copper from the AE2 Interface network");
+
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, output);
+                    MePackagerBlockEntity.MachineResult unpackResult = packager.runOnce();
+                    helper.assertTrue(unpackResult == MePackagerBlockEntity.MachineResult.UNPACKED,
+                            "ME Packager should unpack into the adjacent AE2 Interface");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "ME Packager should consume the input package after AE2 Interface unpack");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
+                            "AE2 Interface network should contain unpacked iron");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.SIMULATE, source) == 32,
+                            "AE2 Interface network should contain unpacked copper");
                 })
                 .thenSucceed();
     }

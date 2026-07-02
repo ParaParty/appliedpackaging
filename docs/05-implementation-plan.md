@@ -158,9 +158,10 @@ GameTest
   MEStorage endpoint GameTest
   fluid handler endpoint GameTest
   ME Packager 红石模式菜单、红石上升沿和周期红石 GameTest
+  真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager 世界内打包/拆包 GameTest smoke
 
 待实现：
-  真实 AE 网络/Interface 世界内 smoke
+  无
 ```
 
 验收：

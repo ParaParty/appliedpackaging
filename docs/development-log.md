@@ -814,6 +814,20 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最新进展：
 
 ```text
+补齐 ME Packager 真实 AE2 Interface 世界内 smoke：
+  新增 mePackagerPackagesAndUnpacksThroughAe2Interface GameTest
+  测试摆放 AE2 Creative Energy Cell、Drive、Interface 与 ME Packager
+  Drive 插入 AE2 64k item cell，通过 Interface 所在真实 grid storage 注入 iron/copper
+  ME Packager 从相邻 Interface 的 MEStorage capability 打包，验证 AE2 网络内容被抽走
+  再把输出包裹放回输入槽，ME Packager 整包拆回相邻 Interface 网络
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，94 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
+最新进展：
+
+```text
 扩展客户端 GUI screenshot smoke：
   runClientSmoke 现在同时摆放并打开 Package Storage Bus、Package Export Bus、Package Unpacking Bus
   客户端 smoke 覆盖 Package Assembler、ME Packager、Package Pattern Terminal 和三种 Package Bus 真实菜单

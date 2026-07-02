@@ -478,6 +478,7 @@ GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背
 pulse 为默认兼容模式，红石上升沿触发一次 pack/unpack。
 cyclic 在持续供电时每 20 tick 尝试一次 pack/unpack；输出槽堵塞或端点不可用时不会改变源库存。
 机器背面优先识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；若无 AE2 storage，则回落到 Forge item handler / fluid handler。
+真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager GameTest 覆盖从相邻 Interface 网络打包、抽走网络内容、再整包拆回网络。
 输入槽存在合法包裹时执行整包拆包。
 输入槽为空时从背面库存或流体槽选择当前容量档可承载的内容生成包裹。
 容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell。
