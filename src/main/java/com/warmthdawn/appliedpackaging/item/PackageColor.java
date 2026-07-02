@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.item;
 
 import java.util.Locale;
+import java.util.Optional;
 import net.minecraft.ChatFormatting;
 
 public enum PackageColor {
@@ -40,5 +41,14 @@ public enum PackageColor {
 
     public String translationKeySuffix() {
         return id.toLowerCase(Locale.ROOT);
+    }
+
+    public static Optional<PackageColor> byId(String id) {
+        for (PackageColor color : values()) {
+            if (color.id.equals(id)) {
+                return Optional.of(color);
+            }
+        }
+        return Optional.empty();
     }
 }

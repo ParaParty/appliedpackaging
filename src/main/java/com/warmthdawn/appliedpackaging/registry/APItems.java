@@ -3,6 +3,7 @@ package com.warmthdawn.appliedpackaging.registry;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
+import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
@@ -21,11 +22,11 @@ public final class APItems {
 
     public static final RegistryObject<Item> PACKAGE_PATTERN = ITEMS.register(
             "package_pattern",
-            () -> new Item(new Item.Properties().stacksTo(1)));
+            () -> new PackagePatternItem(new Item.Properties().stacksTo(1)));
 
     public static final RegistryObject<Item> PACKAGED_PROCESSING_PATTERN = ITEMS.register(
             "packaged_processing_pattern",
-            () -> new Item(new Item.Properties().stacksTo(1)));
+            () -> new PackagePatternItem(new Item.Properties().stacksTo(1)));
 
     public static final RegistryObject<Item> ME_PACKAGER = ITEMS.register(
             "me_packager",
@@ -46,6 +47,10 @@ public final class APItems {
     public static final RegistryObject<Item> PACKAGE_UNPACKING_BUS = ITEMS.register(
             "package_unpacking_bus",
             () -> new BlockItem(APBlocks.PACKAGE_UNPACKING_BUS.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
+            "package_pattern_terminal",
+            () -> new BlockItem(APBlocks.PACKAGE_PATTERN_TERMINAL.get(), new Item.Properties()));
 
     static {
         for (PackageColor color : PackageColor.values()) {

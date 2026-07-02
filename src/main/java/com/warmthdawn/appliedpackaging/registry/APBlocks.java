@@ -4,6 +4,7 @@ import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.PackageAssemblerBlock;
 import com.warmthdawn.appliedpackaging.world.block.PackageBusBlock;
+import com.warmthdawn.appliedpackaging.world.block.PackagePatternTerminalBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -36,6 +37,10 @@ public final class APBlocks {
     public static final RegistryObject<Block> PACKAGE_UNPACKING_BUS = BLOCKS.register(
             "package_unpacking_bus",
             () -> new PackageBusBlock(machineProperties(), PackageBusBlock.BusKind.UNPACKING));
+
+    public static final RegistryObject<Block> PACKAGE_PATTERN_TERMINAL = BLOCKS.register(
+            "package_pattern_terminal",
+            () -> new PackagePatternTerminalBlock(machineProperties()));
 
     private APBlocks() {
     }

@@ -21,6 +21,7 @@ public final class APCreativeTabs {
                 output.accept(APItems.PACKAGE_STORAGE_BUS.get());
                 output.accept(APItems.PACKAGE_EXPORT_BUS.get());
                 output.accept(APItems.PACKAGE_UNPACKING_BUS.get());
+                output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
                 output.accept(APItems.PACKAGE_PATTERN.get());
                 output.accept(APItems.PACKAGED_PROCESSING_PATTERN.get());
             })

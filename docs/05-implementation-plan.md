@@ -99,7 +99,7 @@ tooltip 显示每包/总计
 
 ```text
 已交付当前注册 item 图标和 item model。
-已交付机器、终端、总线、UI 图标和 logo 初版资源。
+已按 AE2 forge/v15.4.10 reference sheet 交付机器、终端、总线、UI 图标和 logo 二轮生产质量资源。
 已交付资产 reports。
 已交付 me_packager、package_assembler、package_pattern、packaged_processing_pattern 基础配方。
 已交付 me_packager/package_assembler loot table。
@@ -182,10 +182,12 @@ GameTest/客户端验证
   package_assembler 方块/方块物品/方块实体注册
   水平朝向 blockstate
   方块掉落表
-  9 格输入缓冲 + 1 格输出槽
+  9 格输入缓冲 + 1 格样板槽 + 1 格输出槽
   输入缓冲自动封装为 Fluix 包裹
   输入合法包裹展开后再封装
   输出非空时阻挡且不消耗输入
+  已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
+  已编码 package_pattern 不消耗，可重复作为本地装配计划
   装配室基础 GameTest
 
 待实现：
@@ -232,9 +234,15 @@ GameTest/服务器 smoke test
   package_export_bus 只从 AE 网络输出已有合法包裹
   package_unpacking_bus 整包事务性拆入背面库存
   PackageItemStorage GameTest
+  package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
+  package_pattern_terminal 可从 9 格预览输入编码 package_pattern
+  package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
+  装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
 
 待实现：
-  包裹样板终端
+  17 色选择、marker ghost、容量档等完整终端 UI
+  彩色处理样板编辑
+  封装处理样板合成/拆分
   颜色/marker/content 过滤 UI
   AE2 cable part 形态
   真实 AE 网络服务器 smoke test

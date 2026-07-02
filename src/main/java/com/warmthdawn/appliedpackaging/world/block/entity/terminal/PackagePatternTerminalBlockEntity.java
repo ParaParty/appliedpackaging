@@ -1,4 +1,4 @@
-package com.warmthdawn.appliedpackaging.world.block.entity;
+package com.warmthdawn.appliedpackaging.world.block.entity.terminal;
 
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
@@ -10,24 +10,30 @@ import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.Containers;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.wrapper.RangedWrapper;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
 
-public class PackageAssemblerBlockEntity extends BlockEntity implements InventoryDroppingBlockEntity {
+public class PackagePatternTerminalBlockEntity extends BlockEntity implements MenuProvider, InventoryDroppingBlockEntity {
     public static final int INPUT_SLOT_COUNT = 9;
-    public static final int SLOT_PATTERN = 9;
+    public static final int SLOT_BLANK_PATTERN = 9;
     public static final int SLOT_OUTPUT = 10;
     private static final int SLOT_COUNT = 11;
     private static final String ITEMS_TAG = "items";
@@ -35,11 +41,11 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            if (slot == SLOT_OUTPUT) {
-                return stack.getItem() instanceof PackageItem;
+            if (slot == SLOT_BLANK_PATTERN) {
+                return stack.is(APItems.PACKAGE_PATTERN.get()) && PackagePatternDataStorage.read(stack).isEmpty();
             }
-            if (slot == SLOT_PATTERN) {
-                return stack.is(APItems.PACKAGE_PATTERN.get()) || stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get());
+            if (slot == SLOT_OUTPUT) {
+                return stack.is(APItems.PACKAGE_PATTERN.get());
             }
             if (stack.getItem() instanceof PackageItem) {
                 return PackageDataStorage.read(stack).isPresent();
@@ -55,54 +61,54 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     private final RangedWrapper inputView = new RangedWrapper(items, 0, INPUT_SLOT_COUNT);
     private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
 
-    public PackageAssemblerBlockEntity(BlockPos pos, BlockState blockState) {
-        super(APBlockEntities.PACKAGE_ASSEMBLER.get(), pos, blockState);
-    }
-
-    public static void serverTick(Level level, BlockPos pos, BlockState state, PackageAssemblerBlockEntity blockEntity) {
-        blockEntity.tryAssemble();
+    public PackagePatternTerminalBlockEntity(BlockPos pos, BlockState blockState) {
+        super(APBlockEntities.PACKAGE_PATTERN_TERMINAL.get(), pos, blockState);
     }
 
     public ItemStackHandler getItems() {
         return items;
     }
 
-    public AssemblyResult tryAssemble() {
+    public EncodeResult encodeOnce() {
         if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
-            return AssemblyResult.OUTPUT_BLOCKED;
+            return EncodeResult.OUTPUT_BLOCKED;
         }
-
-        Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern =
-                PackagePatternDataStorage.read(items.getStackInSlot(SLOT_PATTERN));
-        PackageColor color = pattern.map(PackagePatternDataStorage.EncodedPackagePattern::color)
-                .orElse(PackageColor.FLUIX);
+        ItemStack blankPattern = items.getStackInSlot(SLOT_BLANK_PATTERN);
+        if (blankPattern.isEmpty()
+                || !blankPattern.is(APItems.PACKAGE_PATTERN.get())
+                || PackagePatternDataStorage.read(blankPattern).isPresent()) {
+            return EncodeResult.NO_PATTERN;
+        }
 
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 inputView,
-                color,
+                PackageColor.FLUIX,
                 PackageCapacityProfile.DEFAULT);
         if (plan.isEmpty()) {
-            return AssemblyResult.NO_CONTENTS;
-        }
-        if (pattern.isPresent()
-                && !plan.get().data().canonicalHash().equals(pattern.get().data().canonicalHash())) {
-            return AssemblyResult.PATTERN_MISMATCH;
-        }
-        if (!ItemPackageTransactions.canExtract(inputView, plan.get())) {
-            return AssemblyResult.SOURCE_CHANGED;
+            return EncodeResult.NO_CONTENTS;
         }
 
-        ItemStack packageStack = new ItemStack(APItems.packageItems().get(color).get());
-        PackageDataStorage.write(packageStack, plan.get().data());
-        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
+        ItemStack encoded = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(encoded, PackageColor.FLUIX, plan.get().data());
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, encoded, true);
         if (!remainder.isEmpty()) {
-            return AssemblyResult.OUTPUT_BLOCKED;
+            return EncodeResult.OUTPUT_BLOCKED;
         }
 
-        ItemPackageTransactions.commitExtract(inputView, plan.get());
-        items.insertItem(SLOT_OUTPUT, packageStack, false);
+        items.extractItem(SLOT_BLANK_PATTERN, 1, false);
+        items.insertItem(SLOT_OUTPUT, encoded, false);
         setChanged();
-        return AssemblyResult.ASSEMBLED;
+        return EncodeResult.ENCODED;
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("block.appliedpackaging.package_pattern_terminal");
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+        return new PackagePatternTerminalMenu(containerId, playerInventory, this);
     }
 
     @Override
@@ -143,11 +149,20 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         }
     }
 
-    public enum AssemblyResult {
-        ASSEMBLED,
-        NO_CONTENTS,
-        OUTPUT_BLOCKED,
-        PATTERN_MISMATCH,
-        SOURCE_CHANGED
+    public enum EncodeResult {
+        ENCODED("message.appliedpackaging.package_pattern_terminal.encoded"),
+        NO_PATTERN("message.appliedpackaging.package_pattern_terminal.no_pattern"),
+        NO_CONTENTS("message.appliedpackaging.package_pattern_terminal.no_contents"),
+        OUTPUT_BLOCKED("message.appliedpackaging.package_pattern_terminal.output_blocked");
+
+        private final String messageKey;
+
+        EncodeResult(String messageKey) {
+            this.messageKey = messageKey;
+        }
+
+        public String messageKey() {
+            return messageKey;
+        }
     }
 }

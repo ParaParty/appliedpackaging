@@ -19,10 +19,12 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanFailure;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
@@ -374,6 +376,35 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerUsesEncodedPackagePattern(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, data);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        assembler.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should assemble a matching encoded pattern");
+        helper.assertTrue(!assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN).isEmpty(),
+                "Encoded pattern should remain in the pattern slot");
+        helper.assertTrue(outputData.canonicalHash().equals(data.canonicalHash()),
+                "Output package should match the encoded pattern");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageItemStorageExposesOnlyLegalPackages(GameTestHelper helper) {
         ItemStackHandler target = new ItemStackHandler(3);
         ItemStack legalPackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
@@ -421,6 +452,86 @@ public final class PackageDataGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void packagePatternDataRoundTrips(GameTestHelper helper) {
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackageData data = ironPackageData(PackageColor.FLUIX, 64);
+
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, data);
+        Optional<PackagePatternDataStorage.EncodedPackagePattern> read = PackagePatternDataStorage.read(pattern);
+
+        helper.assertTrue(read.isPresent(), "Encoded package pattern should be readable");
+        helper.assertTrue(read.get().color() == PackageColor.FLUIX, "Encoded color should round-trip");
+        helper.assertTrue(read.get().data().canonicalHash().equals(data.canonicalHash()), "Encoded data should round-trip");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesInputPreview(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGE_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode a package pattern");
+        helper.assertTrue(terminal.getItems().getStackInSlot(0).getCount() == 64,
+                "Encoding should not consume preview input");
+        helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN).isEmpty(),
+                "Encoding should consume one blank package pattern");
+        helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Encoded pattern should contain iron");
+        helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Encoded pattern should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalKeepsBlankWhenOutputBlocked(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGE_PATTERN.get()));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_OUTPUT,
+                new ItemStack(APItems.PACKAGE_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.OUTPUT_BLOCKED,
+                "Blocked terminal should not encode");
+        helper.assertTrue(!terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN).isEmpty(),
+                "Blocked terminal should keep the blank pattern");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalRejectsEncodedBlankPattern(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        ItemStack encodedPattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(encodedPattern, PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 64));
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.COPPER_INGOT, 32));
+        terminal.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN, encodedPattern.copy());
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.NO_PATTERN,
+                "Terminal should require an unencoded blank package pattern");
+        helper.assertTrue(PackagePatternDataStorage.read(
+                        terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN))
+                .isPresent(), "Encoded pattern should not be overwritten");
+        helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT).isEmpty(),
+                "Rejected encode should not create output");
+        helper.succeed();
+    }
+
     private static PackageData ironPackageData(PackageColor color, long amount) {
         return PackageData.create(
                 color,
@@ -439,6 +550,12 @@ public final class PackageDataGameTests {
 
     private static PackageAssemblerBlockEntity newPackageAssembler() {
         return new PackageAssemblerBlockEntity(BlockPos.ZERO, APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState());
+    }
+
+    private static PackagePatternTerminalBlockEntity newPackagePatternTerminal() {
+        return new PackagePatternTerminalBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_PATTERN_TERMINAL.get().defaultBlockState());
     }
 
     private static ItemStack packageStack(PackageColor color, PackageData data) {

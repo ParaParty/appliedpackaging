@@ -52,10 +52,15 @@ item handler 拆包可完整插入目标
 装配室可从输入缓冲生成包裹
 装配室输出阻挡时不消耗输入
 装配室输入包裹会展开后再封装
+装配室可使用已编码 package_pattern 精确匹配输入计划
 AE2 PackageItemStorage 只暴露合法包裹
 AE2 PackageItemStorage 拒绝散装物品插入
 AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
-当前最新执行：.\gradlew.bat runGameTestServer 成功，24 个必需 GameTest 全部通过。
+package_pattern 数据可读写
+package_pattern_terminal 可从预览输入编码 package_pattern
+package_pattern_terminal 输出阻挡时保留空白样板
+package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆盖
+当前最新执行：.\gradlew.bat runGameTestServer 成功，29 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -97,6 +102,8 @@ language key 完整
 5 个 docs/assets/contracts/*.yaml 均通过 assetgen validate-contract
 PNG/JSON/model 引用机械检查通过
 资源抽样视觉检查通过
+已按 AE2 forge/v15.4.10 源码资产生成参考 sheet，并基于参考完成二轮材质重做
+53 个 PNG 尺寸/模式/模型引用检查通过
 .\gradlew.bat runData 成功
 ```
 

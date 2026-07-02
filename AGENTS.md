@@ -115,6 +115,17 @@ ui-and-icons:
 docs/assets/asset-briefs/*.md
 docs/assets/palette.md
 docs/assets/acceptance.md
+build/asset-reference/ae2/*.png（如需 AE2 风格参考）
+```
+
+AE2 风格参考流程：
+
+```text
+如材质目标是 AE2 风格，先使用目标 AE2 版本源码生成参考 sheet。
+当前项目参考源为 AppliedEnergistics/Applied-Energistics-2 forge/v15.4.10。
+源码 clone 与参考 sheet 只放在 build/reference 或 build/asset-reference，不纳入发布资源。
+调用 ImageGen 时使用无文字 reference sheet；带标签 sheet 只给人和 agent 核对来源。
+参考图只用于材质语言、比例、调色和构图，不得逐像素复制 AE2 贴图。
 ```
 
 subagent 交付应包含：

@@ -5,6 +5,7 @@
   "block.appliedpackaging.package_storage_bus": "Package Storage Bus",
   "block.appliedpackaging.package_export_bus": "Package Export Bus",
   "block.appliedpackaging.package_unpacking_bus": "Package Unpacking Bus",
+  "block.appliedpackaging.package_pattern_terminal": "Package Pattern Terminal",
   "item.appliedpackaging.package_pattern": "Package Pattern",
   "item.appliedpackaging.packaged_processing_pattern": "Packaged Processing Pattern",
   "item.appliedpackaging.fluix_package": "Fluix Package",
@@ -34,6 +35,8 @@
   "tooltip.appliedpackaging.package.more_entries": "  ...and %s more",
   "tooltip.appliedpackaging.package.capacity": "Capacity: %s units, %s types",
   "tooltip.appliedpackaging.package.hash": "Hash: %s",
+  "tooltip.appliedpackaging.pattern.blank": "Blank package pattern",
+  "tooltip.appliedpackaging.pattern.encoded": "Encoded package pattern",
   "tooltip.appliedpackaging.color.fluix": "Fluix",
   "tooltip.appliedpackaging.color.white": "White",
   "tooltip.appliedpackaging.color.orange": "Orange",
@@ -52,6 +55,7 @@
   "tooltip.appliedpackaging.color.red": "Red",
   "tooltip.appliedpackaging.color.black": "Black",
   "gui.appliedpackaging.me_packager.pack_once": "Pack or unpack once",
+  "gui.appliedpackaging.package_pattern_terminal.encode": "Encode package pattern",
   "message.appliedpackaging.me_packager.inserted_package": "Package inserted",
   "message.appliedpackaging.me_packager.input_blocked": "Input slot blocked",
   "message.appliedpackaging.me_packager.output_taken": "Package output taken",
@@ -62,5 +66,9 @@
   "message.appliedpackaging.me_packager.output_blocked": "Output slot blocked",
   "message.appliedpackaging.me_packager.target_blocked": "Target inventory cannot accept the full package",
   "message.appliedpackaging.me_packager.invalid_input": "Input package is invalid",
-  "message.appliedpackaging.me_packager.source_changed": "Source inventory changed"
+  "message.appliedpackaging.me_packager.source_changed": "Source inventory changed",
+  "message.appliedpackaging.package_pattern_terminal.encoded": "Package pattern encoded",
+  "message.appliedpackaging.package_pattern_terminal.no_pattern": "Insert a blank package pattern",
+  "message.appliedpackaging.package_pattern_terminal.no_contents": "No packable input contents",
+  "message.appliedpackaging.package_pattern_terminal.output_blocked": "Output slot blocked"
 }

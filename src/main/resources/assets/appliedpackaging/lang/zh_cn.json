@@ -5,6 +5,7 @@
   "block.appliedpackaging.package_storage_bus": "包裹存储总线",
   "block.appliedpackaging.package_export_bus": "包裹输出总线",
   "block.appliedpackaging.package_unpacking_bus": "包裹拆包总线",
+  "block.appliedpackaging.package_pattern_terminal": "包裹样板终端",
   "item.appliedpackaging.package_pattern": "包裹样板",
   "item.appliedpackaging.packaged_processing_pattern": "封装处理样板",
   "item.appliedpackaging.fluix_package": "福鲁伊克斯包裹",
@@ -34,6 +35,8 @@
   "tooltip.appliedpackaging.package.more_entries": "  ……还有 %s 项",
   "tooltip.appliedpackaging.package.capacity": "容量：%s 组，%s 类型",
   "tooltip.appliedpackaging.package.hash": "Hash：%s",
+  "tooltip.appliedpackaging.pattern.blank": "空白包裹样板",
+  "tooltip.appliedpackaging.pattern.encoded": "已编码包裹样板",
   "tooltip.appliedpackaging.color.fluix": "福鲁伊克斯",
   "tooltip.appliedpackaging.color.white": "白色",
   "tooltip.appliedpackaging.color.orange": "橙色",
@@ -52,6 +55,7 @@
   "tooltip.appliedpackaging.color.red": "红色",
   "tooltip.appliedpackaging.color.black": "黑色",
   "gui.appliedpackaging.me_packager.pack_once": "执行一次打包或拆包",
+  "gui.appliedpackaging.package_pattern_terminal.encode": "编码包裹样板",
   "message.appliedpackaging.me_packager.inserted_package": "已放入包裹",
   "message.appliedpackaging.me_packager.input_blocked": "输入槽被占用",
   "message.appliedpackaging.me_packager.output_taken": "已取出输出包裹",
@@ -62,5 +66,9 @@
   "message.appliedpackaging.me_packager.output_blocked": "输出槽被占用",
   "message.appliedpackaging.me_packager.target_blocked": "目标库存无法接收完整包裹",
   "message.appliedpackaging.me_packager.invalid_input": "输入包裹无效",
-  "message.appliedpackaging.me_packager.source_changed": "源库存已变化"
+  "message.appliedpackaging.me_packager.source_changed": "源库存已变化",
+  "message.appliedpackaging.package_pattern_terminal.encoded": "已编码包裹样板",
+  "message.appliedpackaging.package_pattern_terminal.no_pattern": "请放入空白包裹样板",
+  "message.appliedpackaging.package_pattern_terminal.no_contents": "没有可编码的输入内容",
+  "message.appliedpackaging.package_pattern_terminal.output_blocked": "输出槽被占用"
 }

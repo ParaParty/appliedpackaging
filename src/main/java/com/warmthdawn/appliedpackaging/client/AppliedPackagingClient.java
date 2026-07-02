@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.client;
 
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
+import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -15,6 +16,9 @@ public final class AppliedPackagingClient {
     }
 
     private static void clientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> MenuScreens.register(APMenus.ME_PACKAGER.get(), MePackagerScreen::new));
+        event.enqueueWork(() -> {
+            MenuScreens.register(APMenus.ME_PACKAGER.get(), MePackagerScreen::new);
+            MenuScreens.register(APMenus.PACKAGE_PATTERN_TERMINAL.get(), PackagePatternTerminalScreen::new);
+        });
     }
 }

@@ -2,6 +2,7 @@ package com.warmthdawn.appliedpackaging.core.package_data;
 
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,7 +36,10 @@ public final class PackageDataStorage {
             return Optional.empty();
         }
 
-        CompoundTag tag = stack.getTagElement(PACKAGE_TAG);
+        return readTag(stack.getTagElement(PACKAGE_TAG), packageItem.color());
+    }
+
+    public static Optional<PackageData> readTag(CompoundTag tag, PackageColor color) {
         if (tag == null || !tag.contains(CONTENTS, Tag.TAG_LIST)) {
             return Optional.empty();
         }
@@ -57,7 +61,7 @@ public final class PackageDataStorage {
         }
 
         int flags = tag.getInt(FLAGS);
-        PackageData computed = PackageData.create(packageItem.color(), contents, marker, flags);
+        PackageData computed = PackageData.create(color, contents, marker, flags);
         String storedHash = tag.getString(HASH);
         if (storedHash.isBlank() || !storedHash.equals(computed.canonicalHash())) {
             return Optional.empty();

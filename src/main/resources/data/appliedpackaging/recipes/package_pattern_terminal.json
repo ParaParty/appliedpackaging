@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    {
+      "item": "ae2:pattern_encoding_terminal"
+    },
+    {
+      "item": "appliedpackaging:package_pattern"
+    },
+    {
+      "item": "ae2:fluix_dust"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:package_pattern_terminal"
+  }
+}

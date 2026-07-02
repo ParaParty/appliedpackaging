@@ -2,6 +2,7 @@ package com.warmthdawn.appliedpackaging.registry;
 
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
+import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -16,6 +17,10 @@ public final class APMenus {
     public static final RegistryObject<MenuType<MePackagerMenu>> ME_PACKAGER = MENUS.register(
             "me_packager",
             () -> IForgeMenuType.create(MePackagerMenu::new));
+
+    public static final RegistryObject<MenuType<PackagePatternTerminalMenu>> PACKAGE_PATTERN_TERMINAL = MENUS.register(
+            "package_pattern_terminal",
+            () -> IForgeMenuType.create(PackagePatternTerminalMenu::new));
 
     private APMenus() {
     }

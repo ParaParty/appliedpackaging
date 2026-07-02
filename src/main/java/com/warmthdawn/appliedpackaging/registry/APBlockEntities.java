@@ -6,6 +6,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockE
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageStorageBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageUnpackingBusBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
@@ -39,6 +40,11 @@ public final class APBlockEntities {
     public static final RegistryObject<BlockEntityType<PackageUnpackingBusBlockEntity>> PACKAGE_UNPACKING_BUS = BLOCK_ENTITIES.register(
             "package_unpacking_bus",
             () -> BlockEntityType.Builder.of(PackageUnpackingBusBlockEntity::new, APBlocks.PACKAGE_UNPACKING_BUS.get())
+                    .build(null));
+
+    public static final RegistryObject<BlockEntityType<PackagePatternTerminalBlockEntity>> PACKAGE_PATTERN_TERMINAL = BLOCK_ENTITIES.register(
+            "package_pattern_terminal",
+            () -> BlockEntityType.Builder.of(PackagePatternTerminalBlockEntity::new, APBlocks.PACKAGE_PATTERN_TERMINAL.get())
                     .build(null));
 
     private APBlockEntities() {

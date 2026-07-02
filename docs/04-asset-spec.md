@@ -210,11 +210,22 @@ docs/assets/contracts/ui_icons.yaml
 
 ```text
 19 个当前注册 item 的 32x32 图标与 item model
-ME 包裹装配室与 ME 打包机初版 block textures/blockstate/block model/item model
-包裹样板终端、包裹存储总线、包裹输出总线、包裹拆包总线初版 textures/model
-14 个 GUI 图标
-logo.png
+ME 包裹装配室与 ME 打包机 32x32 block textures/blockstate/block model/item model
+包裹样板终端、包裹存储总线、包裹输出总线、包裹拆包总线 32x32 textures/model
+14 个 16x16 GUI 图标
+128x128 GUI logo.png
 docs/assets/reports/*.md
+```
+
+材质质量修订：
+
+```text
+旧版初稿因生产质量不足被退回。
+主线程 clone AE2 forge/v15.4.10 源码到 build/reference/ae2，仅作为临时参考。
+从 AE2 item/machine/part/gui 资产生成 reference sheet 到 build/asset-reference/ae2。
+调用 ImageGen 基于 AE2 reference sheet 生成 Applied Packaging 风格概念板。
+4 个 subagent 分别负责 packages、machines、terminal-and-buses、ui-and-icons 二轮重做。
+最终提交资源不复制 AE2 像素，只参考石英面板、深灰框架、Fluix 高光、终端网格和 GUI 槽位语言。
 ```
 
 主线程已验证：
@@ -228,5 +239,5 @@ texture/model 引用存在
 抽样视觉检查通过
 .\gradlew.bat build 成功
 .\gradlew.bat runData 成功
-.\gradlew.bat runGameTestServer 成功，14 个必需 GameTest 全部通过
+.\gradlew.bat runGameTestServer 成功，29 个必需 GameTest 全部通过
 ```

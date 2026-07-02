@@ -172,9 +172,47 @@ AE2 1.20.1 Storage Cells 指南
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+新增包裹样板终端基础功能：
+  package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
+  9 格预览输入 + 空白 package_pattern 槽 + 输出槽
+  Encode 按钮将预览输入写入已编码 package_pattern
+  编码不消耗预览输入，只消耗 1 个未编码空白 package_pattern
+  输出槽阻挡时不消耗空白样板
+  已编码 package_pattern 不能作为空白样板被覆盖
+新增 PackagePatternDataStorage：
+  在 ItemStack NBT 写入 version、color、嵌套 PackageData
+  读取时按样板颜色复验嵌套 PackageData canonical hash
+Package Assembler 接入已编码 package_pattern：
+  样板槽接受 package_pattern / packaged_processing_pattern
+  已编码 package_pattern 精确匹配输入计划 canonical hash
+  匹配成功后生成对应颜色包裹且不消耗样板
+新增 PackagePatternItem tooltip：
+  空白样板显示空白提示
+  已编码样板显示包裹内容摘要
+新增包裹样板终端 GameTest：
+  packagePatternDataRoundTrips
+  packagePatternTerminalEncodesInputPreview
+  packagePatternTerminalKeepsBlankWhenOutputBlocked
+  packagePatternTerminalRejectsEncodedBlankPattern
+  packageAssemblerUsesEncodedPackagePattern
+按生产质量重做材质：
+  clone AppliedEnergistics/Applied-Energistics-2 forge/v15.4.10 到 build/reference/ae2
+  生成 AE2 item/machine/part/gui reference sheet 到 build/asset-reference/ae2
+  使用 ImageGen 基于 AE2 reference sheet 生成 Applied Packaging 风格概念板
+  4 个 subagent 分别重做 packages、machines、terminal-and-buses、ui-and-icons
+  最终资源不复制 AE2 像素，只参考石英面板、深灰框架、Fluix 高光和 GUI 语言
+验证 53 个 PNG 尺寸/模式/模型引用全部通过
+验证 .\gradlew.bat runData 成功
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runGameTestServer 成功，29 个必需 GameTest 全部通过
+```
+
 下一步：
 
 ```text
-提交 AE2 方块总线集成。
-继续实现包裹样板终端、过滤 UI，并补客户端 runClient 冒烟验证。
+提交包裹样板终端、已编码样板支持和 AE2 参考材质重做。
+继续实现过滤 UI，并补客户端 runClient 冒烟验证。
 ```

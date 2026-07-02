@@ -302,11 +302,15 @@ UI：
 
 ```text
 package_assembler 已注册为方块、方块物品和方块实体。
-方块实体提供 9 格输入缓冲与 1 格输出槽。
-服务端 tick 自动尝试把输入缓冲完整封装为 1 个 Fluix 包裹。
+方块实体提供 9 格输入缓冲、1 格样板槽与 1 格输出槽。
+服务端 tick 自动尝试把输入缓冲完整封装为 1 个包裹。
 输入中的合法包裹会先展开，再与散装物品合并封装。
 输出槽非空时阻挡，不消耗任何输入。
-当前使用默认容量档，不含彩色样板拆分、装配室 GUI、容量元件槽和 AE2 网络自动导出。
+样板槽可放入 package_pattern 或 packaged_processing_pattern。
+如果 package_pattern 已编码，装配室只接受与样板 canonical hash 完全一致的输入计划。
+已编码 package_pattern 不会被消耗，输出包裹颜色跟随样板颜色。
+未编码样板或空样板槽时，装配室使用默认 Fluix 包裹行为。
+当前使用默认容量档，不含彩色处理样板拆分、封装处理样板多包裹计划、装配室 GUI、容量元件槽和 AE2 网络自动导出。
 ```
 
 ## 8. ME 打包机
@@ -470,6 +474,20 @@ Packaged Processing Pattern:
 
 Split:
   封装处理样板、空白样板若干、拆出包裹样板，可选普通处理样板副本
+```
+
+当前基础实现：
+
+```text
+package_pattern 与 packaged_processing_pattern 使用 PackagePatternItem，tooltip 会区分空白/已编码状态。
+PackagePatternDataStorage 在 ItemStack NBT 中写入 version、color 与嵌套 PackageData。
+读取已编码样板时会按样板颜色复验嵌套 PackageData canonical hash。
+package_pattern_terminal 已注册为水平朝向方块、方块物品、方块实体、菜单和客户端 screen。
+终端 GUI 当前提供 9 格预览输入、1 格空白 package_pattern、1 格输出，以及 Encode 按钮。
+编码 package_pattern 时只读取预览输入，不消耗预览输入；只消耗 1 个未编码空白 package_pattern。
+输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 会被拒绝。
+当前默认编码为 Fluix 包裹样板。
+当前不含 17 色选择、marker ghost、容量档 UI、彩色处理样板编辑、封装处理样板合成/拆分。
 ```
 
 ## 10. 包裹总线
