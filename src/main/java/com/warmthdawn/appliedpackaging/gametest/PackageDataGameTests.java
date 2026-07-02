@@ -20,6 +20,7 @@ import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackagePlan;
 import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
@@ -39,6 +40,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockE
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -834,6 +836,44 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerSplitsColoredProcessingPatternPush(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] {
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32)
+                },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        ColoredProcessingPatternDataStorage.write(pattern, Map.of(0, PackageColor.RED, 1, PackageColor.BLUE));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details != null, "AE2 should decode the colored processing pattern");
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron }, Direction.UP);
+        ItemStack firstOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+        PackageAssemblerBlockEntity.AssemblyResult secondResult = assembler.tryAssemble();
+        ItemStack secondOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
+        helper.assertTrue(accepted, "Assembler should accept colored processing pattern pushes");
+        helper.assertTrue(iron.isEmpty(), "Colored push should consume the aggregated input holder");
+        helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
+                "First colored package should use the first slot color");
+        helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should output the queued colored package after the output is cleared");
+        helper.assertTrue(secondOutput.is(APItems.packageItems().get(PackageColor.BLUE).get()),
+                "Second colored package should use the second slot color");
+        helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 32,
+                "First colored package should contain the first iron requirement");
+        helper.assertTrue(amountOf(secondData, AEItemKey.of(Items.IRON_INGOT)) == 32,
+                "Second colored package should contain the second iron requirement");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerRejectsPatternProviderPushWhenOutputBlocked(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.getItems().setStackInSlot(
@@ -923,6 +963,74 @@ public final class PackageDataGameTests {
                             "AE2-pushed iron should be packaged");
                     helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
                             "AE2-pushed copper should be packaged");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "ae_network_column")
+    public static void ae2PatternProviderPushesColoredProcessingPatternIntoPackageAssembler(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos providerPos = new BlockPos(0, 1, 0);
+        BlockPos assemblerPos = new BlockPos(0, 2, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(providerPos),
+                AEBlocks.PATTERN_PROVIDER.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(assemblerPos),
+                APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState(),
+                3);
+
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> {
+                    PatternProviderBlockEntity provider =
+                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
+                    ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                            new GenericStack[] {
+                                    new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
+                                    new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32)
+                            },
+                            new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+                    ColoredProcessingPatternDataStorage.write(
+                            pattern,
+                            Map.of(0, PackageColor.RED, 1, PackageColor.BLUE));
+                    provider.getLogic().getPatternInv().addItems(pattern);
+                    provider.getLogic().updatePatterns();
+                    helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 1,
+                            "Pattern Provider should decode the colored processing pattern");
+                    IPatternDetails details = provider.getLogic().getAvailablePatterns().get(0);
+                    KeyCounter iron = new KeyCounter();
+                    iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
+
+                    boolean accepted = provider.getLogic().pushPattern(details, new KeyCounter[] { iron });
+                    ItemStack firstOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+                    assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                    PackageAssemblerBlockEntity.AssemblyResult secondResult = assembler.tryAssemble();
+                    ItemStack secondOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
+                    helper.assertTrue(accepted,
+                            "AE2 Pattern Provider should push colored processing patterns into Package Assembler");
+                    helper.assertTrue(iron.isEmpty(), "Accepted colored AE2 push should consume iron input");
+                    helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
+                            "First AE2 colored output should be red");
+                    helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                            "Second AE2 colored output should be queued");
+                    helper.assertTrue(secondOutput.is(APItems.packageItems().get(PackageColor.BLUE).get()),
+                            "Second AE2 colored output should be blue");
+                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 32,
+                            "First AE2 colored output should contain half the iron");
+                    helper.assertTrue(amountOf(secondData, AEItemKey.of(Items.IRON_INGOT)) == 32,
+                            "Second AE2 colored output should contain half the iron");
                 })
                 .thenSucceed();
     }
@@ -1069,6 +1177,31 @@ public final class PackageDataGameTests {
                 "First encoded package should round-trip");
         helper.assertTrue(read.get().packages().get(1).canonicalHash().equals(copper.canonicalHash()),
                 "Second encoded package should round-trip");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void coloredProcessingPatternDataRoundTrips(GameTestHelper helper) {
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] {
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
+                },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+
+        ColoredProcessingPatternDataStorage.write(pattern, Map.of(0, PackageColor.RED, 1, PackageColor.BLUE));
+        Optional<ColoredProcessingPatternDataStorage.EncodedColoredProcessingPattern> read =
+                ColoredProcessingPatternDataStorage.read(pattern);
+        List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(pattern);
+
+        helper.assertTrue(read.isPresent(), "Colored processing pattern data should be readable");
+        helper.assertTrue(read.get().colorForSlot(0) == PackageColor.RED, "First slot color should round-trip");
+        helper.assertTrue(read.get().colorForSlot(1) == PackageColor.BLUE, "Second slot color should round-trip");
+        helper.assertTrue(sparseInputs.size() == 2, "Sparse AE2 processing inputs should be readable");
+        helper.assertTrue(sparseInputs.get(0).what().equals(AEItemKey.of(Items.IRON_INGOT)),
+                "First sparse input should remain iron");
+        helper.assertTrue(sparseInputs.get(1).what().equals(AEItemKey.of(Items.COPPER_INGOT)),
+                "Second sparse input should remain copper");
         helper.succeed();
     }
 

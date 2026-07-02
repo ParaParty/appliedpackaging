@@ -5,13 +5,18 @@ import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.capabilities.Capabilities;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
@@ -21,11 +26,16 @@ import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Containers;
@@ -50,6 +60,9 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     public static final int SLOT_OUTPUT = 10;
     private static final int SLOT_COUNT = 11;
     private static final String ITEMS_TAG = "items";
+    private static final String PENDING_PACKAGES_TAG = "pending_packages";
+    private static final String PENDING_COLOR_TAG = "color";
+    private static final String PENDING_DATA_TAG = "data";
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -74,6 +87,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     private final RangedWrapper inputView = new RangedWrapper(items, 0, INPUT_SLOT_COUNT);
     private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
     private final LazyOptional<ICraftingMachine> craftingMachine = LazyOptional.of(() -> this);
+    private final List<QueuedPackage> pendingPackages = new ArrayList<>();
 
     public PackageAssemblerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.PACKAGE_ASSEMBLER.get(), pos, blockState);
@@ -101,6 +115,9 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
+        if (!pendingPackages.isEmpty()) {
+            return outputPendingPackage();
+        }
         AssemblyAttempt attempt = planAssembly(inputView);
         if (attempt.plan().isEmpty()) {
             return attempt.failure();
@@ -110,9 +127,8 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     }
 
     private AssemblyResult commitAssemblyPlan(IItemHandler input, AssemblyPlan plan) {
-        ItemStack packageStack = new ItemStack(APItems.packageItems().get(plan.color()).get());
-        PackageDataStorage.write(packageStack, plan.plan().data());
-        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
+        ItemStack packageStack = packageStack(plan.color(), plan.plan().data());
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack.copy(), true);
         if (!remainder.isEmpty()) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
@@ -122,6 +138,32 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
         ItemPackageTransactions.commitExtract(input, plan.plan());
         items.insertItem(SLOT_OUTPUT, packageStack, false);
+        setChanged();
+        return AssemblyResult.ASSEMBLED;
+    }
+
+    private AssemblyResult outputPendingPackage() {
+        if (pendingPackages.isEmpty()) {
+            return AssemblyResult.NO_CONTENTS;
+        }
+        AssemblyResult result = outputPackage(pendingPackages.get(0));
+        if (result == AssemblyResult.ASSEMBLED) {
+            pendingPackages.remove(0);
+            setChanged();
+        }
+        return result;
+    }
+
+    private AssemblyResult outputPackage(QueuedPackage queuedPackage) {
+        ItemStack packageStack = packageStack(queuedPackage.color(), queuedPackage.data());
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack.copy(), true);
+        if (!remainder.isEmpty()) {
+            return AssemblyResult.OUTPUT_BLOCKED;
+        }
+        remainder = items.insertItem(SLOT_OUTPUT, packageStack, false);
+        if (!remainder.isEmpty()) {
+            return AssemblyResult.OUTPUT_BLOCKED;
+        }
         setChanged();
         return AssemblyResult.ASSEMBLED;
     }
@@ -176,6 +218,155 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
     }
 
+    private Optional<ColoredProviderPlan> planColoredProcessingPush(ItemStack definitionStack, KeyCounter[] inputHolder) {
+        Optional<ColoredProcessingPatternDataStorage.EncodedColoredProcessingPattern> encoded =
+                ColoredProcessingPatternDataStorage.read(definitionStack);
+        if (encoded.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(definitionStack);
+        if (sparseInputs.isEmpty()) {
+            return Optional.empty();
+        }
+        for (int coloredSlot : encoded.get().slotColors().keySet()) {
+            if (coloredSlot >= sparseInputs.size() || sparseInputs.get(coloredSlot) == null) {
+                return Optional.empty();
+            }
+        }
+
+        Optional<Map<AEKey, Long>> availableInputs = aggregateItemInputs(inputHolder);
+        if (availableInputs.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<AEKey, Long> remainingInputs = new HashMap<>(availableInputs.get());
+        Map<PackageColor, List<GenericStack>> groupedInputs = new LinkedHashMap<>();
+        List<GenericStack> consumedInputs = new ArrayList<>();
+
+        for (int slot = 0; slot < sparseInputs.size(); slot++) {
+            GenericStack sparseInput = sparseInputs.get(slot);
+            if (sparseInput == null || sparseInput.amount() <= 0) {
+                continue;
+            }
+            if (!AEItemKey.is(sparseInput.what())) {
+                return Optional.empty();
+            }
+
+            long available = remainingInputs.getOrDefault(sparseInput.what(), 0L);
+            if (available < sparseInput.amount()) {
+                return Optional.empty();
+            }
+            long remaining = available - sparseInput.amount();
+            if (remaining == 0) {
+                remainingInputs.remove(sparseInput.what());
+            } else {
+                remainingInputs.put(sparseInput.what(), remaining);
+            }
+
+            PackageColor color = encoded.get().colorForSlot(slot);
+            GenericStack consumed = new GenericStack(sparseInput.what(), sparseInput.amount());
+            groupedInputs.computeIfAbsent(color, ignored -> new ArrayList<>()).add(consumed);
+            consumedInputs.add(consumed);
+        }
+
+        if (groupedInputs.isEmpty() || hasRemainingInputs(remainingInputs)) {
+            return Optional.empty();
+        }
+
+        List<QueuedPackage> packages = new ArrayList<>();
+        for (var entry : groupedInputs.entrySet()) {
+            var result = PackagePlanBuilder.build(
+                    entry.getKey(),
+                    entry.getValue(),
+                    List.of(),
+                    MarkerMergeMode.CLEAR,
+                    Optional.empty(),
+                    PackageCapacityProfile.DEFAULT,
+                    0);
+            if (result.data().isEmpty()) {
+                return Optional.empty();
+            }
+            packages.add(new QueuedPackage(entry.getKey(), result.data().orElseThrow()));
+        }
+
+        return Optional.of(new ColoredProviderPlan(packages, consumedInputs));
+    }
+
+    private boolean commitProviderPackages(List<QueuedPackage> packages) {
+        if (packages.isEmpty()
+                || !pendingPackages.isEmpty()
+                || !items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+            return false;
+        }
+
+        QueuedPackage firstPackage = packages.get(0);
+        ItemStack firstStack = packageStack(firstPackage.color(), firstPackage.data());
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, firstStack.copy(), true);
+        if (!remainder.isEmpty()) {
+            return false;
+        }
+        remainder = items.insertItem(SLOT_OUTPUT, firstStack, false);
+        if (!remainder.isEmpty()) {
+            return false;
+        }
+
+        if (packages.size() > 1) {
+            pendingPackages.addAll(packages.subList(1, packages.size()));
+        }
+        setChanged();
+        return true;
+    }
+
+    private static Optional<Map<AEKey, Long>> aggregateItemInputs(KeyCounter[] inputHolder) {
+        Map<AEKey, Long> inputs = new HashMap<>();
+        for (KeyCounter counter : inputHolder) {
+            if (counter == null) {
+                continue;
+            }
+            for (var entry : counter) {
+                if (entry.getLongValue() <= 0) {
+                    continue;
+                }
+                if (!AEItemKey.is(entry.getKey())) {
+                    return Optional.empty();
+                }
+                inputs.merge(entry.getKey(), entry.getLongValue(), Long::sum);
+            }
+        }
+        return Optional.of(inputs);
+    }
+
+    private static boolean hasRemainingInputs(Map<AEKey, Long> inputs) {
+        for (long amount : inputs.values()) {
+            if (amount > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void consumePatternInputs(KeyCounter[] inputHolder, List<GenericStack> inputs) {
+        for (GenericStack input : inputs) {
+            long remaining = input.amount();
+            for (KeyCounter counter : inputHolder) {
+                if (counter == null || remaining <= 0) {
+                    continue;
+                }
+                long available = counter.get(input.what());
+                long extracted = Math.min(available, remaining);
+                if (extracted > 0) {
+                    counter.remove(input.what(), extracted);
+                    remaining -= extracted;
+                }
+            }
+        }
+        for (KeyCounter counter : inputHolder) {
+            if (counter != null) {
+                counter.removeZeros();
+            }
+        }
+    }
+
     @Override
     public PatternContainerGroup getCraftingMachineInfo() {
         return new PatternContainerGroup(
@@ -186,8 +377,18 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder, Direction ejectionDirection) {
-        if (!acceptsPlans() || inputHolder == null) {
+        if (!acceptsPlans() || patternDetails == null || inputHolder == null) {
             return false;
+        }
+
+        ItemStack definitionStack = patternDetails.getDefinition().toStack();
+        if (ColoredProcessingPatternDataStorage.hasData(definitionStack)) {
+            Optional<ColoredProviderPlan> coloredPlan = planColoredProcessingPush(definitionStack, inputHolder);
+            if (coloredPlan.isEmpty() || !commitProviderPackages(coloredPlan.get().packages())) {
+                return false;
+            }
+            consumePatternInputs(inputHolder, coloredPlan.get().consumedInputs());
+            return true;
         }
 
         Optional<PatternProviderInput> providerInput = PatternProviderInput.create(inputHolder);
@@ -216,7 +417,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     @Override
     public boolean acceptsPlans() {
-        return items.getStackInSlot(SLOT_OUTPUT).isEmpty() && inputBufferIsEmpty();
+        return items.getStackInSlot(SLOT_OUTPUT).isEmpty() && inputBufferIsEmpty() && pendingPackages.isEmpty();
     }
 
     @Override
@@ -241,6 +442,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
+        tag.put(PENDING_PACKAGES_TAG, savePendingPackages());
     }
 
     @Override
@@ -249,6 +451,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             items.deserializeNBT(tag.getCompound(ITEMS_TAG));
         }
+        loadPendingPackages(tag);
     }
 
     @Override
@@ -258,6 +461,14 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             if (!stack.isEmpty()) {
                 Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
             }
+        }
+        for (QueuedPackage queuedPackage : pendingPackages) {
+            Containers.dropItemStack(
+                    level,
+                    pos.getX(),
+                    pos.getY(),
+                    pos.getZ(),
+                    packageStack(queuedPackage.color(), queuedPackage.data()));
         }
     }
 
@@ -278,7 +489,54 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         return true;
     }
 
+    private ListTag savePendingPackages() {
+        ListTag list = new ListTag();
+        for (QueuedPackage queuedPackage : pendingPackages) {
+            CompoundTag tag = new CompoundTag();
+            tag.putString(PENDING_COLOR_TAG, queuedPackage.color().id());
+            tag.put(PENDING_DATA_TAG, PackageDataStorage.writeTag(queuedPackage.data()));
+            list.add(tag);
+        }
+        return list;
+    }
+
+    private void loadPendingPackages(CompoundTag tag) {
+        pendingPackages.clear();
+        if (!tag.contains(PENDING_PACKAGES_TAG, Tag.TAG_LIST)) {
+            return;
+        }
+        for (Tag element : tag.getList(PENDING_PACKAGES_TAG, Tag.TAG_COMPOUND)) {
+            if (!(element instanceof CompoundTag pendingTag)) {
+                continue;
+            }
+            Optional<PackageColor> color = PackageColor.byId(pendingTag.getString(PENDING_COLOR_TAG));
+            if (color.isEmpty() || !pendingTag.contains(PENDING_DATA_TAG, Tag.TAG_COMPOUND)) {
+                continue;
+            }
+            Optional<PackageData> data = PackageDataStorage.readTag(
+                    pendingTag.getCompound(PENDING_DATA_TAG),
+                    color.get());
+            data.ifPresent(packageData -> pendingPackages.add(new QueuedPackage(color.get(), packageData)));
+        }
+    }
+
+    private static ItemStack packageStack(PackageColor color, PackageData data) {
+        ItemStack stack = new ItemStack(APItems.packageItems().get(color).get());
+        PackageDataStorage.write(stack, data);
+        return stack;
+    }
+
     private record AssemblyPlan(PackageColor color, ItemPackagePlan plan) {
+    }
+
+    private record QueuedPackage(PackageColor color, PackageData data) {
+    }
+
+    private record ColoredProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {
+        private ColoredProviderPlan {
+            packages = List.copyOf(packages);
+            consumedInputs = List.copyOf(consumedInputs);
+        }
     }
 
     private record AssemblyAttempt(Optional<AssemblyPlan> plan, AssemblyResult failure) {

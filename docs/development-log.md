@@ -443,10 +443,49 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+归档 AE2 源码材质作为 Applied Packaging 后续分割参考：
+  来源：AppliedEnergistics/Applied-Energistics-2 forge/v15.4.10
+  commit：b4b08d9941e3faecb520d76be617629bb56661e1
+  源路径：src/main/resources/assets/ae2/textures
+  目标：E:\resources\textures\appliedpackaging\ae2-forge-v15.4.10
+  保留 raw PNG 源码目录结构到 textures/
+  同步已有 AE2 reference sheets 到 reference-sheets/
+  生成 manifest.csv 与 README.md
+验证：
+  textures/ 下 PNG 数量 626
+  manifest.csv 条目 626
+  reference-sheets/ 文件 9
+  分类计数：block 221、item 133、part 225、guis 38、gui 1、entity 2、guide 2、particle 2、patchouli 2
+未运行 Gradle/GameTest：本次只归档外部参考材质，未修改代码、数据生成或发布资源。
+```
+
+最新进展：
+
+```text
+补齐 AE2 原版处理样板的彩色服务器端执行路径：
+  新增 ColoredProcessingPatternDataStorage，颜色元数据写入 AE2 encoded processing pattern 的 appliedpackaging.colored_processing_pattern NBT
+  颜色元数据按 AE2 processing pattern sparse input 槽位保存，未标色槽位默认 Fluix
+  Package Assembler pushPattern 检测到彩色元数据时，直接从 pattern definition 读取 sparse inputs
+  同 AEKey 位于不同颜色槽时，即使 Pattern Provider 输入持有者已按 AEKey 汇总，也会按 sparse 槽位拆成不同颜色包裹
+  彩色 pushPattern 一次产生多个包裹时，先输出第一个，剩余包裹进入 pending queue
+  pending queue 写入方块实体 NBT，输出槽清空后由 tryAssemble/server tick 继续吐包
+  破坏装配室时，pending queue 中的包裹按合法包裹物品掉落
+新增 GameTest：
+  coloredProcessingPatternDataRoundTrips
+  packageAssemblerSplitsColoredProcessingPatternPush
+  ae2PatternProviderPushesColoredProcessingPatternIntoPackageAssembler
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，63 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 补齐完整 AE2 crafting CPU 自动合成 job smoke test。
-补齐彩色处理样板元数据、处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
+补齐彩色处理样板编辑 UI、处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```

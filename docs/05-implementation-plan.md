@@ -204,11 +204,16 @@ GameTest/客户端验证
   package_assembler 暴露 AE2 ICraftingMachine capability
   Pattern Provider pushPattern 可把 item-only KeyCounter 输入装配为包裹
   pushPattern 在输出阻挡、输入缓冲非空、非物品 AEKey 或规划失败时整批拒绝且不消耗输入
+  ColoredProcessingPatternDataStorage 可在 AE2 encoded processing pattern 上保存输入槽颜色元数据
+  彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
+  同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
+  彩色 pushPattern 产生多个包裹时通过 pending queue 顺序输出并持久化保存
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler GameTest smoke
+  真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler 彩色处理样板 GameTest smoke
   装配室基础 GameTest
 
 待实现：
-  彩色处理样板元数据读取
+  彩色处理样板编辑 UI
   容量元件槽
   完整 AE2 crafting CPU 自动合成 job smoke test
   客户端验证

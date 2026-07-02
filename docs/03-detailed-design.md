@@ -254,13 +254,18 @@ AE2 Pattern Provider 集成：
 ```text
 package_assembler 暴露 appeng.capabilities.Capabilities.CRAFTING_MACHINE。
 AE2 Pattern Provider 与装配室相邻时，通过 ICraftingMachine.pushPattern 推入样板输入。
-acceptsPlans 仅在本机输入缓冲为空且输出槽为空时返回 true。
+acceptsPlans 仅在本机输入缓冲为空、输出槽为空且待输出队列为空时返回 true。
 pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物品 AEKey 时整批拒绝。
 接收流程先把 KeyCounter 转成临时 9 格输入缓冲，生成 ItemPackagePlan，并模拟输出槽插入。
 全部校验通过后，才写入真实输入缓冲、提交装配、从 KeyCounter 扣减输入。
 任何一步失败都保持 all-or-nothing：不消耗 Pattern Provider 输入，不生成半包裹。
 本地 package_pattern 和 packaged_processing_pattern 与 GUI 输入共用同一套计划逻辑。
 已编码 package_pattern 使用目标 PackageData 做 exact package plan，不再先按默认容量自由规划后比对 hash。
+带 appliedpackaging.colored_processing_pattern 扩展 NBT 的 AE2 encoded processing pattern 走彩色拆包路径。
+彩色拆包读取 AE2 processing pattern 的 sparse input 槽位，按槽位颜色生成一个或多个包裹。
+彩色拆包不依赖 AE2 已压缩的 IInput 顺序；即使相同 AEKey 被 AE2 汇总，仍按原始 sparse 槽位拆成不同颜色包。
+一次 pushPattern 产生多个包裹时，先输出第一个，剩余包裹写入待输出队列；输出槽清空后 server tick/tryAssemble 继续吐出。
+待输出队列写入方块实体 NBT，破坏方块时以合法包裹掉落。
 已通过 GameTest 验证真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送到 package_assembler。
 ```
 
@@ -286,7 +291,8 @@ SLOT_PATTERN = 9
 SLOT_OUTPUT = 10
 Forge item handler capability 暴露完整 11 格机器库存
 AE2 CRAFTING_MACHINE capability 暴露装配室本体
-17 格输出缓存、自动导入 AE 网络、彩色处理样板元数据仍属于后续实现项
+colored processing pending package queue 持久化保存
+17 格输出缓存、自动导入 AE 网络、容量元件槽仍属于后续实现项
 ```
 
 普通处理样板：
@@ -304,6 +310,10 @@ AE2 自动合成仍然等待 X
 按输入格颜色分组生成多个包裹
 颜色跟随样板输入格，不跟随 AEKey
 同一种 AEKey 位于两个颜色格时，必须生成两个不同颜色的包裹
+颜色元数据保存于 AE2 encoded processing pattern 的 appliedpackaging.colored_processing_pattern NBT。
+NBT 中的 inputs[] 以 AE2 processing pattern sparse input 槽位为索引。
+未标色槽位按 Fluix 处理；无颜色 NBT 的原版 processing pattern 走普通默认打包路径。
+当前服务端执行使用 default package capacity；容量元件控制彩色拆包容量属于后续 UI/机器槽位工作。
 ```
 
 阻挡模式：
@@ -339,8 +349,10 @@ GUI 提供 9 格输入缓冲、样板槽、输出槽与玩家背包；shift-clic
 已编码 package_pattern 不会被消耗，输出包裹颜色跟随样板颜色。
 如果 packaged_processing_pattern 已编码，装配室读取有序 package list，每次在输出槽为空时生成一个当前输入可满足且 canonical hash 匹配的包裹。
 packaged_processing_pattern 不会被消耗；输出被取走后可继续生成该处理样板中的下一个可满足包裹。
+如果 AE2 encoded processing pattern 带彩色输入槽元数据，Pattern Provider pushPattern 会按 sparse input 槽位拆成对应颜色包裹。
+彩色 Pattern Provider 推送可产生多个包裹；当前 1 格输出槽通过 pending queue 顺序吐出后续包裹。
 未编码样板或空样板槽时，装配室使用默认 Fluix 包裹行为。
-当前使用默认容量档，不含彩色处理样板拆分、容量元件槽和 AE2 网络自动导出。
+当前使用默认容量档，不含容量元件槽和 AE2 网络自动导出。
 ```
 
 ## 8. ME 打包机
