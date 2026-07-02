@@ -62,6 +62,7 @@
   "gui.appliedpackaging.me_packager.marker_mode.override": "覆盖标记",
   "gui.appliedpackaging.me_packager.marker_mode.clear": "清除标记",
   "gui.appliedpackaging.package_pattern_terminal.encode": "编码包裹样板",
+  "gui.appliedpackaging.package_pattern_terminal.input_slot_color": "设置输入槽颜色",
   "message.appliedpackaging.me_packager.inserted_package": "已放入包裹",
   "message.appliedpackaging.me_packager.input_blocked": "输入槽被占用",
   "message.appliedpackaging.me_packager.output_taken": "已取出输出包裹",

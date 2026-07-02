@@ -57,6 +57,16 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
                     topPos + 82,
                     color));
         }
+
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                int slot = column + row * 3;
+                addRenderableWidget(new SlotColorButton(
+                        leftPos + 38 + column * 18,
+                        topPos + 18 + row * 18,
+                        slot));
+            }
+        }
     }
 
     @Override
@@ -142,6 +152,40 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
             graphics.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, color.swatchArgb());
             if (selected) {
                 graphics.renderOutline(getX() - 1, getY() - 1, width + 2, height + 2, 0xff2a3036);
+            }
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
+    }
+
+    private class SlotColorButton extends AbstractButton {
+        private final int slot;
+
+        private SlotColorButton(int x, int y, int slot) {
+            super(x, y, 6, 6, Component.translatable("gui.appliedpackaging.package_pattern_terminal.input_slot_color"));
+            this.slot = slot;
+            setTooltip(Tooltip.create(getMessage()));
+        }
+
+        @Override
+        public void onPress() {
+            minecraft.gameMode.handleInventoryButtonClick(
+                    menu.containerId,
+                    PackagePatternTerminalMenu.BUTTON_INPUT_COLOR_BASE + slot);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            boolean configured = menu.inputSlotColor(slot).isPresent();
+            PackageColor color = menu.inputSlotColor(slot).orElse(menu.selectedColor());
+            int border = configured ? 0xffffffff : (isHoveredOrFocused() ? 0xffd6dbde : 0xff4a5058);
+            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
+            graphics.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, color.swatchArgb());
+            if (!configured) {
+                graphics.hLine(getX() + 1, getX() + width - 2, getY() + height - 2, 0xff2a3036);
             }
         }
 

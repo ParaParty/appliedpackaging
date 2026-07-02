@@ -1206,6 +1206,64 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesSelectedColorOntoAe2ProcessingPattern(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.setSelectedColor(PackageColor.GREEN);
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] {
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
+                },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        terminal.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN, pattern);
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        Optional<ColoredProcessingPatternDataStorage.EncodedColoredProcessingPattern> colored =
+                ColoredProcessingPatternDataStorage.read(output);
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode selected color onto an AE2 processing pattern");
+        helper.assertTrue(colored.isPresent(), "Output AE2 processing pattern should contain colored metadata");
+        helper.assertTrue(colored.get().colorForSlot(0) == PackageColor.GREEN,
+                "First processing input should use selected color");
+        helper.assertTrue(colored.get().colorForSlot(1) == PackageColor.GREEN,
+                "Second processing input should use selected color");
+        helper.assertTrue(PatternDetailsHelper.decodePattern(output, helper.getLevel()) != null,
+                "Colored AE2 processing pattern should still decode as an AE2 pattern");
+        helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN).isEmpty(),
+                "Encoding should consume one source AE2 processing pattern");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesPerSlotColorsOntoAe2ProcessingPattern(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.setInputSlotColor(0, PackageColor.RED);
+        terminal.setInputSlotColor(1, PackageColor.BLUE);
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] {
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32)
+                },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        terminal.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN, pattern);
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        ColoredProcessingPatternDataStorage.EncodedColoredProcessingPattern colored =
+                ColoredProcessingPatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode per-slot colors onto an AE2 processing pattern");
+        helper.assertTrue(colored.colorForSlot(0) == PackageColor.RED,
+                "First processing input should use its configured slot color");
+        helper.assertTrue(colored.colorForSlot(1) == PackageColor.BLUE,
+                "Second processing input should use its configured slot color");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalEncodesInputPreview(GameTestHelper helper) {
         PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
         terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));

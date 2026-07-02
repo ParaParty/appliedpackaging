@@ -482,10 +482,50 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+归档 AE2 1.21+ 源码材质作为 Applied Packaging 后续分割参考：
+  来源：AppliedEnergistics/Applied-Energistics-2 neoforge/v19.2.17
+  Minecraft version：1.21.1
+  NeoForge version：21.1.169
+  commit：79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a
+  源路径：src/main/resources/assets/ae2/textures
+  目标：E:\resources\textures\appliedpackaging\ae2-mc1.21-plus-neoforge-v19.2.17
+  保留 raw PNG 源码目录结构到 textures/
+  生成 manifest.csv、README.md 与 source-gradle.properties
+验证：
+  textures/ 下 PNG 数量 614
+  manifest.csv 条目 614
+  源/目标哈希不一致 0
+  PNG 头校验失败 0
+  分类计数：block 207、item 130、part 222、guis 38、gui 11、entity 2、particle 2、patchouli 2
+未运行 Gradle/GameTest：本次只归档外部参考材质，未修改代码、数据生成或发布资源。
+```
+
+最新进展：
+
+```text
+补齐 Package Pattern Terminal 对 AE2 原版处理样板的基础彩色编辑/编码入口：
+  样板槽现在可接受 AE2 encoded processing pattern
+  终端保存并同步 9 个输入槽颜色，客户端 screen 在输入槽角落提供小色标按钮
+  玩家选择 17 色 swatch 后点击输入槽色标，可把该槽设为当前颜色
+  编码 AE2 processing pattern 时，终端复制 1 个输入样板到输出槽，并写入 appliedpackaging.colored_processing_pattern NBT
+  未逐槽设色时，终端会把 selectedColor 写入该 AE2 processing pattern 的全部非空 sparse input slot
+  已逐槽设色时，终端只写入已配置槽位颜色；未配置槽由装配室按 Fluix 默认处理
+  输出槽阻挡时不消耗源 AE2 processing pattern
+新增 GameTest：
+  packagePatternTerminalEncodesSelectedColorOntoAe2ProcessingPattern
+  packagePatternTerminalEncodesPerSlotColorsOntoAe2ProcessingPattern
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，65 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 补齐完整 AE2 crafting CPU 自动合成 job smoke test。
-补齐彩色处理样板编辑 UI、处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
+补齐处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```

@@ -4,6 +4,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
@@ -18,7 +19,10 @@ import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -48,16 +52,19 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     private static final int SLOT_COUNT = 13;
     private static final String ITEMS_TAG = "items";
     private static final String SELECTED_COLOR_TAG = "selected_color";
+    private static final String INPUT_SLOT_COLORS_TAG = "input_slot_colors";
+    private static final int UNCOLORED_SLOT = -1;
 
     private PackageColor selectedColor = PackageColor.FLUIX;
+    private final int[] inputSlotColors = new int[INPUT_SLOT_COUNT];
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             if (slot == SLOT_BLANK_PATTERN) {
-                return PackagePatternDataStorage.canStore(stack) && !isEncodedPattern(stack);
+                return isPatternInput(stack);
             }
             if (slot == SLOT_OUTPUT) {
-                return PackagePatternDataStorage.canStore(stack);
+                return isPatternOutput(stack);
             }
             if (slot == SLOT_CAPACITY) {
                 return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
@@ -89,6 +96,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
     public PackagePatternTerminalBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.PACKAGE_PATTERN_TERMINAL.get(), pos, blockState);
+        Arrays.fill(inputSlotColors, UNCOLORED_SLOT);
     }
 
     public ItemStackHandler getItems() {
@@ -104,14 +112,53 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         setChanged();
     }
 
+    public Optional<PackageColor> inputSlotColor(int slot) {
+        if (slot < 0 || slot >= INPUT_SLOT_COUNT) {
+            return Optional.empty();
+        }
+        int color = inputSlotColors[slot];
+        PackageColor[] values = PackageColor.values();
+        if (color < 0 || color >= values.length) {
+            return Optional.empty();
+        }
+        return Optional.of(values[color]);
+    }
+
+    public int inputSlotColorOrdinal(int slot) {
+        return inputSlotColor(slot).map(Enum::ordinal).orElse(UNCOLORED_SLOT);
+    }
+
+    public void setInputSlotColor(int slot, PackageColor color) {
+        if (slot < 0 || slot >= INPUT_SLOT_COUNT || color == null) {
+            return;
+        }
+        inputSlotColors[slot] = color.ordinal();
+        setChanged();
+    }
+
+    public void setInputSlotColorOrdinal(int slot, int color) {
+        if (slot < 0 || slot >= INPUT_SLOT_COUNT) {
+            return;
+        }
+        if (color < 0 || color >= PackageColor.values().length) {
+            inputSlotColors[slot] = UNCOLORED_SLOT;
+        } else {
+            inputSlotColors[slot] = color;
+        }
+        setChanged();
+    }
+
     public EncodeResult encodeOnce() {
         if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
             return EncodeResult.OUTPUT_BLOCKED;
         }
         ItemStack blankPattern = items.getStackInSlot(SLOT_BLANK_PATTERN);
+        if (ColoredProcessingPatternDataStorage.canStore(blankPattern)) {
+            return encodeColoredProcessingPattern(blankPattern);
+        }
         if (blankPattern.isEmpty()
                 || !PackagePatternDataStorage.canStore(blankPattern)
-                || isEncodedPattern(blankPattern)) {
+                || isEncodedPackagePattern(blankPattern)) {
             return EncodeResult.NO_PATTERN;
         }
 
@@ -155,6 +202,27 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         return EncodeResult.ENCODED;
     }
 
+    private EncodeResult encodeColoredProcessingPattern(ItemStack patternStack) {
+        List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(patternStack);
+        Map<Integer, PackageColor> colors = configuredProcessingInputColors(sparseInputs);
+        if (colors.isEmpty()) {
+            return EncodeResult.NO_CONTENTS;
+        }
+
+        ItemStack encoded = patternStack.copy();
+        encoded.setCount(1);
+        ColoredProcessingPatternDataStorage.write(encoded, colors);
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, encoded.copy(), true);
+        if (!remainder.isEmpty()) {
+            return EncodeResult.OUTPUT_BLOCKED;
+        }
+
+        items.extractItem(SLOT_BLANK_PATTERN, 1, false);
+        items.insertItem(SLOT_OUTPUT, encoded, false);
+        setChanged();
+        return EncodeResult.ENCODED;
+    }
+
     @Override
     public Component getDisplayName() {
         return Component.translatable("block.appliedpackaging.package_pattern_terminal");
@@ -184,6 +252,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
+        tag.putIntArray(INPUT_SLOT_COLORS_TAG, inputSlotColors);
     }
 
     @Override
@@ -193,6 +262,11 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             items.deserializeNBT(tag.getCompound(ITEMS_TAG));
         }
         PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).ifPresent(color -> selectedColor = color);
+        Arrays.fill(inputSlotColors, UNCOLORED_SLOT);
+        int[] colors = tag.getIntArray(INPUT_SLOT_COLORS_TAG);
+        for (int slot = 0; slot < Math.min(colors.length, inputSlotColors.length); slot++) {
+            setInputSlotColorOrdinal(slot, colors[slot]);
+        }
     }
 
     @Override
@@ -237,13 +311,59 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
     }
 
+    private Map<Integer, PackageColor> configuredProcessingInputColors(List<GenericStack> sparseInputs) {
+        if (sparseInputs.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Integer, PackageColor> colors = new LinkedHashMap<>();
+        boolean hasConfiguredSlot = false;
+        for (int slot = 0; slot < inputSlotColors.length; slot++) {
+            if (inputSlotColor(slot).isPresent()) {
+                hasConfiguredSlot = true;
+                break;
+            }
+        }
+
+        if (!hasConfiguredSlot) {
+            for (int slot = 0; slot < sparseInputs.size(); slot++) {
+                GenericStack input = sparseInputs.get(slot);
+                if (input != null && input.amount() > 0) {
+                    colors.put(slot, selectedColor);
+                }
+            }
+            return colors;
+        }
+
+        for (int slot = 0; slot < Math.min(inputSlotColors.length, sparseInputs.size()); slot++) {
+            GenericStack input = sparseInputs.get(slot);
+            Optional<PackageColor> color = inputSlotColor(slot);
+            if (input != null && input.amount() > 0 && color.isPresent()) {
+                colors.put(slot, color.get());
+            }
+        }
+        return colors;
+    }
+
     private static boolean isMarkerItem(ItemStack stack) {
         return !stack.isEmpty()
                 && !(stack.getItem() instanceof PackageItem)
-                && !PackagePatternDataStorage.canStore(stack);
+                && !PackagePatternDataStorage.canStore(stack)
+                && !ColoredProcessingPatternDataStorage.canStore(stack);
     }
 
-    private static boolean isEncodedPattern(ItemStack stack) {
+    private static boolean isPatternInput(ItemStack stack) {
+        if (ColoredProcessingPatternDataStorage.canStore(stack)) {
+            return true;
+        }
+        return PackagePatternDataStorage.canStore(stack) && !isEncodedPackagePattern(stack);
+    }
+
+    private static boolean isPatternOutput(ItemStack stack) {
+        return PackagePatternDataStorage.canStore(stack) || ColoredProcessingPatternDataStorage.canStore(stack);
+    }
+
+    private static boolean isEncodedPackagePattern(ItemStack stack) {
         return PackagePatternDataStorage.read(stack).isPresent()
                 || PackagedProcessingPatternDataStorage.read(stack).isPresent();
     }

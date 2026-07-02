@@ -1,11 +1,13 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
+import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
+import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -22,6 +24,7 @@ import net.minecraftforge.items.SlotItemHandler;
 public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_ENCODE = 0;
     public static final int BUTTON_COLOR_BASE = 10;
+    public static final int BUTTON_INPUT_COLOR_BASE = 40;
 
     private static final int MACHINE_SLOT_COUNT = 13;
     private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
@@ -31,6 +34,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     private final PackagePatternTerminalBlockEntity blockEntity;
     private final ContainerLevelAccess access;
     private final DataSlot selectedColorSlot;
+    private final DataSlot[] inputColorSlots = new DataSlot[PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT];
 
     public PackagePatternTerminalMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -62,6 +66,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackagePatternTerminalBlockEntity.SLOT_MARKER, 144, 52));
         addPlayerInventory(playerInventory);
         addDataSlot(selectedColorSlot);
+        addInputColorSlots();
     }
 
     @Override
@@ -69,6 +74,13 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         if (id >= BUTTON_COLOR_BASE && id < BUTTON_COLOR_BASE + PackageColor.values().length) {
             if (!player.level().isClientSide) {
                 blockEntity.setSelectedColor(PackageColor.values()[id - BUTTON_COLOR_BASE]);
+            }
+            return true;
+        }
+        if (id >= BUTTON_INPUT_COLOR_BASE
+                && id < BUTTON_INPUT_COLOR_BASE + PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT) {
+            if (!player.level().isClientSide) {
+                blockEntity.setInputSlotColor(id - BUTTON_INPUT_COLOR_BASE, blockEntity.selectedColor());
             }
             return true;
         }
@@ -91,6 +103,18 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         return values[index];
     }
 
+    public Optional<PackageColor> inputSlotColor(int slot) {
+        if (slot < 0 || slot >= inputColorSlots.length) {
+            return Optional.empty();
+        }
+        int index = inputColorSlots[slot].get();
+        PackageColor[] values = PackageColor.values();
+        if (index < 0 || index >= values.length) {
+            return Optional.empty();
+        }
+        return Optional.of(values[index]);
+    }
+
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
         Slot slot = slots.get(index);
@@ -104,7 +128,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
             if (!moveItemStackTo(source, PLAYER_INVENTORY_START, HOTBAR_END, true)) {
                 return ItemStack.EMPTY;
             }
-        } else if (PackagePatternDataStorage.canStore(source)) {
+        } else if (isPatternInput(source)) {
             if (!moveItemStackTo(
                     source,
                     PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
@@ -154,6 +178,28 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         for (int column = 0; column < 9; column++) {
             addSlot(new Slot(playerInventory, column, 8 + column * 18, 165));
         }
+    }
+
+    private void addInputColorSlots() {
+        for (int slot = 0; slot < inputColorSlots.length; slot++) {
+            final int inputSlot = slot;
+            inputColorSlots[inputSlot] = new DataSlot() {
+                @Override
+                public int get() {
+                    return blockEntity.inputSlotColorOrdinal(inputSlot);
+                }
+
+                @Override
+                public void set(int value) {
+                    blockEntity.setInputSlotColorOrdinal(inputSlot, value);
+                }
+            };
+            addDataSlot(inputColorSlots[inputSlot]);
+        }
+    }
+
+    private static boolean isPatternInput(ItemStack stack) {
+        return ColoredProcessingPatternDataStorage.canStore(stack) || PackagePatternDataStorage.canStore(stack);
     }
 
     private static PackagePatternTerminalBlockEntity getBlockEntity(Inventory inventory, BlockPos pos) {

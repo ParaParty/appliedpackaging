@@ -62,6 +62,7 @@
   "gui.appliedpackaging.me_packager.marker_mode.override": "Override marker",
   "gui.appliedpackaging.me_packager.marker_mode.clear": "Clear marker",
   "gui.appliedpackaging.package_pattern_terminal.encode": "Encode package pattern",
+  "gui.appliedpackaging.package_pattern_terminal.input_slot_color": "Set input slot color",
   "message.appliedpackaging.me_packager.inserted_package": "Package inserted",
   "message.appliedpackaging.me_packager.input_blocked": "Input slot blocked",
   "message.appliedpackaging.me_packager.output_taken": "Package output taken",

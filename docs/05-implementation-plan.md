@@ -213,7 +213,6 @@ GameTest/客户端验证
   装配室基础 GameTest
 
 待实现：
-  彩色处理样板编辑 UI
   容量元件槽
   完整 AE2 crafting CPU 自动合成 job smoke test
   客户端验证
@@ -259,7 +258,10 @@ GameTest/服务器 smoke test
   package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern
   package_pattern_terminal 支持 17 色 swatch 选择，编码样板颜色跟随 selectedColor
+  package_pattern_terminal 支持 9 个输入槽颜色色标，并保存/同步槽位颜色
   package_pattern_terminal 支持 marker 槽与容量槽编码 package_pattern
+  package_pattern_terminal 可把 AE2 encoded processing pattern 克隆为带 colored_processing_pattern 元数据的彩色处理样板
+  package_pattern_terminal 在未逐槽设色时可把 selectedColor 应用到 AE2 processing pattern 全部非空输入槽
   package_pattern_terminal 可把空白 packaged_processing_pattern 编码为有序多包裹样板
   package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
   装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
@@ -267,7 +269,7 @@ GameTest/服务器 smoke test
   已编码 packaged_processing_pattern 不会被终端当空白样板覆盖
 
 待实现：
-  彩色处理样板编辑
+  彩色处理样板更完整的处理输出 UI
   封装处理样板处理输出 UI 与 Split UI
   AE2 原版 blank/encoded pattern 承载迁移评估
   颜色/marker/content 完整过滤 UI
