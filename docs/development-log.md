@@ -791,6 +791,19 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最新进展：
 
 ```text
+补齐 ME Packager 真实 Forge fluid handler 世界内 smoke：
+  新增 mePackagerPackagesAndUnpacksThroughWorldFluidHandler GameTest
+  测试在世界内放置带 Forge FLUID_HANDLER capability 的临时 tank 方块实体与 ME Packager
+  ME Packager 从相邻 fluid handler 打包 2000 mB water，验证源槽被抽空
+  再把输出包裹放回输入槽，ME Packager 整包拆回相邻 fluid handler
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，95 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
+最新进展：
+
+```text
 补齐 ME Packager 周期红石模式：
   MePackagerBlockEntity 新增 RedstoneMode：disabled/pulse/cyclic
   默认保持 pulse，上升沿触发一次，兼容旧行为

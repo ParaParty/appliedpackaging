@@ -159,6 +159,7 @@ GameTest
   fluid handler endpoint GameTest
   ME Packager 红石模式菜单、红石上升沿和周期红石 GameTest
   真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager 世界内打包/拆包 GameTest smoke
+  真实世界相邻 Forge fluid handler + ME Packager 打包/拆包 GameTest smoke
 
 待实现：
   无
@@ -357,5 +358,5 @@ GenericStack 范围风险：
 ```text
 1.0 垂直切片优先验证物品。
 数据模型完整支持 AEKey；对未知 key 保守拒绝拆包，避免吞资源。
-流体 adapter 已在 Packager Forge fluid handler endpoint 接入；后续仍需真实世界 smoke。
+流体 adapter 已在 Packager Forge fluid handler endpoint 接入，并已通过真实世界相邻 fluid handler smoke 覆盖基础打包/拆包。
 ```

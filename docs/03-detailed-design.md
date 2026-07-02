@@ -492,7 +492,7 @@ cyclic 在持续供电时每 20 tick 尝试一次 pack/unpack；输出槽堵塞�
   clear 会生成无 marker 的输出包裹。
   拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
 AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
-Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽打包和整包拆入流体槽；没有 MEStorage 时，混合物品+流体包裹不会拆入单一 Forge 端点。
+Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽打包和整包拆入流体槽；真实世界相邻 Forge fluid handler GameTest 覆盖水流体打包、源槽抽空、整包拆回；没有 MEStorage 时，混合物品+流体包裹不会拆入单一 Forge 端点。
 周期红石模式已有菜单按钮、服务端 ticker、NBT 持久化和 GameTest 覆盖。
 ```
 

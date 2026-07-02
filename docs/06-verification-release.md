@@ -128,7 +128,8 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，94 个必需 GameTest 全部通过。
+真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
+当前最新执行：.\gradlew.bat runGameTestServer 成功，95 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

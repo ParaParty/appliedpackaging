@@ -77,6 +77,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
+import net.minecraftforge.common.util.LazyOptional;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
@@ -1638,6 +1641,50 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void mePackagerPackagesAndUnpacksThroughWorldFluidHandler(GameTestHelper helper) {
+        BlockPos tankPos = new BlockPos(0, 0, 0);
+        BlockPos packagerPos = new BlockPos(1, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(tankPos),
+                Blocks.CHEST.defaultBlockState(),
+                3);
+        TestFluidTankBlockEntity tank = new TestFluidTankBlockEntity(
+                helper.absolutePos(tankPos),
+                helper.getLevel().getBlockState(helper.absolutePos(tankPos)),
+                4000);
+        helper.getLevel().setBlockEntity(tank);
+        tank.fill(new FluidStack(Fluids.WATER, 2000), IFluidHandler.FluidAction.EXECUTE);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        MePackagerBlockEntity.MachineResult packResult = packager.runOnce();
+        ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+        helper.assertTrue(packResult == MePackagerBlockEntity.MachineResult.PACKED,
+                "ME Packager should package from the adjacent Forge fluid handler");
+        helper.assertTrue(amountOf(outputData, AEFluidKey.of(Fluids.WATER)) == 2000,
+                "Fluid handler package should contain drained water");
+        helper.assertTrue(tank.getFluidAmount() == 0,
+                "ME Packager should drain the adjacent Forge fluid handler");
+
+        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, output);
+        MePackagerBlockEntity.MachineResult unpackResult = packager.runOnce();
+        helper.assertTrue(unpackResult == MePackagerBlockEntity.MachineResult.UNPACKED,
+                "ME Packager should unpack into the adjacent Forge fluid handler");
+        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                "ME Packager should consume the fluid package after unpack");
+        helper.assertTrue(tank.getFluidAmount() == 2000
+                        && tank.getFluid().isFluidEqual(new FluidStack(Fluids.WATER, 2000)),
+                "Forge fluid handler should contain unpacked water");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageItemStorageExposesOnlyLegalPackages(GameTestHelper helper) {
         ItemStackHandler target = new ItemStackHandler(3);
         ItemStack legalPackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
@@ -2724,6 +2771,43 @@ public final class PackageDataGameTests {
         @Override
         public Component getDescription() {
             return Component.literal("memory");
+        }
+    }
+
+    private static final class TestFluidTankBlockEntity extends ChestBlockEntity {
+        private final FluidTank tank;
+        private final LazyOptional<IFluidHandler> fluidHandler;
+
+        private TestFluidTankBlockEntity(BlockPos pos, BlockState blockState, int capacity) {
+            super(pos, blockState);
+            this.tank = new FluidTank(capacity);
+            this.fluidHandler = LazyOptional.of(() -> tank);
+        }
+
+        private int fill(FluidStack resource, IFluidHandler.FluidAction action) {
+            return tank.fill(resource, action);
+        }
+
+        private FluidStack getFluid() {
+            return tank.getFluid();
+        }
+
+        private int getFluidAmount() {
+            return tank.getFluidAmount();
+        }
+
+        @Override
+        public <T> LazyOptional<T> getCapability(Capability<T> capability, Direction side) {
+            if (capability == ForgeCapabilities.FLUID_HANDLER) {
+                return fluidHandler.cast();
+            }
+            return super.getCapability(capability, side);
+        }
+
+        @Override
+        public void invalidateCaps() {
+            super.invalidateCaps();
+            fluidHandler.invalidate();
         }
     }
 }
