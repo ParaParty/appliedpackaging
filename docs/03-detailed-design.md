@@ -504,6 +504,33 @@ Split:
 提交后目标得到散装内容
 ```
 
+当前基础实现：
+
+```text
+总线家族当前实现为 AE2 可连接方块端点，而不是 cable part。
+三种总线均注册为水平朝向方块、方块物品、方块实体、配方、loot table 和 blockstate。
+方块实体继承 AE2 AENetworkBlockEntity，持有 IManagedGridNode，可连接 AE2 网络。
+总线背面作为相邻 Forge item handler 目标端点。
+
+package_storage_bus:
+  作为 IStorageProvider 挂载 PackageItemStorage。
+  只枚举带 PackageData 的合法包裹。
+  insert/extract 均拒绝散装物品和无 PackageData 的包裹。
+  不暴露包裹内部内容。
+
+package_export_bus:
+  周期性从 AE 网络缓存中选择合法包裹。
+  只输出已有包裹到背面库存。
+  不把散装库存自动打成包裹。
+
+package_unpacking_bus:
+  周期性从 AE 网络选择合法包裹。
+  先模拟完整拆入背面库存，成功后才从网络抽取 1 个包裹并提交散装插入。
+  不接受部分拆包。
+
+当前不含过滤 UI、颜色/marker/content 过滤配置，也未实现 AE2 cable part 形态。
+```
+
 ## 11. 过滤规则
 
 包裹过滤维度：

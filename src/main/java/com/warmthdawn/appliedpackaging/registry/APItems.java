@@ -35,6 +35,18 @@ public final class APItems {
             "package_assembler",
             () -> new BlockItem(APBlocks.PACKAGE_ASSEMBLER.get(), new Item.Properties()));
 
+    public static final RegistryObject<Item> PACKAGE_STORAGE_BUS = ITEMS.register(
+            "package_storage_bus",
+            () -> new BlockItem(APBlocks.PACKAGE_STORAGE_BUS.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGE_EXPORT_BUS = ITEMS.register(
+            "package_export_bus",
+            () -> new BlockItem(APBlocks.PACKAGE_EXPORT_BUS.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGE_UNPACKING_BUS = ITEMS.register(
+            "package_unpacking_bus",
+            () -> new BlockItem(APBlocks.PACKAGE_UNPACKING_BUS.get(), new Item.Properties()));
+
     static {
         for (PackageColor color : PackageColor.values()) {
             PACKAGE_ITEMS.put(color, ITEMS.register(

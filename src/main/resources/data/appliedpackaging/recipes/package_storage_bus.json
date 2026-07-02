@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    {
+      "item": "ae2:storage_bus"
+    },
+    {
+      "item": "appliedpackaging:package_pattern"
+    },
+    {
+      "item": "ae2:fluix_dust"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:package_storage_bus"
+  }
+}

@@ -3,6 +3,7 @@ package com.warmthdawn.appliedpackaging.registry;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.PackageAssemblerBlock;
+import com.warmthdawn.appliedpackaging.world.block.PackageBusBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -23,6 +24,18 @@ public final class APBlocks {
     public static final RegistryObject<Block> PACKAGE_ASSEMBLER = BLOCKS.register(
             "package_assembler",
             () -> new PackageAssemblerBlock(machineProperties()));
+
+    public static final RegistryObject<Block> PACKAGE_STORAGE_BUS = BLOCKS.register(
+            "package_storage_bus",
+            () -> new PackageBusBlock(machineProperties(), PackageBusBlock.BusKind.STORAGE));
+
+    public static final RegistryObject<Block> PACKAGE_EXPORT_BUS = BLOCKS.register(
+            "package_export_bus",
+            () -> new PackageBusBlock(machineProperties(), PackageBusBlock.BusKind.EXPORT));
+
+    public static final RegistryObject<Block> PACKAGE_UNPACKING_BUS = BLOCKS.register(
+            "package_unpacking_bus",
+            () -> new PackageBusBlock(machineProperties(), PackageBusBlock.BusKind.UNPACKING));
 
     private APBlocks() {
     }

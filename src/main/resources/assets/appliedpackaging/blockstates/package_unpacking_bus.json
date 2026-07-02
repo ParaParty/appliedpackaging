@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "appliedpackaging:block/package_unpacking_bus",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "appliedpackaging:block/package_unpacking_bus"
+    },
+    "facing=south": {
+      "model": "appliedpackaging:block/package_unpacking_bus",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "appliedpackaging:block/package_unpacking_bus",
+      "y": 270
+    }
+  }
+}

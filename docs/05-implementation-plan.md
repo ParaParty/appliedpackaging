@@ -220,6 +220,27 @@ AE2 网络集成
 GameTest/服务器 smoke test
 ```
 
+当前状态：
+
+```text
+已实现：
+  package_storage_bus/package_export_bus/package_unpacking_bus 方块、方块物品、方块实体注册
+  三种总线 blockstate、item model、loot table、recipe、语言文件
+  AE2 可连接方块端点：AENetworkBlockEntity + IManagedGridNode
+  package_storage_bus 通过 IStorageProvider 挂载 PackageItemStorage
+  PackageItemStorage 只暴露、插入、抽取合法包裹
+  package_export_bus 只从 AE 网络输出已有合法包裹
+  package_unpacking_bus 整包事务性拆入背面库存
+  PackageItemStorage GameTest
+
+待实现：
+  包裹样板终端
+  颜色/marker/content 过滤 UI
+  AE2 cable part 形态
+  真实 AE 网络服务器 smoke test
+  客户端模型/GUI 冒烟验证
+```
+
 验收：
 
 ```text

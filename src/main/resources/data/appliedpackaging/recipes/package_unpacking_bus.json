@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    {
+      "item": "ae2:export_bus"
+    },
+    {
+      "item": "appliedpackaging:package_pattern"
+    },
+    {
+      "item": "ae2:annihilation_core"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:package_unpacking_bus"
+  }
+}

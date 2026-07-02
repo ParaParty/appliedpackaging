@@ -3,7 +3,11 @@ package com.warmthdawn.appliedpackaging.gametest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.api.config.Actionable;
+import appeng.api.networking.security.IActionSource;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
@@ -366,6 +370,54 @@ public final class PackageDataGameTests {
                 "Flattened source package should contribute iron");
         helper.assertTrue(amountOf(data, AEItemKey.of(Items.COPPER_INGOT)) == 32,
                 "Loose input should contribute copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageItemStorageExposesOnlyLegalPackages(GameTestHelper helper) {
+        ItemStackHandler target = new ItemStackHandler(3);
+        ItemStack legalPackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        target.setStackInSlot(0, legalPackage.copy());
+        target.setStackInSlot(1, new ItemStack(APItems.packageItems().get(PackageColor.RED).get()));
+        target.setStackInSlot(2, new ItemStack(Items.IRON_INGOT, 64));
+
+        PackageItemStorage storage = new PackageItemStorage(target, net.minecraft.network.chat.Component.literal("test"));
+        KeyCounter available = new KeyCounter();
+        storage.getAvailableStacks(available);
+
+        helper.assertTrue(available.get(AEItemKey.of(legalPackage)) == 1, "Legal package should be visible");
+        helper.assertTrue(available.size() == 1, "Invalid packages and loose items should not be visible");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageItemStorageRejectsLooseItemInsert(GameTestHelper helper) {
+        ItemStackHandler target = new ItemStackHandler(1);
+        PackageItemStorage storage = new PackageItemStorage(target, net.minecraft.network.chat.Component.literal("test"));
+
+        long inserted = storage.insert(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.MODULATE, IActionSource.empty());
+
+        helper.assertTrue(inserted == 0, "Package storage should reject loose item insert");
+        helper.assertTrue(target.getStackInSlot(0).isEmpty(), "Rejected insert should not mutate target");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageItemStorageInsertsAndExtractsPackages(GameTestHelper helper) {
+        ItemStackHandler target = new ItemStackHandler(1);
+        ItemStack legalPackage = packageStack(PackageColor.GREEN, ironPackageData(PackageColor.GREEN, 64));
+        PackageItemStorage storage = new PackageItemStorage(target, net.minecraft.network.chat.Component.literal("test"));
+
+        long simulatedInsert = storage.insert(AEItemKey.of(legalPackage), 1, Actionable.SIMULATE, IActionSource.empty());
+        long inserted = storage.insert(AEItemKey.of(legalPackage), 1, Actionable.MODULATE, IActionSource.empty());
+        long simulatedExtract = storage.extract(AEItemKey.of(legalPackage), 1, Actionable.SIMULATE, IActionSource.empty());
+        long extracted = storage.extract(AEItemKey.of(legalPackage), 1, Actionable.MODULATE, IActionSource.empty());
+
+        helper.assertTrue(simulatedInsert == 1, "Legal package insert should simulate");
+        helper.assertTrue(inserted == 1, "Legal package insert should commit");
+        helper.assertTrue(simulatedExtract == 1, "Legal package extract should simulate");
+        helper.assertTrue(extracted == 1, "Legal package extract should commit");
+        helper.assertTrue(target.getStackInSlot(0).isEmpty(), "Committed extract should empty target");
         helper.succeed();
     }
 

@@ -52,7 +52,10 @@ item handler 拆包可完整插入目标
 装配室可从输入缓冲生成包裹
 装配室输出阻挡时不消耗输入
 装配室输入包裹会展开后再封装
-当前最新执行：.\gradlew.bat runGameTestServer 成功，21 个必需 GameTest 全部通过。
+AE2 PackageItemStorage 只暴露合法包裹
+AE2 PackageItemStorage 拒绝散装物品插入
+AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
+当前最新执行：.\gradlew.bat runGameTestServer 成功，24 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

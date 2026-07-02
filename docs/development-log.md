@@ -153,14 +153,28 @@ AE2 1.20.1 Storage Cells 指南
   packageAssemblerCreatesPackageFromInputBuffer
   packageAssemblerKeepsInputsWhenOutputBlocked
   packageAssemblerFlattensInputPackages
+新增 AE2 方块总线家族：
+  package_storage_bus
+  package_export_bus
+  package_unpacking_bus
+当前总线实现为 AE2 可连接方块端点：
+  AENetworkBlockEntity + IManagedGridNode
+  package_storage_bus 挂载 IStorageProvider
+  package_export_bus 从 AE 网络输出已有合法包裹
+  package_unpacking_bus 先模拟完整拆包再提交
+新增 PackageItemStorage GameTest：
+  packageItemStorageExposesOnlyLegalPackages
+  packageItemStorageRejectsLooseItemInsert
+  packageItemStorageInsertsAndExtractsPackages
 验证 .\gradlew.bat compileJava 成功
 验证 .\gradlew.bat runData 成功
-验证 .\gradlew.bat runGameTestServer 成功，21 个必需 GameTest 全部通过
+验证 .\gradlew.bat runGameTestServer 成功，24 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
 ```
 
 下一步：
 
 ```text
-提交基础配方、ME Packager GUI 和 Package Assembler 基础行为。
-继续评估 AE2 endpoint/总线集成，并补客户端 runClient 冒烟验证。
+提交 AE2 方块总线集成。
+继续实现包裹样板终端、过滤 UI，并补客户端 runClient 冒烟验证。
 ```
