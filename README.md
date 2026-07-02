@@ -73,9 +73,16 @@ Useful commands:
 .\gradlew.bat runData
 .\gradlew.bat build
 .\gradlew.bat runClient
+.\gradlew.bat runClientSmoke
 ```
 
 The project uses ModDevGradle Legacy with Java 17. GameTest structures are copied from `gameteststructures/` before `runGameTestServer`.
+
+`runClientSmoke` quick-plays a local singleplayer world, places the key Applied Packaging blocks, opens their real menus, saves screenshots under `run/screenshots/`, and exits. It defaults to the local world named `New World`; override it with:
+
+```powershell
+.\gradlew.bat runClientSmoke -Pappliedpackaging.clientSmoke.world="Your World Name"
+```
 
 ## Verification Status
 
@@ -87,6 +94,7 @@ runGameTestServer: passed, 90 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas
+runClientSmoke:    opened and captured package assembler, packager, pattern terminal, and package bus screens
 runServer smoke:   reached dedicated server EULA gate without Applied Packaging client-class loading errors
 ```
 

@@ -21,6 +21,7 @@ public final class AppliedPackagingClient {
     public static void register(IEventBus eventBus) {
         eventBus.addListener(AppliedPackagingClient::clientSetup);
         MinecraftForge.EVENT_BUS.addListener(AppliedPackagingClient::appendTooltip);
+        ClientSmokeRunner.register();
     }
 
     private static void clientSetup(FMLClientSetupEvent event) {

@@ -19,6 +19,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - English and Simplified Chinese language files.
 - Recipes, loot tables, models, item textures, block textures, GUI icons, and Forge mod metadata.
 - GameTest coverage for package data, transactions, filters, capacity, package machines, package buses, AE2 carriers, AE2 Pattern Provider integration, and fluid transactions.
+- Automated `runClientSmoke` development run for opening key in-game menus, capturing screenshots, and exiting the client.
 
 ### Changed
 
@@ -33,6 +34,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `.\gradlew.bat runData` passed.
 - `.\gradlew.bat build` passed and generated `build/libs/appliedpackaging-0.1.0-dev.jar`.
 - `.\gradlew.bat runClient` smoke reached Applied Packaging initialization, SoundEngine startup, and block atlas creation with no recorded missing model or missing texture errors.
+- `.\gradlew.bat runClientSmoke` passed and captured the Package Assembler, ME Packager, Package Pattern Terminal, and Package Storage Bus screens.
 
 ### Known Limitations
 

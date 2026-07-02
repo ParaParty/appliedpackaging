@@ -207,6 +207,7 @@ Tooltip 每包/总计正确
 
 ```powershell
 .\gradlew.bat runClient
+.\gradlew.bat runClientSmoke
 ```
 
 当前客户端 smoke：
@@ -219,6 +220,16 @@ run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load mod
 机器 preview sheet 已移至 docs/assets/previews，不再作为 block atlas 资源加载；最新 smoke 未再出现 preview_sheet/mip level 警告。
 本次 smoke 在 atlas 创建完成后手动终止；Gradle 退出码来自人工终止，不代表客户端启动失败。
 已观察到的剩余警告为 Forge/AE2/Vanilla 常规开发环境警告。
+
+2026-07-03 新增并执行 .\gradlew.bat runClientSmoke 成功。
+runClientSmoke 使用 --quickPlaySingleplayer 进入本地单人世界，自动摆放 4 个关键方块，依次通过真实服务器玩家和 NetworkHooks.openScreen 打开菜单，截图后退出客户端。
+已生成并人工检查以下截图，均为真实 Minecraft 客户端菜单画面，不是原型图或静态 mock：
+  run/screenshots/appliedpackaging-client-smoke-package_assembler.png
+  run/screenshots/appliedpackaging-client-smoke-me_packager.png
+  run/screenshots/appliedpackaging-client-smoke-package_pattern_terminal.png
+  run/screenshots/appliedpackaging-client-smoke-package_storage_bus.png
+run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture 或客户端 smoke timeout。
+默认 quick-play 世界名为 New World；可用 -Pappliedpackaging.clientSmoke.world="世界名" 覆盖。
 ```
 
 ## 6. Dedicated Server 验证
@@ -243,6 +254,7 @@ run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load mod
 .\gradlew.bat runServer 已执行到专用服务端启动阶段。
 服务端在读取 run/eula.txt 时按 Mojang EULA 要求停止，未继续进入世界加载。
 停止前未出现 Applied Packaging 客户端类误加载、注册崩溃或 mod 扫描异常。
+2026-07-03 新增 ClientSmokeRunner 后再次执行 .\gradlew.bat runServer，仍正常到达 EULA gate，未出现客户端 smoke 类误加载。
 验收专用服务端完整启动前，需要用户显式同意 EULA 后再重新运行；AI 不自动修改 eula.txt。
 ```
 

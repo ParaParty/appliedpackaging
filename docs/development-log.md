@@ -749,7 +749,6 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 
 ```text
 补齐彩色 AE2 processing pattern 更完整的输出 UI、封装处理样板流体/任意 AEKey 输出 ghost editor、批量/流体/任意 AEKey 高级过滤器编辑器和 AE2 part 形态。
-补客户端实际开 GUI/截图 smoke，重点看 Package Assembler 新容量槽、Package Bus 过滤 UI、终端 Split 按钮、处理输出 ghost slots 和输入槽色标右键清除。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```
 
@@ -763,4 +762,28 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
   更新 docs/06-verification-release.md，将发布清单从待准备项改为当前状态记录
 本次仅变更发布文档与许可声明，未改动玩法逻辑；GameTest 已按规则考虑，未新增行为测试。
 验证 .\gradlew.bat build 成功，资源模板和发布 jar 生成链路仍可用。
+```
+
+最新进展：
+
+```text
+补齐可重复客户端 GUI screenshot smoke：
+  新增 runClientSmoke Gradle run，默认 --quickPlaySingleplayer "New World"
+  可通过 -Pappliedpackaging.clientSmoke.world="世界名" 覆盖 quick-play 世界
+  新增 ClientSmokeRunner，仅在 appliedpackaging.clientSmoke.enabled=true 时注册
+  smoke 进入单人世界后自动摆放 Package Assembler、ME Packager、Package Pattern Terminal、Package Storage Bus
+  smoke 通过真实 ServerPlayer + NetworkHooks.openScreen 打开对应菜单，并使用 Minecraft Screenshot 保存画面
+  smoke 完成后按 appliedpackaging.clientSmoke.quit=true 自动退出客户端
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runClientSmoke 成功，生成 4 张截图：
+  run/screenshots/appliedpackaging-client-smoke-package_assembler.png
+  run/screenshots/appliedpackaging-client-smoke-me_packager.png
+  run/screenshots/appliedpackaging-client-smoke-package_pattern_terminal.png
+  run/screenshots/appliedpackaging-client-smoke-package_storage_bus.png
+人工查看 4 张截图，确认均为真实 Minecraft 客户端菜单画面
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture 或客户端 smoke timeout
+本次新增客户端验证工具和 Gradle run；GameTest 已按规则考虑，未新增行为 GameTest
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runGameTestServer 成功，90 个必需 GameTest 全部通过
+验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现 ClientSmokeRunner 或其他客户端类误加载；完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
 ```
