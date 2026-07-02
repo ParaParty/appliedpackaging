@@ -13,7 +13,6 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStora
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
-import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
@@ -52,10 +51,10 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             if (slot == SLOT_BLANK_PATTERN) {
-                return stack.is(APItems.PACKAGE_PATTERN.get()) && PackagePatternDataStorage.read(stack).isEmpty();
+                return PackagePatternDataStorage.canStore(stack) && PackagePatternDataStorage.read(stack).isEmpty();
             }
             if (slot == SLOT_OUTPUT) {
-                return stack.is(APItems.PACKAGE_PATTERN.get());
+                return PackagePatternDataStorage.canStore(stack);
             }
             if (slot == SLOT_CAPACITY) {
                 return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
@@ -108,7 +107,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         }
         ItemStack blankPattern = items.getStackInSlot(SLOT_BLANK_PATTERN);
         if (blankPattern.isEmpty()
-                || !blankPattern.is(APItems.PACKAGE_PATTERN.get())
+                || !PackagePatternDataStorage.canStore(blankPattern)
                 || PackagePatternDataStorage.read(blankPattern).isPresent()) {
             return EncodeResult.NO_PATTERN;
         }
@@ -125,7 +124,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             return EncodeResult.NO_CONTENTS;
         }
 
-        ItemStack encoded = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        ItemStack encoded = new ItemStack(blankPattern.getItem());
         PackagePatternDataStorage.write(encoded, selectedColor, plan.get().data());
         ItemStack remainder = items.insertItem(SLOT_OUTPUT, encoded, true);
         if (!remainder.isEmpty()) {

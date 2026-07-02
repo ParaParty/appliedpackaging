@@ -901,6 +901,27 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesPackagedProcessingPattern(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode a packaged processing pattern shell");
+        helper.assertTrue(output.is(APItems.PACKAGED_PROCESSING_PATTERN.get()),
+                "Terminal should preserve the blank pattern item type");
+        helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Encoded packaged processing pattern should contain iron");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalKeepsBlankWhenOutputBlocked(GameTestHelper helper) {
         PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
         terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));

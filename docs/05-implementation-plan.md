@@ -247,6 +247,7 @@ GameTest/服务器 smoke test
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern
   package_pattern_terminal 支持 17 色 swatch 选择，编码样板颜色跟随 selectedColor
   package_pattern_terminal 支持 marker 槽与容量槽编码 package_pattern
+  package_pattern_terminal 可把空白 packaged_processing_pattern 编码为单包裹样板
   package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
   装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
 

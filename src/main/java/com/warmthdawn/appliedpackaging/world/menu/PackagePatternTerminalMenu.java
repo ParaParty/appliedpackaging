@@ -1,8 +1,8 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
-import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
@@ -104,7 +104,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
             if (!moveItemStackTo(source, PLAYER_INVENTORY_START, HOTBAR_END, true)) {
                 return ItemStack.EMPTY;
             }
-        } else if (source.is(APItems.PACKAGE_PATTERN.get())) {
+        } else if (PackagePatternDataStorage.canStore(source)) {
             if (!moveItemStackTo(
                     source,
                     PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,

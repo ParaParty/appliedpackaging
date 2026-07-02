@@ -337,9 +337,24 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐 packaged_processing_pattern 基础编码路径：
+  Package Pattern Terminal 空白样板槽现在接受未编码 package_pattern 或 packaged_processing_pattern
+  编码输出会保留空白样板的物品类型
+  packaged_processing_pattern 当前复用 PackagePatternDataStorage，先支持单包裹 PackageData 编码
+  shift-click 会把两类可存储样板送入空白样板槽
+新增 GameTest：
+  packagePatternTerminalEncodesPackagedProcessingPattern
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，49 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
-继续补齐处理样板多包裹工作流等发布阻塞项。
+继续补齐封装处理样板多包裹列表结构、合成/拆分工作流等发布阻塞项。
 ```
