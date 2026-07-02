@@ -849,6 +849,58 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesMarkerSlot(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        MarkerSpec marker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1));
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_MARKER,
+                new ItemStack(Items.GOLD_INGOT));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGE_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode with a marker slot");
+        helper.assertTrue(pattern.data().marker().map(actual -> actual.sameAs(marker)).orElse(false),
+                "Encoded pattern should store the marker slot key");
+        helper.assertTrue(!terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_MARKER).isEmpty(),
+                "Encoding should not consume the marker slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalUsesCapacitySlot(GameTestHelper helper) {
+        ResourceLocation id = ResourceLocation.tryParse("ae2:cell_component_64k");
+        helper.assertTrue(id != null, "AE2 64k storage component id should parse");
+        ItemStack component = new ItemStack(BuiltInRegistries.ITEM.get(id));
+        helper.assertFalse(component.isEmpty(), "AE2 64k storage component should be registered");
+
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 640));
+        terminal.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_CAPACITY, component);
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGE_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should use the configured capacity profile");
+        helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 640,
+                "64k capacity profile should allow ten iron stack units");
+        helper.assertTrue(!terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_CAPACITY).isEmpty(),
+                "Encoding should not consume the capacity slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalKeepsBlankWhenOutputBlocked(GameTestHelper helper) {
         PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
         terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));

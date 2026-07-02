@@ -59,6 +59,8 @@ AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
 package_pattern 数据可读写
 package_pattern_terminal 可从预览输入编码 package_pattern
 package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
+package_pattern_terminal 可把 marker 槽物品编码为样板 marker
+package_pattern_terminal 可用容量槽编码超过默认容量的样板
 package_pattern_terminal 输出阻挡时保留空白样板
 package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆盖
 item handler 打包计划可按内容过滤只选择 requiredContents
@@ -77,7 +79,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，46 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，48 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

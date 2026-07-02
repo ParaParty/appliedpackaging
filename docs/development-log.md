@@ -319,6 +319,24 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐 Package Pattern Terminal marker/capacity 编码能力：
+  终端方块实体新增容量槽和 marker 槽
+  编码 package_pattern 时容量槽使用 ME Packager 的 AE2 16k/64k/256k 映射
+  marker 槽物品写入样板 PackageData marker，编码时不消耗 marker 槽
+  容量槽编码时不消耗容量元件
+  GUI 高度扩展到 188，新增容量槽、marker 槽并下移玩家背包
+  shift-click 会把 AE2 容量元件送入容量槽；marker 槽保持手动放入，避免普通预览物品误分流
+新增 GameTest：
+  packagePatternTerminalEncodesMarkerSlot
+  packagePatternTerminalUsesCapacitySlot
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，48 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text

@@ -1,14 +1,20 @@
 package com.warmthdawn.appliedpackaging.world.block.entity.terminal;
 
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import java.util.Optional;
@@ -35,7 +41,9 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     public static final int INPUT_SLOT_COUNT = 9;
     public static final int SLOT_BLANK_PATTERN = 9;
     public static final int SLOT_OUTPUT = 10;
-    private static final int SLOT_COUNT = 11;
+    public static final int SLOT_CAPACITY = 11;
+    public static final int SLOT_MARKER = 12;
+    private static final int SLOT_COUNT = 13;
     private static final String ITEMS_TAG = "items";
     private static final String SELECTED_COLOR_TAG = "selected_color";
 
@@ -49,10 +57,24 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             if (slot == SLOT_OUTPUT) {
                 return stack.is(APItems.PACKAGE_PATTERN.get());
             }
+            if (slot == SLOT_CAPACITY) {
+                return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
+            }
+            if (slot == SLOT_MARKER) {
+                return isMarkerItem(stack);
+            }
             if (stack.getItem() instanceof PackageItem) {
                 return PackageDataStorage.read(stack).isPresent();
             }
             return true;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            if (slot == SLOT_CAPACITY || slot == SLOT_MARKER) {
+                return 1;
+            }
+            return super.getSlotLimit(slot);
         }
 
         @Override
@@ -91,10 +113,14 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             return EncodeResult.NO_PATTERN;
         }
 
+        Optional<MarkerSpec> marker = configuredMarker();
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 inputView,
                 selectedColor,
-                PackageCapacityProfile.DEFAULT);
+                configuredCapacityProfile(),
+                PackageFilter.any(),
+                marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.RETAIN,
+                marker);
         if (plan.isEmpty()) {
             return EncodeResult.NO_CONTENTS;
         }
@@ -177,5 +203,26 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         public String messageKey() {
             return messageKey;
         }
+    }
+
+    private PackageCapacityProfile configuredCapacityProfile() {
+        return MePackagerBlockEntity.capacityProfileFromItem(items.getStackInSlot(SLOT_CAPACITY))
+                .orElse(PackageCapacityProfile.DEFAULT);
+    }
+
+    private Optional<MarkerSpec> configuredMarker() {
+        ItemStack markerStack = items.getStackInSlot(SLOT_MARKER);
+        if (!isMarkerItem(markerStack)) {
+            return Optional.empty();
+        }
+        ItemStack keyStack = markerStack.copy();
+        keyStack.setCount(1);
+        return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
+    }
+
+    private static boolean isMarkerItem(ItemStack stack) {
+        return !stack.isEmpty()
+                && !(stack.getItem() instanceof PackageItem)
+                && !PackagePatternDataStorage.canStore(stack);
     }
 }

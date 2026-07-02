@@ -478,7 +478,7 @@ processingOutputs
 
 ```text
 Package Pattern:
-  17 色选择、marker ghost、GenericStack ghost slots、容量档、编码
+  17 色选择、marker 槽、GenericStack ghost slots、容量档槽、编码
 
 Colored Processing Pattern:
   普通处理样板输入格、每格颜色、处理输出、编码
@@ -497,12 +497,14 @@ package_pattern 与 packaged_processing_pattern 使用 PackagePatternItem，tool
 PackagePatternDataStorage 在 ItemStack NBT 中写入 version、color 与嵌套 PackageData。
 读取已编码样板时会按样板颜色复验嵌套 PackageData canonical hash。
 package_pattern_terminal 已注册为水平朝向方块、方块物品、方块实体、菜单和客户端 screen。
-终端 GUI 当前提供 9 格预览输入、1 格空白 package_pattern、1 格输出，以及 Encode 按钮。
-编码 package_pattern 时只读取预览输入，不消耗预览输入；只消耗 1 个未编码空白 package_pattern。
+终端 GUI 当前提供 9 格预览输入、1 格空白 package_pattern、1 格输出、容量槽、marker 槽、17 色 swatch，以及 Encode 按钮。
+编码 package_pattern 时只读取预览输入，不消耗预览输入、容量槽或 marker 槽；只消耗 1 个未编码空白 package_pattern。
 终端保存并同步 selectedColor，GUI 提供 17 色 swatch，编码样板颜色跟随当前选择。
+容量槽使用与 ME Packager 相同的 AE2 16k/64k/256k 容量元件映射。
+marker 槽写入 package_pattern 的 MarkerSpec，可作为 ME Packager 过滤或 override 回退模板。
 输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前不含 marker ghost、容量档 UI、彩色处理样板编辑、封装处理样板合成/拆分。
+当前不含彩色处理样板编辑、封装处理样板合成/拆分。
 ```
 
 ## 10. 包裹总线

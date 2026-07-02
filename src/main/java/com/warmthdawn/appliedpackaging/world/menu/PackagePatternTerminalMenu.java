@@ -4,6 +4,7 @@ import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
+import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -22,7 +23,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_ENCODE = 0;
     public static final int BUTTON_COLOR_BASE = 10;
 
-    private static final int MACHINE_SLOT_COUNT = 11;
+    private static final int MACHINE_SLOT_COUNT = 13;
     private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
     private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
     private static final int HOTBAR_END = PLAYER_INVENTORY_END + 9;
@@ -57,6 +58,8 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         addInputSlots();
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN, 116, 24));
         addSlot(new OutputSlot(blockEntity, 144, 24));
+        addSlot(new SlotItemHandler(blockEntity.getItems(), PackagePatternTerminalBlockEntity.SLOT_CAPACITY, 116, 52));
+        addSlot(new SlotItemHandler(blockEntity.getItems(), PackagePatternTerminalBlockEntity.SLOT_MARKER, 144, 52));
         addPlayerInventory(playerInventory);
         addDataSlot(selectedColorSlot);
     }
@@ -109,6 +112,14 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
                     false)) {
                 return ItemStack.EMPTY;
             }
+        } else if (MePackagerBlockEntity.capacityProfileFromItem(source).isPresent()) {
+            if (!moveItemStackTo(
+                    source,
+                    PackagePatternTerminalBlockEntity.SLOT_CAPACITY,
+                    PackagePatternTerminalBlockEntity.SLOT_CAPACITY + 1,
+                    false)) {
+                return ItemStack.EMPTY;
+            }
         } else if (!moveItemStackTo(source, 0, PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT, false)) {
             return ItemStack.EMPTY;
         }
@@ -137,11 +148,11 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     private void addPlayerInventory(Inventory playerInventory) {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
-                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 84 + row * 18));
+                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 107 + row * 18));
             }
         }
         for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(playerInventory, column, 8 + column * 18, 142));
+            addSlot(new Slot(playerInventory, column, 8 + column * 18, 165));
         }
     }
 
