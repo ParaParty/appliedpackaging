@@ -311,8 +311,10 @@ GUI 提供 9 格输入缓冲、样板槽、输出槽与玩家背包；shift-clic
 样板槽可放入 package_pattern 或 packaged_processing_pattern。
 如果 package_pattern 已编码，装配室只接受与样板 canonical hash 完全一致的输入计划。
 已编码 package_pattern 不会被消耗，输出包裹颜色跟随样板颜色。
+如果 packaged_processing_pattern 已编码，装配室读取有序 package list，每次在输出槽为空时生成一个当前输入可满足且 canonical hash 匹配的包裹。
+packaged_processing_pattern 不会被消耗；输出被取走后可继续生成该处理样板中的下一个可满足包裹。
 未编码样板或空样板槽时，装配室使用默认 Fluix 包裹行为。
-当前使用默认容量档，不含彩色处理样板拆分、封装处理样板多包裹计划、容量元件槽和 AE2 网络自动导出。
+当前使用默认容量档，不含彩色处理样板拆分、容量元件槽和 AE2 网络自动导出。
 ```
 
 ## 8. ME 打包机
@@ -446,6 +448,14 @@ Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽�
 
 包裹样板物品 ID：`package_pattern`
 
+样板承载约束：
+
+```text
+当前实现仍保留本地 package_pattern / packaged_processing_pattern 作为功能载体。
+后续结构调整应优先评估扩展 AE2 原版 blank/encoded pattern 的 NBT/编码流程，而不是继续新增样板物品。
+迁移到 AE2 原版样板前，必须保留已编码本地样板的读取兼容或提供明确迁移路径。
+```
+
 包裹样板数据：
 
 ```text
@@ -468,10 +478,10 @@ slotColor[0..8] = PackageColor
 封装处理样板数据：
 
 ```text
-vanilla/AE2 processing pattern payload
-List<PackagePlan>
-flattenedInputsHash
-processingOutputs
+version
+PackageColor
+ordered List<PackageData>
+每个 PackageData 使用现有 canonical hash 校验
 ```
 
 终端 tab：
@@ -496,16 +506,21 @@ Split:
 package_pattern 与 packaged_processing_pattern 使用 PackagePatternItem，tooltip 会区分空白/已编码状态。
 PackagePatternDataStorage 在 ItemStack NBT 中写入 version、color 与嵌套 PackageData。
 读取已编码样板时会按样板颜色复验嵌套 PackageData canonical hash。
+PackagedProcessingPatternDataStorage 在 ItemStack NBT 中写入 version、color 与 packages[]。
+读取封装处理样板时会逐个复验嵌套 PackageData canonical hash，并兼容旧的单包裹 PackagePatternDataStorage 写法。
 package_pattern_terminal 已注册为水平朝向方块、方块物品、方块实体、菜单和客户端 screen。
+终端后续外形应调整为 AE2 风格面板/part，而不是完整机器方块；当前先保留方块形态以保证功能闭环。
 终端 GUI 当前提供 9 格预览输入、1 格空白样板槽、1 格输出、容量槽、marker 槽、17 色 swatch，以及 Encode 按钮。
 空白样板槽接受未编码 package_pattern 或 packaged_processing_pattern；输出保留输入样板物品类型。
-编码 package_pattern / packaged_processing_pattern 时只读取预览输入，不消耗预览输入、容量槽或 marker 槽；只消耗 1 个未编码空白样板。
+编码 package_pattern 时写入单个 PackageData；编码 packaged_processing_pattern 时按容量档把预览输入拆成有序 packages[]。
+编码只读取预览输入，不消耗预览输入、容量槽或 marker 槽；只消耗 1 个未编码空白样板。
 终端保存并同步 selectedColor，GUI 提供 17 色 swatch，编码样板颜色跟随当前选择。
 容量槽使用与 ME Packager 相同的 AE2 16k/64k/256k 容量元件映射。
 marker 槽写入 package_pattern 的 MarkerSpec，可作为 ME Packager 过滤或 override 回退模板。
-输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 会被拒绝。
+marker 槽写入 packaged_processing_pattern 时会应用到拆出的每个包裹计划。
+输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 或 packaged_processing_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前封装处理样板只支持单包裹 PackageData 编码，不含多包裹处理样板合成/拆分。
+当前不含彩色处理样板编辑、AE2 原版样板承载迁移、处理输出 UI 和封装处理样板拆回普通样板的 Split UI。
 ```
 
 ## 10. 包裹总线

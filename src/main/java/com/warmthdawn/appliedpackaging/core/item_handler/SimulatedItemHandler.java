@@ -26,4 +26,28 @@ final class SimulatedItemHandler extends ItemStackHandler {
     public boolean isItemValid(int slot, ItemStack stack) {
         return true;
     }
+
+    @Override
+    public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        if (amount <= 0) {
+            return ItemStack.EMPTY;
+        }
+        validateSlotIndex(slot);
+        ItemStack existing = stacks.get(slot);
+        if (existing.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+
+        int extractedAmount = Math.min(amount, existing.getCount());
+        ItemStack extracted = existing.copy();
+        extracted.setCount(extractedAmount);
+        if (!simulate) {
+            existing.shrink(extractedAmount);
+            if (existing.isEmpty()) {
+                stacks.set(slot, ItemStack.EMPTY);
+            }
+            onContentsChanged(slot);
+        }
+        return extracted;
+    }
 }

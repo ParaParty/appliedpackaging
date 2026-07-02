@@ -124,6 +124,55 @@ public final class ItemPackageTransactions {
                 .map(data -> new ItemPackagePlan(data, extractions));
     }
 
+    public static List<ItemPackagePlan> planAllPackages(
+            IItemHandler source,
+            PackageColor color,
+            PackageCapacityProfile capacityProfile,
+            PackageFilter filter,
+            MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker) {
+        SimulatedItemHandler simulated = SimulatedItemHandler.copyOf(source);
+        List<ItemPackagePlan> plans = new ArrayList<>();
+        int guard = 0;
+        while (guard++ < 4096) {
+            Optional<ItemPackagePlan> plan = planPack(
+                    simulated,
+                    color,
+                    capacityProfile,
+                    filter,
+                    markerMode,
+                    overrideMarker);
+            if (plan.isEmpty()) {
+                break;
+            }
+            plans.add(plan.get());
+            commitExtract(simulated, plan.get());
+        }
+        return List.copyOf(plans);
+    }
+
+    public static Optional<ItemPackagePlan> planExactPackage(
+            IItemHandler source,
+            PackageColor color,
+            PackageData target) {
+        Optional<PackageCapacityProfile> capacityProfile = capacityProfileFor(target);
+        if (capacityProfile.isEmpty()) {
+            return Optional.empty();
+        }
+        MarkerMergeMode markerMode = target.marker().isPresent()
+                ? MarkerMergeMode.OVERRIDE
+                : MarkerMergeMode.CLEAR;
+        PackageFilter filter = new PackageFilter(Optional.of(color), Optional.empty(), target.contents());
+        return planPack(
+                        source,
+                        color,
+                        capacityProfile.get(),
+                        filter,
+                        markerMode,
+                        target.marker())
+                .filter(plan -> plan.data().canonicalHash().equals(target.canonicalHash()));
+    }
+
     public static boolean canExtract(IItemHandler source, ItemPackagePlan plan) {
         for (SlotExtraction extraction : plan.extractions()) {
             ItemStack extracted = source.extractItem(extraction.slot(), extraction.stack().getCount(), true);
@@ -255,6 +304,15 @@ public final class ItemPackageTransactions {
             }
         }
         return amounts;
+    }
+
+    private static Optional<PackageCapacityProfile> capacityProfileFor(PackageData data) {
+        for (PackageCapacityProfile profile : PackageCapacityProfile.values()) {
+            if (profile.fits(data.usedUnits(), data.usedTypes())) {
+                return Optional.of(profile);
+            }
+        }
+        return Optional.empty();
     }
 
     private static int largestFittingAmount(

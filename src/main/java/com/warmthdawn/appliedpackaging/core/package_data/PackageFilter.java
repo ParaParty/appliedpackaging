@@ -4,6 +4,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,20 @@ public record PackageFilter(
     }
 
     public static Optional<PackageFilter> fromTemplate(ItemStack stack) {
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
+                PackagedProcessingPatternDataStorage.read(stack);
+        if (processingPattern.isPresent()) {
+            List<GenericStack> requiredContents = new ArrayList<>();
+            Optional<MarkerSpec> marker = commonMarker(processingPattern.get().packages());
+            for (PackageData data : processingPattern.get().packages()) {
+                requiredContents.addAll(data.contents());
+            }
+            return Optional.of(new PackageFilter(
+                    Optional.of(processingPattern.get().color()),
+                    marker,
+                    PackageData.create(processingPattern.get().color(), requiredContents, Optional.empty(), 0).contents()));
+        }
+
         Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern = PackagePatternDataStorage.read(stack);
         if (pattern.isPresent()) {
             PackageData data = pattern.get().data();
@@ -71,6 +86,21 @@ public record PackageFilter(
             }
         }
         return true;
+    }
+
+    private static Optional<MarkerSpec> commonMarker(List<PackageData> packages) {
+        Optional<MarkerSpec> marker = Optional.empty();
+        for (PackageData data : packages) {
+            if (data.marker().isEmpty()) {
+                continue;
+            }
+            if (marker.isEmpty()) {
+                marker = data.marker();
+            } else if (!marker.get().sameAs(data.marker().get())) {
+                return Optional.empty();
+            }
+        }
+        return marker;
     }
 
     private static Map<AEKey, Long> aggregate(List<GenericStack> stacks) {

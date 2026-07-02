@@ -352,9 +352,32 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐封装处理样板多包裹可用路径：
+  新增 PackagedProcessingPatternDataStorage，写入 version、color、packages[]，并逐个复验 PackageData canonical hash
+  packaged_processing_pattern 兼容旧的单包裹 PackagePatternDataStorage 读取
+  Package Pattern Terminal 编码 packaged_processing_pattern 时会按容量档生成有序多包裹计划
+  Package Assembler 可读取 packaged_processing_pattern，并在输出槽为空时逐包生成匹配包裹
+  已编码 packaged_processing_pattern 不会被终端当空白样板覆盖
+  tooltip 增加封装处理样板包裹数量和首包内容预览
+新增 GameTest：
+  packagedProcessingPatternDataRoundTrips
+  packagePatternTerminalSplitsPackagedProcessingPattern
+  packageAssemblerUsesPackagedProcessingPattern
+  packagePatternTerminalRejectsEncodedProcessingBlankPattern
+验证 .\gradlew.bat compileJava --rerun-tasks 成功
+验证 .\gradlew.bat runGameTestServer 成功，53 个必需 GameTest 全部通过
+设计约束更新：
+  功能优先完成；材质与 AE2 风格面板/part 外形后置
+  后续应评估扩展 AE2 原版 blank/encoded pattern 作为样板承载，避免继续新增样板物品
+```
+
 下一步：
 
 ```text
+继续补齐 AE2 Pattern Provider/pushPattern 深集成，让装配室不只依赖本地 GUI 输入。
+补齐彩色处理样板元数据、处理输出 UI / Split UI、总线过滤 UI 和 AE2 part 形态。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
-继续补齐封装处理样板多包裹列表结构、合成/拆分工作流等发布阻塞项。
 ```

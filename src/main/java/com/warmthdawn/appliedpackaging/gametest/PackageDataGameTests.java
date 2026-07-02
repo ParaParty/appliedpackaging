@@ -18,6 +18,7 @@ import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
@@ -741,6 +742,42 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerUsesPackagedProcessingPattern(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
+        PackageData copper = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        PackagedProcessingPatternDataStorage.write(pattern, PackageColor.FLUIX, List.of(iron, copper));
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        assembler.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+
+        PackageAssemblerBlockEntity.AssemblyResult firstResult = assembler.tryAssemble();
+        ItemStack firstOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+        PackageAssemblerBlockEntity.AssemblyResult secondResult = assembler.tryAssemble();
+        ItemStack secondOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
+        helper.assertTrue(firstResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should produce the first processing package");
+        helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should produce the second processing package after output is cleared");
+        helper.assertTrue(firstData.canonicalHash().equals(iron.canonicalHash()),
+                "First output should match the first processing package");
+        helper.assertTrue(secondData.canonicalHash().equals(copper.canonicalHash()),
+                "Second output should match the second processing package");
+        helper.assertTrue(assembler.getItems().getStackInSlot(0).isEmpty(), "Iron input should be consumed");
+        helper.assertTrue(assembler.getItems().getStackInSlot(1).isEmpty(), "Copper input should be consumed");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageItemStorageExposesOnlyLegalPackages(GameTestHelper helper) {
         ItemStackHandler target = new ItemStackHandler(3);
         ItemStack legalPackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
@@ -799,6 +836,30 @@ public final class PackageDataGameTests {
         helper.assertTrue(read.isPresent(), "Encoded package pattern should be readable");
         helper.assertTrue(read.get().color() == PackageColor.FLUIX, "Encoded color should round-trip");
         helper.assertTrue(read.get().data().canonicalHash().equals(data.canonicalHash()), "Encoded data should round-trip");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagedProcessingPatternDataRoundTrips(GameTestHelper helper) {
+        ItemStack pattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
+        PackageData copper = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+
+        PackagedProcessingPatternDataStorage.write(pattern, PackageColor.FLUIX, List.of(iron, copper));
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> read =
+                PackagedProcessingPatternDataStorage.read(pattern);
+
+        helper.assertTrue(read.isPresent(), "Encoded packaged processing pattern should be readable");
+        helper.assertTrue(read.get().color() == PackageColor.FLUIX, "Encoded color should round-trip");
+        helper.assertTrue(read.get().packages().size() == 2, "Encoded package list should round-trip");
+        helper.assertTrue(read.get().packages().get(0).canonicalHash().equals(iron.canonicalHash()),
+                "First encoded package should round-trip");
+        helper.assertTrue(read.get().packages().get(1).canonicalHash().equals(copper.canonicalHash()),
+                "Second encoded package should round-trip");
         helper.succeed();
     }
 
@@ -910,14 +971,47 @@ public final class PackageDataGameTests {
 
         PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
         ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
-        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+        PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern =
+                PackagedProcessingPatternDataStorage.read(output).orElseThrow();
 
         helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
                 "Terminal should encode a packaged processing pattern shell");
         helper.assertTrue(output.is(APItems.PACKAGED_PROCESSING_PATTERN.get()),
                 "Terminal should preserve the blank pattern item type");
-        helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+        helper.assertTrue(pattern.packages().size() == 1,
+                "Single preview package should encode as one processing package");
+        helper.assertTrue(amountOf(pattern.packages().get(0), AEItemKey.of(Items.IRON_INGOT)) == 64,
                 "Encoded packaged processing pattern should contain iron");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalSplitsPackagedProcessingPattern(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        PackageData fullSource = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 576)),
+                Optional.empty(),
+                0);
+        terminal.getItems().setStackInSlot(0, packageStack(PackageColor.FLUIX, fullSource));
+        terminal.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern =
+                PackagedProcessingPatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode a multi-package processing pattern");
+        helper.assertTrue(pattern.packages().size() == 2,
+                "Terminal should split preview contents into two default-capacity packages");
+        helper.assertTrue(pattern.packages().get(0).canonicalHash().equals(fullSource.canonicalHash()),
+                "First processing package should preserve the source package");
+        helper.assertTrue(amountOf(pattern.packages().get(1), AEItemKey.of(Items.COPPER_INGOT)) == 64,
+                "Second processing package should contain copper");
         helper.succeed();
     }
 
@@ -958,6 +1052,29 @@ public final class PackageDataGameTests {
                 .isPresent(), "Encoded pattern should not be overwritten");
         helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT).isEmpty(),
                 "Rejected encode should not create output");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalRejectsEncodedProcessingBlankPattern(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        ItemStack encodedPattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        PackagedProcessingPatternDataStorage.write(
+                encodedPattern,
+                PackageColor.FLUIX,
+                List.of(ironPackageData(PackageColor.FLUIX, 64)));
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.COPPER_INGOT, 32));
+        terminal.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN, encodedPattern.copy());
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.NO_PATTERN,
+                "Terminal should require an unencoded blank packaged processing pattern");
+        helper.assertTrue(PackagedProcessingPatternDataStorage.read(
+                        terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN))
+                .isPresent(), "Encoded processing pattern should not be overwritten");
+        helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT).isEmpty(),
+                "Rejected processing encode should not create output");
         helper.succeed();
     }
 

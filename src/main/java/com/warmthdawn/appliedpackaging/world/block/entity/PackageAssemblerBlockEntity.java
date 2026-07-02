@@ -2,6 +2,7 @@ package com.warmthdawn.appliedpackaging.world.block.entity;
 
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
@@ -88,8 +89,15 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             return AssemblyResult.OUTPUT_BLOCKED;
         }
 
+        ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
+                PackagedProcessingPatternDataStorage.read(patternStack);
+        if (processingPattern.isPresent()) {
+            return tryAssembleProcessingPattern(processingPattern.get());
+        }
+
         Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern =
-                PackagePatternDataStorage.read(items.getStackInSlot(SLOT_PATTERN));
+                PackagePatternDataStorage.read(patternStack);
         PackageColor color = pattern.map(PackagePatternDataStorage.EncodedPackagePattern::color)
                 .orElse(PackageColor.FLUIX);
 
@@ -119,6 +127,29 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         items.insertItem(SLOT_OUTPUT, packageStack, false);
         setChanged();
         return AssemblyResult.ASSEMBLED;
+    }
+
+    private AssemblyResult tryAssembleProcessingPattern(
+            PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern) {
+        for (var target : pattern.packages()) {
+            Optional<ItemPackagePlan> plan = ItemPackageTransactions.planExactPackage(inputView, pattern.color(), target);
+            if (plan.isEmpty() || !ItemPackageTransactions.canExtract(inputView, plan.get())) {
+                continue;
+            }
+
+            ItemStack packageStack = new ItemStack(APItems.packageItems().get(pattern.color()).get());
+            PackageDataStorage.write(packageStack, target);
+            ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
+            if (!remainder.isEmpty()) {
+                return AssemblyResult.OUTPUT_BLOCKED;
+            }
+
+            ItemPackageTransactions.commitExtract(inputView, plan.get());
+            items.insertItem(SLOT_OUTPUT, packageStack, false);
+            setChanged();
+            return AssemblyResult.ASSEMBLED;
+        }
+        return AssemblyResult.PATTERN_MISMATCH;
     }
 
     @Override

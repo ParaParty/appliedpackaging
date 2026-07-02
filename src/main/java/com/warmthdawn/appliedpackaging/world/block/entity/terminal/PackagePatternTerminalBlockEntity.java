@@ -6,6 +6,7 @@ import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
@@ -13,9 +14,11 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStora
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
+import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
+import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -51,7 +54,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             if (slot == SLOT_BLANK_PATTERN) {
-                return PackagePatternDataStorage.canStore(stack) && PackagePatternDataStorage.read(stack).isEmpty();
+                return PackagePatternDataStorage.canStore(stack) && !isEncodedPattern(stack);
             }
             if (slot == SLOT_OUTPUT) {
                 return PackagePatternDataStorage.canStore(stack);
@@ -108,15 +111,16 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         ItemStack blankPattern = items.getStackInSlot(SLOT_BLANK_PATTERN);
         if (blankPattern.isEmpty()
                 || !PackagePatternDataStorage.canStore(blankPattern)
-                || PackagePatternDataStorage.read(blankPattern).isPresent()) {
+                || isEncodedPattern(blankPattern)) {
             return EncodeResult.NO_PATTERN;
         }
 
         Optional<MarkerSpec> marker = configuredMarker();
+        PackageCapacityProfile capacityProfile = configuredCapacityProfile();
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 inputView,
                 selectedColor,
-                configuredCapacityProfile(),
+                capacityProfile,
                 PackageFilter.any(),
                 marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.RETAIN,
                 marker);
@@ -125,7 +129,21 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         }
 
         ItemStack encoded = new ItemStack(blankPattern.getItem());
-        PackagePatternDataStorage.write(encoded, selectedColor, plan.get().data());
+        if (blankPattern.is(APItems.PACKAGED_PROCESSING_PATTERN.get())) {
+            List<ItemPackagePlan> plans = ItemPackageTransactions.planAllPackages(
+                    inputView,
+                    selectedColor,
+                    capacityProfile,
+                    PackageFilter.any(),
+                    marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.RETAIN,
+                    marker);
+            PackagedProcessingPatternDataStorage.write(
+                    encoded,
+                    selectedColor,
+                    plans.stream().map(ItemPackagePlan::data).toList());
+        } else {
+            PackagePatternDataStorage.write(encoded, selectedColor, plan.get().data());
+        }
         ItemStack remainder = items.insertItem(SLOT_OUTPUT, encoded, true);
         if (!remainder.isEmpty()) {
             return EncodeResult.OUTPUT_BLOCKED;
@@ -223,5 +241,10 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         return !stack.isEmpty()
                 && !(stack.getItem() instanceof PackageItem)
                 && !PackagePatternDataStorage.canStore(stack);
+    }
+
+    private static boolean isEncodedPattern(ItemStack stack) {
+        return PackagePatternDataStorage.read(stack).isPresent()
+                || PackagedProcessingPatternDataStorage.read(stack).isPresent();
     }
 }

@@ -198,11 +198,12 @@ GameTest/客户端验证
   输出非空时阻挡且不消耗输入
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
   已编码 package_pattern 不消耗，可重复作为本地装配计划
+  已编码 packaged_processing_pattern 保存有序多包裹计划
+  package_assembler 可按 packaged_processing_pattern 逐包生成匹配包裹
   装配室基础 GameTest
 
 待实现：
   彩色处理样板元数据读取
-  封装处理样板拆分为多包裹计划
   容量元件槽
   AE2 Pattern Provider/pushPattern 深集成
   客户端验证
@@ -247,15 +248,19 @@ GameTest/服务器 smoke test
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern
   package_pattern_terminal 支持 17 色 swatch 选择，编码样板颜色跟随 selectedColor
   package_pattern_terminal 支持 marker 槽与容量槽编码 package_pattern
-  package_pattern_terminal 可把空白 packaged_processing_pattern 编码为单包裹样板
+  package_pattern_terminal 可把空白 packaged_processing_pattern 编码为有序多包裹样板
   package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
   装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
+  装配室可读取 packaged_processing_pattern 并逐包输出
+  已编码 packaged_processing_pattern 不会被终端当空白样板覆盖
 
 待实现：
   彩色处理样板编辑
-  封装处理样板合成/拆分
+  封装处理样板处理输出 UI 与 Split UI
+  AE2 原版 blank/encoded pattern 承载迁移评估
   颜色/marker/content 过滤 UI
   AE2 cable part 形态
+  package_pattern_terminal 调整为 AE2 风格面板/part
   真实 AE 网络服务器 smoke test
   客户端模型/GUI 冒烟验证
 ```
