@@ -669,7 +669,7 @@ UI 仍复用 PackageFilter.fromTemplate，因此 package_pattern、packaged_proc
 Package Bus 配置 UI 也支持手工过滤器编辑：17 色 swatch 设置颜色过滤，marker ghost 槽从光标复制 1 个物品作为 marker，3 个 required content ghost 槽从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标点击清除；这些 ghost 编辑不消耗玩家物品。若 required content 光标物品是 Forge 流体容器，则过滤器保存对应 AEFluidKey 与流体数量，例如水桶保存 1000 mB water。鼠标悬停 required content ghost 槽并滚轮调整数量时，流体每步调整 1000 mB，物品/其它已存在 key 每步调整 1；数量不会降到小于一个调整步长。
 手工过滤器以 PackageFilter NBT 保存到总线方块实体，保留旧 filter_template 读取兼容；复制真实模板时仍保存 ghost 模板物品用于显示，手工编辑后清除模板来源显示但保留实际过滤条件。
 
-当前不含批量 required content 编辑、任意 AEKey 直接手工过滤输入，也未实现 AE2 cable part 形态。
+包裹总线家族当前不含批量 required content 编辑、任意 AEKey 直接手工过滤输入，也不提供 AE2 cable part 形态；Package Pattern Terminal 已单独实现为 AE2 cable part item。
 ```
 
 ## 11. 过滤规则

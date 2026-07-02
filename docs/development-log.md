@@ -1054,3 +1054,16 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
 验证 .\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
 ```
+
+最新进展：
+
+```text
+发布验收审计：
+  修正文档中 Package Bus 与 Package Pattern Terminal 的 AE2 cable part 表述，明确当前只有终端是 AE2 part，总线仍是 AE2 可连接方块端点
+  将任意 AEKey 直接 ghost editor / required-content editor 归类为发布后增强，不作为 0.1.0-dev R1-R13 阻塞项
+  在 docs/06-verification-release.md 增加 R1-R13 当前完成度审计和剩余 dedicated server full world-load 阻塞说明
+验证 .\gradlew.bat runServer 成功到达 EULA gate
+验证 run/eula.txt 当前为 eula=false，AI 未自动修改 EULA
+验证 run/logs/latest.log 未发现 ERROR、FATAL、ClientSmokeRunner、NoClassDefFoundError、ClassNotFoundException 或客户端类误加载关键字
+完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
+```

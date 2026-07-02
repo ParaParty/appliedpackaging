@@ -311,7 +311,7 @@ GameTest/服务器 smoke test
   装配室可读取 packaged_processing_pattern 并逐包输出
   已编码 packaged_processing_pattern 不会被终端当空白样板覆盖
 
-待实现：
+发布后增强，不阻塞 0.1.0-dev 发布：
   彩色处理样板更完整的处理输出 UI
   封装处理样板任意 AEKey 处理输出 ghost editor
   批量 required content / 任意 AEKey 高级过滤器编辑器

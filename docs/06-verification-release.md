@@ -316,6 +316,7 @@ run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable
 服务端在读取 run/eula.txt 时按 Mojang EULA 要求停止，未继续进入世界加载。
 停止前未出现 Applied Packaging 客户端类误加载、注册崩溃或 mod 扫描异常。
 2026-07-03 新增 ClientSmokeRunner 后再次执行 .\gradlew.bat runServer，仍正常到达 EULA gate，未出现客户端 smoke 类误加载。
+2026-07-03 06:35 再次执行 .\gradlew.bat runServer，服务端仍正常到达 EULA gate；run/logs/latest.log 未发现 ERROR、FATAL、ClientSmokeRunner、NoClassDefFoundError、ClassNotFoundException 或客户端类误加载关键字。
 验收专用服务端完整启动前，需要用户显式同意 EULA 后再重新运行；AI 不自动修改 eula.txt。
 ```
 
@@ -347,4 +348,40 @@ logo/icon：assets/appliedpackaging/logo.png、textures/gui/logo.png 和包裹/�
 release notes：已写入 CHANGELOG.md
 known limitations：已写入 README.md 与 CHANGELOG.md
 compatible Minecraft/Forge/AE2 version list：已写入 README.md，并由 gradle.properties / mods.toml 模板声明
+```
+
+## 9. 当前完成度审计
+
+以 `docs/01-requirements.md` R1-R13 和本文件发布验收为准，当前状态：
+
+```text
+R1 17 色独立包裹物品：已满足，注册项、item tag、语言、图标和 GameTest 覆盖。
+R2 无正常空包裹玩法：已满足，空包裹不进玩家配方/创造栏，物流和 GameTest 均拒绝无 PackageData 包裹。
+R3 相同包裹才可堆叠：已满足，canonical hash 和规范化 NBT GameTest 覆盖。
+R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack，item、fluid 和 MEStorage 路径已覆盖。
+R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
+R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、pending queue、阻挡和自动导出均已覆盖。
+R7 ME 打包机：已满足，相邻 item/fluid/AE2 storage 端点、红石模式、容量、过滤、marker 和拆包事务均已覆盖。
+R8 包裹样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host 均已覆盖。
+R9 包裹总线：已满足，Storage/Export/Unpacking Bus 仅处理合法包裹，不暴露内部散装内容。
+R10 事务性：已满足，打包/拆包模拟失败不提交、完整包裹拆入和容量失败回滚均由 GameTest 覆盖。
+R11 Tooltip：已满足，包裹、样板、AE2 blank_pattern carrier 和 packaged-processing 输出提示已接入。
+R12 英文与简体中文语言：已满足，语言 key 对齐审计通过。
+R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、材质、logo、mods.toml、README/CHANGELOG/LICENSE 均存在并已打包。
+```
+
+当前仍未完成的发布验收项：
+
+```text
+Dedicated server full world-load：未完成。
+原因：run/eula.txt 当前为 eula=false，服务端按 Mojang EULA 在世界加载前停止。
+需要用户显式接受 EULA 后重新执行 .\gradlew.bat runServer，确认专用服务端进入世界加载并无客户端类误加载。
+```
+
+当前记录的非阻塞发布后增强：
+
+```text
+任意 AEKey 直接输出 ghost editor
+任意 AEKey 直接 required-content filter editor
+批量 required content 编辑
 ```
