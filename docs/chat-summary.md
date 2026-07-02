@@ -3,6 +3,8 @@
 > 已定案边界：ME 包裹装配室负责 AE2 样板语义和彩色分包；ME 打包机负责相邻存储端点与包裹互转；包裹总线家族只路由或拆包合法包裹。空包裹、真实嵌套、打包机读样板、总线伪装包裹内部内容、打包机扫描自身所在任意 AE 网络都不做。
 >
 > AI/agent 指令已迁移到仓库根目录 `AGENTS.md`。
+>
+> 最新实现恢复点（2026-07-03）：AE2 原版 `blank_pattern` 已可作为 `package_pattern` 数据载体；终端可编码、装配室可读取、已编码 AE2 blank pattern 有客户端 tooltip。封装处理样板迁移到 AE2 encoded pattern/Planner 语义仍后置。最新 `runGameTestServer` 为 84 个必需 GameTest 全部通过。
 
 我建议名字不要太“工业物流”，而是偏 **AE2 风格的精密封装 / 数据化物流 / Fluix 包裹**。核心感觉应该是：
 

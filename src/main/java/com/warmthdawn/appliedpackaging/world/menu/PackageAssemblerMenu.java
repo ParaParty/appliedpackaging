@@ -1,7 +1,6 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
-import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
@@ -54,7 +53,7 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
             if (!moveItemStackTo(source, PLAYER_INVENTORY_START, HOTBAR_END, true)) {
                 return ItemStack.EMPTY;
             }
-        } else if (source.is(APItems.PACKAGE_PATTERN.get()) || source.is(APItems.PACKAGED_PROCESSING_PATTERN.get())) {
+        } else if (PackageAssemblerBlockEntity.isPatternSlotItem(source)) {
             if (!moveItemStackTo(
                     source,
                     PackageAssemblerBlockEntity.SLOT_PATTERN,

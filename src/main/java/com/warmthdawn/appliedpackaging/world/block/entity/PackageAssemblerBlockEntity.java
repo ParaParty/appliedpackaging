@@ -72,7 +72,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                 return stack.getItem() instanceof PackageItem;
             }
             if (slot == SLOT_PATTERN) {
-                return stack.is(APItems.PACKAGE_PATTERN.get()) || stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get());
+                return isPatternSlotItem(stack);
             }
             if (slot == SLOT_CAPACITY) {
                 return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
@@ -111,6 +111,10 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     public ItemStackHandler getItems() {
         return items;
+    }
+
+    public static boolean isPatternSlotItem(ItemStack stack) {
+        return PackagePatternDataStorage.canStore(stack) || PackagedProcessingPatternDataStorage.canStore(stack);
     }
 
     @Override

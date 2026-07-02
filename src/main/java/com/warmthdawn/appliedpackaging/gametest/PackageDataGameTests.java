@@ -771,6 +771,32 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerUsesAe2BlankPatternCarrier(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData data = ironPackageData(PackageColor.BLUE, 64);
+        ItemStack pattern = ae2Item("blank_pattern");
+        helper.assertFalse(pattern.isEmpty(), "AE2 blank pattern should be registered");
+        PackagePatternDataStorage.write(pattern, PackageColor.BLUE, data);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should read package pattern data from an AE2 blank pattern carrier");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.BLUE).get()),
+                "Assembler should use the encoded carrier color");
+        helper.assertTrue(outputData.canonicalHash().equals(data.canonicalHash()),
+                "Output package should match the AE2-carried pattern");
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(
+                        assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN)),
+                "AE2 pattern carrier should remain in the pattern slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerUsesLargeEncodedPackagePattern(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         PackageData data = PackageData.create(
@@ -1499,6 +1525,24 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternDataRoundTripsOnAe2BlankPattern(GameTestHelper helper) {
+        ItemStack pattern = ae2Item("blank_pattern");
+        helper.assertFalse(pattern.isEmpty(), "AE2 blank pattern should be registered");
+        PackageData data = ironPackageData(PackageColor.RED, 64);
+
+        PackagePatternDataStorage.write(pattern, PackageColor.RED, data);
+        Optional<PackagePatternDataStorage.EncodedPackagePattern> read = PackagePatternDataStorage.read(pattern);
+
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(pattern),
+                "AE2 blank pattern should be recognized as a package pattern carrier");
+        helper.assertTrue(read.isPresent(), "Encoded AE2 blank pattern should be readable");
+        helper.assertTrue(read.get().color() == PackageColor.RED, "Encoded AE2 carrier color should round-trip");
+        helper.assertTrue(read.get().data().canonicalHash().equals(data.canonicalHash()),
+                "Encoded AE2 carrier data should round-trip");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagedProcessingPatternDataRoundTrips(GameTestHelper helper) {
         ItemStack pattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
         PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
@@ -1651,6 +1695,34 @@ public final class PackageDataGameTests {
                 "Encoded pattern should contain iron");
         helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
                 "Encoded pattern should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesAe2BlankPatternCarrier(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        ItemStack blankPattern = ae2Item("blank_pattern");
+        helper.assertFalse(blankPattern.isEmpty(), "AE2 blank pattern should be registered");
+        terminal.setSelectedColor(PackageColor.BLUE);
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                blankPattern);
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode onto an AE2 blank pattern carrier");
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(output),
+                "Terminal should preserve the AE2 blank pattern item type");
+        helper.assertTrue(pattern.color() == PackageColor.BLUE,
+                "Encoded AE2 blank pattern should keep the selected color");
+        helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Encoded AE2 blank pattern should contain iron");
+        helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN).isEmpty(),
+                "Encoding should consume one AE2 blank pattern carrier");
         helper.succeed();
     }
 

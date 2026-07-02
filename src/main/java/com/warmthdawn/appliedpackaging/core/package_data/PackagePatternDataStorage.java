@@ -5,10 +5,13 @@ import com.warmthdawn.appliedpackaging.registry.APItems;
 import java.util.Optional;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 public final class PackagePatternDataStorage {
     public static final String PATTERN_TAG = "appliedpackaging.package_pattern";
+    private static final ResourceLocation AE2_BLANK_PATTERN_ID = ResourceLocation.tryParse("ae2:blank_pattern");
 
     private static final String VERSION = "version";
     private static final String COLOR = "color";
@@ -19,7 +22,15 @@ public final class PackagePatternDataStorage {
     }
 
     public static boolean canStore(ItemStack stack) {
-        return stack.is(APItems.PACKAGE_PATTERN.get()) || stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        return stack.is(APItems.PACKAGE_PATTERN.get())
+                || stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get())
+                || isAe2BlankPattern(stack);
+    }
+
+    public static boolean isAe2BlankPattern(ItemStack stack) {
+        return !stack.isEmpty()
+                && AE2_BLANK_PATTERN_ID != null
+                && AE2_BLANK_PATTERN_ID.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()));
     }
 
     public static Optional<EncodedPackagePattern> read(ItemStack stack) {
@@ -40,7 +51,7 @@ public final class PackagePatternDataStorage {
 
     public static void write(ItemStack stack, PackageColor color, PackageData data) {
         if (!canStore(stack)) {
-            throw new IllegalArgumentException("Package pattern data can only be written to package pattern items");
+            throw new IllegalArgumentException("Package pattern data can only be written to package pattern carriers");
         }
         CompoundTag tag = new CompoundTag();
         tag.putInt(VERSION, CURRENT_VERSION);

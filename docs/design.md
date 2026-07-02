@@ -53,4 +53,8 @@ ME 打包机：
   无空包裹玩法。
   可堆叠。
   不真实嵌套；包裹套包裹时展开后再封装。
+
+样板：
+  AE2 原版 blank pattern 可作为 package_pattern 数据载体。
+  本地 package_pattern / packaged_processing_pattern 继续保留，用于兼容和封装处理样板路径。
 ```
