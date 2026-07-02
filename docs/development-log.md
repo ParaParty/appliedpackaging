@@ -47,6 +47,13 @@ PackageDataStorage 只接受当前 schema version，且必须通过完整 canoni
   unsupportedVersionIsRejected
 新增 gameteststructures/empty.snbt，并由 copyGameTestStructures 在 runGameTestServer 前复制到 run/gameteststructures
 验证 .\gradlew.bat runGameTestServer 成功，5 个必需 GameTest 全部通过
+实现 PackageFilter：
+  颜色、marker、requiredContents 三者 AND
+  未设置条件忽略
+  requiredContents 要求包裹内至少包含指定数量
+  不实现 any/all/exact 模式切换
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runGameTestServer 成功，9 个必需 GameTest 全部通过
 建立 docs/assets 执行文档：
   palette.md
   acceptance.md

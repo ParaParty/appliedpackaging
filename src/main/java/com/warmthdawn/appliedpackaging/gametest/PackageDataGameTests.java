@@ -5,6 +5,8 @@ import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import java.util.List;
@@ -84,6 +86,54 @@ public final class PackageDataGameTests {
         packageTag.putInt("version", PackageData.CURRENT_VERSION + 1);
 
         helper.assertFalse(PackageDataStorage.read(stack).isPresent(), "Unsupported package version should be rejected");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageFilterMatchesUnsetRequirements(GameTestHelper helper) {
+        PackageData data = ironPackageData(PackageColor.RED, 64);
+
+        helper.assertTrue(PackageFilter.any().matches(PackageColor.RED, data), "Empty filter should accept a valid package");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageFilterRejectsWrongColor(GameTestHelper helper) {
+        PackageData data = ironPackageData(PackageColor.RED, 64);
+        PackageFilter filter = new PackageFilter(Optional.of(PackageColor.BLUE), Optional.empty(), List.of());
+
+        helper.assertFalse(filter.matches(PackageColor.RED, data), "Color filter should reject other package colors");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageFilterMatchesMarkerAndContent(GameTestHelper helper) {
+        GenericStack marker = new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1);
+        PackageData data = PackageData.create(
+                PackageColor.GREEN,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.of(new MarkerSpec(marker)),
+                0);
+        PackageFilter filter = new PackageFilter(
+                Optional.of(PackageColor.GREEN),
+                Optional.of(new MarkerSpec(marker)),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+
+        helper.assertTrue(filter.matches(PackageColor.GREEN, data), "Filter should accept matching color, marker, and content");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageFilterRejectsMissingContent(GameTestHelper helper) {
+        PackageData data = ironPackageData(PackageColor.RED, 32);
+        PackageFilter filter = new PackageFilter(
+                Optional.empty(),
+                Optional.empty(),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+
+        helper.assertFalse(filter.matches(PackageColor.RED, data), "Content filter should require the whole requested amount");
         helper.succeed();
     }
 

@@ -65,10 +65,10 @@ unit tests/GameTest
   canonical hash
   capacity calculator/profile
   tooltip
+  package filter
   PackageData GameTest
 
 待实现：
-  package filter
   机器事务中的容量/profile 应用
   hash 稳定性更细粒度测试
 ```

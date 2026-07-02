@@ -36,6 +36,10 @@ PackageData 合法 NBT 可读写
 canonical hash 被篡改时拒绝
 缺失 canonical hash 时拒绝
 schema version 不支持时拒绝
+空过滤接受合法包裹
+颜色不匹配时过滤拒绝
+颜色/marker/内容同时匹配时过滤接受
+内容数量不足时过滤拒绝
 ```
 
 1.20.1 运行要求：
