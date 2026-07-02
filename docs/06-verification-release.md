@@ -263,14 +263,14 @@ docs 与实现一致
 
 ## 8. 发布清单
 
-发布前准备：
+当前发布前准备状态：
 
 ```text
-CHANGELOG.md
-LICENSE 或许可声明
-README.md
-logo/icon
-release notes
-known limitations
-compatible Minecraft/Forge/AE2 version list
+CHANGELOG.md：已补齐 0.1.0-dev 发布记录、验证结果和已知限制
+LICENSE.md：已补齐 All Rights Reserved 许可声明
+README.md：已补齐安装要求、玩法流程、功能清单、验证状态和已知限制
+logo/icon：assets/appliedpackaging/logo.png、textures/gui/logo.png 和包裹/机器/总线图标已存在
+release notes：已写入 CHANGELOG.md
+known limitations：已写入 README.md 与 CHANGELOG.md
+compatible Minecraft/Forge/AE2 version list：已写入 README.md，并由 gradle.properties / mods.toml 模板声明
 ```

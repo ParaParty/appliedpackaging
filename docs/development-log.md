@@ -752,3 +752,15 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 补客户端实际开 GUI/截图 smoke，重点看 Package Assembler 新容量槽、Package Bus 过滤 UI、终端 Split 按钮、处理输出 ghost slots 和输入槽色标右键清除。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```
+
+最新进展：
+
+```text
+补齐发布交付物：
+  README.md 扩展为面向玩家/整合包作者/开发者的发布说明，包含版本兼容、核心功能、安装、玩法流程、验证状态和已知限制
+  新增 CHANGELOG.md，记录 0.1.0-dev 初始可发布开发版本、功能、变更、验证和已知限制
+  新增 LICENSE.md，按当前设计约定提供 All Rights Reserved 许可声明
+  更新 docs/06-verification-release.md，将发布清单从待准备项改为当前状态记录
+本次仅变更发布文档与许可声明，未改动玩法逻辑；GameTest 已按规则考虑，未新增行为测试。
+验证 .\gradlew.bat build 成功，资源模板和发布 jar 生成链路仍可用。
+```
