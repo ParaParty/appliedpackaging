@@ -195,10 +195,10 @@ Tooltip 每包/总计正确
 当前客户端 smoke：
 
 ```text
-.\gradlew.bat runClient 已启动到 Minecraft 客户端主流程。
+2026-07-03 执行 .\gradlew.bat runClient，已启动到 Minecraft 客户端主流程。
 日志确认 Applied Packaging 初始化完成、ResourceManager 重载完成、OpenAL/SoundEngine 启动、block atlas 创建完成。
-未发现 appliedpackaging 相关 missing model/texture、客户端类加载异常或崩溃。
-本次 smoke 后客户端正常 Stopping。
+run/logs/latest.log 未发现 ERROR、FATAL、Missing model 或 Unable to load model。
+本次 smoke 在 atlas 创建完成后手动 Ctrl+C 中断；Gradle 退出码来自人工终止，不代表客户端启动失败。
 已观察到的警告为 Forge/AE2/Vanilla 常规开发环境警告，以及 me_packager_preview_sheet 68x68 导致 mip level 降至 2；不阻塞发布，但后续可把预览 sheet 改成 64x64 或 128x128。
 ```
 

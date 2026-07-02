@@ -576,10 +576,21 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat runGameTestServer 成功，74 个必需 GameTest 全部通过
 ```
 
+最新进展：
+
+```text
+补跑客户端启动 smoke：
+  执行 .\gradlew.bat runClient
+  客户端启动到 Applied Packaging 初始化、ResourceManager 重载、SoundEngine 启动和 block atlas 创建阶段
+  run/logs/latest.log 未发现 ERROR、FATAL、Missing model 或 Unable to load model
+  smoke 在 atlas 创建完成后手动 Ctrl+C 中断；退出码来自人工终止
+  已观察到 me_packager_preview_sheet 68x68 mip level 降级警告，后续资源整理时可改为 64x64 或 128x128
+```
+
 下一步：
 
 ```text
 补齐处理输出 UI、完整过滤 UI 和 AE2 part 形态。
-补跑客户端 GUI/模型 smoke，重点看 Package Assembler 新容量槽、终端 Split 按钮和输入槽色标右键清除。
+补客户端实际开 GUI/截图 smoke，重点看 Package Assembler 新容量槽、终端 Split 按钮和输入槽色标右键清除。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```
