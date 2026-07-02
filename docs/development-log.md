@@ -395,10 +395,29 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐总线最小可用过滤：
+  PackageItemStorage 新增 PackageFilter，可限制可见、插入、抽取的包裹
+  package_storage_bus 挂载 PackageItemStorage 时传入当前总线过滤模板
+  package_export_bus 从 AE 网络拉取包裹前按当前过滤模板筛选
+  package_unpacking_bus 从 AE 网络拉取并拆包前按当前过滤模板筛选
+  总线方块支持手持已编码 package_pattern、packaged_processing_pattern 或合法包裹右键设置 ghost 过滤模板
+  潜行空手右键可清除 ghost 过滤模板
+  过滤模板写入 AE2 AENetworkBlockEntity 的 loadTag/saveAdditional 生命周期，不作为实体库存掉落
+新增 GameTest：
+  packageItemStorageAppliesFilter
+  packageBusStoresFilterTemplate
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，58 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 搭建真实 AE 网络 Pattern Provider -> Package Assembler 端到端 smoke test。
-补齐彩色处理样板元数据、处理输出 UI / Split UI、总线过滤 UI 和 AE2 part 形态。
+补齐彩色处理样板元数据、处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```

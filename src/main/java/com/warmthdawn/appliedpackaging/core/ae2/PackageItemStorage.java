@@ -6,7 +6,11 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
+import com.warmthdawn.appliedpackaging.item.PackageItem;
+import java.util.Optional;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -15,15 +19,21 @@ import net.minecraftforge.items.ItemHandlerHelper;
 public class PackageItemStorage implements MEStorage {
     private final IItemHandler itemHandler;
     private final Component description;
+    private final PackageFilter filter;
 
     public PackageItemStorage(IItemHandler itemHandler, Component description) {
+        this(itemHandler, description, PackageFilter.any());
+    }
+
+    public PackageItemStorage(IItemHandler itemHandler, Component description, PackageFilter filter) {
         this.itemHandler = itemHandler;
         this.description = description;
+        this.filter = filter == null ? PackageFilter.any() : filter;
     }
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (!isPackageKey(what) || amount <= 0) {
+        if (!isPackageKey(what) || amount <= 0 || !matchesFilter(((AEItemKey) what).toStack())) {
             return 0;
         }
 
@@ -55,7 +65,7 @@ public class PackageItemStorage implements MEStorage {
         long remaining = amount;
         for (int slot = 0; slot < itemHandler.getSlots() && remaining > 0; slot++) {
             ItemStack stack = itemHandler.getStackInSlot(slot);
-            if (!isLegalPackageStack(stack) || !key.matches(stack)) {
+            if (!isLegalPackageStack(stack) || !matchesFilter(stack) || !key.matches(stack)) {
                 continue;
             }
 
@@ -73,7 +83,7 @@ public class PackageItemStorage implements MEStorage {
     public void getAvailableStacks(KeyCounter out) {
         for (int slot = 0; slot < itemHandler.getSlots(); slot++) {
             ItemStack stack = itemHandler.getStackInSlot(slot);
-            if (isLegalPackageStack(stack)) {
+            if (isLegalPackageStack(stack) && matchesFilter(stack)) {
                 out.add(AEItemKey.of(stack), stack.getCount());
             }
         }
@@ -93,5 +103,19 @@ public class PackageItemStorage implements MEStorage {
 
     public static boolean isLegalPackageStack(ItemStack stack) {
         return !stack.isEmpty() && PackageDataStorage.read(stack).isPresent();
+    }
+
+    private boolean matchesFilter(ItemStack stack) {
+        Optional<PackageData> data = PackageDataStorage.read(stack);
+        if (data.isEmpty()) {
+            return false;
+        }
+        if (filter.isAny()) {
+            return true;
+        }
+        if (!(stack.getItem() instanceof PackageItem packageItem)) {
+            return false;
+        }
+        return filter.matches(packageItem.color(), data.get());
     }
 }

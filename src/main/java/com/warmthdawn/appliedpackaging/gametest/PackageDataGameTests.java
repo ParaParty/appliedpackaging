@@ -33,6 +33,7 @@ import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import java.util.List;
 import java.util.Optional;
@@ -858,6 +859,65 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(available.get(AEItemKey.of(legalPackage)) == 1, "Legal package should be visible");
         helper.assertTrue(available.size() == 1, "Invalid packages and loose items should not be visible");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageItemStorageAppliesFilter(GameTestHelper helper) {
+        ItemStack redPackage = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        ItemStack bluePackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        PackageFilter redFilter = new PackageFilter(Optional.of(PackageColor.RED), Optional.empty(), List.of());
+
+        ItemStackHandler source = new ItemStackHandler(2);
+        source.setStackInSlot(0, redPackage.copy());
+        source.setStackInSlot(1, bluePackage.copy());
+        PackageItemStorage sourceStorage =
+                new PackageItemStorage(source, net.minecraft.network.chat.Component.literal("test"), redFilter);
+        KeyCounter available = new KeyCounter();
+        sourceStorage.getAvailableStacks(available);
+
+        long extractedBlue =
+                sourceStorage.extract(AEItemKey.of(bluePackage), 1, Actionable.MODULATE, IActionSource.empty());
+        long extractedRed =
+                sourceStorage.extract(AEItemKey.of(redPackage), 1, Actionable.MODULATE, IActionSource.empty());
+
+        ItemStackHandler target = new ItemStackHandler(2);
+        PackageItemStorage targetStorage =
+                new PackageItemStorage(target, net.minecraft.network.chat.Component.literal("test"), redFilter);
+        long insertedBlue =
+                targetStorage.insert(AEItemKey.of(bluePackage), 1, Actionable.MODULATE, IActionSource.empty());
+        long insertedRed =
+                targetStorage.insert(AEItemKey.of(redPackage), 1, Actionable.MODULATE, IActionSource.empty());
+
+        helper.assertTrue(available.get(AEItemKey.of(redPackage)) == 1, "Matching package should be visible");
+        helper.assertTrue(available.get(AEItemKey.of(bluePackage)) == 0, "Filtered package should be hidden");
+        helper.assertTrue(extractedBlue == 0, "Filtered package should not extract");
+        helper.assertTrue(extractedRed == 1, "Matching package should extract");
+        helper.assertTrue(insertedBlue == 0, "Filtered package should not insert");
+        helper.assertTrue(insertedRed == 1, "Matching package should insert");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusStoresFilterTemplate(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = new PackageExportBusBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState());
+        ItemStack encodedPattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(encodedPattern, PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+
+        boolean accepted = bus.setFilterTemplate(encodedPattern);
+        boolean rejected = bus.setFilterTemplate(new ItemStack(Items.DIRT));
+        Optional<PackageFilter> filter = PackageFilter.fromTemplate(bus.getFilterTemplate());
+        boolean cleared = bus.clearFilterTemplate();
+
+        helper.assertTrue(accepted, "Encoded pattern should configure the bus filter");
+        helper.assertFalse(rejected, "Non-template items should not configure the bus filter");
+        helper.assertTrue(filter.isPresent(), "Stored bus filter template should remain readable");
+        helper.assertTrue(filter.get().color().orElseThrow() == PackageColor.RED,
+                "Stored bus filter template should keep encoded color");
+        helper.assertTrue(cleared, "Configured bus filter should clear");
+        helper.assertTrue(bus.getFilterTemplate().isEmpty(), "Cleared bus filter should be empty");
         helper.succeed();
     }
 

@@ -1,16 +1,23 @@
 package com.warmthdawn.appliedpackaging.world.block;
 
+import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.AbstractPackageBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageStorageBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageUnpackingBusBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class PackageBusBlock extends AbstractHorizontalMachineBlock {
     private final BusKind kind;
@@ -27,6 +34,38 @@ public class PackageBusBlock extends AbstractHorizontalMachineBlock {
             case EXPORT -> new PackageExportBusBlockEntity(pos, state);
             case UNPACKING -> new PackageUnpackingBusBlockEntity(pos, state);
         };
+    }
+
+    @Override
+    public InteractionResult use(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Player player,
+            InteractionHand hand,
+            BlockHitResult hit) {
+        ItemStack held = player.getItemInHand(hand);
+        boolean shouldClear = player.isShiftKeyDown() && held.isEmpty();
+        boolean shouldSet = !held.isEmpty() && PackageFilter.fromTemplate(held).isPresent();
+        if (level.isClientSide) {
+            return shouldClear || shouldSet ? InteractionResult.SUCCESS : InteractionResult.PASS;
+        }
+
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        if (!(blockEntity instanceof AbstractPackageBusBlockEntity bus)) {
+            return InteractionResult.PASS;
+        }
+        if (shouldClear) {
+            bus.clearFilterTemplate();
+            player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_cleared"), true);
+            return InteractionResult.CONSUME;
+        }
+        if (shouldSet) {
+            bus.setFilterTemplate(held);
+            player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_set"), true);
+            return InteractionResult.CONSUME;
+        }
+        return InteractionResult.PASS;
     }
 
     @Override

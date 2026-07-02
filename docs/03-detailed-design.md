@@ -591,19 +591,25 @@ package_storage_bus:
   作为 IStorageProvider 挂载 PackageItemStorage。
   只枚举带 PackageData 的合法包裹。
   insert/extract 均拒绝散装物品和无 PackageData 的包裹。
+  设置过滤模板后，只暴露、插入、抽取匹配过滤的包裹。
   不暴露包裹内部内容。
 
 package_export_bus:
   周期性从 AE 网络缓存中选择合法包裹。
+  设置过滤模板后，只选择匹配过滤的包裹。
   只输出已有包裹到背面库存。
   不把散装库存自动打成包裹。
 
 package_unpacking_bus:
   周期性从 AE 网络选择合法包裹。
+  设置过滤模板后，只选择匹配过滤的包裹。
   先模拟完整拆入背面库存，成功后才从网络抽取 1 个包裹并提交散装插入。
   不接受部分拆包。
 
-当前不含过滤 UI、颜色/marker/content 过滤配置，也未实现 AE2 cable part 形态。
+过滤模板当前为 ghost 配置：手持已编码 package_pattern、packaged_processing_pattern 或合法包裹右键总线写入模板；
+潜行空手右键清除模板；模板物品不被消耗，也不会作为实体库存掉落。
+
+当前不含完整过滤 UI，也未实现 AE2 cable part 形态。
 ```
 
 ## 11. 过滤规则

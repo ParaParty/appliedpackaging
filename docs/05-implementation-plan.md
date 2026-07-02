@@ -244,9 +244,11 @@ GameTest/服务器 smoke test
   AE2 可连接方块端点：AENetworkBlockEntity + IManagedGridNode
   package_storage_bus 通过 IStorageProvider 挂载 PackageItemStorage
   PackageItemStorage 只暴露、插入、抽取合法包裹
+  PackageItemStorage 支持 PackageFilter 限制可见、可插入、可抽取包裹
   package_export_bus 只从 AE 网络输出已有合法包裹
   package_unpacking_bus 整包事务性拆入背面库存
-  PackageItemStorage GameTest
+  总线支持手持已编码样板/合法包裹设置 ghost 过滤模板，潜行空手清除
+  PackageItemStorage/总线过滤 GameTest
   package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern
   package_pattern_terminal 支持 17 色 swatch 选择，编码样板颜色跟随 selectedColor
@@ -261,7 +263,7 @@ GameTest/服务器 smoke test
   彩色处理样板编辑
   封装处理样板处理输出 UI 与 Split UI
   AE2 原版 blank/encoded pattern 承载迁移评估
-  颜色/marker/content 过滤 UI
+  颜色/marker/content 完整过滤 UI
   AE2 cable part 形态
   package_pattern_terminal 调整为 AE2 风格面板/part
   真实 AE 网络服务器 smoke test

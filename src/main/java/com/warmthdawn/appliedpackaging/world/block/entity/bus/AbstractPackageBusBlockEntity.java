@@ -5,16 +5,21 @@ import appeng.api.networking.IGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.storage.IStorageProvider;
 import appeng.api.util.AECableType;
 import appeng.blockentity.grid.AENetworkBlockEntity;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -26,7 +31,10 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
 public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity {
+    private static final String FILTER_TEMPLATE_TAG = "filter_template";
+
     private int tickCounter;
+    private ItemStack filterTemplate = ItemStack.EMPTY;
 
     protected AbstractPackageBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
@@ -78,6 +86,49 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         return IActionSource.ofMachine(this);
     }
 
+    public boolean setFilterTemplate(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return clearFilterTemplate();
+        }
+        if (PackageFilter.fromTemplate(stack).isEmpty()) {
+            return false;
+        }
+        filterTemplate = stack.copy();
+        filterTemplate.setCount(1);
+        onFilterChanged();
+        return true;
+    }
+
+    public boolean clearFilterTemplate() {
+        if (filterTemplate.isEmpty()) {
+            return false;
+        }
+        filterTemplate = ItemStack.EMPTY;
+        onFilterChanged();
+        return true;
+    }
+
+    public ItemStack getFilterTemplate() {
+        return filterTemplate.copy();
+    }
+
+    protected PackageFilter configuredFilter() {
+        return PackageFilter.fromTemplate(filterTemplate).orElse(PackageFilter.any());
+    }
+
+    protected boolean matchesConfiguredFilter(ItemStack stack) {
+        PackageFilter filter = configuredFilter();
+        if (filter.isAny()) {
+            return PackageItemStorage.isLegalPackageStack(stack);
+        }
+        if (!(stack.getItem() instanceof PackageItem packageItem)) {
+            return false;
+        }
+        return PackageDataStorage.read(stack)
+                .map(data -> filter.matches(packageItem.color(), data))
+                .orElse(false);
+    }
+
     protected boolean exportOnePackageToTarget(Component description) {
         Optional<IItemHandler> target = findTargetItemHandler();
         Optional<IStorageService> storage = storageService();
@@ -92,6 +143,9 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
             }
             ItemStack packageStack = key.wrapForDisplayOrFilter();
             packageStack.setCount(1);
+            if (!matchesConfiguredFilter(packageStack)) {
+                continue;
+            }
             ItemStack remainder = ItemHandlerHelper.insertItemStacked(target.get(), packageStack, true);
             if (!remainder.isEmpty()) {
                 continue;
@@ -119,6 +173,9 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
             }
             ItemStack packageStack = key.wrapForDisplayOrFilter();
             packageStack.setCount(1);
+            if (!matchesConfiguredFilter(packageStack)) {
+                continue;
+            }
             Optional<PackageData> data = PackageDataStorage.read(packageStack);
             if (data.isEmpty() || !ItemPackageTransactions.canInsertPackageContents(data.get(), target.get())) {
                 continue;
@@ -129,5 +186,28 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
             }
         }
         return false;
+    }
+
+    private void onFilterChanged() {
+        setChanged();
+        IStorageProvider.requestUpdate(getMainNode());
+    }
+
+    @Override
+    public void loadTag(CompoundTag tag) {
+        super.loadTag(tag);
+        if (tag.contains(FILTER_TEMPLATE_TAG, Tag.TAG_COMPOUND)) {
+            filterTemplate = ItemStack.of(tag.getCompound(FILTER_TEMPLATE_TAG));
+        } else {
+            filterTemplate = ItemStack.EMPTY;
+        }
+    }
+
+    @Override
+    public void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        if (!filterTemplate.isEmpty()) {
+            tag.put(FILTER_TEMPLATE_TAG, filterTemplate.save(new CompoundTag()));
+        }
     }
 }

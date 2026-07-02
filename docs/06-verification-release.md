@@ -60,6 +60,8 @@ item handler 拆包可完整插入目标
 AE2 PackageItemStorage 只暴露合法包裹
 AE2 PackageItemStorage 拒绝散装物品插入
 AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
+AE2 PackageItemStorage 按 PackageFilter 限制可见、插入、抽取包裹
+包裹总线可保存、拒绝非法项并清除 ghost 过滤模板
 package_pattern 数据可读写
 packaged_processing_pattern 多包裹数据可读写
 package_pattern_terminal 可从预览输入编码 package_pattern
@@ -87,7 +89,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，56 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，58 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

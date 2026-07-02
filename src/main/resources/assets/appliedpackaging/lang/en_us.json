@@ -77,5 +77,7 @@
   "message.appliedpackaging.package_pattern_terminal.encoded": "Package pattern encoded",
   "message.appliedpackaging.package_pattern_terminal.no_pattern": "Insert a blank package pattern",
   "message.appliedpackaging.package_pattern_terminal.no_contents": "No packable input contents",
-  "message.appliedpackaging.package_pattern_terminal.output_blocked": "Output slot blocked"
+  "message.appliedpackaging.package_pattern_terminal.output_blocked": "Output slot blocked",
+  "message.appliedpackaging.package_bus.filter_set": "Package bus filter set",
+  "message.appliedpackaging.package_bus.filter_cleared": "Package bus filter cleared"
 }

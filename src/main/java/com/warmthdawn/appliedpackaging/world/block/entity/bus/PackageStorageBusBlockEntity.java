@@ -25,6 +25,9 @@ public class PackageStorageBusBlockEntity extends AbstractPackageBusBlockEntity 
     public void mountInventories(IStorageMounts storageMounts) {
         Optional<IItemHandler> target = findTargetItemHandler();
         target.ifPresent(handler -> storageMounts.mount(
-                new PackageItemStorage(handler, Component.translatable("block.appliedpackaging.package_storage_bus"))));
+                new PackageItemStorage(
+                        handler,
+                        Component.translatable("block.appliedpackaging.package_storage_bus"),
+                        configuredFilter())));
     }
 }
