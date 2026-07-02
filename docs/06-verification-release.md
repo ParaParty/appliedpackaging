@@ -54,13 +54,18 @@ item handler 拆包可完整插入目标
 装配室输入包裹会展开后再封装
 装配室可使用已编码 package_pattern 精确匹配输入计划
 装配室可使用已编码 package_pattern 重封装大于默认容量的源包裹
+装配室可用容量槽重封装超过默认容量的源包裹
 装配室可使用 packaged_processing_pattern 逐包生成有序处理包裹
 装配室可接受 AE2 Pattern Provider pushPattern 的 item-only 输入
+装配室普通 Pattern Provider pushPattern 可用容量槽承载超过 9 个物品栈的输入
+装配室默认容量下拒绝超量 Pattern Provider pushPattern 且不消耗输入
 装配室可读取 AE2 encoded processing pattern 彩色输入槽元数据并拆成不同颜色包裹
 装配室彩色 pushPattern 在同 AEKey 被输入持有者汇总时仍按 sparse input 槽位拆分
+装配室彩色 Pattern Provider pushPattern 可用容量槽承载超过默认容量的输入
 装配室彩色 pushPattern 可通过 pending queue 在输出槽清空后继续输出后续包裹
 装配室输出阻挡时拒绝 Pattern Provider pushPattern 且不消耗输入
 装配室拒绝 Pattern Provider pushPattern 的 fluid/non-item 输入且不消耗输入
+装配室可把旧 11 槽库存 NBT 迁移为当前 12 槽库存并补空容量槽
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送处理样板输入到装配室
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送彩色处理样板输入到装配室
 AE2 PackageItemStorage 只暴露合法包裹
@@ -98,7 +103,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，65 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，70 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

@@ -58,7 +58,8 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     public static final int INPUT_SLOT_COUNT = 9;
     public static final int SLOT_PATTERN = 9;
     public static final int SLOT_OUTPUT = 10;
-    private static final int SLOT_COUNT = 11;
+    public static final int SLOT_CAPACITY = 11;
+    private static final int SLOT_COUNT = 12;
     private static final String ITEMS_TAG = "items";
     private static final String PENDING_PACKAGES_TAG = "pending_packages";
     private static final String PENDING_COLOR_TAG = "color";
@@ -73,10 +74,21 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             if (slot == SLOT_PATTERN) {
                 return stack.is(APItems.PACKAGE_PATTERN.get()) || stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get());
             }
+            if (slot == SLOT_CAPACITY) {
+                return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
+            }
             if (stack.getItem() instanceof PackageItem) {
                 return PackageDataStorage.read(stack).isPresent();
             }
             return true;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            if (slot == SLOT_CAPACITY) {
+                return 1;
+            }
+            return super.getSlotLimit(slot);
         }
 
         @Override
@@ -195,7 +207,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 input,
                 PackageColor.FLUIX,
-                PackageCapacityProfile.DEFAULT);
+                configuredCapacityProfile());
         if (plan.isEmpty()) {
             return AssemblyAttempt.failed(AssemblyResult.NO_CONTENTS);
         }
@@ -281,7 +293,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                     List.of(),
                     MarkerMergeMode.CLEAR,
                     Optional.empty(),
-                    PackageCapacityProfile.DEFAULT,
+                    configuredCapacityProfile(),
                     0);
             if (result.data().isEmpty()) {
                 return Optional.empty();
@@ -315,6 +327,45 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         }
         setChanged();
         return true;
+    }
+
+    private Optional<ColoredProviderPlan> planDefaultProviderPush(KeyCounter[] inputHolder) {
+        Optional<List<GenericStack>> contents = providerContents(inputHolder);
+        if (contents.isEmpty()) {
+            return Optional.empty();
+        }
+        var result = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                contents.get(),
+                List.of(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                configuredCapacityProfile(),
+                0);
+        return result.data()
+                .map(data -> new ColoredProviderPlan(List.of(new QueuedPackage(PackageColor.FLUIX, data)), contents.get()));
+    }
+
+    private static Optional<List<GenericStack>> providerContents(KeyCounter[] inputHolder) {
+        List<GenericStack> contents = new ArrayList<>();
+        for (KeyCounter counter : inputHolder) {
+            if (counter == null) {
+                continue;
+            }
+            for (var entry : counter) {
+                if (entry.getLongValue() <= 0) {
+                    continue;
+                }
+                if (!AEItemKey.is(entry.getKey())) {
+                    return Optional.empty();
+                }
+                contents.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+            }
+        }
+        if (contents.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(List.copyOf(contents));
     }
 
     private static Optional<Map<AEKey, Long>> aggregateItemInputs(KeyCounter[] inputHolder) {
@@ -391,6 +442,15 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             return true;
         }
 
+        if (items.getStackInSlot(SLOT_PATTERN).isEmpty()) {
+            Optional<ColoredProviderPlan> defaultPlan = planDefaultProviderPush(inputHolder);
+            if (defaultPlan.isEmpty() || !commitProviderPackages(defaultPlan.get().packages())) {
+                return false;
+            }
+            consumePatternInputs(inputHolder, defaultPlan.get().consumedInputs());
+            return true;
+        }
+
         Optional<PatternProviderInput> providerInput = PatternProviderInput.create(inputHolder);
         if (providerInput.isEmpty()) {
             return false;
@@ -449,9 +509,18 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     public void load(CompoundTag tag) {
         super.load(tag);
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
-            items.deserializeNBT(tag.getCompound(ITEMS_TAG));
+            loadItems(tag.getCompound(ITEMS_TAG));
         }
         loadPendingPackages(tag);
+    }
+
+    private void loadItems(CompoundTag itemsTag) {
+        ItemStackHandler loadedItems = new ItemStackHandler(SLOT_COUNT);
+        loadedItems.deserializeNBT(itemsTag);
+        for (int slot = 0; slot < items.getSlots(); slot++) {
+            ItemStack stack = slot < loadedItems.getSlots() ? loadedItems.getStackInSlot(slot) : ItemStack.EMPTY;
+            items.setStackInSlot(slot, stack);
+        }
     }
 
     @Override
@@ -524,6 +593,11 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         ItemStack stack = new ItemStack(APItems.packageItems().get(color).get());
         PackageDataStorage.write(stack, data);
         return stack;
+    }
+
+    private PackageCapacityProfile configuredCapacityProfile() {
+        return MePackagerBlockEntity.capacityProfileFromItem(items.getStackInSlot(SLOT_CAPACITY))
+                .orElse(PackageCapacityProfile.DEFAULT);
     }
 
     private record AssemblyPlan(PackageColor color, ItemPackagePlan plan) {

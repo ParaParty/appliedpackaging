@@ -3,6 +3,7 @@ package com.warmthdawn.appliedpackaging.world.menu;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
+import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -16,7 +17,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
 
 public class PackageAssemblerMenu extends AbstractContainerMenu {
-    private static final int MACHINE_SLOT_COUNT = 11;
+    private static final int MACHINE_SLOT_COUNT = 12;
     private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
     private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
     private static final int HOTBAR_END = PLAYER_INVENTORY_END + 9;
@@ -36,6 +37,7 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
         addInputSlots();
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackageAssemblerBlockEntity.SLOT_PATTERN, 116, 24));
         addSlot(new OutputSlot(blockEntity, 144, 24));
+        addSlot(new SlotItemHandler(blockEntity.getItems(), PackageAssemblerBlockEntity.SLOT_CAPACITY, 116, 52));
         addPlayerInventory(playerInventory);
     }
 
@@ -57,6 +59,14 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
                     source,
                     PackageAssemblerBlockEntity.SLOT_PATTERN,
                     PackageAssemblerBlockEntity.SLOT_PATTERN + 1,
+                    false)) {
+                return ItemStack.EMPTY;
+            }
+        } else if (MePackagerBlockEntity.capacityProfileFromItem(source).isPresent()) {
+            if (!moveItemStackTo(
+                    source,
+                    PackageAssemblerBlockEntity.SLOT_CAPACITY,
+                    PackageAssemblerBlockEntity.SLOT_CAPACITY + 1,
                     false)) {
                 return ItemStack.EMPTY;
             }
@@ -94,11 +104,11 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
     private void addPlayerInventory(Inventory playerInventory) {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
-                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 84 + row * 18));
+                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 107 + row * 18));
             }
         }
         for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(playerInventory, column, 8 + column * 18, 142));
+            addSlot(new Slot(playerInventory, column, 8 + column * 18, 165));
         }
     }
 

@@ -522,6 +522,28 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐 Package Assembler 容量槽与大输入 Pattern Provider 路径：
+  Package Assembler 新增容量槽，使用与 ME Packager 相同的 AE2 16k/64k/256k 映射
+  GUI 高度扩展到 188，新增容量槽并下移玩家背包
+  shift-click 会把 AE2 容量元件送入容量槽
+  本地自由封装和已编码彩色处理样板 pushPattern 均读取容量槽
+  空样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 生成包裹计划，避免 9 格临时输入缓存限制
+  默认容量不足时仍整批拒绝，不消耗 Pattern Provider 输入
+  装配室加载旧 11 槽 NBT 时迁移到当前 12 槽库存，补空容量槽
+新增 GameTest：
+  packageAssemblerUsesCapacitySlotForLargeSourcePackage
+  packageAssemblerPatternProviderPushUsesCapacitySlot
+  packageAssemblerRejectsOversizedPatternProviderPushWithoutCapacity
+  packageAssemblerColoredPatternProviderPushUsesCapacitySlot
+  packageAssemblerLoadsLegacyElevenSlotInventory
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，70 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text

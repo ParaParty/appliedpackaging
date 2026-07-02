@@ -191,10 +191,11 @@ GameTest/客户端验证
   水平朝向 blockstate
   方块掉落表
   Package Assembler GUI/Menu
-  9 格输入缓冲 + 1 格样板槽 + 1 格输出槽
-  shift-click 样板进样板槽，其它物品进入输入缓冲
+  9 格输入缓冲 + 1 格样板槽 + 1 格输出槽 + 1 格容量槽
+  shift-click 样板进样板槽，AE2 容量元件进容量槽，其它物品进入输入缓冲
   输入缓冲自动封装为 Fluix 包裹
   输入合法包裹展开后再封装
+  容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
   输出非空时阻挡且不消耗输入
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
   已编码 package_pattern 走 exact package plan，可重封装大于默认容量的源包裹
@@ -203,6 +204,8 @@ GameTest/客户端验证
   package_assembler 可按 packaged_processing_pattern 逐包生成匹配包裹
   package_assembler 暴露 AE2 ICraftingMachine capability
   Pattern Provider pushPattern 可把 item-only KeyCounter 输入装配为包裹
+  空样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
+  本地自由封装、普通 Pattern Provider pushPattern、彩色 Pattern Provider pushPattern 均使用容量槽档位
   pushPattern 在输出阻挡、输入缓冲非空、非物品 AEKey 或规划失败时整批拒绝且不消耗输入
   ColoredProcessingPatternDataStorage 可在 AE2 encoded processing pattern 上保存输入槽颜色元数据
   彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
@@ -213,7 +216,6 @@ GameTest/客户端验证
   装配室基础 GameTest
 
 待实现：
-  容量元件槽
   完整 AE2 crafting CPU 自动合成 job smoke test
   客户端验证
 ```

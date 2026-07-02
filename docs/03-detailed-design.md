@@ -256,10 +256,12 @@ package_assembler 暴露 appeng.capabilities.Capabilities.CRAFTING_MACHINE。
 AE2 Pattern Provider 与装配室相邻时，通过 ICraftingMachine.pushPattern 推入样板输入。
 acceptsPlans 仅在本机输入缓冲为空、输出槽为空且待输出队列为空时返回 true。
 pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物品 AEKey 时整批拒绝。
-接收流程先把 KeyCounter 转成临时 9 格输入缓冲，生成 ItemPackagePlan，并模拟输出槽插入。
-全部校验通过后，才写入真实输入缓冲、提交装配、从 KeyCounter 扣减输入。
+普通 AE2 processing pattern 且本地样板槽为空时，直接从 Pattern Provider 的 KeyCounter 内容生成包裹计划，避免 9 格临时输入缓存限制。
+本地 package_pattern / packaged_processing_pattern 路径仍把 KeyCounter 转成临时 9 格输入缓冲，并复用本地装配计划逻辑。
+全部校验通过后，才提交输出包裹、从 KeyCounter 扣减输入。
 任何一步失败都保持 all-or-nothing：不消耗 Pattern Provider 输入，不生成半包裹。
 本地 package_pattern 和 packaged_processing_pattern 与 GUI 输入共用同一套计划逻辑。
+本地自由封装、普通 Pattern Provider 推送和彩色 Pattern Provider 推送均读取容量槽；无容量元件时使用 default 档。
 已编码 package_pattern 使用目标 PackageData 做 exact package plan，不再先按默认容量自由规划后比对 hash。
 带 appliedpackaging.colored_processing_pattern 扩展 NBT 的 AE2 encoded processing pattern 走彩色拆包路径。
 彩色拆包读取 AE2 processing pattern 的 sparse input 槽位，按槽位颜色生成一个或多个包裹。
@@ -273,7 +275,7 @@ pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物
 
 ```text
 inputBuffer: GenericStackBuffer
-outputSlots: 17 item slots，只允许合法包裹
+outputSlots: 当前 1 item slot；目标扩展为 17 item slots，只允许合法包裹
 patternSlot: 本地包裹样板/封装处理样板
 capacitySlot: 可选容量元件
 defaultColor: PackageColor
@@ -289,10 +291,12 @@ lastFailure: enum/string
 input slots 0-8
 SLOT_PATTERN = 9
 SLOT_OUTPUT = 10
-Forge item handler capability 暴露完整 11 格机器库存
+SLOT_CAPACITY = 11
+Forge item handler capability 暴露完整 12 格机器库存
 AE2 CRAFTING_MACHINE capability 暴露装配室本体
 colored processing pending package queue 持久化保存
-17 格输出缓存、自动导入 AE 网络、容量元件槽仍属于后续实现项
+容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
+17 格输出缓存和自动导入 AE 网络仍属于后续实现项；当前为 1 格输出槽
 ```
 
 普通处理样板：
@@ -313,7 +317,7 @@ AE2 自动合成仍然等待 X
 颜色元数据保存于 AE2 encoded processing pattern 的 appliedpackaging.colored_processing_pattern NBT。
 NBT 中的 inputs[] 以 AE2 processing pattern sparse input 槽位为索引。
 未标色槽位按 Fluix 处理；无颜色 NBT 的原版 processing pattern 走普通默认打包路径。
-当前服务端执行使用 default package capacity；容量元件控制彩色拆包容量属于后续 UI/机器槽位工作。
+当前服务端执行使用装配室容量槽；无容量元件时回退到 default package capacity。
 ```
 
 阻挡模式：
@@ -330,7 +334,7 @@ UI：
 ```text
 左侧：样板槽、本地输入缓存、容量元件槽
 中间：包裹计划预览和彩色分组
-右侧：17 格输出口
+右侧：当前 1 格输出口；目标 17 格输出口
 下方：默认颜色、default marker、阻挡模式、自动导入 AE 网络、状态文本
 ```
 
@@ -338,21 +342,23 @@ UI：
 
 ```text
 package_assembler 已注册为方块、方块物品和方块实体。
-方块实体提供 9 格输入缓冲、1 格样板槽与 1 格输出槽。
+方块实体提供 9 格输入缓冲、1 格样板槽、1 格输出槽与 1 格容量槽。
 非潜行右键打开 Package Assembler GUI。
-GUI 提供 9 格输入缓冲、样板槽、输出槽与玩家背包；shift-click 会优先把 package_pattern / packaged_processing_pattern 放入样板槽，其它物品进入输入缓冲。
+GUI 提供 9 格输入缓冲、样板槽、输出槽、容量槽与玩家背包；shift-click 会优先把 package_pattern / packaged_processing_pattern 放入样板槽，把 AE2 容量元件放入容量槽，其它物品进入输入缓冲。
 服务端 tick 自动尝试把输入缓冲完整封装为 1 个包裹。
 输入中的合法包裹会先展开，再与散装物品合并封装。
 输出槽非空时阻挡，不消耗任何输入。
 样板槽可放入 package_pattern 或 packaged_processing_pattern。
+容量槽使用与 ME Packager 相同的 AE2 16k/64k/256k 容量元件映射，并且不消耗容量元件。
 如果 package_pattern 已编码，装配室只接受与样板 canonical hash 完全一致的输入计划。
 已编码 package_pattern 不会被消耗，输出包裹颜色跟随样板颜色。
 如果 packaged_processing_pattern 已编码，装配室读取有序 package list，每次在输出槽为空时生成一个当前输入可满足且 canonical hash 匹配的包裹。
 packaged_processing_pattern 不会被消耗；输出被取走后可继续生成该处理样板中的下一个可满足包裹。
 如果 AE2 encoded processing pattern 带彩色输入槽元数据，Pattern Provider pushPattern 会按 sparse input 槽位拆成对应颜色包裹。
 彩色 Pattern Provider 推送可产生多个包裹；当前 1 格输出槽通过 pending queue 顺序吐出后续包裹。
-未编码样板或空样板槽时，装配室使用默认 Fluix 包裹行为。
-当前使用默认容量档，不含容量元件槽和 AE2 网络自动导出。
+未编码样板或空样板槽时，装配室使用 Fluix 包裹行为，并按容量槽档位规划。
+普通 Pattern Provider pushPattern 在空样板槽时直接从 KeyCounter 规划包裹，可承载超过 9 个物品栈的输入，只受容量档约束。
+当前不含 AE2 网络自动导出。
 ```
 
 ## 8. ME 打包机

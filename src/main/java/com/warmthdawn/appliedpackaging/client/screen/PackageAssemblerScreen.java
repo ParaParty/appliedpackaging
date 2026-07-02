@@ -15,11 +15,11 @@ public class PackageAssemblerScreen extends AbstractContainerScreen<PackageAssem
     public PackageAssemblerScreen(PackageAssemblerMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         imageWidth = 176;
-        imageHeight = 166;
+        imageHeight = 188;
         titleLabelX = 8;
         titleLabelY = 6;
         inventoryLabelX = 8;
-        inventoryLabelY = 73;
+        inventoryLabelY = 96;
     }
 
     @Override
@@ -35,11 +35,12 @@ public class PackageAssemblerScreen extends AbstractContainerScreen<PackageAssem
         int y = topPos;
         graphics.fill(x, y, x + imageWidth, y + imageHeight, PANEL);
         graphics.renderOutline(x, y, imageWidth, imageHeight, PANEL_DARK);
-        graphics.fill(x + 6, y + 18, x + 170, y + 66, 0xffc9d0d4);
-        graphics.renderOutline(x + 6, y + 18, 164, 48, PANEL_MID);
+        graphics.fill(x + 6, y + 18, x + 170, y + 88, 0xffc9d0d4);
+        graphics.renderOutline(x + 6, y + 18, 164, 70, PANEL_MID);
         renderMachineSlots(graphics, x, y);
         graphics.hLine(x + 86, x + 108, y + 34, PANEL_DARK);
         graphics.hLine(x + 134, x + 142, y + 34, PANEL_DARK);
+        graphics.hLine(x + 104, x + 126, y + 62, PANEL_DARK);
         renderInventorySlots(graphics, x, y);
     }
 
@@ -57,6 +58,7 @@ public class PackageAssemblerScreen extends AbstractContainerScreen<PackageAssem
         }
         renderSlot(graphics, left + 115, top + 23);
         renderSlot(graphics, left + 143, top + 23);
+        renderSlot(graphics, left + 115, top + 51);
     }
 
     private static void renderSlot(GuiGraphics graphics, int x, int y) {
@@ -68,11 +70,11 @@ public class PackageAssemblerScreen extends AbstractContainerScreen<PackageAssem
     private static void renderInventorySlots(GuiGraphics graphics, int left, int top) {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
-                renderSlot(graphics, left + 7 + column * 18, top + 83 + row * 18);
+                renderSlot(graphics, left + 7 + column * 18, top + 106 + row * 18);
             }
         }
         for (int column = 0; column < 9; column++) {
-            renderSlot(graphics, left + 7 + column * 18, top + 141);
+            renderSlot(graphics, left + 7 + column * 18, top + 164);
         }
     }
 }

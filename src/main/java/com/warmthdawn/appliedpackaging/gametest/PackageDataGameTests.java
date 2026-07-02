@@ -774,6 +774,108 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerUsesCapacitySlotForLargeSourcePackage(GameTestHelper helper) {
+        ItemStack component = ae2Item("cell_component_64k");
+        helper.assertFalse(component.isEmpty(), "AE2 64k storage component should be registered");
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData sourceData = PackageData.create(
+                PackageColor.RED,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640)),
+                Optional.empty(),
+                0);
+        assembler.getItems().setStackInSlot(0, packageStack(PackageColor.RED, sourceData));
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY, component);
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should use its capacity slot when repacking a large source package");
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 640,
+                "64k capacity should allow ten iron stack units");
+        helper.assertTrue(!assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY).isEmpty(),
+                "Assembler should not consume the capacity slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerPatternProviderPushUsesCapacitySlot(GameTestHelper helper) {
+        ItemStack component = ae2Item("cell_component_64k");
+        helper.assertFalse(component.isEmpty(), "AE2 64k storage component should be registered");
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY, component);
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+
+        boolean accepted = assembler.pushPattern(
+                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
+                new KeyCounter[] { iron },
+                Direction.UP);
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(accepted,
+                "Assembler should package large Pattern Provider pushes with the configured capacity slot");
+        helper.assertTrue(iron.isEmpty(), "Accepted large push should consume the input holder");
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 640,
+                "Large Pattern Provider push should preserve all iron");
+        helper.assertTrue(!assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY).isEmpty(),
+                "Pattern Provider push should not consume the capacity slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerRejectsOversizedPatternProviderPushWithoutCapacity(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+
+        boolean accepted = assembler.pushPattern(
+                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
+                new KeyCounter[] { iron },
+                Direction.UP);
+
+        helper.assertFalse(accepted, "Default-capacity assembler should reject oversized Pattern Provider pushes");
+        helper.assertTrue(iron.get(AEItemKey.of(Items.IRON_INGOT)) == 640,
+                "Rejected oversized push should not consume input holders");
+        helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                "Rejected oversized push should not create output");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerColoredPatternProviderPushUsesCapacitySlot(GameTestHelper helper) {
+        ItemStack component = ae2Item("cell_component_64k");
+        helper.assertFalse(component.isEmpty(), "AE2 64k storage component should be registered");
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY, component);
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640) },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        ColoredProcessingPatternDataStorage.write(pattern, Map.of(0, PackageColor.RED));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details != null, "AE2 should decode the large colored processing pattern");
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron }, Direction.UP);
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(accepted,
+                "Assembler should package large colored Pattern Provider pushes with the configured capacity slot");
+        helper.assertTrue(iron.isEmpty(), "Accepted large colored push should consume the input holder");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.RED).get()),
+                "Large colored push should use the slot color");
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 640,
+                "Large colored Pattern Provider push should preserve all iron");
+        helper.assertTrue(!assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY).isEmpty(),
+                "Colored Pattern Provider push should not consume the capacity slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerUsesPackagedProcessingPattern(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
@@ -909,6 +1011,25 @@ public final class PackageDataGameTests {
                 "Rejected fluid push should not consume input holders");
         helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
                 "Rejected fluid push should not create output");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerLoadsLegacyElevenSlotInventory(GameTestHelper helper) {
+        ItemStackHandler legacyItems = new ItemStackHandler(11);
+        legacyItems.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 16));
+        CompoundTag tag = new CompoundTag();
+        tag.put("items", legacyItems.serializeNBT());
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+
+        assembler.load(tag);
+
+        helper.assertTrue(assembler.getItems().getSlots() == 12,
+                "Assembler should keep its current slot count when loading legacy NBT");
+        helper.assertTrue(assembler.getItems().getStackInSlot(0).is(Items.IRON_INGOT),
+                "Assembler should preserve legacy input slots");
+        helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY).isEmpty(),
+                "Assembler should add an empty capacity slot for legacy NBT");
         helper.succeed();
     }
 
@@ -1508,6 +1629,14 @@ public final class PackageDataGameTests {
         ItemStack stack = new ItemStack(APItems.packageItems().get(color).get());
         PackageDataStorage.write(stack, data);
         return stack;
+    }
+
+    private static ItemStack ae2Item(String path) {
+        ResourceLocation id = ResourceLocation.tryParse("ae2:" + path);
+        if (id == null) {
+            return ItemStack.EMPTY;
+        }
+        return new ItemStack(BuiltInRegistries.ITEM.get(id));
     }
 
     private static long amountOf(PackageData data, AEKey key) {
