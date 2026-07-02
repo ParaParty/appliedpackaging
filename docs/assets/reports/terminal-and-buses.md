@@ -74,6 +74,21 @@ Item models:
 - `src/main/resources/assets/appliedpackaging/models/item/package_export_bus.json`
 - `src/main/resources/assets/appliedpackaging/models/item/package_unpacking_bus.json`
 
+AE2 part textures added by the latest main-thread integration pass:
+
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_front.png`
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_sides.png`
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_sides_status.png`
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_back.png`
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_bright.png`
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_medium.png`
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_dark.png`
+- `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_colored.png`
+
+AE2 part model added by the latest main-thread integration pass:
+
+- `src/main/resources/assets/appliedpackaging/models/part/package_pattern_terminal_base.json`
+
 ## Model Notes
 
 - `package_pattern_terminal` now uses an AE2-style thin panel block model: a 14x14x3 face plate plus an 8x8x4 rear connector, with separate front, side, and top textures.
@@ -158,4 +173,19 @@ Latest terminal model pass:
 .\gradlew.bat build succeeded.
 .\gradlew.bat runClient reached Applied Packaging initialization, SoundEngine startup, block atlas creation, and a local world; the client was then manually terminated.
 run/logs/latest.log did not contain ERROR, FATAL, Missing model, Unable to load model, preview_sheet, or mip level entries for the latest smoke.
+```
+
+Latest AE2 part artwork pass:
+
+```text
+The Package Pattern Terminal player-facing AE2 part now uses Applied Packaging-owned 16x16 body/front/back/sides textures and AP-owned overlay mask textures.
+The new base part model is registered by PackagePatternTerminalPart and combined with the AP-owned off/on overlay models.
+AE2 15.4.10 assets were inspected only as reference for panel geometry, dark base proportions, and overlay layering. No AE2 pixels were copied into Applied Packaging assets.
+python C:\Users\warmt\.codex\skills\minecraft-mod-asset-generation\scripts\assetgen validate-contract docs\assets\contracts\terminal_and_buses.yaml succeeded.
+60 project PNG files are non-empty and readable; the 8 new part PNG files are 16x16 RGBA.
+55 project JSON files parse successfully; model element coordinates remain within 0..16.
+.\gradlew.bat build succeeded.
+.\gradlew.bat runData succeeded.
+.\gradlew.bat runClientSmoke succeeded and opened the Package Pattern Terminal through the real AE2 part host.
+.\gradlew.bat runGameTestServer succeeded with 112 required tests passing.
 ```

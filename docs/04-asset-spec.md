@@ -212,6 +212,7 @@ docs/assets/contracts/ui_icons.yaml
 19 个当前注册 item 的 32x32 图标与 item model
 ME 包裹装配室与 ME 打包机 32x32 block textures/blockstate/block model/item model
 包裹样板终端、包裹存储总线、包裹输出总线、包裹拆包总线 32x32 textures/model
+Package Pattern Terminal 玩家入口使用 AE2 cable part item，并已交付自有 16x16 part body/front/back/sides/overlay mask 材质与 part model
 14 个 16x16 GUI 图标
 128x128 GUI logo.png
 docs/assets/reports/*.md
@@ -232,12 +233,13 @@ docs/assets/reports/*.md
 
 ```text
 5 个 asset contract 均 validate ok
-52 个 PNG 尺寸符合预期
-54 个 JSON 可解析
+60 个 PNG 尺寸符合预期
+55 个 JSON 可解析
 block model 坐标保持在 0..16
 texture/model 引用存在
 抽样视觉检查通过
 .\gradlew.bat build 成功
 .\gradlew.bat runData 成功
-.\gradlew.bat runGameTestServer 成功，29 个必需 GameTest 全部通过
+.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
+.\gradlew.bat runClientSmoke 成功，Package Pattern Terminal 使用真实 AE2 part host 打开
 ```

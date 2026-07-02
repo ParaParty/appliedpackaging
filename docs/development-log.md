@@ -1037,3 +1037,20 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
 验证 .\gradlew.bat runClientSmoke 成功，生成 6 张真实菜单截图并正常退出客户端，其中 Package Pattern Terminal 仍通过 AE2 part host 打开
 ```
+
+最新进展：
+
+```text
+补齐 Package Pattern Terminal 的 Applied Packaging 自有 AE2 part 材质：
+  新增 textures/part/package_pattern_terminal_front/sides/sides_status/back 以及 bright/medium/dark/colored overlay mask
+  新增 models/part/package_pattern_terminal_base.json，PackagePatternTerminalPart 注册并使用该 AP 自有 body model
+  package_pattern_terminal_off/on/item model 的发光与前脸纹理改为 appliedpackaging:part/*，不再引用 AE2 pattern terminal 纹理层
+  本轮 AE2 资产仅作为形体和材质语言参考，未复制 AE2 像素
+验证 assetgen validate-contract docs/assets/contracts/terminal_and_buses.yaml 成功
+验证资源审计通过：60 个 PNG 非空，55 个 JSON 可解析，模型坐标保持在 0..16
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+验证 .\gradlew.bat runClientSmoke 成功，Package Pattern Terminal 仍通过真实 AE2 part host 打开，6 张真实菜单截图生成并正常退出客户端
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
+验证 .\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
+```

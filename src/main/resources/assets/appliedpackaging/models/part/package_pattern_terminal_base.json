@@ -1,0 +1,34 @@
+{
+  "textures": {
+    "sides": "appliedpackaging:part/package_pattern_terminal_sides",
+    "sidesStatus": "appliedpackaging:part/package_pattern_terminal_sides_status",
+    "back": "appliedpackaging:part/package_pattern_terminal_back",
+    "front": "appliedpackaging:part/package_pattern_terminal_front",
+    "particle": "appliedpackaging:part/package_pattern_terminal_back"
+  },
+  "elements": [
+    {
+      "from": [2, 2, 0],
+      "to": [14, 14, 2],
+      "faces": {
+        "down": { "texture": "#sides" },
+        "up": { "texture": "#sides" },
+        "south": { "texture": "#back" },
+        "east": { "texture": "#sides" },
+        "north": { "texture": "#front" },
+        "west": { "texture": "#sides" }
+      }
+    },
+    {
+      "from": [4, 4, 2],
+      "to": [12, 12, 3],
+      "faces": {
+        "down": { "texture": "#sidesStatus" },
+        "up": { "texture": "#sidesStatus" },
+        "south": { "texture": "#back" },
+        "east": { "texture": "#sidesStatus" },
+        "west": { "texture": "#sidesStatus" }
+      }
+    }
+  ]
+}

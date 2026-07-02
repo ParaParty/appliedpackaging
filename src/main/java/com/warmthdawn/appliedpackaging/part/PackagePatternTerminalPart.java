@@ -41,11 +41,13 @@ public class PackagePatternTerminalPart extends AbstractDisplayPart implements M
             new ResourceLocation(AppliedPackaging.MOD_ID, "part/package_pattern_terminal_off");
     public static final ResourceLocation MODEL_ON =
             new ResourceLocation(AppliedPackaging.MOD_ID, "part/package_pattern_terminal_on");
+    public static final ResourceLocation MODEL_BODY =
+            new ResourceLocation(AppliedPackaging.MOD_ID, "part/package_pattern_terminal_base");
 
-    public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
-    public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
+    public static final IPartModel MODELS_OFF = new PartModel(MODEL_BODY, MODEL_OFF, MODEL_STATUS_OFF);
+    public static final IPartModel MODELS_ON = new PartModel(MODEL_BODY, MODEL_ON, MODEL_STATUS_ON);
     public static final IPartModel MODELS_HAS_CHANNEL =
-            new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_HAS_CHANNEL);
+            new PartModel(MODEL_BODY, MODEL_ON, MODEL_STATUS_HAS_CHANNEL);
 
     private final PackagePatternTerminalBlockEntity terminal =
             new PackagePatternTerminalBlockEntity(
@@ -64,7 +66,7 @@ public class PackagePatternTerminalPart extends AbstractDisplayPart implements M
     }
 
     public static void registerModels() {
-        PartModels.registerModels(MODEL_OFF, MODEL_ON);
+        PartModels.registerModels(MODEL_BODY, MODEL_OFF, MODEL_ON);
     }
 
     @Override

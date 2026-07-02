@@ -149,6 +149,7 @@ fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
 当前最新执行：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:15 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
+2026-07-03 06:27 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -191,13 +192,15 @@ language key 完整
 PNG/JSON/model 引用机械检查通过
 资源抽样视觉检查通过
 已按 AE2 forge/v15.4.10 源码资产生成参考 sheet，并基于参考完成二轮材质重做
-52 个 PNG 尺寸/模式/模型引用检查通过
-54 个 JSON 可解析
+60 个 PNG 尺寸/模式/模型引用检查通过
+55 个 JSON 可解析
 .\gradlew.bat runData 成功
 2026-07-03 05:35 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
 2026-07-03 05:43 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
 2026-07-03 06:14 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
 2026-07-03 06:16 轻量资源审计通过：英文/简体中文语言 key 对齐，52 个 PNG 非空。
+2026-07-03 06:26 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容。
+2026-07-03 06:27 资源审计通过：60 个 PNG 非空，55 个 JSON 可解析；Package Pattern Terminal part 新增 8 个 16x16 RGBA PNG 和 1 个 base part model。
 ```
 
 ## 4. 构建验证
@@ -220,6 +223,7 @@ jar 文件名包含 mod id 和版本
 当前最新执行：`.\gradlew.bat build` 成功，生成 `build/libs/appliedpackaging-0.1.0-dev.jar`。
 
 2026-07-03 06:13 再次执行 `.\gradlew.bat build` 成功。
+2026-07-03 06:25 再次执行 `.\gradlew.bat build` 成功。
 本次发布 jar 重新打包后已确认包含 `META-INF/mods.toml`、`META-INF/MANIFEST.MF`、`LICENSE.md`、`README.md`、`CHANGELOG.md` 和 `assets/appliedpackaging/logo.png`。
 
 ## 5. 客户端验证
@@ -283,6 +287,10 @@ run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable
 
 2026-07-03 06:18 再次执行 .\gradlew.bat runClientSmoke 成功。
 本次 smoke 自动摆放 6 个目标，Package Pattern Terminal 步骤继续使用 AE2 part host，6 张真实菜单截图均重新生成并正常退出客户端。
+
+2026-07-03 06:27 在 Package Pattern Terminal part 切换为 Applied Packaging 自有 part body/front/back/sides/overlay mask 材质后，再次执行 .\gradlew.bat runClientSmoke 成功。
+本次 smoke 继续通过真实 AE2 part host 打开 Package Pattern Terminal 菜单，生成 6 张真实菜单截图并正常退出客户端；人工抽看 Package Pattern Terminal 截图，确认菜单非空屏、核心控件和槽位显示正常。
+run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout。
 ```
 
 ## 6. Dedicated Server 验证
