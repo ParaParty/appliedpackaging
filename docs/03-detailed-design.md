@@ -588,7 +588,7 @@ package_pattern_terminal 已注册为水平朝向方块、方块物品、方块�
 样板槽接受未编码 package_pattern、未编码 packaged_processing_pattern、AE2 原版 blank_pattern、AE2 encoded processing pattern，或已编码 packaged_processing_pattern 作为 Split 来源。
 输出尽量保留输入样板语义；AE2 blank_pattern 的单包裹无输出场景会输出为带 package_pattern NBT 的 AE2 blank_pattern，多包裹且无处理输出时会输出为带 packaged_processing_pattern NBT 的 AE2 blank_pattern，有处理输出时会输出为 AE2 encoded processing pattern 并附带 packaged_processing_pattern NBT；AE2 processing pattern 会复制 1 个输出并写入 colored processing metadata。
 编码 package_pattern 时写入单个 PackageData；编码 packaged_processing_pattern 时按容量档把预览输入拆成有序 packages[]。
-编码 packaged_processing_pattern 时会把处理输出 ghost slots 写入 outputs[]；点击 ghost slot 会复制光标物品与数量，右键复制 1 个，空光标点击清除，均不消耗玩家物品。若光标物品是 Forge 流体容器，则 ghost 槽显示容器物品，但 outputs[] 写入对应 AEFluidKey 与流体数量；例如水桶写入 1000 mB water。
+编码 packaged_processing_pattern 时会把处理输出 ghost slots 写入 outputs[]；点击 ghost slot 会复制光标物品与数量，右键复制 1 个，空光标点击清除，均不消耗玩家物品。若光标物品是 Forge 流体容器，则 ghost 槽显示容器物品，但 outputs[] 写入对应 AEFluidKey 与流体数量；例如水桶写入 1000 mB water。鼠标悬停处理输出 ghost 槽并滚轮调整数量时，流体每步调整 1000 mB，物品/其它已存在 key 每步调整 1；数量叠字只在真实数量大于显示栈数量时显示。
 编码只读取预览输入，不消耗预览输入、容量槽或 marker 槽；只消耗 1 个未编码空白样板。
 终端保存并同步 selectedColor，GUI 提供 17 色 swatch，编码样板颜色跟随当前选择。
 终端保存并同步 9 个输入槽颜色；选中颜色后左键点击输入槽角落色标即可把该槽设为当前颜色，右键点击清除该槽颜色。
@@ -665,7 +665,7 @@ package_unpacking_bus:
 潜行空手右键清除模板；模板物品不被消耗，也不会作为实体库存掉落。
 普通空手右键打开共享 Package Bus 配置 UI；UI 显示当前 ghost 模板，支持从光标物品复制模板、清除模板，以及从玩家背包 shift-click 有效模板复制为 ghost filter。
 UI 仍复用 PackageFilter.fromTemplate，因此 package_pattern、packaged_processing_pattern 和合法包裹的颜色、marker、内容过滤语义与右键快捷配置完全一致。
-Package Bus 配置 UI 也支持手工过滤器编辑：17 色 swatch 设置颜色过滤，marker ghost 槽从光标复制 1 个物品作为 marker，3 个 required content ghost 槽从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标点击清除；这些 ghost 编辑不消耗玩家物品。若 required content 光标物品是 Forge 流体容器，则过滤器保存对应 AEFluidKey 与流体数量，例如水桶保存 1000 mB water。
+Package Bus 配置 UI 也支持手工过滤器编辑：17 色 swatch 设置颜色过滤，marker ghost 槽从光标复制 1 个物品作为 marker，3 个 required content ghost 槽从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标点击清除；这些 ghost 编辑不消耗玩家物品。若 required content 光标物品是 Forge 流体容器，则过滤器保存对应 AEFluidKey 与流体数量，例如水桶保存 1000 mB water。鼠标悬停 required content ghost 槽并滚轮调整数量时，流体每步调整 1000 mB，物品/其它已存在 key 每步调整 1；数量不会降到小于一个调整步长。
 手工过滤器以 PackageFilter NBT 保存到总线方块实体，保留旧 filter_template 读取兼容；复制真实模板时仍保存 ghost 模板物品用于显示，手工编辑后清除模板来源显示但保留实际过滤条件。
 
 当前不含批量 required content 编辑、任意 AEKey 直接手工过滤输入，也未实现 AE2 cable part 形态。

@@ -228,6 +228,32 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         return processingOutputKeys[slot];
     }
 
+    public long processingOutputAmount(int slot) {
+        GenericStack stack = processingOutputKey(slot);
+        return stack == null ? 0L : stack.amount();
+    }
+
+    public int processingOutputAmountForDisplay(int slot) {
+        long amount = processingOutputAmount(slot);
+        return amount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) amount;
+    }
+
+    public void adjustProcessingOutputAmount(int slot, boolean increase) {
+        if (slot < 0 || slot >= processingOutputKeys.length) {
+            return;
+        }
+        GenericStack current = processingOutputKeys[slot];
+        ItemStack display = processingOutputs[slot];
+        if (current == null || display.isEmpty()) {
+            return;
+        }
+        long step = amountStep(current);
+        long amount = increase
+                ? saturatingAdd(current.amount(), step)
+                : Math.max(step, current.amount() - step);
+        setProcessingOutput(slot, display, new GenericStack(current.what(), amount));
+    }
+
     public void setProcessingOutput(int slot, ItemStack displayStack, GenericStack outputStack) {
         if (slot < 0 || slot >= processingOutputs.length) {
             return;
@@ -640,6 +666,17 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
     private static GenericStack itemOutputStack(ItemStack output) {
         return new GenericStack(AEItemKey.of(output), output.getCount());
+    }
+
+    private static long amountStep(GenericStack stack) {
+        return stack.what() instanceof AEFluidKey ? 1000L : 1L;
+    }
+
+    private static long saturatingAdd(long amount, long step) {
+        if (Long.MAX_VALUE - amount < step) {
+            return Long.MAX_VALUE;
+        }
+        return amount + step;
     }
 
     private static boolean isMarkerItem(ItemStack stack) {

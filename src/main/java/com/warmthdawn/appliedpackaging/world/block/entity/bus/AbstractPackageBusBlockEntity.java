@@ -158,6 +158,19 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         return filter.requiredContents();
     }
 
+    public long filterRequiredContentAmount(int slot) {
+        List<GenericStack> requiredContents = filter.requiredContents();
+        if (slot < 0 || slot >= requiredContents.size()) {
+            return 0L;
+        }
+        return requiredContents.get(slot).amount();
+    }
+
+    public int filterRequiredContentAmountForDisplay(int slot) {
+        long amount = filterRequiredContentAmount(slot);
+        return amount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) amount;
+    }
+
     public void setManualFilterColor(PackageColor color) {
         setManualFilter(new PackageFilter(Optional.of(color), filter.marker(), filter.requiredContents()));
     }
@@ -226,6 +239,23 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         while (requiredContents.size() > REQUIRED_CONTENT_SLOT_COUNT) {
             requiredContents.remove(requiredContents.size() - 1);
         }
+        setManualFilter(new PackageFilter(filter.color(), filter.marker(), requiredContents));
+    }
+
+    public void adjustManualFilterContentAmount(int slot, boolean increase) {
+        if (slot < 0 || slot >= REQUIRED_CONTENT_SLOT_COUNT) {
+            return;
+        }
+        List<GenericStack> requiredContents = new ArrayList<>(filter.requiredContents());
+        if (slot >= requiredContents.size()) {
+            return;
+        }
+        GenericStack current = requiredContents.get(slot);
+        long step = amountStep(current);
+        long amount = increase
+                ? saturatingAdd(current.amount(), step)
+                : Math.max(step, current.amount() - step);
+        requiredContents.set(slot, new GenericStack(current.what(), amount));
         setManualFilter(new PackageFilter(filter.color(), filter.marker(), requiredContents));
     }
 
@@ -325,6 +355,17 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         filter = manualFilter;
         filterTemplate = ItemStack.EMPTY;
         onFilterChanged();
+    }
+
+    private static long amountStep(GenericStack stack) {
+        return stack.what() instanceof AEFluidKey ? 1000L : 1L;
+    }
+
+    private static long saturatingAdd(long amount, long step) {
+        if (Long.MAX_VALUE - amount < step) {
+            return Long.MAX_VALUE;
+        }
+        return amount + step;
     }
 
     @Override

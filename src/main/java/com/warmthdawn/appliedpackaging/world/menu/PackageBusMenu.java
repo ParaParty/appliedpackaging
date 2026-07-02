@@ -23,6 +23,9 @@ public class PackageBusMenu extends AbstractContainerMenu {
     public static final int BUTTON_SET_FROM_CURSOR = 0;
     public static final int BUTTON_CLEAR_FILTER = 1;
     public static final int BUTTON_COLOR_BASE = 10;
+    public static final int BUTTON_CONTENT_AMOUNT_INCREASE_BASE = 40;
+    public static final int BUTTON_CONTENT_AMOUNT_DECREASE_BASE =
+            BUTTON_CONTENT_AMOUNT_INCREASE_BASE + AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT;
     public static final int FILTER_DISPLAY_SLOT = 0;
     public static final int MARKER_FILTER_SLOT = 1;
     public static final int CONTENT_FILTER_START = 2;
@@ -39,6 +42,8 @@ public class PackageBusMenu extends AbstractContainerMenu {
     private final SimpleContainer contentDisplay =
             new SimpleContainer(AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT);
     private final DataSlot selectedColorSlot;
+    private final DataSlot[] contentAmountSlots =
+            new DataSlot[AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT];
 
     public PackageBusMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -69,6 +74,7 @@ public class PackageBusMenu extends AbstractContainerMenu {
         }
         addPlayerInventory(playerInventory);
         addDataSlot(selectedColorSlot);
+        addContentAmountSlots();
     }
 
     @Override
@@ -100,6 +106,24 @@ public class PackageBusMenu extends AbstractContainerMenu {
                 updateFilterDisplays();
                 broadcastChanges();
                 player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_cleared"), true);
+            }
+            return true;
+        }
+        if (id >= BUTTON_CONTENT_AMOUNT_INCREASE_BASE
+                && id < BUTTON_CONTENT_AMOUNT_INCREASE_BASE + AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT) {
+            if (!player.level().isClientSide) {
+                blockEntity.adjustManualFilterContentAmount(id - BUTTON_CONTENT_AMOUNT_INCREASE_BASE, true);
+                updateFilterDisplays();
+                broadcastChanges();
+            }
+            return true;
+        }
+        if (id >= BUTTON_CONTENT_AMOUNT_DECREASE_BASE
+                && id < BUTTON_CONTENT_AMOUNT_DECREASE_BASE + AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT) {
+            if (!player.level().isClientSide) {
+                blockEntity.adjustManualFilterContentAmount(id - BUTTON_CONTENT_AMOUNT_DECREASE_BASE, false);
+                updateFilterDisplays();
+                broadcastChanges();
             }
             return true;
         }
@@ -176,6 +200,13 @@ public class PackageBusMenu extends AbstractContainerMenu {
         return contentDisplay.getItem(slot).copy();
     }
 
+    public int contentFilterAmount(int slot) {
+        if (slot < 0 || slot >= contentAmountSlots.length) {
+            return 0;
+        }
+        return contentAmountSlots[slot].get();
+    }
+
     private void clickMarkerFilter(ClickType clickType, Player player) {
         if (clickType != ClickType.PICKUP) {
             return;
@@ -230,6 +261,24 @@ public class PackageBusMenu extends AbstractContainerMenu {
         }
         for (int column = 0; column < 9; column++) {
             addSlot(new Slot(playerInventory, column, 8 + column * 18, 183));
+        }
+    }
+
+    private void addContentAmountSlots() {
+        for (int slot = 0; slot < contentAmountSlots.length; slot++) {
+            final int contentSlot = slot;
+            contentAmountSlots[contentSlot] = new DataSlot() {
+                @Override
+                public int get() {
+                    return blockEntity.filterRequiredContentAmountForDisplay(contentSlot);
+                }
+
+                @Override
+                public void set(int value) {
+                    // Server-owned value.
+                }
+            };
+            addDataSlot(contentAmountSlots[contentSlot]);
         }
     }
 

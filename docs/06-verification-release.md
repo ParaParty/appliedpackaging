@@ -106,6 +106,7 @@ package_pattern_terminal 可把 packaged_processing_pattern 拆成多包裹计�
 package_pattern_terminal 配置 UI 可从光标设置 packaged_processing_pattern 处理输出 ghost slot，编码时写入 outputs[] 且不消耗光标物品
 package_pattern_terminal 配置 UI 可从 Forge 流体容器设置处理输出 ghost slot，编码时写入 AEFluidKey 输出且不消耗光标容器
 package_pattern_terminal 处理输出 fluid ghost 可保存/读取后保持 display stack 与 GenericStack 输出
+package_pattern_terminal 配置 UI 可调整流体处理输出 ghost 数量，调整后 AE2 processing pattern outputs[] 可见 2000 mB water
 package_pattern_terminal Split 可把已编码 packaged_processing_pattern 逐张拆为 package_pattern
 package_pattern_terminal Split pending queue 可保存/读取后继续输出
 package_pattern_terminal 输入槽颜色可清除
@@ -120,6 +121,7 @@ package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
 package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
 package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
 package_bus 配置 UI 可从 Forge 流体容器设置 required content ghost，编码时写入 AEFluidKey 过滤条件且不消耗光标容器
+package_bus 配置 UI 可调整流体 required content ghost 数量，且不会降到小于一桶
 package_bus 手工流体过滤器保存/读取后保留 color、required content key 和 amount
 PackageFilter 可匹配流体 required content
 item handler 打包计划可按内容过滤只选择 requiredContents
@@ -143,7 +145,7 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
-当前最新执行：.\gradlew.bat runGameTestServer 成功，108 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，110 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -189,6 +191,7 @@ PNG/JSON/model 引用机械检查通过
 53 个 PNG 尺寸/模式/模型引用检查通过
 .\gradlew.bat runData 成功
 2026-07-03 05:35 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+2026-07-03 05:43 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
 ```
 
 ## 4. 构建验证
@@ -256,6 +259,10 @@ run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load mod
 2026-07-03 05:35 在 Package Bus 流体 required content ghost 完成后再次执行 .\gradlew.bat runClientSmoke 成功。
 本次 smoke 仍自动摆放 6 个关键方块，打开 Package Assembler、ME Packager、Package Pattern Terminal、Package Storage Bus、Package Export Bus、Package Unpacking Bus 真实菜单并截图后退出。
 6 张截图均已生成；人工抽看 Package Pattern Terminal 与 Package Storage Bus，确认菜单非空屏、核心控件和槽位显示正常。
+run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout。
+
+2026-07-03 05:44 在流体 ghost 数量滚轮调整 UI 完成后再次执行 .\gradlew.bat runClientSmoke 成功。
+本次 smoke 生成 6 张真实菜单截图并正常退出客户端。
 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout。
 ```
 

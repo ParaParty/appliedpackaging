@@ -36,6 +36,7 @@ build/libs/appliedpackaging-0.1.0-dev.jar
 - AE2 encoded processing pattern carrier support for packaged-processing automation.
 - Package Storage Bus, Package Export Bus, and Package Unpacking Bus that expose or move only valid packages.
 - Color, marker, required-content, and package-template filtering for routing and unpacking.
+- Adjustable fluid amounts for fluid-container processing output ghosts and package-bus required-content ghosts.
 - English and Simplified Chinese language files.
 - Models, item textures, block textures, GUI icons, recipes, loot tables, and Forge mod metadata.
 
@@ -90,7 +91,7 @@ Latest recorded verification:
 
 ```text
 compileJava:       passed
-runGameTestServer: passed, 108 required GameTests
+runGameTestServer: passed, 110 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas

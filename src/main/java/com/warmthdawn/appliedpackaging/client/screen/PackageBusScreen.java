@@ -12,6 +12,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 
 public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
     private static final ResourceLocation SET_FILTER_ICON =
@@ -85,7 +86,21 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
+        renderContentAmounts(graphics);
         renderTooltip(graphics, mouseX, mouseY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        int slot = hoveredContentSlot(mouseX, mouseY);
+        if (slot >= 0 && minecraft != null && minecraft.gameMode != null) {
+            int button = delta > 0
+                    ? PackageBusMenu.BUTTON_CONTENT_AMOUNT_INCREASE_BASE + slot
+                    : PackageBusMenu.BUTTON_CONTENT_AMOUNT_DECREASE_BASE + slot;
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, button);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
@@ -130,6 +145,42 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
         for (int column = 0; column < 9; column++) {
             renderSlot(graphics, left + 7 + column * 18, top + 182);
         }
+    }
+
+    private void renderContentAmounts(GuiGraphics graphics) {
+        for (int slot = 0; slot < 3; slot++) {
+            ItemStack display = menu.contentFilter(slot);
+            int amount = menu.contentFilterAmount(slot);
+            if (!display.isEmpty() && amount > display.getCount()) {
+                renderAmountLabel(graphics, amount, leftPos + 72 + slot * 18, topPos + 58);
+            }
+        }
+    }
+
+    private void renderAmountLabel(GuiGraphics graphics, int amount, int x, int y) {
+        String label = formatAmount(amount);
+        graphics.drawString(font, label, x + 17 - font.width(label), y + 9, 0xffffffff, true);
+    }
+
+    private int hoveredContentSlot(double mouseX, double mouseY) {
+        for (int slot = 0; slot < 3; slot++) {
+            int x = leftPos + 72 + slot * 18;
+            int y = topPos + 58;
+            if (mouseX >= x && mouseX < x + 16 && mouseY >= y && mouseY < y + 16) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    private static String formatAmount(int amount) {
+        if (amount >= 1000 && amount % 1000 == 0) {
+            return (amount / 1000) + "B";
+        }
+        if (amount >= 10000) {
+            return (amount / 1000) + "k";
+        }
+        return Integer.toString(amount);
     }
 
     private class ColorSwatchButton extends AbstractButton {

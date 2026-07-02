@@ -29,6 +29,9 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_COLOR_BASE = 10;
     public static final int BUTTON_INPUT_COLOR_BASE = 40;
     public static final int BUTTON_INPUT_COLOR_CLEAR_BASE = 60;
+    public static final int BUTTON_OUTPUT_AMOUNT_INCREASE_BASE = 80;
+    public static final int BUTTON_OUTPUT_AMOUNT_DECREASE_BASE =
+            BUTTON_OUTPUT_AMOUNT_INCREASE_BASE + PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT;
 
     public static final int ITEM_HANDLER_SLOT_COUNT = 13;
     public static final int PROCESSING_OUTPUT_START = ITEM_HANDLER_SLOT_COUNT;
@@ -43,6 +46,8 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
     private final DataSlot selectedColorSlot;
     private final DataSlot[] inputColorSlots = new DataSlot[PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT];
+    private final DataSlot[] processingOutputAmountSlots =
+            new DataSlot[PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT];
     private final SimpleContainer processingOutputDisplay =
             new SimpleContainer(PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT);
 
@@ -79,6 +84,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         addPlayerInventory(playerInventory);
         addDataSlot(selectedColorSlot);
         addInputColorSlots();
+        addProcessingOutputAmountSlots();
     }
 
     @Override
@@ -100,6 +106,24 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
                 && id < BUTTON_INPUT_COLOR_CLEAR_BASE + PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT) {
             if (!player.level().isClientSide) {
                 blockEntity.clearInputSlotColor(id - BUTTON_INPUT_COLOR_CLEAR_BASE);
+            }
+            return true;
+        }
+        if (id >= BUTTON_OUTPUT_AMOUNT_INCREASE_BASE
+                && id < BUTTON_OUTPUT_AMOUNT_INCREASE_BASE + PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT) {
+            if (!player.level().isClientSide) {
+                blockEntity.adjustProcessingOutputAmount(id - BUTTON_OUTPUT_AMOUNT_INCREASE_BASE, true);
+                updateProcessingOutputDisplay();
+                broadcastChanges();
+            }
+            return true;
+        }
+        if (id >= BUTTON_OUTPUT_AMOUNT_DECREASE_BASE
+                && id < BUTTON_OUTPUT_AMOUNT_DECREASE_BASE + PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT) {
+            if (!player.level().isClientSide) {
+                blockEntity.adjustProcessingOutputAmount(id - BUTTON_OUTPUT_AMOUNT_DECREASE_BASE, false);
+                updateProcessingOutputDisplay();
+                broadcastChanges();
             }
             return true;
         }
@@ -146,6 +170,13 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
             return ItemStack.EMPTY;
         }
         return processingOutputDisplay.getItem(slot).copy();
+    }
+
+    public int processingOutputAmount(int slot) {
+        if (slot < 0 || slot >= processingOutputAmountSlots.length) {
+            return 0;
+        }
+        return processingOutputAmountSlots[slot].get();
     }
 
     @Override
@@ -268,6 +299,24 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
                 }
             };
             addDataSlot(inputColorSlots[inputSlot]);
+        }
+    }
+
+    private void addProcessingOutputAmountSlots() {
+        for (int slot = 0; slot < processingOutputAmountSlots.length; slot++) {
+            final int outputSlot = slot;
+            processingOutputAmountSlots[outputSlot] = new DataSlot() {
+                @Override
+                public int get() {
+                    return blockEntity.processingOutputAmountForDisplay(outputSlot);
+                }
+
+                @Override
+                public void set(int value) {
+                    // Server-owned value.
+                }
+            };
+            addDataSlot(processingOutputAmountSlots[outputSlot]);
         }
     }
 

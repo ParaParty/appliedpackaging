@@ -2103,6 +2103,32 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageBusMenuAdjustsManualFluidFilterAmount(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = placePackageExportBus(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackageBusMenu menu = new PackageBusMenu(3, new Inventory(player), bus);
+
+        menu.setCarried(new ItemStack(Items.WATER_BUCKET));
+        menu.clicked(PackageBusMenu.CONTENT_FILTER_START, 0, ClickType.PICKUP, player);
+        boolean increased = menu.clickMenuButton(player, PackageBusMenu.BUTTON_CONTENT_AMOUNT_INCREASE_BASE);
+        PackageFilter increasedFilter = bus.getConfiguredFilter();
+        boolean decreased = menu.clickMenuButton(player, PackageBusMenu.BUTTON_CONTENT_AMOUNT_DECREASE_BASE);
+        boolean clamped = menu.clickMenuButton(player, PackageBusMenu.BUTTON_CONTENT_AMOUNT_DECREASE_BASE);
+        PackageFilter clampedFilter = bus.getConfiguredFilter();
+
+        helper.assertTrue(increased, "Package bus menu should accept content amount increase buttons");
+        helper.assertTrue(decreased, "Package bus menu should accept content amount decrease buttons");
+        helper.assertTrue(clamped, "Package bus menu should accept clamped content amount decrease buttons");
+        helper.assertTrue(increasedFilter.requiredContents().get(0).amount() == 2000,
+                "Package bus fluid content amount should increase by one bucket");
+        helper.assertTrue(clampedFilter.requiredContents().get(0).amount() == 1000,
+                "Package bus fluid content amount should not decrement below one bucket");
+        helper.assertTrue(menu.contentFilterAmount(0) == 1000,
+                "Package bus menu should expose the synchronized content amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageBusManualFilterPersists(GameTestHelper helper) {
         PackageExportBusBlockEntity bus = new PackageExportBusBlockEntity(
                 BlockPos.ZERO,
@@ -2663,6 +2689,44 @@ public final class PackageDataGameTests {
                 "AE2 should see the water output key");
         helper.assertTrue(details.getOutputs()[0].amount() == 1000,
                 "AE2 should see the water output amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalMenuAdjustsFluidProcessingOutputAmount(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = placePackagePatternTerminal(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackagePatternTerminalMenu menu = new PackagePatternTerminalMenu(3, new Inventory(player), terminal);
+        ItemStack blankPattern = ae2Item("blank_pattern");
+        helper.assertFalse(blankPattern.isEmpty(), "AE2 blank pattern should be registered");
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                blankPattern);
+
+        menu.setCarried(new ItemStack(Items.WATER_BUCKET));
+        menu.clicked(PackagePatternTerminalMenu.PROCESSING_OUTPUT_START, 0, ClickType.PICKUP, player);
+        boolean increased = menu.clickMenuButton(
+                player,
+                PackagePatternTerminalMenu.BUTTON_OUTPUT_AMOUNT_INCREASE_BASE);
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern =
+                PackagedProcessingPatternDataStorage.read(output).orElseThrow();
+        IPatternDetails details = PatternDetailsHelper.decodePattern(output, helper.getLevel());
+
+        helper.assertTrue(increased,
+                "Terminal menu should accept processing output amount increase buttons");
+        helper.assertTrue(menu.processingOutputAmount(0) == 2000,
+                "Terminal menu should expose the synchronized processing output amount");
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode after increasing fluid processing output amount");
+        helper.assertTrue(pattern.outputs().get(0).what().equals(AEFluidKey.of(Fluids.WATER)),
+                "Packaged-processing carrier should preserve the adjusted fluid key");
+        helper.assertTrue(pattern.outputs().get(0).amount() == 2000,
+                "Packaged-processing carrier should preserve the adjusted fluid amount");
+        helper.assertTrue(details != null && details.getOutputs()[0].amount() == 2000,
+                "AE2 should see the adjusted fluid output amount");
         helper.succeed();
     }
 

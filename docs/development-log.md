@@ -983,3 +983,22 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
 本次仅补验证证据与文档；GameTest 已按规则考虑，行为覆盖仍使用刚完成的 108 个必需 GameTest
 ```
+
+最新进展：
+
+```text
+补齐流体 ghost 数量调整：
+  Package Pattern Terminal 处理输出 ghost 槽支持滚轮调整已设置 key 的数量
+  Package Bus required content ghost 槽支持滚轮调整已设置 key 的数量
+  流体 key 每步调整 1000 mB，物品/其它已存在 key 每步调整 1
+  数量不会降到小于一个调整步长；空光标点击清除仍保留
+  客户端在 ghost 显示栈无法表达真实数量时绘制紧凑数量叠字，例如 2B 表示 2000 mB
+新增 2 个 GameTest：
+  packagePatternTerminalMenuAdjustsFluidProcessingOutputAmount
+  packageBusMenuAdjustsManualFluidFilterAmount
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，110 个必需 GameTest 全部通过
+验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张真实菜单截图并正常退出客户端
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
+```

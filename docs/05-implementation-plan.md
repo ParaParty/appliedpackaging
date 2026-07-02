@@ -292,6 +292,8 @@ GameTest/服务器 smoke test
   packaged_processing_pattern tooltip 显示已编码处理输出
   已编码 AE2 blank_pattern 通过客户端 tooltip hook 显示 package_pattern 或 packaged_processing_pattern 内容，未编码 AE2 blank_pattern 保持原版 tooltip
   package_pattern_terminal 已调整为 AE2 风格薄面板 block model，并提供按朝向旋转的薄面板 VoxelShape
+  Package Pattern Terminal 处理输出 ghost 槽支持滚轮调整已设置 key 的数量，流体每步 1000 mB
+  Package Bus required content ghost 槽支持滚轮调整已设置 key 的数量，流体每步 1000 mB
   package_pattern_terminal 可通过 Split 按钮把已编码 packaged_processing_pattern 拆回普通 package_pattern
   package_pattern_terminal Split pending queue 会保存/读取，输出槽清空后可继续吐出后续 package_pattern
   package_pattern_terminal 输入槽颜色支持右键清除
@@ -308,7 +310,6 @@ GameTest/服务器 smoke test
 待实现：
   彩色处理样板更完整的处理输出 UI
   封装处理样板任意 AEKey 处理输出 ghost editor
-  封装处理样板直接流体量编辑器
   批量 required content / 任意 AEKey 高级过滤器编辑器
   AE2 cable part 形态
 ```
