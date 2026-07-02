@@ -416,7 +416,7 @@ while stack.count > 0:
 ```text
 me_packager 已注册为方块、方块实体和方块物品。
 非潜行右键打开 ME Packager GUI。
-GUI 提供输入槽、输出槽、玩家背包和 Pack Once 图标按钮。
+GUI 提供输入槽、输出槽、容量槽、过滤槽、玩家背包、17 色 swatch 和 Pack Once 图标按钮。
 潜行右键保留快速交互：
   手持合法包裹时放入输入槽。
   空手或非包裹物品时先尝试取出输出槽。
@@ -424,8 +424,15 @@ GUI 提供输入槽、输出槽、玩家背包和 Pack Once 图标按钮。
 红石上升沿触发一次 pack/unpack。
 机器背面作为 Forge item handler 目标端点。
 输入槽存在合法包裹时执行整包拆包。
-输入槽为空时从背面库存选择默认容量可承载的物品生成 Fluix 包裹。
-当前不含 AE2 Interface 子网识别、容量元件槽、过滤槽和颜色配置 UI。
+输入槽为空时从背面库存选择当前容量档可承载的物品生成包裹。
+容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell。
+过滤槽接受已编码 package_pattern、packaged_processing_pattern 或带 PackageData 的包裹。
+过滤模板会提供颜色、marker 与 requiredContents：
+  打包时颜色优先使用过滤模板颜色，否则使用 GUI swatch selectedColor。
+  打包时过滤模板 marker 作为 override marker 写入新包裹。
+  打包内容过滤只选择 requiredContents 中仍缺少的 loose item，避免无关物品先占满容量。
+  拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
+当前不含 AE2 Interface 子网识别、独立 marker retain/override/clear UI、fluid endpoint 和周期红石模式。
 ```
 
 ## 9. 样板与终端

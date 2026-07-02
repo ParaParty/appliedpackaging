@@ -104,7 +104,7 @@ tooltip 显示每包/总计
 已交付 me_packager、package_assembler、package_pattern、packaged_processing_pattern 基础配方。
 已交付 me_packager/package_assembler loot table。
 已交付 appliedpackaging:packages item tag。
-终端、总线资源已先行存在，Java 注册与玩法实现仍待接入。
+终端、总线资源已接入 Java 注册与基础玩法。
 ```
 
 验收：
@@ -139,16 +139,21 @@ GameTest
   方块掉落表
   内部输入/输出 item handler
   非潜行右键打开 GUI/Menu
-  GUI 输入槽、输出槽、玩家背包和 Pack Once 图标按钮
+  GUI 输入槽、输出槽、容量槽、过滤槽、玩家背包、17 色 swatch 和 Pack Once 图标按钮
   潜行右键放入包裹、取出输出、触发一次操作
   红石上升沿触发一次操作
   背面 Forge item handler 打包/拆包事务
+  容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
+  selectedColor 控制无过滤模板时的输出包裹颜色
+  过滤槽接受已编码 package_pattern、packaged_processing_pattern 或合法包裹
+  过滤模板用于打包输出颜色、marker override、requiredContents 打包过滤和拆包包裹过滤
   item-only GameTest
 
 待实现：
-  容量元件槽
-  颜色/marker/filter 配置
   相邻 ME Interface 子网 endpoint
+  独立 marker retain/override/clear 策略 UI
+  fluid endpoint
+  周期红石模式
   更完整的世界内 GameTest
 ```
 

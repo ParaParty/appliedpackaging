@@ -221,9 +221,31 @@ Package Assembler 接入已编码 package_pattern：
   停止前未发现 Applied Packaging 客户端类误加载、注册崩溃或 mod 扫描异常
 ```
 
+最新进展：
+
+```text
+补齐 ME Packager 第一版配置层：
+  新增容量槽，识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
+  新增过滤槽，接受已编码 package_pattern、packaged_processing_pattern 或合法包裹作为过滤模板
+  新增 GUI 17 色 swatch，selectedColor 控制无过滤模板时的输出包裹颜色
+  打包时过滤模板提供输出颜色、marker override 和 requiredContents 内容过滤
+  拆包时输入包裹必须匹配过滤模板，不匹配则不消耗包裹
+  shift-click 会按输入、容量、过滤槽类型分流
+新增 GameTest：
+  itemHandlerPackPlanUsesContentFilter
+  itemHandlerPackPlanRejectsMissingFilteredContent
+  itemHandlerPackPlanOverridesMarkerFromFilter
+  itemHandlerPackPlanUsesLargerCapacityProfile
+  packageFilterReadsEncodedPatternTemplate
+  mePackagerRecognizesAe2CapacityItems
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，36 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
-继续补齐过滤 UI、ME 接口/子网交互、处理样板多包裹工作流等发布阻塞项。
+继续补齐 ME Interface 子网 endpoint、独立 marker 策略 UI、处理样板多包裹工作流等发布阻塞项。
 ```

@@ -61,7 +61,13 @@ package_pattern_terminal 可从预览输入编码 package_pattern
 package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
 package_pattern_terminal 输出阻挡时保留空白样板
 package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆盖
-当前最新执行：.\gradlew.bat runGameTestServer 成功，30 个必需 GameTest 全部通过。
+item handler 打包计划可按内容过滤只选择 requiredContents
+item handler 打包计划在 requiredContents 缺失时拒绝
+item handler 打包计划可从过滤模板 override marker
+item handler 打包计划可使用 64k 容量档
+过滤系统可从已编码 package_pattern 读取过滤模板
+ME Packager 可识别 AE2 64k storage component 为 64k 包裹容量档
+当前最新执行：.\gradlew.bat runGameTestServer 成功，36 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

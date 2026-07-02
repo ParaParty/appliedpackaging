@@ -23,14 +23,17 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStora
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -317,6 +320,117 @@ public final class PackageDataGameTests {
         helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 576,
                 "Default package should hold nine iron stack units");
         helper.assertTrue(plan.get().data().usedUnits() == 9, "Default package should use nine units");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanUsesContentFilter(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(2);
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        source.setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 64));
+        PackageFilter filter = new PackageFilter(
+                Optional.of(PackageColor.RED),
+                Optional.empty(),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.RED,
+                PackageCapacityProfile.DEFAULT,
+                filter);
+
+        helper.assertTrue(plan.isPresent(), "Filtered plan should be created from matching contents");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Filtered plan should include required iron");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 0,
+                "Filtered plan should not spend capacity on unrelated loose items");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanRejectsMissingFilteredContent(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(1);
+        source.setStackInSlot(0, new ItemStack(Items.COPPER_INGOT, 64));
+        PackageFilter filter = new PackageFilter(
+                Optional.of(PackageColor.RED),
+                Optional.empty(),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.RED,
+                PackageCapacityProfile.DEFAULT,
+                filter);
+
+        helper.assertTrue(plan.isEmpty(), "Filtered plan should fail when required contents are absent");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanOverridesMarkerFromFilter(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(1);
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        MarkerSpec marker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1));
+        PackageFilter filter = new PackageFilter(
+                Optional.of(PackageColor.BLUE),
+                Optional.of(marker),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.BLUE,
+                PackageCapacityProfile.DEFAULT,
+                filter);
+
+        helper.assertTrue(plan.isPresent(), "Filtered plan should create a marked package");
+        helper.assertTrue(plan.get().data().marker().map(actual -> actual.sameAs(marker)).orElse(false),
+                "Filtered plan should override marker from the filter template");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanUsesLargerCapacityProfile(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(1);
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 640));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.FLUIX,
+                PackageCapacityProfile.STORAGE_64K);
+
+        helper.assertTrue(plan.isPresent(), "64k capacity should create a package plan");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 640,
+                "64k capacity should hold ten iron stack units");
+        helper.assertTrue(plan.get().data().usedUnits() == 10, "64k package should use ten units");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageFilterReadsEncodedPatternTemplate(GameTestHelper helper) {
+        PackageData data = ironPackageData(PackageColor.RED, 64);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.RED, data);
+
+        Optional<PackageFilter> filter = PackageFilter.fromTemplate(pattern);
+
+        helper.assertTrue(filter.isPresent(), "Encoded pattern should be usable as a package filter template");
+        helper.assertTrue(filter.get().color().orElseThrow() == PackageColor.RED,
+                "Pattern filter should keep encoded color");
+        helper.assertTrue(filter.get().matches(PackageColor.RED, data), "Pattern filter should match equivalent package data");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerRecognizesAe2CapacityItems(GameTestHelper helper) {
+        ResourceLocation id = ResourceLocation.tryParse("ae2:cell_component_64k");
+        helper.assertTrue(id != null, "AE2 64k storage component id should parse");
+        ItemStack component = new ItemStack(BuiltInRegistries.ITEM.get(id));
+
+        helper.assertFalse(component.isEmpty(), "AE2 64k storage component should be registered");
+        helper.assertTrue(MePackagerBlockEntity.capacityProfileFromItem(component)
+                        .filter(profile -> profile == PackageCapacityProfile.STORAGE_64K)
+                        .isPresent(),
+                "ME Packager should map AE2 64k storage component to the 64k package profile");
         helper.succeed();
     }
 

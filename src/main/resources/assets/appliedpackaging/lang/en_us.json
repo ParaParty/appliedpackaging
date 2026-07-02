@@ -66,6 +66,7 @@
   "message.appliedpackaging.me_packager.output_blocked": "Output slot blocked",
   "message.appliedpackaging.me_packager.target_blocked": "Target inventory cannot accept the full package",
   "message.appliedpackaging.me_packager.invalid_input": "Input package is invalid",
+  "message.appliedpackaging.me_packager.filter_rejected": "Package does not match the configured filter",
   "message.appliedpackaging.me_packager.source_changed": "Source inventory changed",
   "message.appliedpackaging.package_pattern_terminal.encoded": "Package pattern encoded",
   "message.appliedpackaging.package_pattern_terminal.no_pattern": "Insert a blank package pattern",

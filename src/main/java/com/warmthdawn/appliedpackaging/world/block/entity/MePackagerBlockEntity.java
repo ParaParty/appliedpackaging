@@ -5,6 +5,7 @@ import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
@@ -15,8 +16,10 @@ import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
@@ -36,10 +39,14 @@ import net.minecraftforge.items.ItemStackHandler;
 public class MePackagerBlockEntity extends BlockEntity implements InventoryDroppingBlockEntity, MenuProvider {
     public static final int SLOT_INPUT = 0;
     public static final int SLOT_OUTPUT = 1;
+    public static final int SLOT_CAPACITY = 2;
+    public static final int SLOT_FILTER = 3;
+    private static final int SLOT_COUNT = 4;
     private static final String ITEMS_TAG = "items";
     private static final String POWERED_TAG = "powered";
+    private static final String SELECTED_COLOR_TAG = "selected_color";
 
-    private final ItemStackHandler items = new ItemStackHandler(2) {
+    private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             if (slot == SLOT_INPUT) {
@@ -48,7 +55,21 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             if (slot == SLOT_OUTPUT) {
                 return stack.getItem() instanceof PackageItem;
             }
+            if (slot == SLOT_CAPACITY) {
+                return capacityProfileFromItem(stack).isPresent();
+            }
+            if (slot == SLOT_FILTER) {
+                return PackageFilter.fromTemplate(stack).isPresent();
+            }
             return false;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            if (slot == SLOT_CAPACITY || slot == SLOT_FILTER) {
+                return 1;
+            }
+            return super.getSlotLimit(slot);
         }
 
         @Override
@@ -58,6 +79,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     };
     private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
     private boolean powered;
+    private PackageColor selectedColor = PackageColor.FLUIX;
 
     public MePackagerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.ME_PACKAGER.get(), pos, blockState);
@@ -65,6 +87,15 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
 
     public ItemStackHandler getItems() {
         return items;
+    }
+
+    public PackageColor selectedColor() {
+        return selectedColor;
+    }
+
+    public void setSelectedColor(PackageColor selectedColor) {
+        this.selectedColor = selectedColor == null ? PackageColor.FLUIX : selectedColor;
+        setChanged();
     }
 
     @Override
@@ -126,10 +157,13 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     }
 
     private MachineResult packOne(IItemHandler source) {
+        PackageFilter filter = configuredFilter();
+        PackageColor color = filter.color().orElse(selectedColor);
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 source,
-                PackageColor.FLUIX,
-                PackageCapacityProfile.DEFAULT);
+                color,
+                configuredCapacityProfile(),
+                filter);
         if (plan.isEmpty()) {
             return MachineResult.NO_CONTENTS;
         }
@@ -137,7 +171,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             return MachineResult.SOURCE_CHANGED;
         }
 
-        ItemStack packageStack = new ItemStack(APItems.packageItems().get(PackageColor.FLUIX).get());
+        ItemStack packageStack = new ItemStack(APItems.packageItems().get(color).get());
         PackageDataStorage.write(packageStack, plan.get().data());
         ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
         if (!remainder.isEmpty()) {
@@ -151,9 +185,15 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     }
 
     private MachineResult unpackOne(IItemHandler target, ItemStack input) {
+        if (!(input.getItem() instanceof PackageItem packageItem)) {
+            return MachineResult.INVALID_INPUT;
+        }
         Optional<PackageData> data = PackageDataStorage.read(input);
         if (data.isEmpty()) {
             return MachineResult.INVALID_INPUT;
+        }
+        if (!configuredFilter().matches(packageItem.color(), data.get())) {
+            return MachineResult.FILTER_REJECTED;
         }
         if (!ItemPackageTransactions.canInsertPackageContents(data.get(), target)) {
             return MachineResult.TARGET_BLOCKED;
@@ -164,6 +204,47 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         items.extractItem(SLOT_INPUT, 1, false);
         setChanged();
         return MachineResult.UNPACKED;
+    }
+
+    private PackageCapacityProfile configuredCapacityProfile() {
+        return capacityProfileFromItem(items.getStackInSlot(SLOT_CAPACITY))
+                .orElse(PackageCapacityProfile.DEFAULT);
+    }
+
+    private PackageFilter configuredFilter() {
+        return PackageFilter.fromTemplate(items.getStackInSlot(SLOT_FILTER))
+                .orElse(PackageFilter.any());
+    }
+
+    public static Optional<PackageCapacityProfile> capacityProfileFromItem(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return Optional.empty();
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (!"ae2".equals(id.getNamespace())) {
+            return Optional.empty();
+        }
+        return switch (id.getPath()) {
+            case "cell_component_16k",
+                    "item_storage_cell_16k",
+                    "fluid_storage_cell_16k",
+                    "portable_item_cell_16k",
+                    "portable_fluid_cell_16k",
+                    "storage_cell_16k" -> Optional.of(PackageCapacityProfile.STORAGE_16K);
+            case "cell_component_64k",
+                    "item_storage_cell_64k",
+                    "fluid_storage_cell_64k",
+                    "portable_item_cell_64k",
+                    "portable_fluid_cell_64k",
+                    "storage_cell_64k" -> Optional.of(PackageCapacityProfile.STORAGE_64K);
+            case "cell_component_256k",
+                    "item_storage_cell_256k",
+                    "fluid_storage_cell_256k",
+                    "portable_item_cell_256k",
+                    "portable_fluid_cell_256k",
+                    "storage_cell_256k" -> Optional.of(PackageCapacityProfile.STORAGE_256K);
+            default -> Optional.empty();
+        };
     }
 
     private Optional<IItemHandler> findTargetItemHandler() {
@@ -198,6 +279,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
         tag.putBoolean(POWERED_TAG, powered);
+        tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
     }
 
     @Override
@@ -207,6 +289,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             items.deserializeNBT(tag.getCompound(ITEMS_TAG));
         }
         powered = tag.getBoolean(POWERED_TAG);
+        selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
     }
 
     @Override
@@ -228,6 +311,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         INPUT_BLOCKED("message.appliedpackaging.me_packager.input_blocked"),
         TARGET_BLOCKED("message.appliedpackaging.me_packager.target_blocked"),
         INVALID_INPUT("message.appliedpackaging.me_packager.invalid_input"),
+        FILTER_REJECTED("message.appliedpackaging.me_packager.filter_rejected"),
         SOURCE_CHANGED("message.appliedpackaging.me_packager.source_changed");
 
         private final String messageKey;

@@ -1,16 +1,20 @@
 package com.warmthdawn.appliedpackaging.core.item_handler;
 
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -24,9 +28,21 @@ public final class ItemPackageTransactions {
             IItemHandler source,
             PackageColor color,
             PackageCapacityProfile capacityProfile) {
+        return planPack(source, color, capacityProfile, PackageFilter.any());
+    }
+
+    public static Optional<ItemPackagePlan> planPack(
+            IItemHandler source,
+            PackageColor color,
+            PackageCapacityProfile capacityProfile,
+            PackageFilter filter) {
         List<GenericStack> looseContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
         List<SlotExtraction> extractions = new ArrayList<>();
+        PackageFilter effectiveFilter = filter == null ? PackageFilter.any() : filter;
+        MarkerMergeMode markerMode = effectiveFilter.marker().isPresent()
+                ? MarkerMergeMode.OVERRIDE
+                : MarkerMergeMode.RETAIN;
 
         for (int slot = 0; slot < source.getSlots(); slot++) {
             ItemStack stack = source.getStackInSlot(slot);
@@ -36,7 +52,18 @@ public final class ItemPackageTransactions {
 
             Optional<PackageData> packageData = PackageDataStorage.read(stack);
             if (packageData.isPresent()) {
-                if (tryPackageCandidate(color, capacityProfile, looseContents, sourcePackages, packageData.get())) {
+                if (!effectiveFilter.isAny()
+                        && !contributesToRequiredContents(effectiveFilter, looseContents, sourcePackages, packageData.get())) {
+                    continue;
+                }
+                if (tryPackageCandidate(
+                        color,
+                        capacityProfile,
+                        markerMode,
+                        effectiveFilter,
+                        looseContents,
+                        sourcePackages,
+                        packageData.get())) {
                     ItemStack extraction = stack.copy();
                     extraction.setCount(1);
                     sourcePackages.add(packageData.get());
@@ -46,7 +73,16 @@ public final class ItemPackageTransactions {
             }
 
             AEItemKey key = AEItemKey.of(stack);
-            int amount = largestFittingAmount(color, capacityProfile, looseContents, sourcePackages, key, stack.getCount());
+            int maxAmount = filteredMaxAmount(effectiveFilter, looseContents, sourcePackages, key, stack.getCount());
+            int amount = largestFittingAmount(
+                    color,
+                    capacityProfile,
+                    markerMode,
+                    effectiveFilter,
+                    looseContents,
+                    sourcePackages,
+                    key,
+                    maxAmount);
             if (amount > 0) {
                 looseContents.add(new GenericStack(key, amount));
                 ItemStack extraction = stack.copy();
@@ -62,11 +98,13 @@ public final class ItemPackageTransactions {
                 color,
                 looseContents,
                 sourcePackages,
-                MarkerMergeMode.RETAIN,
-                Optional.empty(),
+                markerMode,
+                effectiveFilter.marker(),
                 capacityProfile,
                 0);
-        return result.data().map(data -> new ItemPackagePlan(data, extractions));
+        return result.data()
+                .filter(data -> effectiveFilter.matches(color, data))
+                .map(data -> new ItemPackagePlan(data, extractions));
     }
 
     public static boolean canExtract(IItemHandler source, ItemPackagePlan plan) {
@@ -114,6 +152,8 @@ public final class ItemPackageTransactions {
     private static boolean tryPackageCandidate(
             PackageColor color,
             PackageCapacityProfile capacityProfile,
+            MarkerMergeMode markerMode,
+            PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
             PackageData candidate) {
@@ -123,16 +163,87 @@ public final class ItemPackageTransactions {
                         color,
                         looseContents,
                         trialPackages,
-                        MarkerMergeMode.RETAIN,
-                        Optional.empty(),
+                        markerMode,
+                        filter.marker(),
                         capacityProfile,
                         0)
                 .success();
     }
 
+    private static int filteredMaxAmount(
+            PackageFilter filter,
+            List<GenericStack> looseContents,
+            List<PackageData> sourcePackages,
+            AEItemKey key,
+            int stackCount) {
+        if (filter.requiredContents().isEmpty()) {
+            return stackCount;
+        }
+        long required = 0;
+        for (GenericStack stack : filter.requiredContents()) {
+            if (stack.what().equals(key)) {
+                required += stack.amount();
+            }
+        }
+        if (required <= 0) {
+            return 0;
+        }
+        long available = availableAmount(looseContents, sourcePackages).getOrDefault(key, 0L);
+        long remaining = required - available;
+        if (remaining <= 0) {
+            return 0;
+        }
+        return (int) Math.min(stackCount, remaining);
+    }
+
+    private static boolean contributesToRequiredContents(
+            PackageFilter filter,
+            List<GenericStack> looseContents,
+            List<PackageData> sourcePackages,
+            PackageData candidate) {
+        if (filter.requiredContents().isEmpty()) {
+            return true;
+        }
+        Map<AEKey, Long> current = availableAmount(looseContents, sourcePackages);
+        for (GenericStack candidateStack : candidate.contents()) {
+            long required = requiredAmount(filter, candidateStack.what());
+            if (required > current.getOrDefault(candidateStack.what(), 0L)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static long requiredAmount(PackageFilter filter, AEKey key) {
+        long amount = 0;
+        for (GenericStack stack : filter.requiredContents()) {
+            if (stack.what().equals(key)) {
+                amount += stack.amount();
+            }
+        }
+        return amount;
+    }
+
+    private static Map<AEKey, Long> availableAmount(
+            List<GenericStack> looseContents,
+            List<PackageData> sourcePackages) {
+        Map<AEKey, Long> amounts = new HashMap<>();
+        for (GenericStack stack : looseContents) {
+            amounts.merge(stack.what(), stack.amount(), Long::sum);
+        }
+        for (PackageData packageData : sourcePackages) {
+            for (GenericStack stack : packageData.contents()) {
+                amounts.merge(stack.what(), stack.amount(), Long::sum);
+            }
+        }
+        return amounts;
+    }
+
     private static int largestFittingAmount(
             PackageColor color,
             PackageCapacityProfile capacityProfile,
+            MarkerMergeMode markerMode,
+            PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
             AEItemKey key,
@@ -141,7 +252,7 @@ public final class ItemPackageTransactions {
         int high = maxAmount;
         while (low < high) {
             int mid = (low + high + 1) / 2;
-            if (fitsLooseAmount(color, capacityProfile, looseContents, sourcePackages, key, mid)) {
+            if (fitsLooseAmount(color, capacityProfile, markerMode, filter, looseContents, sourcePackages, key, mid)) {
                 low = mid;
             } else {
                 high = mid - 1;
@@ -153,6 +264,8 @@ public final class ItemPackageTransactions {
     private static boolean fitsLooseAmount(
             PackageColor color,
             PackageCapacityProfile capacityProfile,
+            MarkerMergeMode markerMode,
+            PackageFilter filter,
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
             AEItemKey key,
@@ -166,8 +279,8 @@ public final class ItemPackageTransactions {
                         color,
                         trialContents,
                         sourcePackages,
-                        MarkerMergeMode.RETAIN,
-                        Optional.empty(),
+                        markerMode,
+                        filter.marker(),
                         capacityProfile,
                         0)
                 .success();

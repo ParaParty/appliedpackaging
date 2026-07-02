@@ -3,10 +3,12 @@ package com.warmthdawn.appliedpackaging.core.package_data;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.item.PackageItem;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.minecraft.world.item.ItemStack;
 
 public record PackageFilter(
         Optional<PackageColor> color,
@@ -25,6 +27,29 @@ public record PackageFilter(
 
     public static PackageFilter any() {
         return new PackageFilter(Optional.empty(), Optional.empty(), List.of());
+    }
+
+    public static Optional<PackageFilter> fromTemplate(ItemStack stack) {
+        Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern = PackagePatternDataStorage.read(stack);
+        if (pattern.isPresent()) {
+            PackageData data = pattern.get().data();
+            return Optional.of(new PackageFilter(
+                    Optional.of(pattern.get().color()),
+                    data.marker(),
+                    data.contents()));
+        }
+
+        if (stack.getItem() instanceof PackageItem packageItem) {
+            return PackageDataStorage.read(stack).map(data -> new PackageFilter(
+                    Optional.of(packageItem.color()),
+                    data.marker(),
+                    data.contents()));
+        }
+        return Optional.empty();
+    }
+
+    public boolean isAny() {
+        return color.isEmpty() && marker.isEmpty() && requiredContents.isEmpty();
     }
 
     public boolean matches(PackageColor packageColor, PackageData data) {

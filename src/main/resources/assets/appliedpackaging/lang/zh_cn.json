@@ -66,6 +66,7 @@
   "message.appliedpackaging.me_packager.output_blocked": "输出槽被占用",
   "message.appliedpackaging.me_packager.target_blocked": "目标库存无法接收完整包裹",
   "message.appliedpackaging.me_packager.invalid_input": "输入包裹无效",
+  "message.appliedpackaging.me_packager.filter_rejected": "包裹不符合当前过滤配置",
   "message.appliedpackaging.me_packager.source_changed": "源库存已变化",
   "message.appliedpackaging.package_pattern_terminal.encoded": "已编码包裹样板",
   "message.appliedpackaging.package_pattern_terminal.no_pattern": "请放入空白包裹样板",
