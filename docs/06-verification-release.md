@@ -28,6 +28,24 @@ marker 冲突拒绝
 容量不足拒绝
 ```
 
+当前已覆盖：
+
+```text
+PackageData 合法 NBT 可读写
+无 PackageData 的包裹被拒绝
+canonical hash 被篡改时拒绝
+缺失 canonical hash 时拒绝
+schema version 不支持时拒绝
+```
+
+1.20.1 运行要求：
+
+```text
+GameTest template 存放在 gameteststructures/*.snbt。
+copyGameTestStructures 会在 prepareGameTestServerRun 前复制到 run/gameteststructures。
+当前空模板为 gameteststructures/empty.snbt。
+```
+
 GameTest 决策规则：
 
 ```text

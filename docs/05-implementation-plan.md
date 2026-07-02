@@ -56,6 +56,23 @@ package filter
 unit tests/GameTest
 ```
 
+当前状态：
+
+```text
+已实现：
+  17 色包裹物品
+  PackageDataStorage NBT adapter
+  canonical hash
+  capacity calculator/profile
+  tooltip
+  PackageData GameTest
+
+待实现：
+  package filter
+  机器事务中的容量/profile 应用
+  hash 稳定性更细粒度测试
+```
+
 验收：
 
 ```text
@@ -73,6 +90,14 @@ tooltip 显示每包/总计
 基础材质/模型/语言/创造标签
 包裹样板与封装处理样板数据
 基础 recipe/loot/datagen
+```
+
+当前状态：
+
+```text
+语言文件已有基础 key。
+材质、模型、blockstate、recipe 和 loot 尚未交付。
+资产 brief 需要先在 docs/assets 下准备，再派发给材质 subagent。
 ```
 
 验收：

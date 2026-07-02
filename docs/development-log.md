@@ -37,6 +37,16 @@ git init
 配置 Forge 47.4.10、AE2 15.4.10、GuideME 20.1.7
 验证 .\gradlew.bat build 成功
 验证 .\gradlew.bat runData 成功
+实现 PackageData / PackageDataStorage / canonical hash / capacity calculator / tooltip builder
+PackageDataStorage 只接受当前 schema version，且必须通过完整 canonical hash 校验
+新增 PackageDataGameTests：
+  packageDataRoundTrips
+  emptyPackageIsInvalid
+  tamperedHashIsRejected
+  missingHashIsRejected
+  unsupportedVersionIsRejected
+新增 gameteststructures/empty.snbt，并由 copyGameTestStructures 在 runGameTestServer 前复制到 run/gameteststructures
+验证 .\gradlew.bat runGameTestServer 成功，5 个必需 GameTest 全部通过
 ```
 
 关键决策：
@@ -48,6 +58,8 @@ Forge 编译基线优先使用 47.4.10 recommended，而不是更激进的 47.4.
 AE2 目标版本使用 15.4.10 Forge。
 AE2 15.4.10 runtime 需要 GuideME 20.1.7；只加入 AE2 Modrinth 坐标时 runData 会缺少 guideme。
 1.20.1 数据保存使用 ItemStack NBT；业务层通过 PackageDataStorage 抽象，为未来 Data Component 适配保留接口。
+包裹 NBT 缺失 hash、hash 被篡改或 schema version 不匹配时一律视为 invalid。
+GameTest 模板结构不由 Forge 自动从源码目录读取；项目保留 gameteststructures/empty.snbt，并在 prepareGameTestServerRun 前复制到 run/gameteststructures。
 设计文档和 AI 指令分离；AI/agent 工作规则只维护在 AGENTS.md。
 设计文档按需求、概要设计、详细设计、资产规格、实施计划、验证发布、参考来源分类维护。
 材质生成阶段的 agent 协作细则只维护在 AGENTS.md。
@@ -68,7 +80,6 @@ AE2 1.20.1 Storage Cells 指南
 下一步：
 
 ```text
-提交 ModDevGradle 项目骨架。
-开始实现 PackageDataStorage、canonical hash、容量档和包裹 tooltip。
+提交 PackageDataStorage、canonical hash、容量档、包裹 tooltip 和 GameTest。
 建立资产 brief 目录，按 AGENTS.md 准备材质任务。
 ```

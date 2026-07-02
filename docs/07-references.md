@@ -18,6 +18,13 @@ NeoForged ModDevGradle 文档
 地址：https://docs.neoforged.net/toolchain/docs/plugins/mdg/
 ```
 
+Forge GameTest 文档
+
+```text
+用途：确认 Forge GameTest 注解、template 和 runGameTestServer 验证路径。
+地址：https://docs.minecraftforge.net/en/latest/misc/gametest/
+```
+
 Forge 1.20.1 下载页
 
 ```text
