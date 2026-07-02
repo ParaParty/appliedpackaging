@@ -8,7 +8,10 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.security.IActionSource;
+import appeng.blockentity.crafting.PatternProviderBlockEntity;
+import appeng.core.definitions.AEBlocks;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
@@ -843,6 +846,61 @@ public final class PackageDataGameTests {
         helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
                 "Rejected fluid push should not create output");
         helper.succeed();
+    }
+
+    @GameTest(template = "ae_network_column")
+    public static void ae2PatternProviderPushesIntoPackageAssembler(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos providerPos = new BlockPos(0, 1, 0);
+        BlockPos assemblerPos = new BlockPos(0, 2, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(providerPos),
+                AEBlocks.PATTERN_PROVIDER.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(assemblerPos),
+                APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState(),
+                3);
+
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> {
+                    PatternProviderBlockEntity provider =
+                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
+                    ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                            new GenericStack[] {
+                                    new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                                    new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
+                            },
+                            new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+                    provider.getLogic().getPatternInv().addItems(pattern);
+                    provider.getLogic().updatePatterns();
+                    helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 1,
+                            "Pattern Provider should decode the processing pattern");
+                    IPatternDetails details = provider.getLogic().getAvailablePatterns().get(0);
+                    KeyCounter iron = new KeyCounter();
+                    iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
+                    KeyCounter copper = new KeyCounter();
+                    copper.add(AEItemKey.of(Items.COPPER_INGOT), 32);
+
+                    boolean accepted = provider.getLogic().pushPattern(details, new KeyCounter[] { iron, copper });
+
+                    helper.assertTrue(accepted, "AE2 Pattern Provider should push into Package Assembler");
+                    helper.assertTrue(iron.isEmpty(), "Accepted AE2 push should consume iron input");
+                    helper.assertTrue(copper.isEmpty(), "Accepted AE2 push should consume copper input");
+                    ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+                    PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "AE2-pushed iron should be packaged");
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                            "AE2-pushed copper should be packaged");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "empty")

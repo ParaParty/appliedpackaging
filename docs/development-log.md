@@ -414,10 +414,25 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐真实 AE2 Pattern Provider 方块到 Package Assembler 的端到端 push smoke：
+  新增 gameteststructures/ae_network_column.snbt，用于放置 AE2 Creative Energy Cell、Pattern Provider 和 Package Assembler
+  GameTest 内构建真实 AE2 方块网络，等待 grid 初始化后写入 processing pattern
+  通过 PatternProviderBlockEntity.getLogic().pushPattern 走 AE2 PatternProviderLogic 的真实相邻 ICraftingMachine 探测路径
+  Package Assembler 接收 Pattern Provider 推入的 iron/copper KeyCounter 并生成包裹
+新增 GameTest：
+  ae2PatternProviderPushesIntoPackageAssembler
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，59 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
-搭建真实 AE 网络 Pattern Provider -> Package Assembler 端到端 smoke test。
+补齐完整 AE2 crafting CPU 自动合成 job smoke test。
 补齐彩色处理样板元数据、处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```
