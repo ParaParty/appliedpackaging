@@ -48,6 +48,7 @@
   "tooltip.appliedpackaging.color.green": "绿色",
   "tooltip.appliedpackaging.color.red": "红色",
   "tooltip.appliedpackaging.color.black": "黑色",
+  "gui.appliedpackaging.me_packager.pack_once": "执行一次打包或拆包",
   "message.appliedpackaging.me_packager.inserted_package": "已放入包裹",
   "message.appliedpackaging.me_packager.input_blocked": "输入槽被占用",
   "message.appliedpackaging.me_packager.output_taken": "已取出输出包裹",

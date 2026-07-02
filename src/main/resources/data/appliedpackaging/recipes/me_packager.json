@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "a": {
+      "item": "ae2:annihilation_core"
+    },
+    "c": {
+      "item": "minecraft:chest"
+    },
+    "f": {
+      "item": "ae2:formation_core"
+    },
+    "i": {
+      "tag": "forge:ingots/iron"
+    },
+    "p": {
+      "item": "minecraft:piston"
+    },
+    "q": {
+      "item": "ae2:quartz_glass"
+    }
+  },
+  "pattern": [
+    "iqi",
+    "acf",
+    "ipi"
+  ],
+  "result": {
+    "item": "appliedpackaging:me_packager"
+  },
+  "show_notification": true
+}

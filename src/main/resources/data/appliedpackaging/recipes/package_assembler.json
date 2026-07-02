@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "a": {
+      "item": "ae2:annihilation_core"
+    },
+    "f": {
+      "item": "ae2:formation_core"
+    },
+    "i": {
+      "tag": "forge:ingots/iron"
+    },
+    "p": {
+      "item": "appliedpackaging:package_pattern"
+    },
+    "q": {
+      "item": "ae2:quartz_glass"
+    }
+  },
+  "pattern": [
+    "iqi",
+    "apa",
+    "ifi"
+  ],
+  "result": {
+    "item": "appliedpackaging:package_assembler"
+  },
+  "show_notification": true
+}

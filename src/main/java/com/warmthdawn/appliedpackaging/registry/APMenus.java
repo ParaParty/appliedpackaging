@@ -1,0 +1,26 @@
+package com.warmthdawn.appliedpackaging.registry;
+
+import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraftforge.common.extensions.IForgeMenuType;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
+
+public final class APMenus {
+    public static final DeferredRegister<MenuType<?>> MENUS =
+            DeferredRegister.create(ForgeRegistries.MENU_TYPES, AppliedPackaging.MOD_ID);
+
+    public static final RegistryObject<MenuType<MePackagerMenu>> ME_PACKAGER = MENUS.register(
+            "me_packager",
+            () -> IForgeMenuType.create(MePackagerMenu::new));
+
+    private APMenus() {
+    }
+
+    public static void register(IEventBus eventBus) {
+        MENUS.register(eventBus);
+    }
+}

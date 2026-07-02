@@ -16,9 +16,12 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanFailure;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import java.util.List;
 import java.util.Optional;
+import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -311,6 +314,61 @@ public final class PackageDataGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void packageAssemblerCreatesPackageFromInputBuffer(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        assembler.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData data = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should create one output package");
+        helper.assertTrue(assembler.getItems().getStackInSlot(0).isEmpty(), "Iron input should be consumed");
+        helper.assertTrue(assembler.getItems().getStackInSlot(1).isEmpty(), "Copper input should be consumed");
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64, "Package should contain iron");
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.COPPER_INGOT)) == 32, "Package should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerKeepsInputsWhenOutputBlocked(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        assembler.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_OUTPUT,
+                packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 16)));
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.OUTPUT_BLOCKED,
+                "Assembler should not assemble into a blocked output");
+        helper.assertTrue(assembler.getItems().getStackInSlot(0).getCount() == 64,
+                "Blocked assembler should not consume input");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerFlattensInputPackages(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.getItems().setStackInSlot(0, packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64)));
+        assembler.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData data = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should accept a source package");
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Flattened source package should contribute iron");
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Loose input should contribute copper");
+        helper.succeed();
+    }
+
     private static PackageData ironPackageData(PackageColor color, long amount) {
         return PackageData.create(
                 color,
@@ -325,6 +383,16 @@ public final class PackageDataGameTests {
                 List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
                 Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(markerItem), 1))),
                 0);
+    }
+
+    private static PackageAssemblerBlockEntity newPackageAssembler() {
+        return new PackageAssemblerBlockEntity(BlockPos.ZERO, APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState());
+    }
+
+    private static ItemStack packageStack(PackageColor color, PackageData data) {
+        ItemStack stack = new ItemStack(APItems.packageItems().get(color).get());
+        PackageDataStorage.write(stack, data);
+        return stack;
     }
 
     private static long amountOf(PackageData data, AEKey key) {

@@ -1,0 +1,22 @@
+{
+  "replace": false,
+  "values": [
+    "appliedpackaging:fluix_package",
+    "appliedpackaging:white_package",
+    "appliedpackaging:orange_package",
+    "appliedpackaging:magenta_package",
+    "appliedpackaging:light_blue_package",
+    "appliedpackaging:yellow_package",
+    "appliedpackaging:lime_package",
+    "appliedpackaging:pink_package",
+    "appliedpackaging:gray_package",
+    "appliedpackaging:light_gray_package",
+    "appliedpackaging:cyan_package",
+    "appliedpackaging:purple_package",
+    "appliedpackaging:blue_package",
+    "appliedpackaging:brown_package",
+    "appliedpackaging:green_package",
+    "appliedpackaging:red_package",
+    "appliedpackaging:black_package"
+  ]
+}

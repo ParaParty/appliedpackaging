@@ -13,6 +13,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.network.NetworkHooks;
 
 public class MePackagerBlock extends AbstractHorizontalMachineBlock {
     public MePackagerBlock(BlockBehaviour.Properties properties) {
@@ -38,6 +40,11 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (!(blockEntity instanceof MePackagerBlockEntity packager)) {
             return InteractionResult.PASS;
+        }
+
+        if (!player.isShiftKeyDown() && player instanceof ServerPlayer serverPlayer) {
+            NetworkHooks.openScreen(serverPlayer, packager, pos);
+            return InteractionResult.CONSUME;
         }
 
         ItemStack held = player.getItemInHand(hand);

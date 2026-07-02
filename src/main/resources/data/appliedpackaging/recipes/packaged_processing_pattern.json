@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "appliedpackaging:package_pattern"
+    },
+    {
+      "item": "ae2:blank_pattern"
+    },
+    {
+      "item": "ae2:fluix_dust"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:packaged_processing_pattern"
+  }
+}

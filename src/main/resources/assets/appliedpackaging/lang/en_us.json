@@ -48,6 +48,7 @@
   "tooltip.appliedpackaging.color.green": "Green",
   "tooltip.appliedpackaging.color.red": "Red",
   "tooltip.appliedpackaging.color.black": "Black",
+  "gui.appliedpackaging.me_packager.pack_once": "Pack or unpack once",
   "message.appliedpackaging.me_packager.inserted_package": "Package inserted",
   "message.appliedpackaging.me_packager.input_blocked": "Input slot blocked",
   "message.appliedpackaging.me_packager.output_taken": "Package output taken",

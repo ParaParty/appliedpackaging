@@ -9,14 +9,19 @@ import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -28,9 +33,9 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
 
-public class MePackagerBlockEntity extends BlockEntity implements InventoryDroppingBlockEntity {
-    private static final int SLOT_INPUT = 0;
-    private static final int SLOT_OUTPUT = 1;
+public class MePackagerBlockEntity extends BlockEntity implements InventoryDroppingBlockEntity, MenuProvider {
+    public static final int SLOT_INPUT = 0;
+    public static final int SLOT_OUTPUT = 1;
     private static final String ITEMS_TAG = "items";
     private static final String POWERED_TAG = "powered";
 
@@ -56,6 +61,20 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
 
     public MePackagerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.ME_PACKAGER.get(), pos, blockState);
+    }
+
+    public ItemStackHandler getItems() {
+        return items;
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("block.appliedpackaging.me_packager");
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+        return new MePackagerMenu(containerId, playerInventory, this);
     }
 
     public ActionResult interact(Player player, ItemStack held) {

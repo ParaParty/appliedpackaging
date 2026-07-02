@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "b": {
+      "item": "ae2:blank_pattern"
+    },
+    "f": {
+      "item": "ae2:fluix_crystal"
+    },
+    "i": {
+      "tag": "forge:ingots/iron"
+    },
+    "q": {
+      "item": "ae2:quartz_glass"
+    }
+  },
+  "pattern": [
+    " q ",
+    "fbf",
+    " i "
+  ],
+  "result": {
+    "item": "appliedpackaging:package_pattern"
+  },
+  "show_notification": true
+}

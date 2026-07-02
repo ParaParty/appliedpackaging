@@ -101,8 +101,10 @@ tooltip 显示每包/总计
 已交付当前注册 item 图标和 item model。
 已交付机器、终端、总线、UI 图标和 logo 初版资源。
 已交付资产 reports。
-recipe 和 loot 尚未交付。
-机器、终端、总线资源已先行存在，Java 注册与玩法实现仍待接入。
+已交付 me_packager、package_assembler、package_pattern、packaged_processing_pattern 基础配方。
+已交付 me_packager/package_assembler loot table。
+已交付 appliedpackaging:packages item tag。
+终端、总线资源已先行存在，Java 注册与玩法实现仍待接入。
 ```
 
 验收：
@@ -136,13 +138,14 @@ GameTest
   水平朝向 blockstate
   方块掉落表
   内部输入/输出 item handler
-  玩家右键放入包裹、取出输出、触发一次操作
+  非潜行右键打开 GUI/Menu
+  GUI 输入槽、输出槽、玩家背包和 Pack Once 图标按钮
+  潜行右键放入包裹、取出输出、触发一次操作
   红石上升沿触发一次操作
   背面 Forge item handler 打包/拆包事务
   item-only GameTest
 
 待实现：
-  GUI/Menu
   容量元件槽
   颜色/marker/filter 配置
   相邻 ME Interface 子网 endpoint
@@ -170,6 +173,28 @@ Pattern Provider 输入适配
 封装处理样板 -> package plan
 阻挡模式
 GameTest/客户端验证
+```
+
+当前状态：
+
+```text
+已实现：
+  package_assembler 方块/方块物品/方块实体注册
+  水平朝向 blockstate
+  方块掉落表
+  9 格输入缓冲 + 1 格输出槽
+  输入缓冲自动封装为 Fluix 包裹
+  输入合法包裹展开后再封装
+  输出非空时阻挡且不消耗输入
+  装配室基础 GameTest
+
+待实现：
+  装配室 GUI/Menu
+  彩色处理样板元数据读取
+  封装处理样板拆分为多包裹计划
+  容量元件槽
+  AE2 Pattern Provider/pushPattern 深集成
+  客户端验证
 ```
 
 验收：

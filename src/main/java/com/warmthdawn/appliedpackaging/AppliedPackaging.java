@@ -1,14 +1,18 @@
 package com.warmthdawn.appliedpackaging;
 
 import com.mojang.logging.LogUtils;
+import com.warmthdawn.appliedpackaging.client.AppliedPackagingClient;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APCreativeTabs;
 import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.registry.APMenus;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 
 @Mod(AppliedPackaging.MOD_ID)
@@ -22,9 +26,13 @@ public class AppliedPackaging {
         APBlocks.register(modEventBus);
         APItems.register(modEventBus);
         APBlockEntities.register(modEventBus);
+        APMenus.register(modEventBus);
         APCreativeTabs.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
+        if (FMLEnvironment.dist == Dist.CLIENT) {
+            AppliedPackagingClient.register(modEventBus);
+        }
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

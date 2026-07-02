@@ -130,9 +130,37 @@ AE2 1.20.1 Pattern Provider 指南
 AE2 1.20.1 Storage Cells 指南
 ```
 
+最新进展：
+
+```text
+新增基础配方：
+  me_packager
+  package_assembler
+  package_pattern
+  packaged_processing_pattern
+新增 appliedpackaging:packages item tag。
+新增 APMenus 与 ME Packager GUI：
+  非潜行右键打开 GUI
+  GUI 包含输入槽、输出槽、玩家背包和 Pack Once 图标按钮
+  潜行右键保留快速交互
+新增 Package Assembler 基础行为：
+  9 格输入缓冲
+  1 格输出槽
+  自动将输入缓冲封装为默认 Fluix 包裹
+  合法输入包裹会展开后再封装
+  输出槽阻挡时不消耗输入
+新增装配室 GameTest：
+  packageAssemblerCreatesPackageFromInputBuffer
+  packageAssemblerKeepsInputsWhenOutputBlocked
+  packageAssemblerFlattensInputPackages
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runData 成功
+验证 .\gradlew.bat runGameTestServer 成功，21 个必需 GameTest 全部通过
+```
+
 下一步：
 
 ```text
-提交机器注册和 me_packager 基础 item handler 事务。
-继续实现 GUI/Menu、容量元件槽、过滤配置和 AE2 endpoint。
+提交基础配方、ME Packager GUI 和 Package Assembler 基础行为。
+继续评估 AE2 endpoint/总线集成，并补客户端 runClient 冒烟验证。
 ```
