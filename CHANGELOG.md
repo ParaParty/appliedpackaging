@@ -14,6 +14,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - ME Packager with adjacent item handler, fluid handler, AE2 storage endpoint packaging and unpacking, and manual/pulse/cyclic redstone operation.
 - Package Pattern Terminal for encoding package patterns on AE2 blank patterns.
 - AE2 encoded processing pattern carrier support for packaged-processing package automation.
+- Packaged-processing output ghost slots for item stacks and Forge fluid containers.
 - Package Storage Bus, Package Export Bus, and Package Unpacking Bus with valid-package-only behavior.
 - Package Bus configuration UI with ghost package template, color, marker, and required-content filtering.
 - English and Simplified Chinese language files.
@@ -30,7 +31,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 ### Verification
 
 - `.\gradlew.bat compileJava` passed.
-- `.\gradlew.bat runGameTestServer` passed with 101 required GameTests.
+- `.\gradlew.bat runGameTestServer` passed with 103 required GameTests.
 - `.\gradlew.bat runData` passed.
 - `.\gradlew.bat build` passed and generated `build/libs/appliedpackaging-0.1.0-dev.jar`.
 - `.\gradlew.bat runClient` smoke reached Applied Packaging initialization, SoundEngine startup, and block atlas creation with no recorded missing model or missing texture errors.
@@ -40,5 +41,5 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 
 - The terminal is a panel-like block, not a true AE2 cable part.
 - Advanced manual ghost editors for fluid and arbitrary AEKey filters are not yet implemented.
-- Packaged-processing output ghost slots are item-focused in the current UI.
+- Packaged-processing output ghost slots support item stacks and Forge fluid containers; arbitrary AEKey output editing is not yet implemented.
 - Full dedicated-server world-load smoke is pending explicit local EULA acceptance.

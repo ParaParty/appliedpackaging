@@ -284,8 +284,9 @@ GameTest/服务器 smoke test
   package_pattern_terminal 在 AE2 blank_pattern 存在多包裹计划且无处理输出 ghost 时写入 packaged_processing_pattern NBT，并保留 AE2 物品类型
   package_pattern_terminal 在 AE2 blank_pattern 存在处理输出 ghost 时编码 AE2 原版 processing pattern，并附带 packaged_processing_pattern NBT
   package_pattern_terminal 可把空白 packaged_processing_pattern 编码为有序多包裹样板
-  packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个物品处理输出 ghost slots
-  处理输出 ghost slots 可从光标复制数量、右键复制 1 个、空光标清除，且不消耗玩家物品
+  packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个处理输出 ghost slots
+  处理输出 ghost slots 可从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标清除，且不消耗玩家物品
+  处理输出 ghost slots 可把 Forge 流体容器编码为 AEFluidKey 输出，例如水桶编码为 1000 mB water
   packaged_processing_pattern tooltip 显示已编码处理输出
   已编码 AE2 blank_pattern 通过客户端 tooltip hook 显示 package_pattern 或 packaged_processing_pattern 内容，未编码 AE2 blank_pattern 保持原版 tooltip
   package_pattern_terminal 已调整为 AE2 风格薄面板 block model，并提供按朝向旋转的薄面板 VoxelShape
@@ -303,8 +304,8 @@ GameTest/服务器 smoke test
 
 待实现：
   彩色处理样板更完整的处理输出 UI
-  封装处理样板流体/任意 AEKey 处理输出 ghost editor
-  封装处理样板 AE2 encoded pattern 语义的流体/任意 AEKey 扩展
+  封装处理样板任意 AEKey 处理输出 ghost editor
+  封装处理样板直接流体量编辑器
   批量 required content / 流体 / 任意 AEKey 高级过滤器编辑器
   AE2 cable part 形态
 ```

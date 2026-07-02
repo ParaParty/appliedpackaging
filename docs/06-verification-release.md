@@ -101,6 +101,8 @@ package_pattern_terminal 可把逐槽配置的颜色写入 AE2 encoded processin
 package_pattern_terminal 可编码空白 packaged_processing_pattern 并保留物品类型
 package_pattern_terminal 可把 packaged_processing_pattern 拆成多包裹计划
 package_pattern_terminal 配置 UI 可从光标设置 packaged_processing_pattern 处理输出 ghost slot，编码时写入 outputs[] 且不消耗光标物品
+package_pattern_terminal 配置 UI 可从 Forge 流体容器设置处理输出 ghost slot，编码时写入 AEFluidKey 输出且不消耗光标容器
+package_pattern_terminal 处理输出 fluid ghost 可保存/读取后保持 display stack 与 GenericStack 输出
 package_pattern_terminal Split 可把已编码 packaged_processing_pattern 逐张拆为 package_pattern
 package_pattern_terminal Split pending queue 可保存/读取后继续输出
 package_pattern_terminal 输入槽颜色可清除
@@ -135,7 +137,7 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
-当前最新执行：.\gradlew.bat runGameTestServer 成功，101 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，103 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

@@ -41,7 +41,7 @@ build/libs/appliedpackaging-0.1.0-dev.jar
 
 ## Gameplay Flow
 
-Use an AE2 blank pattern in the Package Pattern Terminal to encode package data. Simple package patterns stay on the AE2 blank-pattern carrier with Applied Packaging NBT. Packaged-processing patterns with processing outputs are emitted as AE2 encoded processing patterns that also carry Applied Packaging package data.
+Use an AE2 blank pattern in the Package Pattern Terminal to encode package data. Simple package patterns stay on the AE2 blank-pattern carrier with Applied Packaging NBT. Packaged-processing patterns with item or fluid-container output ghosts are emitted as AE2 encoded processing patterns that also carry Applied Packaging package data.
 
 The ME Package Assembler accepts AE2 pattern pushes and outputs one or more valid package items. It supports normal processing patterns, colored processing input metadata, package patterns, packaged-processing patterns, and auto-export from its back side into adjacent AE2 storage or item inventories.
 
@@ -90,7 +90,7 @@ Latest recorded verification:
 
 ```text
 compileJava:       passed
-runGameTestServer: passed, 101 required GameTests
+runGameTestServer: passed, 103 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas
@@ -104,7 +104,7 @@ The dedicated server smoke stops at Mojang's EULA prompt until the user explicit
 
 - The Package Pattern Terminal is implemented as a thin AE2-style panel block. A true AE2 cable part form is not implemented yet.
 - Manual filter editing currently focuses on item package templates, marker, color, and required item content. Advanced fluid and arbitrary AEKey ghost editors are not yet provided.
-- Packaged-processing pattern output ghost slots are item-focused in the current UI.
+- Packaged-processing pattern output ghost slots support item stacks and Forge fluid containers. A direct arbitrary AEKey output editor is not yet provided.
 - Full dedicated-server world-load verification is pending explicit EULA acceptance.
 
 ## Documentation

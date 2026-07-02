@@ -2465,12 +2465,83 @@ public final class PackageDataGameTests {
                 "Terminal should store the ghost output item");
         helper.assertTrue(terminal.processingOutput(0).getCount() == 2,
                 "Terminal should store the ghost output count");
+        helper.assertTrue(terminal.processingOutputKey(0).what().equals(AEItemKey.of(Items.DIAMOND)),
+                "Terminal should store the item output key");
+        helper.assertTrue(terminal.processingOutputKey(0).amount() == 2,
+                "Terminal should store the item output amount");
         helper.assertTrue(pattern.outputs().size() == 1,
                 "Encoded packaged processing pattern should store processing outputs");
         helper.assertTrue(pattern.outputs().get(0).what().equals(AEItemKey.of(Items.DIAMOND)),
                 "Encoded processing output should preserve the item key");
         helper.assertTrue(pattern.outputs().get(0).amount() == 2,
                 "Encoded processing output should preserve the item amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalMenuEncodesFluidProcessingOutputGhost(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = placePackagePatternTerminal(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackagePatternTerminalMenu menu = new PackagePatternTerminalMenu(3, new Inventory(player), terminal);
+        ItemStack blankPattern = ae2Item("blank_pattern");
+        helper.assertFalse(blankPattern.isEmpty(), "AE2 blank pattern should be registered");
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                blankPattern);
+
+        menu.setCarried(new ItemStack(Items.WATER_BUCKET));
+        menu.clicked(PackagePatternTerminalMenu.PROCESSING_OUTPUT_START, 0, ClickType.PICKUP, player);
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern =
+                PackagedProcessingPatternDataStorage.read(output).orElseThrow();
+        IPatternDetails details = PatternDetailsHelper.decodePattern(output, helper.getLevel());
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode an AE2 pattern with a fluid ghost output");
+        helper.assertTrue(PatternDetailsHelper.isEncodedPattern(output),
+                "Fluid ghost outputs on AE2 blank patterns should produce encoded processing patterns");
+        helper.assertTrue(details != null,
+                "AE2 should decode the fluid processing output pattern");
+        helper.assertTrue(menu.getCarried().is(Items.WATER_BUCKET),
+                "Fluid ghost slot should not consume the carried bucket");
+        helper.assertTrue(terminal.processingOutput(0).is(Items.WATER_BUCKET),
+                "Terminal should display the fluid container in the ghost slot");
+        helper.assertTrue(terminal.processingOutputKey(0).what().equals(AEFluidKey.of(Fluids.WATER)),
+                "Terminal should store the fluid key behind the displayed bucket");
+        helper.assertTrue(terminal.processingOutputKey(0).amount() == 1000,
+                "Terminal should store one bucket of fluid as the output amount");
+        helper.assertTrue(pattern.outputs().size() == 1,
+                "Packaged-processing carrier should persist the fluid output");
+        helper.assertTrue(pattern.outputs().get(0).what().equals(AEFluidKey.of(Fluids.WATER)),
+                "Packaged-processing carrier should preserve the fluid key");
+        helper.assertTrue(pattern.outputs().get(0).amount() == 1000,
+                "Packaged-processing carrier should preserve the fluid amount");
+        helper.assertTrue(details.getOutputs().length == 1,
+                "AE2 should see one fluid output");
+        helper.assertTrue(details.getOutputs()[0].what().equals(AEFluidKey.of(Fluids.WATER)),
+                "AE2 should see the water output key");
+        helper.assertTrue(details.getOutputs()[0].amount() == 1000,
+                "AE2 should see the water output amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalFluidProcessingOutputGhostPersists(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.setProcessingOutputFromGhostStack(0, new ItemStack(Items.WATER_BUCKET), false);
+
+        CompoundTag tag = terminal.saveWithoutMetadata();
+        PackagePatternTerminalBlockEntity loaded = newPackagePatternTerminal();
+        loaded.load(tag);
+
+        helper.assertTrue(loaded.processingOutput(0).is(Items.WATER_BUCKET),
+                "Loaded terminal should keep the fluid container display stack");
+        helper.assertTrue(loaded.processingOutputKey(0).what().equals(AEFluidKey.of(Fluids.WATER)),
+                "Loaded terminal should keep the fluid output key");
+        helper.assertTrue(loaded.processingOutputKey(0).amount() == 1000,
+                "Loaded terminal should keep the fluid output amount");
         helper.succeed();
     }
 

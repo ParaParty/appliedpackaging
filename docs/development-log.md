@@ -917,3 +917,19 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat runGameTestServer 成功，90 个必需 GameTest 全部通过
 验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现 ClientSmokeRunner 或其他客户端类误加载；完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
 ```
+
+最新进展：
+
+```text
+补齐 packaged_processing_pattern 流体容器处理输出 ghost：
+  Package Pattern Terminal 的处理输出 ghost 槽现在保存 display ItemStack 与真实 GenericStack 输出
+  普通物品 ghost 继续按 AEItemKey + 数量编码
+  Forge 流体容器 ghost 会显示容器物品，但编码为 AEFluidKey + 流体数量；水桶编码为 1000 mB water
+  processing_outputs NBT 新增 key 字段保存 GenericStack，并兼容旧的仅 stack 字段物品 ghost 存档
+  AE2 blank_pattern 有流体处理输出 ghost 时会输出 AE2 原版 encoded processing pattern，并附带 packaged_processing_pattern NBT
+新增 2 个 GameTest：
+  packagePatternTerminalMenuEncodesFluidProcessingOutputGhost
+  packagePatternTerminalFluidProcessingOutputGhostPersists
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，103 个必需 GameTest 全部通过
+```

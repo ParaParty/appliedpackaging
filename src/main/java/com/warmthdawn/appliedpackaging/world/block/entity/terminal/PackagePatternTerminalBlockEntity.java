@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.world.block.entity.terminal;
 
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -44,6 +45,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.wrapper.RangedWrapper;
@@ -62,12 +65,14 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     private static final String PROCESSING_OUTPUTS_TAG = "processing_outputs";
     private static final String PROCESSING_OUTPUT_SLOT_TAG = "slot";
     private static final String PROCESSING_OUTPUT_STACK_TAG = "stack";
+    private static final String PROCESSING_OUTPUT_KEY_TAG = "key";
     private static final String PENDING_SPLIT_PATTERNS_TAG = "pending_split_patterns";
     private static final int UNCOLORED_SLOT = -1;
 
     private PackageColor selectedColor = PackageColor.FLUIX;
     private final int[] inputSlotColors = new int[INPUT_SLOT_COUNT];
     private final ItemStack[] processingOutputs = new ItemStack[PROCESSING_OUTPUT_SLOT_COUNT];
+    private final GenericStack[] processingOutputKeys = new GenericStack[PROCESSING_OUTPUT_SLOT_COUNT];
     private final List<ItemStack> pendingSplitPatterns = new ArrayList<>();
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -110,6 +115,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         super(APBlockEntities.PACKAGE_PATTERN_TERMINAL.get(), pos, blockState);
         Arrays.fill(inputSlotColors, UNCOLORED_SLOT);
         Arrays.fill(processingOutputs, ItemStack.EMPTY);
+        Arrays.fill(processingOutputKeys, null);
     }
 
     public ItemStackHandler getItems() {
@@ -186,7 +192,54 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         }
         ItemStack copy = stack.copy();
         copy.setCount(Math.min(copy.getCount(), copy.getMaxStackSize()));
+        setProcessingOutput(slot, copy, itemOutputStack(copy));
+    }
+
+    public void setProcessingOutputFromGhostStack(int slot, ItemStack stack, boolean singleContainerOrItem) {
+        if (slot < 0 || slot >= processingOutputs.length) {
+            return;
+        }
+        if (stack.isEmpty()) {
+            clearProcessingOutput(slot);
+            return;
+        }
+
+        ItemStack display = stack.copy();
+        display.setCount(singleContainerOrItem ? 1 : Math.min(display.getCount(), display.getMaxStackSize()));
+        Optional<FluidStack> fluid = FluidUtil.getFluidContained(stack);
+        if (fluid.isPresent() && !fluid.get().isEmpty()) {
+            FluidStack fluidStack = fluid.get();
+            long amount = fluidStack.getAmount();
+            if (!singleContainerOrItem) {
+                amount *= Math.max(1, stack.getCount());
+            }
+            display.setCount(1);
+            setProcessingOutput(slot, display, new GenericStack(AEFluidKey.of(fluidStack), amount));
+            return;
+        }
+
+        setProcessingOutput(slot, display);
+    }
+
+    public GenericStack processingOutputKey(int slot) {
+        if (slot < 0 || slot >= processingOutputKeys.length) {
+            return null;
+        }
+        return processingOutputKeys[slot];
+    }
+
+    public void setProcessingOutput(int slot, ItemStack displayStack, GenericStack outputStack) {
+        if (slot < 0 || slot >= processingOutputs.length) {
+            return;
+        }
+        if (displayStack.isEmpty() || outputStack == null || outputStack.amount() <= 0) {
+            clearProcessingOutput(slot);
+            return;
+        }
+        ItemStack copy = displayStack.copy();
+        copy.setCount(Math.max(1, Math.min(copy.getCount(), copy.getMaxStackSize())));
         processingOutputs[slot] = copy;
+        processingOutputKeys[slot] = outputStack;
         setChanged();
     }
 
@@ -195,6 +248,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             return;
         }
         processingOutputs[slot] = ItemStack.EMPTY;
+        processingOutputKeys[slot] = null;
         setChanged();
     }
 
@@ -520,9 +574,11 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
     private List<GenericStack> processingOutputStacks() {
         List<GenericStack> outputs = new ArrayList<>();
-        for (ItemStack output : processingOutputs) {
-            if (!output.isEmpty()) {
-                outputs.add(new GenericStack(AEItemKey.of(output), output.getCount()));
+        for (int slot = 0; slot < processingOutputs.length; slot++) {
+            ItemStack output = processingOutputs[slot];
+            GenericStack outputKey = processingOutputKeys[slot];
+            if (!output.isEmpty() && outputKey != null) {
+                outputs.add(outputKey);
             }
         }
         return List.copyOf(outputs);
@@ -538,6 +594,10 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             CompoundTag entry = new CompoundTag();
             entry.putInt(PROCESSING_OUTPUT_SLOT_TAG, slot);
             entry.put(PROCESSING_OUTPUT_STACK_TAG, output.save(new CompoundTag()));
+            GenericStack outputKey = processingOutputKeys[slot];
+            if (outputKey != null) {
+                entry.put(PROCESSING_OUTPUT_KEY_TAG, GenericStack.writeTag(outputKey));
+            }
             outputs.add(entry);
         }
         return outputs;
@@ -545,6 +605,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
     private void loadProcessingOutputs(CompoundTag tag) {
         Arrays.fill(processingOutputs, ItemStack.EMPTY);
+        Arrays.fill(processingOutputKeys, null);
         if (!tag.contains(PROCESSING_OUTPUTS_TAG, net.minecraft.nbt.Tag.TAG_LIST)) {
             return;
         }
@@ -559,9 +620,26 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             ItemStack stack = ItemStack.of(entry.getCompound(PROCESSING_OUTPUT_STACK_TAG));
             if (!stack.isEmpty()) {
                 stack.setCount(Math.min(stack.getCount(), stack.getMaxStackSize()));
+                GenericStack outputKey = readProcessingOutputKey(entry).orElseGet(() -> itemOutputStack(stack));
                 processingOutputs[slot] = stack;
+                processingOutputKeys[slot] = outputKey;
             }
         }
+    }
+
+    private static Optional<GenericStack> readProcessingOutputKey(CompoundTag entry) {
+        if (!entry.contains(PROCESSING_OUTPUT_KEY_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            return Optional.empty();
+        }
+        GenericStack stack = GenericStack.readTag(entry.getCompound(PROCESSING_OUTPUT_KEY_TAG));
+        if (stack == null || stack.amount() <= 0) {
+            return Optional.empty();
+        }
+        return Optional.of(stack);
+    }
+
+    private static GenericStack itemOutputStack(ItemStack output) {
+        return new GenericStack(AEItemKey.of(output), output.getCount());
     }
 
     private static boolean isMarkerItem(ItemStack stack) {

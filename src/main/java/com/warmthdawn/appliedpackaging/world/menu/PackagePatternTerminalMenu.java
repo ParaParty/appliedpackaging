@@ -215,11 +215,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
             if (carried.isEmpty()) {
                 blockEntity.clearProcessingOutput(outputSlot);
             } else {
-                ItemStack output = carried.copy();
-                if (button == 1) {
-                    output.setCount(1);
-                }
-                blockEntity.setProcessingOutput(outputSlot, output);
+                blockEntity.setProcessingOutputFromGhostStack(outputSlot, carried, button == 1);
             }
             updateProcessingOutputDisplay();
             broadcastChanges();
