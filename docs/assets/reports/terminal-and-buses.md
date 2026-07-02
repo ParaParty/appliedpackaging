@@ -76,7 +76,7 @@ Item models:
 
 ## Model Notes
 
-- `package_pattern_terminal` uses a full 16x16x16 block model with separate front, side, and top textures.
+- `package_pattern_terminal` now uses an AE2-style thin panel block model: a 14x14x3 face plate plus an 8x8x4 rear connector, with separate front, side, and top textures.
 - The three bus models share a compact AE2 part silhouette: a 12x12x3 face plate plus a small rear connector, with all element coordinates in `0..16`.
 - Each bus uses distinct front and side textures while retaining shared family proportions.
 - Particle textures point to the corresponding front texture.
@@ -97,7 +97,7 @@ Preview paths are the generated front textures:
 - `src/main/resources/assets/appliedpackaging/textures/block/package_export_bus_front.png`
 - `src/main/resources/assets/appliedpackaging/textures/block/package_unpacking_bus_front.png`
 
-Visual inspection was done against the 32x32 PNGs, the supplied AE2 no-label reference sheets, and the Applied Packaging concept board. A renderer-backed model sheet was not produced because this revision was texture-only and did not change model geometry.
+Visual inspection was done against the 32x32 PNGs, the supplied AE2 no-label reference sheets, and the Applied Packaging concept board. The latest terminal pass changed model geometry from a full cube to a thin panel; runtime verification was done through client atlas/model loading rather than a rendered sheet.
 
 ## Verification
 
@@ -148,4 +148,14 @@ No AE2 pixels were copied into project assets.
 .\gradlew.bat runData succeeded.
 .\gradlew.bat build succeeded.
 .\gradlew.bat runGameTestServer succeeded with 29 required tests passing.
+```
+
+Latest terminal model pass:
+
+```text
+.\gradlew.bat compileJava succeeded.
+.\gradlew.bat runGameTestServer succeeded with 79 required tests passing, including packagePatternTerminalUsesPanelShape.
+.\gradlew.bat build succeeded.
+.\gradlew.bat runClient reached Applied Packaging initialization, SoundEngine startup, block atlas creation, and a local world; the client was then manually terminated.
+run/logs/latest.log did not contain ERROR, FATAL, Missing model, Unable to load model, preview_sheet, or mip level entries for the latest smoke.
 ```

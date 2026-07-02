@@ -1,5 +1,6 @@
 {
   "parent": "minecraft:block/block",
+  "ambientocclusion": false,
   "textures": {
     "particle": "appliedpackaging:block/package_pattern_terminal_front",
     "front": "appliedpackaging:block/package_pattern_terminal_front",
@@ -8,15 +9,26 @@
   },
   "elements": [
     {
-      "from": [0, 0, 0],
-      "to": [16, 16, 16],
+      "from": [1, 1, 0],
+      "to": [15, 15, 3],
       "faces": {
-        "north": { "texture": "#front", "cullface": "north" },
-        "south": { "texture": "#side", "cullface": "south" },
-        "east": { "texture": "#side", "cullface": "east" },
-        "west": { "texture": "#side", "cullface": "west" },
-        "up": { "texture": "#top", "cullface": "up" },
-        "down": { "texture": "#side", "cullface": "down" }
+        "north": { "texture": "#front", "uv": [0, 0, 16, 16] },
+        "south": { "texture": "#side", "uv": [0, 0, 16, 16] },
+        "east": { "texture": "#side", "uv": [0, 0, 3, 16] },
+        "west": { "texture": "#side", "uv": [0, 0, 3, 16] },
+        "up": { "texture": "#top", "uv": [0, 0, 16, 3] },
+        "down": { "texture": "#side", "uv": [0, 0, 16, 3] }
+      }
+    },
+    {
+      "from": [4, 4, 3],
+      "to": [12, 12, 7],
+      "faces": {
+        "south": { "texture": "#side", "uv": [4, 4, 12, 12] },
+        "east": { "texture": "#side", "uv": [0, 0, 4, 8] },
+        "west": { "texture": "#side", "uv": [0, 0, 4, 8] },
+        "up": { "texture": "#top", "uv": [4, 0, 12, 4] },
+        "down": { "texture": "#side", "uv": [4, 0, 12, 4] }
       }
     }
   ]

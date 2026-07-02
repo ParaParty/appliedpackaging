@@ -564,7 +564,7 @@ PackagePatternDataStorage 在 ItemStack NBT 中写入 version、color 与嵌套 
 PackagedProcessingPatternDataStorage 在 ItemStack NBT 中写入 version、color、packages[] 与可选 outputs[]。
 读取封装处理样板时会逐个复验嵌套 PackageData canonical hash，并兼容旧的单包裹 PackagePatternDataStorage 写法。
 package_pattern_terminal 已注册为水平朝向方块、方块物品、方块实体、菜单和客户端 screen。
-终端后续外形应调整为 AE2 风格面板/part，而不是完整机器方块；当前先保留方块形态以保证功能闭环。
+终端基础外形已调整为 AE2 风格薄面板/part-like block model，而不是完整机器方块；当前仍以普通方块承载方块实体、菜单和 screen，真正 AE2 cable part 形态后置。
 终端 GUI 当前提供 9 格预览输入、1 格样板槽、1 格输出、容量槽、marker 槽、3 个处理输出 ghost slots、17 色 swatch、9 个输入槽色标按钮，以及 Encode/Split 按钮。
 样板槽接受未编码 package_pattern、未编码 packaged_processing_pattern、AE2 encoded processing pattern，或已编码 packaged_processing_pattern 作为 Split 来源。
 输出保留输入样板物品类型；AE2 processing pattern 会复制 1 个输出并写入 colored processing metadata。
@@ -580,7 +580,7 @@ marker 槽写入 packaged_processing_pattern 时会应用到拆出的每个包�
 Split 会把已编码 packaged_processing_pattern 拆回多个普通 package_pattern；输出槽逐张吐出，剩余拆分结果保存在终端 pending queue，保存/读取后可继续输出。
 输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 或 packaged_processing_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前不含 AE2 原版 blank pattern 承载迁移；彩色 AE2 processing pattern 的输出仍沿用输入样板自身输出，终端尚不提供流体/任意 AEKey 处理输出 ghost editor。
+当前不含 AE2 原版 blank pattern 承载迁移；彩色 AE2 processing pattern 的输出仍沿用输入样板自身输出，终端尚不提供流体/任意 AEKey 处理输出 ghost editor，也未实现真正 AE2 cable part 形态。
 ```
 
 ## 10. 包裹总线

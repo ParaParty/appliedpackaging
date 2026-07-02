@@ -270,6 +270,7 @@ GameTest/服务器 smoke test
   packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个物品处理输出 ghost slots
   处理输出 ghost slots 可从光标复制数量、右键复制 1 个、空光标清除，且不消耗玩家物品
   packaged_processing_pattern tooltip 显示已编码处理输出
+  package_pattern_terminal 已调整为 AE2 风格薄面板 block model，并提供按朝向旋转的薄面板 VoxelShape
   package_pattern_terminal 可通过 Split 按钮把已编码 packaged_processing_pattern 拆回普通 package_pattern
   package_pattern_terminal Split pending queue 会保存/读取，输出槽清空后可继续吐出后续 package_pattern
   package_pattern_terminal 输入槽颜色支持右键清除
@@ -285,8 +286,7 @@ GameTest/服务器 smoke test
   AE2 原版 blank/encoded pattern 承载迁移评估
   可手工编辑 color/marker/content 的高级过滤器 UI
   AE2 cable part 形态
-  package_pattern_terminal 调整为 AE2 风格面板/part
-  客户端模型/GUI 冒烟验证
+  客户端实际开 GUI/截图 smoke
 ```
 
 验收：

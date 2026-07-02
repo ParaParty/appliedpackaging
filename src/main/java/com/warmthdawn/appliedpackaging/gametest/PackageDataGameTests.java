@@ -40,6 +40,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStora
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
@@ -68,7 +69,9 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -1834,6 +1837,25 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternTerminalUsesPanelShape(GameTestHelper helper) {
+        BlockState north = APBlocks.PACKAGE_PATTERN_TERMINAL.get()
+                .defaultBlockState()
+                .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH);
+        BlockState east = APBlocks.PACKAGE_PATTERN_TERMINAL.get()
+                .defaultBlockState()
+                .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST);
+
+        AABB northBounds = north.getShape(helper.getLevel(), BlockPos.ZERO).bounds();
+        AABB eastBounds = east.getShape(helper.getLevel(), BlockPos.ZERO).bounds();
+
+        helper.assertTrue(closeTo(northBounds.minZ, 0.0D) && closeTo(northBounds.maxZ, 7.0D / 16.0D),
+                "North-facing terminal should use a thin panel depth");
+        helper.assertTrue(closeTo(eastBounds.minX, 9.0D / 16.0D) && closeTo(eastBounds.maxX, 1.0D),
+                "East-facing terminal should rotate the panel shape");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalKeepsBlankWhenOutputBlocked(GameTestHelper helper) {
         PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
         terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
@@ -1968,6 +1990,10 @@ public final class PackageDataGameTests {
             }
         }
         return amount;
+    }
+
+    private static boolean closeTo(double actual, double expected) {
+        return Math.abs(actual - expected) < 1.0e-6D;
     }
 
     private static final class CpuCraftingJob {

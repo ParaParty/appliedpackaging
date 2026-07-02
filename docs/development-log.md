@@ -642,6 +642,23 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
 ```
 
+最新进展：
+
+```text
+补齐 Package Pattern Terminal AE2 风格薄面板外形：
+  package_pattern_terminal block model 从完整方块改为 14x14x3 前面板 + 8x8x4 后接头
+  PackagePatternTerminalBlock 提供按 FACING 旋转的薄面板 VoxelShape
+  保留现有方块实体、菜单和 screen；真正 AE2 cable part 形态后置
+新增 GameTest：
+  packagePatternTerminalUsesPanelShape
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，79 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+再次执行 .\gradlew.bat runClient，客户端启动到 Applied Packaging 初始化、SoundEngine 启动、block atlas 创建，并进入本地世界
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、preview_sheet 或 mip level
+smoke 在进入世界后手动终止客户端；退出码来自人工终止
+```
+
 下一步：
 
 ```text
