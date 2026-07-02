@@ -12,7 +12,7 @@
       "tag": "forge:ingots/iron"
     },
     "p": {
-      "item": "appliedpackaging:package_pattern"
+      "item": "ae2:blank_pattern"
     },
     "q": {
       "item": "ae2:quartz_glass"

@@ -101,7 +101,8 @@ tooltip 显示每包/总计
 已交付当前注册 item 图标和 item model。
 已按 AE2 forge/v15.4.10 reference sheet 交付机器、终端、总线、UI 图标和 logo 二轮生产质量资源。
 已交付资产 reports。
-已交付 me_packager、package_assembler、package_pattern、packaged_processing_pattern 基础配方。
+已交付 me_packager、package_assembler、package_pattern_terminal 和总线基础配方。
+样板相关玩家配方已收敛到 AE2 原版 blank_pattern；本地 package_pattern / packaged_processing_pattern 不再作为普通合成输出。
 已交付 me_packager/package_assembler loot table。
 已交付 appliedpackaging:packages item tag。
 终端、总线资源已接入 Java 注册与基础玩法。
@@ -292,8 +293,7 @@ GameTest/服务器 smoke test
 待实现：
   彩色处理样板更完整的处理输出 UI
   封装处理样板流体/任意 AEKey 处理输出 ghost editor
-  封装处理样板 AE2 encoded pattern 语义的流体/任意 AEKey 扩展和迁移收敛策略
-  本地 package_pattern / packaged_processing_pattern 到 AE2 原版载体的配方和迁移收敛策略
+  封装处理样板 AE2 encoded pattern 语义的流体/任意 AEKey 扩展
   批量 required content / 流体 / 任意 AEKey 高级过滤器编辑器
   AE2 cable part 形态
   客户端实际开 GUI/截图 smoke

@@ -58,5 +58,5 @@ ME 打包机：
   AE2 原版 blank pattern 可作为 package_pattern 数据载体。
   当终端需要多包裹计划时，AE2 原版 blank pattern 也可作为 packaged_processing_pattern 数据载体。
   当终端配置处理输出 ghost 时，AE2 blank pattern 会编码为 AE2 原版 processing pattern，并附带 packaged_processing_pattern NBT。
-  本地 package_pattern / packaged_processing_pattern 继续保留，用于兼容和平滑迁移。
+  本地 package_pattern / packaged_processing_pattern 仅保留兼容读取，不作为玩家主入口、创造栏条目或普通合成输出。
 ```

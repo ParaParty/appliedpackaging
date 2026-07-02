@@ -83,7 +83,7 @@
   "message.appliedpackaging.me_packager.source_changed": "源库存已变化",
   "message.appliedpackaging.package_pattern_terminal.encoded": "已编码包裹样板",
   "message.appliedpackaging.package_pattern_terminal.split": "已拆分包裹样板",
-  "message.appliedpackaging.package_pattern_terminal.no_pattern": "请放入空白包裹样板",
+  "message.appliedpackaging.package_pattern_terminal.no_pattern": "请放入 AE2 空白样板",
   "message.appliedpackaging.package_pattern_terminal.no_split_pattern": "请放入已编码封装处理样板",
   "message.appliedpackaging.package_pattern_terminal.no_contents": "没有可编码的输入内容",
   "message.appliedpackaging.package_pattern_terminal.output_blocked": "输出槽被占用",

@@ -83,7 +83,7 @@
   "message.appliedpackaging.me_packager.source_changed": "Source inventory changed",
   "message.appliedpackaging.package_pattern_terminal.encoded": "Package pattern encoded",
   "message.appliedpackaging.package_pattern_terminal.split": "Package pattern split",
-  "message.appliedpackaging.package_pattern_terminal.no_pattern": "Insert a blank package pattern",
+  "message.appliedpackaging.package_pattern_terminal.no_pattern": "Insert an AE2 blank pattern",
   "message.appliedpackaging.package_pattern_terminal.no_split_pattern": "Insert an encoded packaged processing pattern",
   "message.appliedpackaging.package_pattern_terminal.no_contents": "No packable input contents",
   "message.appliedpackaging.package_pattern_terminal.output_blocked": "Output slot blocked",

@@ -67,8 +67,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
@@ -98,6 +100,20 @@ public final class PackageDataGameTests {
         helper.assertTrue(read.isPresent(), "Package data should be readable");
         helper.assertTrue(read.get().canonicalHash().equals(data.canonicalHash()), "Canonical hash should round-trip");
         helper.assertTrue(read.get().usedUnits() == 1, "64 iron ingots should use one package unit");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void playerRecipesUseAe2BlankPatterns(GameTestHelper helper) {
+        helper.assertFalse(hasRecipeOutput(helper, APItems.PACKAGE_PATTERN.get()),
+                "Local package_pattern should remain as a compatibility carrier, not a player-craftable item");
+        helper.assertFalse(hasRecipeOutput(helper, APItems.PACKAGED_PROCESSING_PATTERN.get()),
+                "Local packaged_processing_pattern should remain as a compatibility carrier, not a player-craftable item");
+        assertRecipeOutput(helper, "package_assembler", APItems.PACKAGE_ASSEMBLER.get());
+        assertRecipeOutput(helper, "package_pattern_terminal", APItems.PACKAGE_PATTERN_TERMINAL.get());
+        assertRecipeOutput(helper, "package_storage_bus", APItems.PACKAGE_STORAGE_BUS.get());
+        assertRecipeOutput(helper, "package_export_bus", APItems.PACKAGE_EXPORT_BUS.get());
+        assertRecipeOutput(helper, "package_unpacking_bus", APItems.PACKAGE_UNPACKING_BUS.get());
         helper.succeed();
     }
 
@@ -2381,6 +2397,22 @@ public final class PackageDataGameTests {
 
     private static boolean closeTo(double actual, double expected) {
         return Math.abs(actual - expected) < 1.0e-6D;
+    }
+
+    private static boolean hasRecipeOutput(GameTestHelper helper, Item item) {
+        return helper.getLevel().getRecipeManager().getRecipes().stream()
+                .map(recipe -> recipe.getResultItem(helper.getLevel().registryAccess()))
+                .anyMatch(result -> result.is(item));
+    }
+
+    private static void assertRecipeOutput(GameTestHelper helper, String recipeName, Item item) {
+        ResourceLocation id = ResourceLocation.tryParse(AppliedPackaging.MOD_ID + ":" + recipeName);
+        Optional<? extends Recipe<?>> recipe = id == null
+                ? Optional.empty()
+                : helper.getLevel().getRecipeManager().byKey(id);
+        helper.assertTrue(recipe.isPresent(), "Recipe should exist: " + recipeName);
+        ItemStack result = recipe.orElseThrow().getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(item), "Recipe should output " + BuiltInRegistries.ITEM.getKey(item));
     }
 
     private static final class CpuCraftingJob {

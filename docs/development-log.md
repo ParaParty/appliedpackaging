@@ -726,6 +726,25 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
 ```
 
+最新进展：
+
+```text
+收敛样板玩家入口到 AE2 原版 blank_pattern：
+  本地 package_pattern / packaged_processing_pattern 保留注册和读取兼容，但不再在创造栏显示
+  删除 package_pattern 与 packaged_processing_pattern 普通合成配方
+  package_assembler、package_pattern_terminal、package_storage_bus、package_export_bus、package_unpacking_bus 配方改用 ae2:blank_pattern
+  Applied Packaging 创造栏图标改为 Fluix Package，避免以本地样板作为主入口
+新增 GameTest：
+  playerRecipesUseAe2BlankPatterns
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，90 个必需 GameTest 全部通过
+验证 .\gradlew.bat runData 成功
+验证 .\gradlew.bat build 成功，生成 build/libs/appliedpackaging-0.1.0-dev.jar
+再次执行 .\gradlew.bat runClient，客户端启动到 Applied Packaging 初始化、SoundEngine 启动和 block atlas 创建阶段
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture、preview_sheet 或 mip level
+smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
+```
+
 下一步：
 
 ```text

@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.registry;
 
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -14,7 +15,7 @@ public final class APCreativeTabs {
 
     public static final RegistryObject<CreativeModeTab> MAIN = CREATIVE_TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.appliedpackaging"))
-            .icon(() -> APItems.PACKAGE_PATTERN.get().getDefaultInstance())
+            .icon(() -> APItems.packageItems().get(PackageColor.FLUIX).get().getDefaultInstance())
             .displayItems((parameters, output) -> {
                 output.accept(APItems.ME_PACKAGER.get());
                 output.accept(APItems.PACKAGE_ASSEMBLER.get());
@@ -22,8 +23,6 @@ public final class APCreativeTabs {
                 output.accept(APItems.PACKAGE_EXPORT_BUS.get());
                 output.accept(APItems.PACKAGE_UNPACKING_BUS.get());
                 output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
-                output.accept(APItems.PACKAGE_PATTERN.get());
-                output.accept(APItems.PACKAGED_PROCESSING_PATTERN.get());
             })
             .build());
 

@@ -102,6 +102,7 @@ package_pattern_terminal 输出阻挡时保留空白样板
 package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆盖
 package_pattern_terminal 拒绝把已编码 packaged_processing_pattern 当空白样板覆盖
 package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
+玩家配方不再产出本地 package_pattern / packaged_processing_pattern，关键机器、终端和总线配方仍可加载
 装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT 并生成匹配包裹
 装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT 并逐包生成匹配包裹
 装配室可接受 AE2 Pattern Provider 推送的 AE2 encoded packaged-processing carrier
@@ -123,7 +124,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，89 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，90 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -213,7 +214,7 @@ Tooltip 每包/总计正确
 ```text
 2026-07-03 再次执行 .\gradlew.bat runClient，已启动到 Minecraft 客户端主流程。
 日志确认 Applied Packaging 初始化完成、ResourceManager 重载完成、OpenAL/SoundEngine 启动、block atlas 创建完成。
-Package Bus screen/menu 注册后、Package Bus 手工过滤 UI 布局调整后、Package Pattern Terminal 处理输出 ghost slots 布局调整后、Package Pattern Terminal 薄面板模型调整后、AE2 blank_pattern 已编码 tooltip hook 接入后，以及 AE2 encoded packaged-processing carrier 接入后的客户端启动 smoke 通过。
+Package Bus screen/menu 注册后、Package Bus 手工过滤 UI 布局调整后、Package Pattern Terminal 处理输出 ghost slots 布局调整后、Package Pattern Terminal 薄面板模型调整后、AE2 blank_pattern 已编码 tooltip hook 接入后、AE2 encoded packaged-processing carrier 接入后，以及样板配方入口收敛到 AE2 blank_pattern 后的客户端启动 smoke 通过。
 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture、preview_sheet 或 mip level。
 机器 preview sheet 已移至 docs/assets/previews，不再作为 block atlas 资源加载；最新 smoke 未再出现 preview_sheet/mip level 警告。
 本次 smoke 在 atlas 创建完成后手动终止；Gradle 退出码来自人工终止，不代表客户端启动失败。

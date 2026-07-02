@@ -501,12 +501,13 @@ Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽�
 
 ```text
 当前实现仍保留本地 package_pattern / packaged_processing_pattern 作为兼容载体。
+本地 package_pattern / packaged_processing_pattern 不在创造栏显示，也没有普通合成配方；玩家主入口是 AE2 原版 blank_pattern。
 AE2 原版 blank_pattern 已可作为 package_pattern 数据载体：终端可写入，装配室、ME Packager 过滤模板和 Package Bus 过滤模板可读取。
 当终端预览输入需要多个包裹计划但没有处理输出 ghost 时，AE2 原版 blank_pattern 会作为 packaged_processing_pattern 数据载体；装配室可按该载体逐包输出。
 当终端存在处理输出 ghost 时，AE2 原版 blank_pattern 会编码为 AE2 encoded processing pattern，并附带 packaged_processing_pattern NBT；AE2 可读取 outputs[]，装配室按 packages[] 逐包输出。
 已编码 AE2 blank_pattern 通过客户端 tooltip hook 显示 package_pattern 或 packaged_processing_pattern 内容；普通 AE2 blank_pattern 不额外显示本 mod 文案。
 AE2 encoded processing pattern 可作为 colored_processing_pattern metadata 载体，也可作为 packaged_processing_pattern 处理输出载体。
-packaged_processing_pattern 本地物品仍保留；AE2 encoded processing pattern 载体已覆盖 item-only 处理输出语义，后续迁移收敛到原版载体时必须保留已编码本地样板读取兼容或提供明确迁移路径。
+packaged_processing_pattern 本地物品仍保留读取兼容；AE2 encoded processing pattern 载体已覆盖 item-only 处理输出语义，普通玩家流程不再要求新增样板物品。
 ```
 
 包裹样板数据：
@@ -589,7 +590,7 @@ marker 槽写入 packaged_processing_pattern 时会应用到拆出的每个包�
 Split 会把已编码 packaged_processing_pattern 拆回多个普通 package_pattern；输出槽逐张吐出，剩余拆分结果保存在终端 pending queue，保存/读取后可继续输出。
 输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 或 packaged_processing_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前已支持 AE2 原版 blank_pattern 作为 package_pattern 与无输出 packaged_processing_pattern 数据载体；也已支持 item-only packaged_processing_pattern 通过 AE2 encoded processing pattern 暴露 processing outputs 给 Pattern Provider/Planner。仍不含流体/任意 AEKey 处理输出 ghost editor、完整迁移策略和真正 AE2 cable part 形态。
+当前已支持 AE2 原版 blank_pattern 作为 package_pattern 与无输出 packaged_processing_pattern 数据载体；也已支持 item-only packaged_processing_pattern 通过 AE2 encoded processing pattern 暴露 processing outputs 给 Pattern Provider/Planner。玩家配方入口已收敛到 AE2 原版 blank_pattern；本地 package_pattern / packaged_processing_pattern 只保留旧存档/测试兼容。仍不含流体/任意 AEKey 处理输出 ghost editor 和真正 AE2 cable part 形态。
 ```
 
 ## 10. 包裹总线
