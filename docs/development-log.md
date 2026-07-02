@@ -807,6 +807,23 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最新进展：
 
 ```text
+发布侧复核：
+  在 canonical contents 修复后重新执行 runData、runClientSmoke 与 runServer smoke
+验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+验证 .\gradlew.bat runClientSmoke 成功，生成并人工查看 6 张真实菜单截图：
+  run/screenshots/appliedpackaging-client-smoke-package_assembler.png
+  run/screenshots/appliedpackaging-client-smoke-me_packager.png
+  run/screenshots/appliedpackaging-client-smoke-package_pattern_terminal.png
+  run/screenshots/appliedpackaging-client-smoke-package_storage_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_export_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_unpacking_bus.png
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture、client smoke timeout、Timed out 或 Exception
+验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现客户端类误加载；完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
+```
+
+最新进展：
+
+```text
 补齐 ME Packager 真实 Forge fluid handler 世界内 smoke：
   新增 mePackagerPackagesAndUnpacksThroughWorldFluidHandler GameTest
   测试在世界内放置带 Forge FLUID_HANDLER capability 的临时 tank 方块实体与 ME Packager
