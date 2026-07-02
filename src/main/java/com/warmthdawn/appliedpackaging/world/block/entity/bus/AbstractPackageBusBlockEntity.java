@@ -4,7 +4,9 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.util.AECableType;
 import appeng.blockentity.grid.AENetworkBlockEntity;
@@ -13,9 +15,13 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -36,9 +42,12 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
 public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity implements MenuProvider {
+    public static final int REQUIRED_CONTENT_SLOT_COUNT = 3;
+    private static final String FILTER_TAG = "filter";
     private static final String FILTER_TEMPLATE_TAG = "filter_template";
 
     private int tickCounter;
+    private PackageFilter filter = PackageFilter.any();
     private ItemStack filterTemplate = ItemStack.EMPTY;
 
     protected AbstractPackageBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
@@ -105,9 +114,11 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         if (stack.isEmpty()) {
             return clearFilterTemplate();
         }
-        if (PackageFilter.fromTemplate(stack).isEmpty()) {
+        Optional<PackageFilter> templateFilter = PackageFilter.fromTemplate(stack);
+        if (templateFilter.isEmpty()) {
             return false;
         }
+        filter = templateFilter.get();
         filterTemplate = stack.copy();
         filterTemplate.setCount(1);
         onFilterChanged();
@@ -115,9 +126,10 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
     }
 
     public boolean clearFilterTemplate() {
-        if (filterTemplate.isEmpty()) {
+        if (filter.isAny() && filterTemplate.isEmpty()) {
             return false;
         }
+        filter = PackageFilter.any();
         filterTemplate = ItemStack.EMPTY;
         onFilterChanged();
         return true;
@@ -127,8 +139,76 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         return filterTemplate.copy();
     }
 
+    public PackageFilter getConfiguredFilter() {
+        return filter;
+    }
+
+    public PackageColor filterColor() {
+        return filter.color().orElse(PackageColor.FLUIX);
+    }
+
+    public Optional<MarkerSpec> filterMarker() {
+        return filter.marker();
+    }
+
+    public List<GenericStack> filterRequiredContents() {
+        return filter.requiredContents();
+    }
+
+    public void setManualFilterColor(PackageColor color) {
+        setManualFilter(new PackageFilter(Optional.of(color), filter.marker(), filter.requiredContents()));
+    }
+
+    public void setManualFilterMarker(ItemStack stack) {
+        if (stack.isEmpty()) {
+            clearManualFilterMarker();
+            return;
+        }
+        setManualFilter(new PackageFilter(
+                filter.color(),
+                Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(stack), 1))),
+                filter.requiredContents()));
+    }
+
+    public void clearManualFilterMarker() {
+        setManualFilter(new PackageFilter(filter.color(), Optional.empty(), filter.requiredContents()));
+    }
+
+    public void setManualFilterContent(int slot, ItemStack stack, long amount) {
+        if (slot < 0 || slot >= REQUIRED_CONTENT_SLOT_COUNT) {
+            return;
+        }
+        if (stack.isEmpty() || amount <= 0) {
+            clearManualFilterContent(slot);
+            return;
+        }
+
+        List<GenericStack> requiredContents = new ArrayList<>(filter.requiredContents());
+        GenericStack required = new GenericStack(AEItemKey.of(stack), amount);
+        if (slot < requiredContents.size()) {
+            requiredContents.set(slot, required);
+        } else {
+            requiredContents.add(required);
+        }
+        while (requiredContents.size() > REQUIRED_CONTENT_SLOT_COUNT) {
+            requiredContents.remove(requiredContents.size() - 1);
+        }
+        setManualFilter(new PackageFilter(filter.color(), filter.marker(), requiredContents));
+    }
+
+    public void clearManualFilterContent(int slot) {
+        if (slot < 0 || slot >= REQUIRED_CONTENT_SLOT_COUNT) {
+            return;
+        }
+        List<GenericStack> requiredContents = new ArrayList<>(filter.requiredContents());
+        if (slot < requiredContents.size()) {
+            requiredContents.remove(slot);
+            setManualFilter(new PackageFilter(filter.color(), filter.marker(), requiredContents));
+        }
+    }
+
     protected PackageFilter configuredFilter() {
-        return PackageFilter.fromTemplate(filterTemplate).orElse(PackageFilter.any());
+        return filter;
     }
 
     protected boolean matchesConfiguredFilter(ItemStack stack) {
@@ -208,6 +288,12 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         IStorageProvider.requestUpdate(getMainNode());
     }
 
+    private void setManualFilter(PackageFilter manualFilter) {
+        filter = manualFilter;
+        filterTemplate = ItemStack.EMPTY;
+        onFilterChanged();
+    }
+
     @Override
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
@@ -216,11 +302,18 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         } else {
             filterTemplate = ItemStack.EMPTY;
         }
+        filter = PackageFilter.fromTemplate(filterTemplate).orElse(PackageFilter.any());
+        if (tag.contains(FILTER_TAG, Tag.TAG_COMPOUND)) {
+            filter = PackageFilter.readTag(tag.getCompound(FILTER_TAG)).orElse(PackageFilter.any());
+        }
     }
 
     @Override
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
+        if (!filter.isAny()) {
+            tag.put(FILTER_TAG, filter.writeTag());
+        }
         if (!filterTemplate.isEmpty()) {
             tag.put(FILTER_TEMPLATE_TAG, filterTemplate.save(new CompoundTag()));
         }

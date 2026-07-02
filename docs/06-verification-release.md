@@ -96,6 +96,8 @@ package_pattern_terminal 输出阻挡时保留空白样板
 package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆盖
 package_pattern_terminal 拒绝把已编码 packaged_processing_pattern 当空白样板覆盖
 package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
+package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
+package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
 item handler 打包计划可按内容过滤只选择 requiredContents
 item handler 打包计划在 requiredContents 缺失时拒绝
 item handler 打包计划可从过滤模板 override marker
@@ -112,7 +114,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，79 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，81 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -200,12 +202,12 @@ Tooltip 每包/总计正确
 当前客户端 smoke：
 
 ```text
-2026-07-03 再次执行 .\gradlew.bat runClient，已启动到 Minecraft 客户端主流程并进入本地世界。
+2026-07-03 再次执行 .\gradlew.bat runClient，已启动到 Minecraft 客户端主流程。
 日志确认 Applied Packaging 初始化完成、ResourceManager 重载完成、OpenAL/SoundEngine 启动、block atlas 创建完成。
-Package Bus screen/menu 注册后、Package Pattern Terminal 处理输出 ghost slots 布局调整后，以及 Package Pattern Terminal 薄面板模型调整后的客户端启动 smoke 通过。
+Package Bus screen/menu 注册后、Package Bus 手工过滤 UI 布局调整后、Package Pattern Terminal 处理输出 ghost slots 布局调整后，以及 Package Pattern Terminal 薄面板模型调整后的客户端启动 smoke 通过。
 run/logs/latest.log 未发现 ERROR、FATAL、Missing model 或 Unable to load model。
 机器 preview sheet 已移至 docs/assets/previews，不再作为 block atlas 资源加载；最新 smoke 未再出现 preview_sheet/mip level 警告。
-本次 smoke 在客户端进入世界后手动终止；Gradle 退出码来自人工终止，不代表客户端启动失败。
+本次 smoke 在 atlas 创建完成后手动终止；Gradle 退出码来自人工终止，不代表客户端启动失败。
 已观察到的剩余警告为 Forge/AE2/Vanilla 常规开发环境警告。
 ```
 

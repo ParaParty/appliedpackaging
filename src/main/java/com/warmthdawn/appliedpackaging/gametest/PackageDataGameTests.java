@@ -1384,6 +1384,76 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageBusMenuEditsManualFilter(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = placePackageExportBus(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackageBusMenu menu = new PackageBusMenu(3, new Inventory(player), bus);
+
+        ItemStack markerStack = new ItemStack(Items.DIAMOND, 8);
+        ItemStack contentStack = new ItemStack(Items.IRON_INGOT, 32);
+
+        boolean colorClicked = menu.clickMenuButton(
+                player,
+                PackageBusMenu.BUTTON_COLOR_BASE + PackageColor.RED.ordinal());
+        menu.setCarried(markerStack.copy());
+        menu.clicked(PackageBusMenu.MARKER_FILTER_SLOT, 0, ClickType.PICKUP, player);
+        menu.setCarried(contentStack.copy());
+        menu.clicked(PackageBusMenu.CONTENT_FILTER_START, 0, ClickType.PICKUP, player);
+
+        PackageFilter filter = bus.getConfiguredFilter();
+        MarkerSpec expectedMarker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+
+        helper.assertTrue(colorClicked, "Package bus filter menu should accept color buttons");
+        helper.assertTrue(filter.color().orElseThrow() == PackageColor.RED,
+                "Manual package bus filter should store the selected color");
+        helper.assertTrue(filter.marker().orElseThrow().sameAs(expectedMarker),
+                "Manual package bus filter should store a marker ghost");
+        helper.assertTrue(filter.requiredContents().size() == 1,
+                "Manual package bus filter should store one required content ghost");
+        helper.assertTrue(filter.requiredContents().get(0).what().equals(AEItemKey.of(Items.IRON_INGOT)),
+                "Manual package bus filter should store the required item key");
+        helper.assertTrue(filter.requiredContents().get(0).amount() == 32,
+                "Manual package bus filter should store the required item count");
+        helper.assertTrue(menu.markerFilter().is(Items.DIAMOND), "Marker ghost should be visible in the menu");
+        helper.assertTrue(menu.contentFilter(0).is(Items.IRON_INGOT), "Content ghost should be visible in the menu");
+        helper.assertTrue(menu.getCarried().getCount() == 32,
+                "Manual package bus filter should not consume the carried content stack");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusManualFilterPersists(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = new PackageExportBusBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState());
+        bus.setManualFilterColor(PackageColor.BLUE);
+        bus.setManualFilterMarker(new ItemStack(Items.EMERALD));
+        bus.setManualFilterContent(0, new ItemStack(Items.COPPER_INGOT, 24), 24);
+
+        CompoundTag tag = new CompoundTag();
+        bus.saveAdditional(tag);
+
+        PackageExportBusBlockEntity loaded = new PackageExportBusBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState());
+        loaded.loadTag(tag);
+        PackageFilter filter = loaded.getConfiguredFilter();
+
+        helper.assertTrue(filter.color().orElseThrow() == PackageColor.BLUE,
+                "Manual package bus filter color should persist");
+        helper.assertTrue(filter.marker().orElseThrow().sameAs(
+                        new MarkerSpec(new GenericStack(AEItemKey.of(Items.EMERALD), 1))),
+                "Manual package bus filter marker should persist");
+        helper.assertTrue(filter.requiredContents().size() == 1,
+                "Manual package bus filter contents should persist");
+        helper.assertTrue(filter.requiredContents().get(0).what().equals(AEItemKey.of(Items.COPPER_INGOT)),
+                "Manual package bus filter content key should persist");
+        helper.assertTrue(filter.requiredContents().get(0).amount() == 24,
+                "Manual package bus filter content amount should persist");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageItemStorageRejectsLooseItemInsert(GameTestHelper helper) {
         ItemStackHandler target = new ItemStackHandler(1);
         PackageItemStorage storage = new PackageItemStorage(target, net.minecraft.network.chat.Component.literal("test"));

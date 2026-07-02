@@ -6,19 +6,27 @@ import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.item.ItemStack;
 
 public record PackageFilter(
         Optional<PackageColor> color,
         Optional<MarkerSpec> marker,
         List<GenericStack> requiredContents) {
+    private static final String COLOR = "color";
+    private static final String MARKER = "marker";
+    private static final String REQUIRED_CONTENTS = "required_contents";
+
     public PackageFilter {
         color = color == null ? Optional.empty() : color;
         marker = marker == null ? Optional.empty() : marker;
-        requiredContents = List.copyOf(requiredContents == null ? List.of() : requiredContents);
+        requiredContents = normalizeRequiredContents(requiredContents == null ? List.of() : requiredContents);
         for (GenericStack stack : requiredContents) {
             if (stack == null || stack.amount() <= 0) {
                 throw new IllegalArgumentException("Required content entries must be non-null and positive");
@@ -63,6 +71,59 @@ public record PackageFilter(
         return Optional.empty();
     }
 
+    public static Optional<PackageFilter> readTag(CompoundTag tag) {
+        if (tag == null) {
+            return Optional.empty();
+        }
+
+        Optional<PackageColor> color = Optional.empty();
+        if (tag.contains(COLOR, Tag.TAG_STRING)) {
+            color = PackageColor.byId(tag.getString(COLOR));
+            if (color.isEmpty()) {
+                return Optional.empty();
+            }
+        }
+
+        Optional<MarkerSpec> marker = Optional.empty();
+        if (tag.contains(MARKER, Tag.TAG_COMPOUND)) {
+            GenericStack markerStack = GenericStack.readTag(tag.getCompound(MARKER));
+            if (markerStack != null && markerStack.amount() > 0) {
+                marker = Optional.of(new MarkerSpec(markerStack));
+            }
+        }
+
+        List<GenericStack> requiredContents = new ArrayList<>();
+        if (tag.contains(REQUIRED_CONTENTS, Tag.TAG_LIST)) {
+            for (Tag element : tag.getList(REQUIRED_CONTENTS, Tag.TAG_COMPOUND)) {
+                if (element instanceof CompoundTag entryTag) {
+                    GenericStack stack = GenericStack.readTag(entryTag);
+                    if (stack != null && stack.amount() > 0) {
+                        requiredContents.add(stack);
+                    }
+                }
+            }
+        }
+
+        try {
+            return Optional.of(new PackageFilter(color, marker, requiredContents));
+        } catch (IllegalArgumentException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    public CompoundTag writeTag() {
+        CompoundTag tag = new CompoundTag();
+        color.ifPresent(value -> tag.putString(COLOR, value.id()));
+        marker.ifPresent(value -> tag.put(MARKER, GenericStack.writeTag(value.stack())));
+
+        ListTag contents = new ListTag();
+        for (GenericStack stack : requiredContents) {
+            contents.add(GenericStack.writeTag(stack));
+        }
+        tag.put(REQUIRED_CONTENTS, contents);
+        return tag;
+    }
+
     public boolean isAny() {
         return color.isEmpty() && marker.isEmpty() && requiredContents.isEmpty();
     }
@@ -101,6 +162,24 @@ public record PackageFilter(
             }
         }
         return marker;
+    }
+
+    private static List<GenericStack> normalizeRequiredContents(List<GenericStack> contents) {
+        Map<AEKey, Long> amounts = new LinkedHashMap<>();
+        for (GenericStack stack : contents) {
+            if (stack == null || stack.amount() <= 0) {
+                continue;
+            }
+            amounts.merge(stack.what(), stack.amount(), Long::sum);
+        }
+
+        List<GenericStack> normalized = new ArrayList<>();
+        amounts.forEach((key, amount) -> {
+            if (amount > 0) {
+                normalized.add(new GenericStack(key, amount));
+            }
+        });
+        return List.copyOf(normalized);
     }
 
     private static Map<AEKey, Long> aggregate(List<GenericStack> stacks) {
