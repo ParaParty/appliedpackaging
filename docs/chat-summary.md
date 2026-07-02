@@ -4,7 +4,7 @@
 >
 > AI/agent 指令已迁移到仓库根目录 `AGENTS.md`。
 >
-> 最新实现恢复点（2026-07-03）：AE2 原版 `blank_pattern` 已可作为 `package_pattern` 和 `packaged_processing_pattern` 数据载体；终端可编码、装配室可读取、已编码 AE2 blank pattern 有客户端 tooltip。封装处理样板接入 AE2 encoded pattern/Planner 语义仍后置。最新 `runGameTestServer` 为 87 个必需 GameTest 全部通过。
+> 最新实现恢复点（2026-07-03）：AE2 原版 `blank_pattern` 已可作为 `package_pattern` 数据载体；当终端有处理输出 ghost 时，会输出 AE2 原版 encoded processing pattern，并写入 `packaged_processing_pattern` NBT。装配室可读取该载体，AE2 Pattern Provider 可解码并推送，Planner 可看见原版 processing outputs。流体/任意 AEKey 输出 ghost editor 与真正 AE2 cable part 形态仍后置。最新 `runGameTestServer` 为 89 个必需 GameTest 全部通过。
 
 我建议名字不要太“工业物流”，而是偏 **AE2 风格的精密封装 / 数据化物流 / Fluix 包裹**。核心感觉应该是：
 

@@ -269,7 +269,8 @@ GameTest/服务器 smoke test
   package_pattern_terminal 可把 AE2 encoded processing pattern 克隆为带 colored_processing_pattern 元数据的彩色处理样板
   package_pattern_terminal 在未逐槽设色时可把 selectedColor 应用到 AE2 processing pattern 全部非空输入槽
   package_pattern_terminal 可把 AE2 原版 blank_pattern 编码为带 package_pattern NBT 的封装样板载体，并保留 AE2 物品类型
-  package_pattern_terminal 在 AE2 blank_pattern 存在处理输出 ghost 或多包裹计划时写入 packaged_processing_pattern NBT，并保留 AE2 物品类型
+  package_pattern_terminal 在 AE2 blank_pattern 存在多包裹计划且无处理输出 ghost 时写入 packaged_processing_pattern NBT，并保留 AE2 物品类型
+  package_pattern_terminal 在 AE2 blank_pattern 存在处理输出 ghost 时编码 AE2 原版 processing pattern，并附带 packaged_processing_pattern NBT
   package_pattern_terminal 可把空白 packaged_processing_pattern 编码为有序多包裹样板
   packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个物品处理输出 ghost slots
   处理输出 ghost slots 可从光标复制数量、右键复制 1 个、空光标清除，且不消耗玩家物品
@@ -283,13 +284,15 @@ GameTest/服务器 smoke test
   装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
   装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT，样板槽和 shift-click 验证共用统一载体判断
   装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT，并逐包输出
+  装配室可接受 AE2 encoded processing pattern 承载的 packaged_processing_pattern Pattern Provider push，并逐包输出
+  真实 AE2 Pattern Provider 可解码并推送带 packaged_processing_pattern NBT 的 AE2 encoded processing pattern
   装配室可读取 packaged_processing_pattern 并逐包输出
   已编码 packaged_processing_pattern 不会被终端当空白样板覆盖
 
 待实现：
   彩色处理样板更完整的处理输出 UI
   封装处理样板流体/任意 AEKey 处理输出 ghost editor
-  封装处理样板 outputs[] 与 AE2 原版 encoded pattern 承载/Planner 语义集成
+  封装处理样板 AE2 encoded pattern 语义的流体/任意 AEKey 扩展和迁移收敛策略
   本地 package_pattern / packaged_processing_pattern 到 AE2 原版载体的配方和迁移收敛策略
   批量 required content / 流体 / 任意 AEKey 高级过滤器编辑器
   AE2 cable part 形态

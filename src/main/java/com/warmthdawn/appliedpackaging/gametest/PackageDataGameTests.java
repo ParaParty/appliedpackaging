@@ -999,6 +999,58 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerAcceptsAe2EncodedPackagedProcessingPush(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData iron = ironPackageData(PackageColor.RED, 64);
+        PackageData copper = PackageData.create(
+                PackageColor.RED,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] {
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
+                },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 2) });
+        PackagedProcessingPatternDataStorage.write(
+                pattern,
+                PackageColor.RED,
+                List.of(iron, copper),
+                List.of(new GenericStack(AEItemKey.of(Items.DIAMOND), 2)));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details != null, "AE2 should decode the packaged-processing carrier");
+        helper.assertTrue(details.getOutputs().length == 1,
+                "AE2 should expose the packaged-processing output to the planner");
+        KeyCounter ironInput = new KeyCounter();
+        ironInput.add(AEItemKey.of(Items.IRON_INGOT), 64);
+        KeyCounter copperInput = new KeyCounter();
+        copperInput.add(AEItemKey.of(Items.COPPER_INGOT), 32);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { ironInput, copperInput }, Direction.UP);
+        ItemStack firstOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+        PackageAssemblerBlockEntity.AssemblyResult secondResult = assembler.tryAssemble();
+        ItemStack secondOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
+        helper.assertTrue(accepted,
+                "Assembler should accept AE2 encoded packaged-processing pushes");
+        helper.assertTrue(ironInput.isEmpty(), "Accepted packaged-processing push should consume iron input");
+        helper.assertTrue(copperInput.isEmpty(), "Accepted packaged-processing push should consume copper input");
+        helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
+                "First packaged-processing output should use the encoded color");
+        helper.assertTrue(firstData.canonicalHash().equals(iron.canonicalHash()),
+                "First packaged-processing output should match the first package");
+        helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should output the queued packaged-processing package");
+        helper.assertTrue(secondData.canonicalHash().equals(copper.canonicalHash()),
+                "Second packaged-processing output should match the second package");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerAcceptsPatternProviderPush(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         KeyCounter iron = new KeyCounter();
@@ -1239,6 +1291,88 @@ public final class PackageDataGameTests {
                             "First AE2 colored output should contain half the iron");
                     helper.assertTrue(amountOf(secondData, AEItemKey.of(Items.IRON_INGOT)) == 32,
                             "Second AE2 colored output should contain half the iron");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "ae_network_column")
+    public static void ae2PatternProviderPushesPackagedProcessingPatternIntoPackageAssembler(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos providerPos = new BlockPos(0, 1, 0);
+        BlockPos assemblerPos = new BlockPos(0, 2, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(providerPos),
+                AEBlocks.PATTERN_PROVIDER.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(assemblerPos),
+                APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState(),
+                3);
+
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> {
+                    PatternProviderBlockEntity provider =
+                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
+                    PackageData iron = ironPackageData(PackageColor.RED, 64);
+                    PackageData copper = PackageData.create(
+                            PackageColor.RED,
+                            List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                            Optional.empty(),
+                            0);
+                    ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                            new GenericStack[] {
+                                    new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                                    new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
+                            },
+                            new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 2) });
+                    PackagedProcessingPatternDataStorage.write(
+                            pattern,
+                            PackageColor.RED,
+                            List.of(iron, copper),
+                            List.of(new GenericStack(AEItemKey.of(Items.DIAMOND), 2)));
+                    provider.getLogic().getPatternInv().addItems(pattern);
+                    provider.getLogic().updatePatterns();
+                    helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 1,
+                            "Pattern Provider should decode the packaged-processing carrier");
+                    IPatternDetails details = provider.getLogic().getAvailablePatterns().get(0);
+                    helper.assertTrue(details.getOutputs().length == 1,
+                            "Packaged-processing carrier should expose its AE2 processing output");
+                    KeyCounter ironInput = new KeyCounter();
+                    ironInput.add(AEItemKey.of(Items.IRON_INGOT), 64);
+                    KeyCounter copperInput = new KeyCounter();
+                    copperInput.add(AEItemKey.of(Items.COPPER_INGOT), 32);
+
+                    boolean accepted =
+                            provider.getLogic().pushPattern(details, new KeyCounter[] { ironInput, copperInput });
+                    ItemStack firstOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+                    assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                    PackageAssemblerBlockEntity.AssemblyResult secondResult = assembler.tryAssemble();
+                    ItemStack secondOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
+                    helper.assertTrue(accepted,
+                            "AE2 Pattern Provider should push packaged-processing patterns into Package Assembler");
+                    helper.assertTrue(ironInput.isEmpty(),
+                            "Accepted packaged-processing AE2 push should consume iron input");
+                    helper.assertTrue(copperInput.isEmpty(),
+                            "Accepted packaged-processing AE2 push should consume copper input");
+                    helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
+                            "First packaged-processing AE2 output should use the encoded color");
+                    helper.assertTrue(firstData.canonicalHash().equals(iron.canonicalHash()),
+                            "First packaged-processing AE2 output should match the first package");
+                    helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                            "Second packaged-processing AE2 output should be queued");
+                    helper.assertTrue(secondData.canonicalHash().equals(copper.canonicalHash()),
+                            "Second packaged-processing AE2 output should match the second package");
                 })
                 .thenSucceed();
     }
@@ -1810,11 +1944,20 @@ public final class PackageDataGameTests {
         ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
         PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern =
                 PackagedProcessingPatternDataStorage.read(output).orElseThrow();
+        IPatternDetails details = PatternDetailsHelper.decodePattern(output, helper.getLevel());
 
         helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
-                "Terminal should encode AE2 blank patterns with processing outputs as packaged-processing carriers");
-        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(output),
-                "Terminal should preserve the AE2 blank pattern item type for packaged-processing carriers");
+                "Terminal should encode AE2 blank patterns with processing outputs as AE2 processing patterns");
+        helper.assertTrue(PatternDetailsHelper.isEncodedPattern(output),
+                "Terminal should emit an AE2 encoded processing pattern when processing outputs are configured");
+        helper.assertTrue(details != null,
+                "AE2 should decode the terminal packaged-processing carrier");
+        helper.assertTrue(details.getOutputs().length == 1,
+                "AE2 should see the configured processing output");
+        helper.assertTrue(details.getOutputs()[0].what().equals(AEItemKey.of(Items.DIAMOND)),
+                "AE2 should see the processing output key");
+        helper.assertTrue(details.getOutputs()[0].amount() == 2,
+                "AE2 should see the processing output amount");
         helper.assertTrue(PackagePatternDataStorage.read(output).isEmpty(),
                 "AE2 packaged-processing carriers should not also be read as single package patterns");
         helper.assertTrue(pattern.color() == PackageColor.RED,

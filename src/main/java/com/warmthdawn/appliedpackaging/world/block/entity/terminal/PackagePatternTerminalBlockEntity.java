@@ -1,6 +1,8 @@
 package com.warmthdawn.appliedpackaging.world.block.entity.terminal;
 
+import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
@@ -201,12 +203,13 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             return EncodeResult.OUTPUT_BLOCKED;
         }
         ItemStack blankPattern = items.getStackInSlot(SLOT_BLANK_PATTERN);
+        if (blankPattern.isEmpty() || isEncodedPackagePattern(blankPattern)) {
+            return EncodeResult.NO_PATTERN;
+        }
         if (ColoredProcessingPatternDataStorage.canStore(blankPattern)) {
             return encodeColoredProcessingPattern(blankPattern);
         }
-        if (blankPattern.isEmpty()
-                || !PackagePatternDataStorage.canStore(blankPattern)
-                || isEncodedPackagePattern(blankPattern)) {
+        if (!PackagePatternDataStorage.canStore(blankPattern)) {
             return EncodeResult.NO_PATTERN;
         }
 
@@ -223,8 +226,8 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             return EncodeResult.NO_CONTENTS;
         }
 
-        ItemStack encoded = new ItemStack(blankPattern.getItem());
         List<GenericStack> processingOutputs = processingOutputStacks();
+        ItemStack encoded = createEncodedPatternStack(blankPattern, plans, processingOutputs);
         if (shouldEncodePackagedProcessingPattern(blankPattern, plans, processingOutputs)) {
             PackagedProcessingPatternDataStorage.write(
                     encoded,
@@ -243,6 +246,32 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         items.insertItem(SLOT_OUTPUT, encoded, false);
         setChanged();
         return EncodeResult.ENCODED;
+    }
+
+    private static ItemStack createEncodedPatternStack(
+            ItemStack blankPattern,
+            List<ItemPackagePlan> plans,
+            List<GenericStack> processingOutputs) {
+        if (PackagePatternDataStorage.isAe2BlankPattern(blankPattern) && !processingOutputs.isEmpty()) {
+            return PatternDetailsHelper.encodeProcessingPattern(
+                    mergedPatternInputs(plans).toArray(GenericStack[]::new),
+                    processingOutputs.toArray(GenericStack[]::new));
+        }
+        return new ItemStack(blankPattern.getItem());
+    }
+
+    private static List<GenericStack> mergedPatternInputs(List<ItemPackagePlan> plans) {
+        Map<AEKey, Long> merged = new LinkedHashMap<>();
+        for (ItemPackagePlan plan : plans) {
+            for (GenericStack stack : plan.data().contents()) {
+                merged.merge(stack.what(), stack.amount(), Long::sum);
+            }
+        }
+        List<GenericStack> inputs = new ArrayList<>();
+        for (var entry : merged.entrySet()) {
+            inputs.add(new GenericStack(entry.getKey(), entry.getValue()));
+        }
+        return List.copyOf(inputs);
     }
 
     private static boolean shouldEncodePackagedProcessingPattern(

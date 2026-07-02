@@ -63,11 +63,13 @@ item handler 拆包可完整插入目标
 装配室彩色 pushPattern 在同 AEKey 被输入持有者汇总时仍按 sparse input 槽位拆分
 装配室彩色 Pattern Provider pushPattern 可用容量槽承载超过默认容量的输入
 装配室彩色 pushPattern 可通过 pending queue 在输出槽清空后继续输出后续包裹
+装配室可读取 AE2 encoded processing pattern 承载的 packaged_processing_pattern NBT 并按 packages[] 逐包输出
 装配室输出阻挡时拒绝 Pattern Provider pushPattern 且不消耗输入
 装配室拒绝 Pattern Provider pushPattern 的 fluid/non-item 输入且不消耗输入
 装配室可把旧 11 槽库存 NBT 迁移为当前 12 槽库存并补空容量槽
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送处理样板输入到装配室
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送彩色处理样板输入到装配室
+真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可解码并推送带 packaged_processing_pattern NBT 的 AE2 encoded processing pattern
 真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider 方块网络可提交自动合成 job，并把 processing pattern 输入推送到装配室
 AE2 PackageItemStorage 只暴露合法包裹
 AE2 PackageItemStorage 拒绝散装物品插入
@@ -84,7 +86,7 @@ packaged_processing_pattern 数据可在 AE2 原版 blank_pattern 上读写
 colored_processing_pattern 输入槽颜色数据可读写，并可读取 AE2 sparse processing inputs
 package_pattern_terminal 可从预览输入编码 package_pattern
 package_pattern_terminal 可把 AE2 原版 blank_pattern 编码为 package_pattern 载体并保留 AE2 物品类型
-package_pattern_terminal 可把带处理输出 ghost 的 AE2 原版 blank_pattern 编码为 packaged_processing_pattern 载体
+package_pattern_terminal 可把带处理输出 ghost 的 AE2 原版 blank_pattern 编码为 AE2 encoded processing pattern，并附带 packaged_processing_pattern NBT
 package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
 package_pattern_terminal 可把 marker 槽物品编码为样板 marker
 package_pattern_terminal 可用容量槽编码超过默认容量的样板
@@ -102,6 +104,7 @@ package_pattern_terminal 拒绝把已编码 packaged_processing_pattern 当空�
 package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
 装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT 并生成匹配包裹
 装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT 并逐包生成匹配包裹
+装配室可接受 AE2 Pattern Provider 推送的 AE2 encoded packaged-processing carrier
 package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
 package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
 item handler 打包计划可按内容过滤只选择 requiredContents
@@ -120,7 +123,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，87 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，89 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -210,8 +213,8 @@ Tooltip 每包/总计正确
 ```text
 2026-07-03 再次执行 .\gradlew.bat runClient，已启动到 Minecraft 客户端主流程。
 日志确认 Applied Packaging 初始化完成、ResourceManager 重载完成、OpenAL/SoundEngine 启动、block atlas 创建完成。
-Package Bus screen/menu 注册后、Package Bus 手工过滤 UI 布局调整后、Package Pattern Terminal 处理输出 ghost slots 布局调整后、Package Pattern Terminal 薄面板模型调整后，以及 AE2 blank_pattern 已编码 tooltip hook 接入后的客户端启动 smoke 通过。
-run/logs/latest.log 未发现 ERROR、FATAL、Missing model 或 Unable to load model。
+Package Bus screen/menu 注册后、Package Bus 手工过滤 UI 布局调整后、Package Pattern Terminal 处理输出 ghost slots 布局调整后、Package Pattern Terminal 薄面板模型调整后、AE2 blank_pattern 已编码 tooltip hook 接入后，以及 AE2 encoded packaged-processing carrier 接入后的客户端启动 smoke 通过。
+run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture、preview_sheet 或 mip level。
 机器 preview sheet 已移至 docs/assets/previews，不再作为 block atlas 资源加载；最新 smoke 未再出现 preview_sheet/mip level 警告。
 本次 smoke 在 atlas 创建完成后手动终止；Gradle 退出码来自人工终止，不代表客户端启动失败。
 已观察到的剩余警告为 Forge/AE2/Vanilla 常规开发环境警告。

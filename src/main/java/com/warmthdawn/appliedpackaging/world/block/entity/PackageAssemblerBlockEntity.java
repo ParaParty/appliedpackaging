@@ -437,6 +437,15 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         }
 
         ItemStack definitionStack = patternDetails.getDefinition().toStack();
+        Optional<PackagedProviderPlan> packagedPlan = planPackagedProcessingPush(definitionStack, inputHolder);
+        if (packagedPlan.isPresent()) {
+            if (!commitProviderPackages(packagedPlan.get().packages())) {
+                return false;
+            }
+            consumePatternInputs(inputHolder, packagedPlan.get().consumedInputs());
+            return true;
+        }
+
         if (ColoredProcessingPatternDataStorage.hasData(definitionStack)) {
             Optional<ColoredProviderPlan> coloredPlan = planColoredProcessingPush(definitionStack, inputHolder);
             if (coloredPlan.isEmpty() || !commitProviderPackages(coloredPlan.get().packages())) {
@@ -477,6 +486,51 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         }
         providerInput.get().consume();
         return true;
+    }
+
+    private Optional<PackagedProviderPlan> planPackagedProcessingPush(
+            ItemStack definitionStack,
+            KeyCounter[] inputHolder) {
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> encoded =
+                PackagedProcessingPatternDataStorage.read(definitionStack);
+        if (encoded.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<Map<AEKey, Long>> availableInputs = aggregateItemInputs(inputHolder);
+        if (availableInputs.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Map<AEKey, Long> remainingInputs = new HashMap<>(availableInputs.get());
+        Map<AEKey, Long> consumedByKey = new LinkedHashMap<>();
+        List<QueuedPackage> packages = new ArrayList<>();
+        for (PackageData data : encoded.get().packages()) {
+            for (GenericStack stack : data.contents()) {
+                if (!AEItemKey.is(stack.what())) {
+                    return Optional.empty();
+                }
+                long available = remainingInputs.getOrDefault(stack.what(), 0L);
+                if (available < stack.amount()) {
+                    return Optional.empty();
+                }
+                long remaining = available - stack.amount();
+                if (remaining == 0) {
+                    remainingInputs.remove(stack.what());
+                } else {
+                    remainingInputs.put(stack.what(), remaining);
+                }
+                consumedByKey.merge(stack.what(), stack.amount(), Long::sum);
+            }
+            packages.add(new QueuedPackage(encoded.get().color(), data));
+        }
+        if (packages.isEmpty() || hasRemainingInputs(remainingInputs)) {
+            return Optional.empty();
+        }
+
+        List<GenericStack> consumedInputs = consumedByKey.entrySet().stream()
+                .map(entry -> new GenericStack(entry.getKey(), entry.getValue()))
+                .toList();
+        return Optional.of(new PackagedProviderPlan(packages, consumedInputs));
     }
 
     @Override
@@ -612,6 +666,13 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     private record ColoredProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {
         private ColoredProviderPlan {
+            packages = List.copyOf(packages);
+            consumedInputs = List.copyOf(consumedInputs);
+        }
+    }
+
+    private record PackagedProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {
+        private PackagedProviderPlan {
             packages = List.copyOf(packages);
             consumedInputs = List.copyOf(consumedInputs);
         }
