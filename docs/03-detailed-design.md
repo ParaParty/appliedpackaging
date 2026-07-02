@@ -422,7 +422,7 @@ GUI 提供输入槽、输出槽、容量槽、过滤槽、玩家背包、17 色 
   空手或非包裹物品时先尝试取出输出槽。
   输出槽为空时触发一次 pack/unpack。
 红石上升沿触发一次 pack/unpack。
-机器背面作为 Forge item handler 目标端点。
+机器背面优先识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；若无 AE2 storage，则回落到 Forge item handler。
 输入槽存在合法包裹时执行整包拆包。
 输入槽为空时从背面库存选择当前容量档可承载的物品生成包裹。
 容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell。
@@ -432,7 +432,8 @@ GUI 提供输入槽、输出槽、容量槽、过滤槽、玩家背包、17 色 
   打包时过滤模板 marker 作为 override marker 写入新包裹。
   打包内容过滤只选择 requiredContents 中仍缺少的 loose item，避免无关物品先占满容量。
   拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
-当前不含 AE2 Interface 子网识别、独立 marker retain/override/clear UI、fluid endpoint 和周期红石模式。
+AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
+当前不含独立 marker retain/override/clear UI、Forge fluid handler endpoint 和周期红石模式。
 ```
 
 ## 9. 样板与终端

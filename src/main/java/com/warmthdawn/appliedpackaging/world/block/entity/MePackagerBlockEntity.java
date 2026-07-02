@@ -1,5 +1,9 @@
 package com.warmthdawn.appliedpackaging.world.block.entity;
 
+import appeng.api.storage.MEStorage;
+import appeng.capabilities.Capabilities;
+import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
+import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
@@ -144,6 +148,15 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         if (level == null || level.isClientSide) {
             return MachineResult.NO_TARGET;
         }
+        Optional<MEStorage> meStorage = findTargetMEStorage();
+        if (meStorage.isPresent()) {
+            ItemStack input = items.getStackInSlot(SLOT_INPUT);
+            if (!input.isEmpty()) {
+                return unpackOne(meStorage.get(), input);
+            }
+            return packOne(meStorage.get());
+        }
+
         Optional<IItemHandler> target = findTargetItemHandler();
         if (target.isEmpty()) {
             return MachineResult.NO_TARGET;
@@ -154,6 +167,34 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             return unpackOne(target.get(), input);
         }
         return packOne(target.get());
+    }
+
+    private MachineResult packOne(MEStorage source) {
+        PackageFilter filter = configuredFilter();
+        PackageColor color = filter.color().orElse(selectedColor);
+        Optional<MEStoragePackagePlan> plan = MEStoragePackageTransactions.planPack(
+                source,
+                color,
+                configuredCapacityProfile(),
+                filter);
+        if (plan.isEmpty()) {
+            return MachineResult.NO_CONTENTS;
+        }
+        if (!MEStoragePackageTransactions.canExtract(source, plan.get())) {
+            return MachineResult.SOURCE_CHANGED;
+        }
+
+        ItemStack packageStack = new ItemStack(APItems.packageItems().get(color).get());
+        PackageDataStorage.write(packageStack, plan.get().data());
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
+        if (!remainder.isEmpty()) {
+            return MachineResult.OUTPUT_BLOCKED;
+        }
+
+        MEStoragePackageTransactions.commitExtract(source, plan.get());
+        items.insertItem(SLOT_OUTPUT, packageStack, false);
+        setChanged();
+        return MachineResult.PACKED;
     }
 
     private MachineResult packOne(IItemHandler source) {
@@ -199,6 +240,28 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
             return MachineResult.TARGET_BLOCKED;
         }
         if (!ItemPackageTransactions.insertPackageContents(data.get(), target, false)) {
+            return MachineResult.TARGET_BLOCKED;
+        }
+        items.extractItem(SLOT_INPUT, 1, false);
+        setChanged();
+        return MachineResult.UNPACKED;
+    }
+
+    private MachineResult unpackOne(MEStorage target, ItemStack input) {
+        if (!(input.getItem() instanceof PackageItem packageItem)) {
+            return MachineResult.INVALID_INPUT;
+        }
+        Optional<PackageData> data = PackageDataStorage.read(input);
+        if (data.isEmpty()) {
+            return MachineResult.INVALID_INPUT;
+        }
+        if (!configuredFilter().matches(packageItem.color(), data.get())) {
+            return MachineResult.FILTER_REJECTED;
+        }
+        if (!MEStoragePackageTransactions.canInsertPackageContents(data.get(), target)) {
+            return MachineResult.TARGET_BLOCKED;
+        }
+        if (!MEStoragePackageTransactions.insertPackageContents(data.get(), target)) {
             return MachineResult.TARGET_BLOCKED;
         }
         items.extractItem(SLOT_INPUT, 1, false);
@@ -256,6 +319,19 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         }
         LazyOptional<IItemHandler> capability = targetBlockEntity.getCapability(
                 ForgeCapabilities.ITEM_HANDLER,
+                targetDirection.getOpposite());
+        return capability.resolve();
+    }
+
+    private Optional<MEStorage> findTargetMEStorage() {
+        Direction facing = getBlockState().getValue(AbstractHorizontalMachineBlock.FACING);
+        Direction targetDirection = facing.getOpposite();
+        BlockEntity targetBlockEntity = level.getBlockEntity(worldPosition.relative(targetDirection));
+        if (targetBlockEntity == null) {
+            return Optional.empty();
+        }
+        LazyOptional<MEStorage> capability = targetBlockEntity.getCapability(
+                Capabilities.STORAGE,
                 targetDirection.getOpposite());
         return capability.resolve();
     }

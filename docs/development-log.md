@@ -243,9 +243,29 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐 ME Packager 的 AE2 MEStorage endpoint：
+  打包机背面优先识别 appeng.capabilities.Capabilities.STORAGE
+  可接入相邻 AE2 Interface/ME storage 暴露的子网存储
+  无 AE2 storage 时回落到 Forge item handler
+  MEStorage 打包计划直接处理 AEKey/GenericStack
+  MEStorage 中已有合法包裹会展开后再封装
+  MEStorage 拆包先模拟完整插入，成功后再消耗输入包裹
+新增 MEStoragePackageTransactions 与 MEStoragePackagePlan
+新增 GameTest：
+  meStoragePackPlanExtractsGenericContents
+  meStorageUnpackInsertsAllContents
+  meStoragePackPlanFlattensSourcePackages
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，39 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
-继续补齐 ME Interface 子网 endpoint、独立 marker 策略 UI、处理样板多包裹工作流等发布阻塞项。
+继续补齐独立 marker 策略 UI、Forge fluid handler endpoint、处理样板多包裹工作流等发布阻塞项。
 ```

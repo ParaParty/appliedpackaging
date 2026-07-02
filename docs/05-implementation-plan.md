@@ -147,14 +147,16 @@ GameTest
   selectedColor 控制无过滤模板时的输出包裹颜色
   过滤槽接受已编码 package_pattern、packaged_processing_pattern 或合法包裹
   过滤模板用于打包输出颜色、marker override、requiredContents 打包过滤和拆包包裹过滤
+  背面优先识别 AE2 MEStorage capability，可接入相邻 ME Interface 暴露的子网存储
+  AE2 MEStorage 打包/拆包事务，支持 GenericStack/AEKey 和源包裹展开
   item-only GameTest
+  MEStorage endpoint GameTest
 
 待实现：
-  相邻 ME Interface 子网 endpoint
   独立 marker retain/override/clear 策略 UI
-  fluid endpoint
+  Forge fluid handler endpoint
   周期红石模式
-  更完整的世界内 GameTest
+  真实 AE 网络/Interface 世界内 smoke
 ```
 
 验收：

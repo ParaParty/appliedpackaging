@@ -4,9 +4,12 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
+import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
@@ -33,6 +36,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -435,6 +439,76 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void meStoragePackPlanExtractsGenericContents(GameTestHelper helper) {
+        MemoryMEStorage source = new MemoryMEStorage();
+        source.add(AEItemKey.of(Items.IRON_INGOT), 64);
+        source.add(AEItemKey.of(Items.COPPER_INGOT), 32);
+
+        Optional<MEStoragePackagePlan> plan = MEStoragePackageTransactions.planPack(
+                source,
+                PackageColor.FLUIX,
+                PackageCapacityProfile.DEFAULT,
+                PackageFilter.any());
+
+        helper.assertTrue(plan.isPresent(), "MEStorage should produce a package plan");
+        helper.assertTrue(MEStoragePackageTransactions.canExtract(source, plan.get()),
+                "MEStorage extraction should simulate");
+        MEStoragePackageTransactions.commitExtract(source, plan.get());
+
+        helper.assertTrue(source.amount(AEItemKey.of(Items.IRON_INGOT)) == 0, "Iron should be extracted");
+        helper.assertTrue(source.amount(AEItemKey.of(Items.COPPER_INGOT)) == 0, "Copper should be extracted");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Package should contain iron");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Package should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void meStorageUnpackInsertsAllContents(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        MemoryMEStorage target = new MemoryMEStorage();
+
+        helper.assertTrue(MEStoragePackageTransactions.canInsertPackageContents(data, target),
+                "MEStorage target should simulate accepting package contents");
+        helper.assertTrue(MEStoragePackageTransactions.insertPackageContents(data, target),
+                "MEStorage target should accept package contents");
+        helper.assertTrue(target.amount(AEItemKey.of(Items.IRON_INGOT)) == 64, "Target should contain iron");
+        helper.assertTrue(target.amount(AEItemKey.of(Items.COPPER_INGOT)) == 32, "Target should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void meStoragePackPlanFlattensSourcePackages(GameTestHelper helper) {
+        MemoryMEStorage source = new MemoryMEStorage();
+        ItemStack sourcePackage = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        AEItemKey packageKey = AEItemKey.of(sourcePackage);
+        source.add(packageKey, 1);
+        source.add(AEItemKey.of(Items.COPPER_INGOT), 32);
+
+        Optional<MEStoragePackagePlan> plan = MEStoragePackageTransactions.planPack(
+                source,
+                PackageColor.BLUE,
+                PackageCapacityProfile.DEFAULT,
+                PackageFilter.any());
+
+        helper.assertTrue(plan.isPresent(), "MEStorage should plan from an existing package key");
+        MEStoragePackageTransactions.commitExtract(source, plan.get());
+        helper.assertTrue(source.amount(packageKey) == 0, "Source package should be extracted");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Existing package contents should be flattened");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Loose MEStorage contents should be merged");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerCreatesPackageFromInputBuffer(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
@@ -706,5 +780,47 @@ public final class PackageDataGameTests {
             }
         }
         return amount;
+    }
+
+    private static final class MemoryMEStorage implements MEStorage {
+        private final KeyCounter contents = new KeyCounter();
+
+        private void add(AEKey key, long amount) {
+            contents.add(key, amount);
+        }
+
+        private long amount(AEKey key) {
+            return contents.get(key);
+        }
+
+        @Override
+        public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+            if (amount <= 0) {
+                return 0;
+            }
+            if (mode == Actionable.MODULATE) {
+                contents.add(what, amount);
+            }
+            return amount;
+        }
+
+        @Override
+        public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+            long extracted = Math.min(amount, contents.get(what));
+            if (extracted > 0 && mode == Actionable.MODULATE) {
+                contents.remove(what, extracted);
+            }
+            return extracted;
+        }
+
+        @Override
+        public void getAvailableStacks(KeyCounter out) {
+            out.addAll(contents);
+        }
+
+        @Override
+        public Component getDescription() {
+            return Component.literal("memory");
+        }
     }
 }

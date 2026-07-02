@@ -67,7 +67,10 @@ item handler 打包计划可从过滤模板 override marker
 item handler 打包计划可使用 64k 容量档
 过滤系统可从已编码 package_pattern 读取过滤模板
 ME Packager 可识别 AE2 64k storage component 为 64k 包裹容量档
-当前最新执行：.\gradlew.bat runGameTestServer 成功，36 个必需 GameTest 全部通过。
+MEStorage 打包计划可从 AE2 storage 抽取 GenericStack 内容
+MEStorage 拆包可把包裹完整插入 AE2 storage
+MEStorage 打包计划会展开 storage 中已有源包裹再封装
+当前最新执行：.\gradlew.bat runGameTestServer 成功，39 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
