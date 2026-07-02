@@ -45,6 +45,10 @@ retain marker 冲突时计划拒绝
 override marker 时计划使用覆盖 marker
 clear marker 时计划清除 marker
 默认容量超限时计划拒绝
+item handler 打包计划可模拟并提交抽取
+item handler 拆包可完整插入目标
+目标满且不兼容时拆包拒绝
+默认容量下超量源库存只规划可承载的最大包裹
 ```
 
 1.20.1 运行要求：

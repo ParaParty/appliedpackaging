@@ -85,6 +85,21 @@ PackageDataStorage 只接受当前 schema version，且必须通过完整 canoni
 验证 .\gradlew.bat build 成功
 验证 .\gradlew.bat runData 成功
 验证 .\gradlew.bat runGameTestServer 成功，14 个必需 GameTest 全部通过
+注册 me_packager 与 package_assembler 方块、方块物品和方块实体。
+me_packager 当前基础玩法：
+  内部输入/输出 item handler
+  玩家右键放入合法包裹、取出输出、触发一次操作
+  红石上升沿触发一次操作
+  背面 Forge item handler 打包/拆包
+  默认输出 Fluix 包裹
+新增 item handler 事务 GameTest：
+  itemHandlerPackPlanExtractsPackageContents
+  itemHandlerUnpackInsertsAllContents
+  itemHandlerUnpackRejectsFullTarget
+  itemHandlerPackPlanRespectsDefaultCapacity
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runGameTestServer 成功，18 个必需 GameTest 全部通过
+验证 .\gradlew.bat runData 成功
 ```
 
 关键决策：
@@ -118,6 +133,6 @@ AE2 1.20.1 Storage Cells 指南
 下一步：
 
 ```text
-提交资产资源与验收报告。
-注册机器方块，接入基础 BlockEntity/Menu 前的服务端事务骨架。
+提交机器注册和 me_packager 基础 item handler 事务。
+继续实现 GUI/Menu、容量元件槽、过滤配置和 AE2 endpoint。
 ```

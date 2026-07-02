@@ -1,5 +1,7 @@
 {
   "itemGroup.appliedpackaging": "应用封装",
+  "block.appliedpackaging.me_packager": "ME 打包机",
+  "block.appliedpackaging.package_assembler": "ME 包裹装配室",
   "item.appliedpackaging.package_pattern": "包裹样板",
   "item.appliedpackaging.packaged_processing_pattern": "封装处理样板",
   "item.appliedpackaging.fluix_package": "福鲁伊克斯包裹",
@@ -45,5 +47,16 @@
   "tooltip.appliedpackaging.color.brown": "棕色",
   "tooltip.appliedpackaging.color.green": "绿色",
   "tooltip.appliedpackaging.color.red": "红色",
-  "tooltip.appliedpackaging.color.black": "黑色"
+  "tooltip.appliedpackaging.color.black": "黑色",
+  "message.appliedpackaging.me_packager.inserted_package": "已放入包裹",
+  "message.appliedpackaging.me_packager.input_blocked": "输入槽被占用",
+  "message.appliedpackaging.me_packager.output_taken": "已取出输出包裹",
+  "message.appliedpackaging.me_packager.packed": "已生成包裹",
+  "message.appliedpackaging.me_packager.unpacked": "已拆包",
+  "message.appliedpackaging.me_packager.no_target": "机器背面没有相邻物品库存",
+  "message.appliedpackaging.me_packager.no_contents": "没有可打包内容",
+  "message.appliedpackaging.me_packager.output_blocked": "输出槽被占用",
+  "message.appliedpackaging.me_packager.target_blocked": "目标库存无法接收完整包裹",
+  "message.appliedpackaging.me_packager.invalid_input": "输入包裹无效",
+  "message.appliedpackaging.me_packager.source_changed": "源库存已变化"
 }

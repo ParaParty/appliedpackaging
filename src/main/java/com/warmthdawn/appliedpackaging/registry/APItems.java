@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.BlockItem;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -25,6 +26,14 @@ public final class APItems {
     public static final RegistryObject<Item> PACKAGED_PROCESSING_PATTERN = ITEMS.register(
             "packaged_processing_pattern",
             () -> new Item(new Item.Properties().stacksTo(1)));
+
+    public static final RegistryObject<Item> ME_PACKAGER = ITEMS.register(
+            "me_packager",
+            () -> new BlockItem(APBlocks.ME_PACKAGER.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGE_ASSEMBLER = ITEMS.register(
+            "package_assembler",
+            () -> new BlockItem(APBlocks.PACKAGE_ASSEMBLER.get(), new Item.Properties()));
 
     static {
         for (PackageColor color : PackageColor.values()) {

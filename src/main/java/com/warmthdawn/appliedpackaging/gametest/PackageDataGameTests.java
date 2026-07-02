@@ -4,6 +4,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
+import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
@@ -24,6 +26,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
+import net.minecraftforge.items.ItemStackHandler;
 
 @GameTestHolder(AppliedPackaging.MOD_ID)
 @PrefixGameTestTemplate(false)
@@ -231,6 +234,80 @@ public final class PackageDataGameTests {
         helper.assertFalse(result.success(), "Default capacity should reject ten item units");
         helper.assertTrue(result.failure().orElseThrow() == PackagePlanFailure.CAPACITY_EXCEEDED,
                 "Failure should be capacity exceeded");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanExtractsPackageContents(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(2);
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        source.setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.FLUIX,
+                PackageCapacityProfile.DEFAULT);
+
+        helper.assertTrue(plan.isPresent(), "Item handler should produce a package plan");
+        helper.assertTrue(ItemPackageTransactions.canExtract(source, plan.get()), "Planned extraction should be simulatable");
+        ItemPackageTransactions.commitExtract(source, plan.get());
+
+        helper.assertTrue(source.getStackInSlot(0).isEmpty(), "Iron source slot should be extracted");
+        helper.assertTrue(source.getStackInSlot(1).isEmpty(), "Copper source slot should be extracted");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 64, "Plan should contain iron");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 32, "Plan should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerUnpackInsertsAllContents(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStackHandler target = new ItemStackHandler(2);
+
+        helper.assertTrue(ItemPackageTransactions.canInsertPackageContents(data, target),
+                "Target should simulate accepting all package contents");
+        helper.assertTrue(ItemPackageTransactions.insertPackageContents(data, target, false),
+                "Target should accept all package contents");
+        helper.assertTrue(target.getStackInSlot(0).getItem() == Items.IRON_INGOT
+                        && target.getStackInSlot(0).getCount() == 64,
+                "First target slot should contain iron");
+        helper.assertTrue(target.getStackInSlot(1).getItem() == Items.COPPER_INGOT
+                        && target.getStackInSlot(1).getCount() == 32,
+                "Second target slot should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerUnpackRejectsFullTarget(GameTestHelper helper) {
+        PackageData data = ironPackageData(PackageColor.FLUIX, 64);
+        ItemStackHandler target = new ItemStackHandler(1);
+        target.setStackInSlot(0, new ItemStack(Items.DIRT, 64));
+
+        helper.assertFalse(ItemPackageTransactions.canInsertPackageContents(data, target),
+                "Full incompatible target should reject complete package contents");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackPlanRespectsDefaultCapacity(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(1);
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 640));
+
+        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+                source,
+                PackageColor.FLUIX,
+                PackageCapacityProfile.DEFAULT);
+
+        helper.assertTrue(plan.isPresent(), "Oversized source should still plan the largest default package");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 576,
+                "Default package should hold nine iron stack units");
+        helper.assertTrue(plan.get().data().usedUnits() == 9, "Default package should use nine units");
         helper.succeed();
     }
 

@@ -1,7 +1,8 @@
 {
   "variants": {
-    "": {
-      "model": "appliedpackaging:block/me_packager"
-    }
+    "facing=north": { "model": "appliedpackaging:block/me_packager" },
+    "facing=east": { "model": "appliedpackaging:block/me_packager", "y": 90 },
+    "facing=south": { "model": "appliedpackaging:block/me_packager", "y": 180 },
+    "facing=west": { "model": "appliedpackaging:block/me_packager", "y": 270 }
   }
 }

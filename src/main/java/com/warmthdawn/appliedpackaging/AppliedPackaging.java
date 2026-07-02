@@ -1,6 +1,8 @@
 package com.warmthdawn.appliedpackaging;
 
 import com.mojang.logging.LogUtils;
+import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
+import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APCreativeTabs;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -17,7 +19,9 @@ public class AppliedPackaging {
     public AppliedPackaging() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
+        APBlocks.register(modEventBus);
         APItems.register(modEventBus);
+        APBlockEntities.register(modEventBus);
         APCreativeTabs.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);

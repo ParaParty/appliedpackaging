@@ -1,5 +1,7 @@
 {
   "itemGroup.appliedpackaging": "Applied Packaging",
+  "block.appliedpackaging.me_packager": "ME Packager",
+  "block.appliedpackaging.package_assembler": "ME Package Assembler",
   "item.appliedpackaging.package_pattern": "Package Pattern",
   "item.appliedpackaging.packaged_processing_pattern": "Packaged Processing Pattern",
   "item.appliedpackaging.fluix_package": "Fluix Package",
@@ -45,5 +47,16 @@
   "tooltip.appliedpackaging.color.brown": "Brown",
   "tooltip.appliedpackaging.color.green": "Green",
   "tooltip.appliedpackaging.color.red": "Red",
-  "tooltip.appliedpackaging.color.black": "Black"
+  "tooltip.appliedpackaging.color.black": "Black",
+  "message.appliedpackaging.me_packager.inserted_package": "Package inserted",
+  "message.appliedpackaging.me_packager.input_blocked": "Input slot blocked",
+  "message.appliedpackaging.me_packager.output_taken": "Package output taken",
+  "message.appliedpackaging.me_packager.packed": "Package created",
+  "message.appliedpackaging.me_packager.unpacked": "Package unpacked",
+  "message.appliedpackaging.me_packager.no_target": "No adjacent item inventory behind the machine",
+  "message.appliedpackaging.me_packager.no_contents": "No packable contents found",
+  "message.appliedpackaging.me_packager.output_blocked": "Output slot blocked",
+  "message.appliedpackaging.me_packager.target_blocked": "Target inventory cannot accept the full package",
+  "message.appliedpackaging.me_packager.invalid_input": "Input package is invalid",
+  "message.appliedpackaging.me_packager.source_changed": "Source inventory changed"
 }

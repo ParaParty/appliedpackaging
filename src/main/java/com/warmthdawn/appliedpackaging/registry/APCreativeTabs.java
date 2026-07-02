@@ -16,6 +16,8 @@ public final class APCreativeTabs {
             .title(Component.translatable("itemGroup.appliedpackaging"))
             .icon(() -> APItems.PACKAGE_PATTERN.get().getDefaultInstance())
             .displayItems((parameters, output) -> {
+                output.accept(APItems.ME_PACKAGER.get());
+                output.accept(APItems.PACKAGE_ASSEMBLER.get());
                 output.accept(APItems.PACKAGE_PATTERN.get());
                 output.accept(APItems.PACKAGED_PROCESSING_PATTERN.get());
             })

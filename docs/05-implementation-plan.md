@@ -128,6 +128,27 @@ runData 成功
 GameTest
 ```
 
+当前状态：
+
+```text
+已实现：
+  me_packager 方块/方块物品/方块实体注册
+  水平朝向 blockstate
+  方块掉落表
+  内部输入/输出 item handler
+  玩家右键放入包裹、取出输出、触发一次操作
+  红石上升沿触发一次操作
+  背面 Forge item handler 打包/拆包事务
+  item-only GameTest
+
+待实现：
+  GUI/Menu
+  容量元件槽
+  颜色/marker/filter 配置
+  相邻 ME Interface 子网 endpoint
+  更完整的世界内 GameTest
+```
+
 验收：
 
 ```text
