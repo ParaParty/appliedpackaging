@@ -9,6 +9,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
@@ -19,6 +20,7 @@ import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
@@ -53,10 +56,12 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     private static final String ITEMS_TAG = "items";
     private static final String SELECTED_COLOR_TAG = "selected_color";
     private static final String INPUT_SLOT_COLORS_TAG = "input_slot_colors";
+    private static final String PENDING_SPLIT_PATTERNS_TAG = "pending_split_patterns";
     private static final int UNCOLORED_SLOT = -1;
 
     private PackageColor selectedColor = PackageColor.FLUIX;
     private final int[] inputSlotColors = new int[INPUT_SLOT_COUNT];
+    private final List<ItemStack> pendingSplitPatterns = new ArrayList<>();
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
@@ -148,6 +153,14 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         setChanged();
     }
 
+    public void clearInputSlotColor(int slot) {
+        if (slot < 0 || slot >= INPUT_SLOT_COUNT) {
+            return;
+        }
+        inputSlotColors[slot] = UNCOLORED_SLOT;
+        setChanged();
+    }
+
     public EncodeResult encodeOnce() {
         if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
             return EncodeResult.OUTPUT_BLOCKED;
@@ -202,6 +215,62 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         return EncodeResult.ENCODED;
     }
 
+    public SplitResult splitOnce() {
+        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+            return SplitResult.OUTPUT_BLOCKED;
+        }
+        if (emitPendingSplitPattern()) {
+            return SplitResult.SPLIT;
+        }
+
+        ItemStack source = items.getStackInSlot(SLOT_BLANK_PATTERN);
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> pattern =
+                PackagedProcessingPatternDataStorage.read(source);
+        if (pattern.isEmpty()) {
+            return SplitResult.NO_PATTERN;
+        }
+
+        List<ItemStack> splitPatterns = packagePatternStacks(pattern.get());
+        if (splitPatterns.isEmpty()) {
+            return SplitResult.NO_PATTERN;
+        }
+
+        items.extractItem(SLOT_BLANK_PATTERN, 1, false);
+        pendingSplitPatterns.addAll(splitPatterns.subList(1, splitPatterns.size()));
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, splitPatterns.get(0), false);
+        if (!remainder.isEmpty()) {
+            pendingSplitPatterns.add(0, remainder);
+            return SplitResult.OUTPUT_BLOCKED;
+        }
+        setChanged();
+        return SplitResult.SPLIT;
+    }
+
+    private boolean emitPendingSplitPattern() {
+        if (pendingSplitPatterns.isEmpty()) {
+            return false;
+        }
+        ItemStack next = pendingSplitPatterns.remove(0);
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, next, false);
+        if (!remainder.isEmpty()) {
+            pendingSplitPatterns.add(0, remainder);
+            return false;
+        }
+        setChanged();
+        return true;
+    }
+
+    private static List<ItemStack> packagePatternStacks(
+            PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern) {
+        List<ItemStack> splitPatterns = new ArrayList<>();
+        for (PackageData data : pattern.packages()) {
+            ItemStack stack = new ItemStack(APItems.PACKAGE_PATTERN.get());
+            PackagePatternDataStorage.write(stack, pattern.color(), data);
+            splitPatterns.add(stack);
+        }
+        return splitPatterns;
+    }
+
     private EncodeResult encodeColoredProcessingPattern(ItemStack patternStack) {
         List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(patternStack);
         Map<Integer, PackageColor> colors = configuredProcessingInputColors(sparseInputs);
@@ -253,6 +322,11 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         tag.put(ITEMS_TAG, items.serializeNBT());
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
         tag.putIntArray(INPUT_SLOT_COLORS_TAG, inputSlotColors);
+        ListTag pendingTag = new ListTag();
+        for (ItemStack pendingPattern : pendingSplitPatterns) {
+            pendingTag.add(pendingPattern.save(new CompoundTag()));
+        }
+        tag.put(PENDING_SPLIT_PATTERNS_TAG, pendingTag);
     }
 
     @Override
@@ -267,6 +341,14 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         for (int slot = 0; slot < Math.min(colors.length, inputSlotColors.length); slot++) {
             setInputSlotColorOrdinal(slot, colors[slot]);
         }
+        pendingSplitPatterns.clear();
+        ListTag pendingTag = tag.getList(PENDING_SPLIT_PATTERNS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        for (int index = 0; index < pendingTag.size(); index++) {
+            ItemStack stack = ItemStack.of(pendingTag.getCompound(index));
+            if (!stack.isEmpty()) {
+                pendingSplitPatterns.add(stack);
+            }
+        }
     }
 
     @Override
@@ -275,6 +357,11 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             ItemStack stack = items.getStackInSlot(slot);
             if (!stack.isEmpty()) {
                 Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
+            }
+        }
+        for (ItemStack pendingPattern : pendingSplitPatterns) {
+            if (!pendingPattern.isEmpty()) {
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), pendingPattern);
             }
         }
     }
@@ -288,6 +375,22 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         private final String messageKey;
 
         EncodeResult(String messageKey) {
+            this.messageKey = messageKey;
+        }
+
+        public String messageKey() {
+            return messageKey;
+        }
+    }
+
+    public enum SplitResult {
+        SPLIT("message.appliedpackaging.package_pattern_terminal.split"),
+        NO_PATTERN("message.appliedpackaging.package_pattern_terminal.no_split_pattern"),
+        OUTPUT_BLOCKED("message.appliedpackaging.package_pattern_terminal.output_blocked");
+
+        private final String messageKey;
+
+        SplitResult(String messageKey) {
             this.messageKey = messageKey;
         }
 
@@ -353,6 +456,9 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     }
 
     private static boolean isPatternInput(ItemStack stack) {
+        if (PackagedProcessingPatternDataStorage.read(stack).isPresent()) {
+            return true;
+        }
         if (ColoredProcessingPatternDataStorage.canStore(stack)) {
             return true;
         }

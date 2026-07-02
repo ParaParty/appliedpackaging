@@ -5,6 +5,7 @@ import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -49,6 +50,14 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
                 Component.translatable("gui.appliedpackaging.package_pattern_terminal.encode"));
         encodeButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.package_pattern_terminal.encode")));
         addRenderableWidget(encodeButton);
+
+        addRenderableWidget(Button.builder(
+                        Component.translatable("gui.appliedpackaging.package_pattern_terminal.split"),
+                        button -> minecraft.gameMode.handleInventoryButtonClick(
+                                menu.containerId, PackagePatternTerminalMenu.BUTTON_SPLIT))
+                .bounds(leftPos + 84, topPos + 24, 30, 16)
+                .tooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.package_pattern_terminal.split")))
+                .build());
 
         for (int index = 0; index < PackageColor.values().length; index++) {
             PackageColor color = PackageColor.values()[index];
@@ -175,6 +184,20 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
             minecraft.gameMode.handleInventoryButtonClick(
                     menu.containerId,
                     PackagePatternTerminalMenu.BUTTON_INPUT_COLOR_BASE + slot);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (active && visible && clicked(mouseX, mouseY) && button == 1) {
+                if (minecraft != null) {
+                    playDownSound(minecraft.getSoundManager());
+                    minecraft.gameMode.handleInventoryButtonClick(
+                            menu.containerId,
+                            PackagePatternTerminalMenu.BUTTON_INPUT_COLOR_CLEAR_BASE + slot);
+                }
+                return true;
+            }
+            return super.mouseClicked(mouseX, mouseY, button);
         }
 
         @Override

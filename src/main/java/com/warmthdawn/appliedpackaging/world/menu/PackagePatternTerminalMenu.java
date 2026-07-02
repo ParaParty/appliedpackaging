@@ -23,8 +23,10 @@ import net.minecraftforge.items.SlotItemHandler;
 
 public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_ENCODE = 0;
+    public static final int BUTTON_SPLIT = 1;
     public static final int BUTTON_COLOR_BASE = 10;
     public static final int BUTTON_INPUT_COLOR_BASE = 40;
+    public static final int BUTTON_INPUT_COLOR_CLEAR_BASE = 60;
 
     private static final int MACHINE_SLOT_COUNT = 13;
     private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
@@ -81,6 +83,20 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
                 && id < BUTTON_INPUT_COLOR_BASE + PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT) {
             if (!player.level().isClientSide) {
                 blockEntity.setInputSlotColor(id - BUTTON_INPUT_COLOR_BASE, blockEntity.selectedColor());
+            }
+            return true;
+        }
+        if (id >= BUTTON_INPUT_COLOR_CLEAR_BASE
+                && id < BUTTON_INPUT_COLOR_CLEAR_BASE + PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT) {
+            if (!player.level().isClientSide) {
+                blockEntity.clearInputSlotColor(id - BUTTON_INPUT_COLOR_CLEAR_BASE);
+            }
+            return true;
+        }
+        if (id == BUTTON_SPLIT) {
+            if (!player.level().isClientSide) {
+                PackagePatternTerminalBlockEntity.SplitResult result = blockEntity.splitOnce();
+                player.displayClientMessage(Component.translatable(result.messageKey()), true);
             }
             return true;
         }

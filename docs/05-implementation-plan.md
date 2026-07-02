@@ -265,6 +265,9 @@ GameTest/服务器 smoke test
   package_pattern_terminal 可把 AE2 encoded processing pattern 克隆为带 colored_processing_pattern 元数据的彩色处理样板
   package_pattern_terminal 在未逐槽设色时可把 selectedColor 应用到 AE2 processing pattern 全部非空输入槽
   package_pattern_terminal 可把空白 packaged_processing_pattern 编码为有序多包裹样板
+  package_pattern_terminal 可通过 Split 按钮把已编码 packaged_processing_pattern 拆回普通 package_pattern
+  package_pattern_terminal Split pending queue 会保存/读取，输出槽清空后可继续吐出后续 package_pattern
+  package_pattern_terminal 输入槽颜色支持右键清除
   package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
   装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
   装配室可读取 packaged_processing_pattern 并逐包输出
@@ -272,12 +275,11 @@ GameTest/服务器 smoke test
 
 待实现：
   彩色处理样板更完整的处理输出 UI
-  封装处理样板处理输出 UI 与 Split UI
+  封装处理样板处理输出 UI
   AE2 原版 blank/encoded pattern 承载迁移评估
   颜色/marker/content 完整过滤 UI
   AE2 cable part 形态
   package_pattern_terminal 调整为 AE2 风格面板/part
-  更完整 AE 网络服务器 smoke test
   客户端模型/GUI 冒烟验证
 ```
 

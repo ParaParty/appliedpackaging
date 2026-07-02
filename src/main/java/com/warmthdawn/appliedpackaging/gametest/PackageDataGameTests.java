@@ -1631,6 +1631,95 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternTerminalSplitButtonConvertsPackagedProcessingPattern(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
+        PackageData copper = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack encodedProcessingPattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        PackagedProcessingPatternDataStorage.write(encodedProcessingPattern, PackageColor.FLUIX, List.of(iron, copper));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                encodedProcessingPattern);
+
+        PackagePatternTerminalBlockEntity.SplitResult firstResult = terminal.splitOnce();
+        ItemStack firstOutput = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT).copy();
+        PackagePatternDataStorage.EncodedPackagePattern firstPattern =
+                PackagePatternDataStorage.read(firstOutput).orElseThrow();
+        terminal.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+        PackagePatternTerminalBlockEntity.SplitResult secondResult = terminal.splitOnce();
+        ItemStack secondOutput = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT).copy();
+        PackagePatternDataStorage.EncodedPackagePattern secondPattern =
+                PackagePatternDataStorage.read(secondOutput).orElseThrow();
+        terminal.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+
+        helper.assertTrue(firstResult == PackagePatternTerminalBlockEntity.SplitResult.SPLIT,
+                "Terminal split should emit the first package pattern");
+        helper.assertTrue(secondResult == PackagePatternTerminalBlockEntity.SplitResult.SPLIT,
+                "Terminal split should emit the queued package pattern");
+        helper.assertTrue(firstOutput.is(APItems.PACKAGE_PATTERN.get()),
+                "Split output should use normal package pattern items");
+        helper.assertTrue(amountOf(firstPattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "First split package pattern should contain iron");
+        helper.assertTrue(amountOf(secondPattern.data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Second split package pattern should contain copper");
+        helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN).isEmpty(),
+                "Splitting should consume the encoded packaged processing pattern");
+        helper.assertTrue(terminal.splitOnce() == PackagePatternTerminalBlockEntity.SplitResult.NO_PATTERN,
+                "Terminal split should stop after the queue is drained");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalSplitQueuePersists(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
+        PackageData copper = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack encodedProcessingPattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        PackagedProcessingPatternDataStorage.write(encodedProcessingPattern, PackageColor.FLUIX, List.of(iron, copper));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                encodedProcessingPattern);
+
+        PackagePatternTerminalBlockEntity.SplitResult firstResult = terminal.splitOnce();
+        CompoundTag tag = terminal.saveWithoutMetadata();
+        PackagePatternTerminalBlockEntity loaded = newPackagePatternTerminal();
+        loaded.load(tag);
+        loaded.getItems().setStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+        PackagePatternTerminalBlockEntity.SplitResult secondResult = loaded.splitOnce();
+        ItemStack secondOutput = loaded.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT).copy();
+        PackagePatternDataStorage.EncodedPackagePattern secondPattern =
+                PackagePatternDataStorage.read(secondOutput).orElseThrow();
+
+        helper.assertTrue(firstResult == PackagePatternTerminalBlockEntity.SplitResult.SPLIT,
+                "Terminal split should start before save");
+        helper.assertTrue(secondResult == PackagePatternTerminalBlockEntity.SplitResult.SPLIT,
+                "Loaded terminal should keep pending split package patterns");
+        helper.assertTrue(amountOf(secondPattern.data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Loaded split queue should emit the pending copper pattern");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalClearsInputSlotColor(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.setInputSlotColor(0, PackageColor.RED);
+
+        terminal.clearInputSlotColor(0);
+
+        helper.assertTrue(terminal.inputSlotColor(0).isEmpty(),
+                "Terminal should clear a configured input slot color");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalKeepsBlankWhenOutputBlocked(GameTestHelper helper) {
         PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
         terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));

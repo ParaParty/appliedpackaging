@@ -559,10 +559,27 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat runGameTestServer 成功，71 个必需 GameTest 全部通过
 ```
 
+最新进展：
+
+```text
+补齐 Package Pattern Terminal Split 操作与输入槽颜色清除：
+  新增 Split 按钮，把已编码 packaged_processing_pattern 拆回普通 package_pattern
+  Split 输出槽逐张吐出拆分结果，剩余结果写入 pending queue
+  pending queue 写入终端 NBT，保存/读取后可继续输出
+  输入槽角落色标左键设置当前颜色，右键清除该槽颜色
+  样板槽允许已编码 packaged_processing_pattern 作为 Split 来源，但 encode 仍拒绝覆盖已编码样板
+新增 GameTest：
+  packagePatternTerminalSplitButtonConvertsPackagedProcessingPattern
+  packagePatternTerminalSplitQueuePersists
+  packagePatternTerminalClearsInputSlotColor
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，74 个必需 GameTest 全部通过
+```
+
 下一步：
 
 ```text
-补齐处理输出 UI / Split UI、完整过滤 UI 和 AE2 part 形态。
-补跑客户端 GUI/模型 smoke，重点看 Package Assembler 新容量槽和终端输入槽色标。
+补齐处理输出 UI、完整过滤 UI 和 AE2 part 形态。
+补跑客户端 GUI/模型 smoke，重点看 Package Assembler 新容量槽、终端 Split 按钮和输入槽色标右键清除。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```
