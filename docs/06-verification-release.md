@@ -80,9 +80,11 @@ package_pattern 数据可读写
 package_pattern 数据可在 AE2 原版 blank_pattern 上读写
 packaged_processing_pattern 多包裹数据可读写
 packaged_processing_pattern 处理输出 outputs[] 可读写
+packaged_processing_pattern 数据可在 AE2 原版 blank_pattern 上读写
 colored_processing_pattern 输入槽颜色数据可读写，并可读取 AE2 sparse processing inputs
 package_pattern_terminal 可从预览输入编码 package_pattern
 package_pattern_terminal 可把 AE2 原版 blank_pattern 编码为 package_pattern 载体并保留 AE2 物品类型
+package_pattern_terminal 可把带处理输出 ghost 的 AE2 原版 blank_pattern 编码为 packaged_processing_pattern 载体
 package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
 package_pattern_terminal 可把 marker 槽物品编码为样板 marker
 package_pattern_terminal 可用容量槽编码超过默认容量的样板
@@ -99,6 +101,7 @@ package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆�
 package_pattern_terminal 拒绝把已编码 packaged_processing_pattern 当空白样板覆盖
 package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
 装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT 并生成匹配包裹
+装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT 并逐包生成匹配包裹
 package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
 package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
 item handler 打包计划可按内容过滤只选择 requiredContents
@@ -117,7 +120,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，84 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，87 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

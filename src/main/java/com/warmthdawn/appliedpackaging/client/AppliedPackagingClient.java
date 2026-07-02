@@ -5,11 +5,10 @@ import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.PackageTooltipBuilder;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
+import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.MenuScreens;
-import net.minecraft.network.chat.Component;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -37,15 +36,10 @@ public final class AppliedPackagingClient {
         if (!PackagePatternDataStorage.isAe2BlankPattern(event.getItemStack())) {
             return;
         }
-        PackagePatternDataStorage.read(event.getItemStack()).ifPresent(pattern -> {
-            event.getToolTip().add(Component.translatable("tooltip.appliedpackaging.pattern.encoded")
-                    .withStyle(ChatFormatting.GRAY));
-            PackageTooltipBuilder.append(
-                    event.getItemStack(),
-                    pattern.color(),
-                    pattern.data(),
-                    event.getToolTip(),
-                    event.getFlags());
-        });
+        if (PackagePatternDataStorage.read(event.getItemStack()).isEmpty()
+                && PackagedProcessingPatternDataStorage.read(event.getItemStack()).isEmpty()) {
+            return;
+        }
+        PackagePatternItem.appendPackagePatternTooltip(event.getItemStack(), event.getToolTip(), event.getFlags());
     }
 }

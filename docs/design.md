@@ -56,5 +56,6 @@ ME 打包机：
 
 样板：
   AE2 原版 blank pattern 可作为 package_pattern 数据载体。
-  本地 package_pattern / packaged_processing_pattern 继续保留，用于兼容和封装处理样板路径。
+  当终端需要多包裹计划或处理输出时，AE2 原版 blank pattern 也可作为 packaged_processing_pattern 数据载体。
+  本地 package_pattern / packaged_processing_pattern 继续保留，用于兼容和平滑迁移。
 ```

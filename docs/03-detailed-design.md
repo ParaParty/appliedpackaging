@@ -496,11 +496,12 @@ Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽�
 样板承载约束：
 
 ```text
-当前实现仍保留本地 package_pattern / packaged_processing_pattern 作为功能载体。
+当前实现仍保留本地 package_pattern / packaged_processing_pattern 作为兼容载体。
 AE2 原版 blank_pattern 已可作为 package_pattern 数据载体：终端可写入，装配室、ME Packager 过滤模板和 Package Bus 过滤模板可读取。
-已编码 AE2 blank_pattern 通过客户端 tooltip hook 显示封装样板内容；普通 AE2 blank_pattern 不额外显示本 mod 文案。
+当终端存在处理输出 ghost 或预览输入需要多个包裹计划时，AE2 原版 blank_pattern 会作为 packaged_processing_pattern 数据载体；装配室可按该载体逐包输出。
+已编码 AE2 blank_pattern 通过客户端 tooltip hook 显示 package_pattern 或 packaged_processing_pattern 内容；普通 AE2 blank_pattern 不额外显示本 mod 文案。
 AE2 encoded processing pattern 仍作为 colored_processing_pattern metadata 载体。
-packaged_processing_pattern 当前仍使用本地物品；后续迁移到 AE2 原版 encoded pattern/Planner 语义前，必须保留已编码本地样板读取兼容或提供明确迁移路径。
+packaged_processing_pattern 本地物品仍保留；后续接入 AE2 原版 encoded pattern/Planner 语义前，必须保留已编码本地样板读取兼容或提供明确迁移路径。
 ```
 
 包裹样板数据：
@@ -561,7 +562,7 @@ Split:
 
 ```text
 package_pattern 与 packaged_processing_pattern 使用 PackagePatternItem，tooltip 会区分空白/已编码状态。
-已编码 AE2 blank_pattern 使用客户端 tooltip event 追加 package_pattern 内容；未编码 AE2 blank_pattern 保持 AE2 原版 tooltip。
+已编码 AE2 blank_pattern 使用客户端 tooltip event 追加 package_pattern 或 packaged_processing_pattern 内容；未编码 AE2 blank_pattern 保持 AE2 原版 tooltip。
 PackagePatternDataStorage 在 ItemStack NBT 中写入 version、color 与嵌套 PackageData。
 读取已编码样板时会按样板颜色复验嵌套 PackageData canonical hash。
 PackagedProcessingPatternDataStorage 在 ItemStack NBT 中写入 version、color、packages[] 与可选 outputs[]。
@@ -570,7 +571,7 @@ package_pattern_terminal 已注册为水平朝向方块、方块物品、方块�
 终端基础外形已调整为 AE2 风格薄面板/part-like block model，而不是完整机器方块；当前仍以普通方块承载方块实体、菜单和 screen，真正 AE2 cable part 形态后置。
 终端 GUI 当前提供 9 格预览输入、1 格样板槽、1 格输出、容量槽、marker 槽、3 个处理输出 ghost slots、17 色 swatch、9 个输入槽色标按钮，以及 Encode/Split 按钮。
 样板槽接受未编码 package_pattern、未编码 packaged_processing_pattern、AE2 原版 blank_pattern、AE2 encoded processing pattern，或已编码 packaged_processing_pattern 作为 Split 来源。
-输出保留输入样板物品类型；AE2 blank_pattern 会输出为带 package_pattern NBT 的 AE2 blank_pattern，AE2 processing pattern 会复制 1 个输出并写入 colored processing metadata。
+输出保留输入样板物品类型；AE2 blank_pattern 的单包裹无输出场景会输出为带 package_pattern NBT 的 AE2 blank_pattern，有处理输出或多包裹计划时会输出为带 packaged_processing_pattern NBT 的 AE2 blank_pattern；AE2 processing pattern 会复制 1 个输出并写入 colored processing metadata。
 编码 package_pattern 时写入单个 PackageData；编码 packaged_processing_pattern 时按容量档把预览输入拆成有序 packages[]。
 编码 packaged_processing_pattern 时会把处理输出 ghost slots 写入 outputs[]；点击 ghost slot 会复制光标物品与数量，右键复制 1 个，空光标点击清除，均不消耗玩家物品。
 编码只读取预览输入，不消耗预览输入、容量槽或 marker 槽；只消耗 1 个未编码空白样板。
@@ -583,7 +584,7 @@ marker 槽写入 packaged_processing_pattern 时会应用到拆出的每个包�
 Split 会把已编码 packaged_processing_pattern 拆回多个普通 package_pattern；输出槽逐张吐出，剩余拆分结果保存在终端 pending queue，保存/读取后可继续输出。
 输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 或 packaged_processing_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前已支持 AE2 原版 blank_pattern 作为 package_pattern 载体；仍不含 AE2 encoded pattern / Planner 语义集成、packaged_processing_pattern 的 AE2 原版载体迁移、流体/任意 AEKey 处理输出 ghost editor，也未实现真正 AE2 cable part 形态。
+当前已支持 AE2 原版 blank_pattern 作为 package_pattern 与 packaged_processing_pattern 数据载体；仍不含 AE2 encoded pattern / Planner 语义集成、流体/任意 AEKey 处理输出 ghost editor，也未实现真正 AE2 cable part 形态。
 ```
 
 ## 10. 包裹总线

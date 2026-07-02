@@ -681,18 +681,24 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最新进展：
 
 ```text
-补齐 AE2 原版 blank_pattern 作为 package_pattern 载体的可用路径：
+补齐 AE2 原版 blank_pattern 作为 package_pattern / packaged_processing_pattern 载体的可用路径：
   PackagePatternDataStorage 识别 ae2:blank_pattern，并允许写入/读取 package_pattern NBT
+  PackagedProcessingPatternDataStorage 识别 ae2:blank_pattern，并允许写入/读取 packaged_processing_pattern NBT
   Package Pattern Terminal 可把 AE2 blank_pattern 编码为封装样板，输出保留 AE2 物品类型
+  AE2 blank_pattern 在单包裹且无处理输出时写入 package_pattern NBT；存在处理输出 ghost 或多包裹计划时写入 packaged_processing_pattern NBT
   Package Assembler 样板槽与 shift-click 统一使用样板载体判断，可读取 AE2 blank_pattern 承载的 package_pattern NBT
-  已编码 AE2 blank_pattern 在客户端通过 tooltip event 显示封装样板内容，未编码 AE2 blank_pattern 不追加本 mod 文案
-  本地 package_pattern / packaged_processing_pattern 保持兼容；packaged_processing_pattern 的 AE2 encoded pattern/Planner 深集成仍后置
+  Package Assembler 可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT，并逐包输出
+  已编码 AE2 blank_pattern 在客户端通过 tooltip event 复用 PackagePatternItem tooltip，显示 package_pattern 或 packaged_processing_pattern 内容
+  本地 package_pattern / packaged_processing_pattern 保持兼容；AE2 encoded pattern/Planner 深集成仍后置
 新增 GameTest：
   packagePatternDataRoundTripsOnAe2BlankPattern
   packagePatternTerminalEncodesAe2BlankPatternCarrier
   packageAssemblerUsesAe2BlankPatternCarrier
+  packagedProcessingPatternDataRoundTripsOnAe2BlankPattern
+  packagePatternTerminalEncodesAe2BlankPatternAsPackagedProcessing
+  packageAssemblerUsesAe2PackagedProcessingCarrier
 验证 .\gradlew.bat compileJava 成功
-验证 .\gradlew.bat runGameTestServer 成功，84 个必需 GameTest 全部通过
+验证 .\gradlew.bat runGameTestServer 成功，87 个必需 GameTest 全部通过
 验证 .\gradlew.bat build 成功，生成 build/libs/appliedpackaging-0.1.0-dev.jar
 再次执行 .\gradlew.bat runClient，客户端启动到 Applied Packaging 初始化、SoundEngine 启动和 block atlas 创建阶段
 验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、preview_sheet 或 mip level

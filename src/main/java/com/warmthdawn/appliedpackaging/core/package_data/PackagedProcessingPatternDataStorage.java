@@ -24,7 +24,7 @@ public final class PackagedProcessingPatternDataStorage {
     }
 
     public static boolean canStore(ItemStack stack) {
-        return stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        return stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get()) || PackagePatternDataStorage.isAe2BlankPattern(stack);
     }
 
     public static Optional<EncodedPackagedProcessingPattern> read(ItemStack stack) {
@@ -37,8 +37,11 @@ public final class PackagedProcessingPatternDataStorage {
             return encoded;
         }
 
-        return PackagePatternDataStorage.read(stack)
-                .map(pattern -> new EncodedPackagedProcessingPattern(pattern.color(), List.of(pattern.data()), List.of()));
+        if (stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get())) {
+            return PackagePatternDataStorage.read(stack)
+                    .map(pattern -> new EncodedPackagedProcessingPattern(pattern.color(), List.of(pattern.data()), List.of()));
+        }
+        return Optional.empty();
     }
 
     public static void write(ItemStack stack, PackageColor color, List<PackageData> packages) {
@@ -51,7 +54,7 @@ public final class PackagedProcessingPatternDataStorage {
             List<PackageData> packages,
             List<GenericStack> outputs) {
         if (!canStore(stack)) {
-            throw new IllegalArgumentException("Packaged processing pattern data can only be written to packaged processing pattern items");
+            throw new IllegalArgumentException("Packaged processing pattern data can only be written to packaged processing pattern carriers");
         }
         EncodedPackagedProcessingPattern encoded = new EncodedPackagedProcessingPattern(color, packages, outputs);
         CompoundTag tag = new CompoundTag();

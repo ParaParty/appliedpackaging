@@ -21,25 +21,33 @@ public class PackagePatternItem extends Item {
 
     @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
-        if (stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get())) {
-            PackagedProcessingPatternDataStorage.read(stack).ifPresentOrElse(pattern -> {
-                tooltip.add(Component.translatable("tooltip.appliedpackaging.processing_pattern.encoded")
-                        .withStyle(ChatFormatting.GRAY));
+        appendPackagePatternTooltip(stack, tooltip, flag);
+    }
+
+    public static void appendPackagePatternTooltip(ItemStack stack, List<Component> tooltip, TooltipFlag flag) {
+        PackagedProcessingPatternDataStorage.read(stack).ifPresentOrElse(pattern -> {
+            tooltip.add(Component.translatable("tooltip.appliedpackaging.processing_pattern.encoded")
+                    .withStyle(ChatFormatting.GRAY));
+            tooltip.add(Component.translatable(
+                            "tooltip.appliedpackaging.processing_pattern.package_count",
+                            pattern.packages().size())
+                    .withStyle(ChatFormatting.GRAY));
+            PackageTooltipBuilder.append(stack, pattern.color(), pattern.packages().get(0), tooltip, flag);
+            int hidden = pattern.packages().size() - 1;
+            if (hidden > 0) {
                 tooltip.add(Component.translatable(
-                                "tooltip.appliedpackaging.processing_pattern.package_count",
-                                pattern.packages().size())
-                        .withStyle(ChatFormatting.GRAY));
-                PackageTooltipBuilder.append(stack, pattern.color(), pattern.packages().get(0), tooltip, flag);
-                int hidden = pattern.packages().size() - 1;
-                if (hidden > 0) {
-                    tooltip.add(Component.translatable(
-                                    "tooltip.appliedpackaging.processing_pattern.more_packages",
-                                    hidden)
-                            .withStyle(ChatFormatting.DARK_GRAY));
-                }
-                appendProcessingOutputs(pattern.outputs(), tooltip);
-            }, () -> tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.blank")
-                    .withStyle(ChatFormatting.DARK_GRAY)));
+                                "tooltip.appliedpackaging.processing_pattern.more_packages",
+                                hidden)
+                        .withStyle(ChatFormatting.DARK_GRAY));
+            }
+            appendProcessingOutputs(pattern.outputs(), tooltip);
+        }, () -> appendPackagePatternTooltipFallback(stack, tooltip, flag));
+    }
+
+    private static void appendPackagePatternTooltipFallback(ItemStack stack, List<Component> tooltip, TooltipFlag flag) {
+        if (stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get())) {
+            tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.blank")
+                    .withStyle(ChatFormatting.DARK_GRAY));
             return;
         }
         PackagePatternDataStorage.read(stack).ifPresentOrElse(pattern -> {

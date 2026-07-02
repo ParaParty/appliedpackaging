@@ -959,6 +959,46 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerUsesAe2PackagedProcessingCarrier(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData iron = ironPackageData(PackageColor.RED, 64);
+        PackageData copper = PackageData.create(
+                PackageColor.RED,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = ae2Item("blank_pattern");
+        helper.assertFalse(pattern.isEmpty(), "AE2 blank pattern should be registered");
+        PackagedProcessingPatternDataStorage.write(pattern, PackageColor.RED, List.of(iron, copper));
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        assembler.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+
+        PackageAssemblerBlockEntity.AssemblyResult firstResult = assembler.tryAssemble();
+        ItemStack firstOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+        PackageAssemblerBlockEntity.AssemblyResult secondResult = assembler.tryAssemble();
+        ItemStack secondOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+        PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
+        helper.assertTrue(firstResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should produce the first AE2-carried processing package");
+        helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should produce the second AE2-carried processing package");
+        helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
+                "AE2-carried processing pattern should keep its encoded color");
+        helper.assertTrue(firstData.canonicalHash().equals(iron.canonicalHash()),
+                "First AE2-carried output should match the first processing package");
+        helper.assertTrue(secondData.canonicalHash().equals(copper.canonicalHash()),
+                "Second AE2-carried output should match the second processing package");
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(
+                        assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN)),
+                "AE2 packaged-processing carrier should remain in the pattern slot");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerAcceptsPatternProviderPush(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         KeyCounter iron = new KeyCounter();
@@ -1590,6 +1630,34 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagedProcessingPatternDataRoundTripsOnAe2BlankPattern(GameTestHelper helper) {
+        ItemStack pattern = ae2Item("blank_pattern");
+        helper.assertFalse(pattern.isEmpty(), "AE2 blank pattern should be registered");
+        PackageData iron = ironPackageData(PackageColor.BLUE, 64);
+
+        PackagedProcessingPatternDataStorage.write(
+                pattern,
+                PackageColor.BLUE,
+                List.of(iron),
+                List.of(new GenericStack(AEItemKey.of(Items.DIAMOND), 2)));
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> read =
+                PackagedProcessingPatternDataStorage.read(pattern);
+
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(pattern),
+                "AE2 blank pattern should be recognized as a packaged-processing carrier");
+        helper.assertTrue(read.isPresent(), "AE2-carried packaged processing data should be readable");
+        helper.assertTrue(read.get().color() == PackageColor.BLUE,
+                "AE2-carried packaged processing color should round-trip");
+        helper.assertTrue(read.get().packages().get(0).canonicalHash().equals(iron.canonicalHash()),
+                "AE2-carried packaged processing package should round-trip");
+        helper.assertTrue(read.get().outputs().size() == 1,
+                "AE2-carried packaged processing outputs should round-trip");
+        helper.assertTrue(read.get().outputs().get(0).what().equals(AEItemKey.of(Items.DIAMOND)),
+                "AE2-carried packaged processing output key should round-trip");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void coloredProcessingPatternDataRoundTrips(GameTestHelper helper) {
         ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
                 new GenericStack[] {
@@ -1723,6 +1791,40 @@ public final class PackageDataGameTests {
                 "Encoded AE2 blank pattern should contain iron");
         helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN).isEmpty(),
                 "Encoding should consume one AE2 blank pattern carrier");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesAe2BlankPatternAsPackagedProcessing(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        ItemStack blankPattern = ae2Item("blank_pattern");
+        helper.assertFalse(blankPattern.isEmpty(), "AE2 blank pattern should be registered");
+        terminal.setSelectedColor(PackageColor.RED);
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.setProcessingOutput(0, new ItemStack(Items.DIAMOND, 2));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                blankPattern);
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern =
+                PackagedProcessingPatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode AE2 blank patterns with processing outputs as packaged-processing carriers");
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(output),
+                "Terminal should preserve the AE2 blank pattern item type for packaged-processing carriers");
+        helper.assertTrue(PackagePatternDataStorage.read(output).isEmpty(),
+                "AE2 packaged-processing carriers should not also be read as single package patterns");
+        helper.assertTrue(pattern.color() == PackageColor.RED,
+                "AE2 packaged-processing carrier should keep the selected color");
+        helper.assertTrue(pattern.outputs().size() == 1,
+                "AE2 packaged-processing carrier should store processing outputs");
+        helper.assertTrue(pattern.outputs().get(0).what().equals(AEItemKey.of(Items.DIAMOND)),
+                "AE2 packaged-processing carrier should preserve output key");
+        helper.assertTrue(pattern.outputs().get(0).amount() == 2,
+                "AE2 packaged-processing carrier should preserve output amount");
         helper.succeed();
     }
 

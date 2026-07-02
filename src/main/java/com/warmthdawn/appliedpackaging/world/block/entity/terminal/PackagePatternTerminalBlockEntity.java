@@ -212,33 +212,27 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
         Optional<MarkerSpec> marker = configuredMarker();
         PackageCapacityProfile capacityProfile = configuredCapacityProfile();
-        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
+        List<ItemPackagePlan> plans = ItemPackageTransactions.planAllPackages(
                 inputView,
                 selectedColor,
                 capacityProfile,
                 PackageFilter.any(),
                 marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.RETAIN,
                 marker);
-        if (plan.isEmpty()) {
+        if (plans.isEmpty()) {
             return EncodeResult.NO_CONTENTS;
         }
 
         ItemStack encoded = new ItemStack(blankPattern.getItem());
-        if (blankPattern.is(APItems.PACKAGED_PROCESSING_PATTERN.get())) {
-            List<ItemPackagePlan> plans = ItemPackageTransactions.planAllPackages(
-                    inputView,
-                    selectedColor,
-                    capacityProfile,
-                    PackageFilter.any(),
-                    marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.RETAIN,
-                    marker);
+        List<GenericStack> processingOutputs = processingOutputStacks();
+        if (shouldEncodePackagedProcessingPattern(blankPattern, plans, processingOutputs)) {
             PackagedProcessingPatternDataStorage.write(
                     encoded,
                     selectedColor,
                     plans.stream().map(ItemPackagePlan::data).toList(),
-                    processingOutputStacks());
+                    processingOutputs);
         } else {
-            PackagePatternDataStorage.write(encoded, selectedColor, plan.get().data());
+            PackagePatternDataStorage.write(encoded, selectedColor, plans.get(0).data());
         }
         ItemStack remainder = items.insertItem(SLOT_OUTPUT, encoded, true);
         if (!remainder.isEmpty()) {
@@ -249,6 +243,15 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         items.insertItem(SLOT_OUTPUT, encoded, false);
         setChanged();
         return EncodeResult.ENCODED;
+    }
+
+    private static boolean shouldEncodePackagedProcessingPattern(
+            ItemStack blankPattern,
+            List<ItemPackagePlan> plans,
+            List<GenericStack> processingOutputs) {
+        return blankPattern.is(APItems.PACKAGED_PROCESSING_PATTERN.get())
+                || (PackagePatternDataStorage.isAe2BlankPattern(blankPattern)
+                        && (!processingOutputs.isEmpty() || plans.size() > 1));
     }
 
     public SplitResult splitOnce() {
