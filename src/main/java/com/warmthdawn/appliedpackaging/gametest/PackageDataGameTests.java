@@ -45,6 +45,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockE
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
+import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,6 +65,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
@@ -1444,6 +1446,29 @@ public final class PackageDataGameTests {
                 "First encoded package should round-trip");
         helper.assertTrue(read.get().packages().get(1).canonicalHash().equals(copper.canonicalHash()),
                 "Second encoded package should round-trip");
+        helper.assertTrue(read.get().outputs().isEmpty(), "Legacy write overload should encode no processing outputs");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagedProcessingPatternOutputsRoundTrip(GameTestHelper helper) {
+        ItemStack pattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
+
+        PackagedProcessingPatternDataStorage.write(
+                pattern,
+                PackageColor.FLUIX,
+                List.of(iron),
+                List.of(new GenericStack(AEItemKey.of(Items.DIAMOND), 2)));
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> read =
+                PackagedProcessingPatternDataStorage.read(pattern);
+
+        helper.assertTrue(read.isPresent(), "Encoded packaged processing pattern should be readable");
+        helper.assertTrue(read.get().outputs().size() == 1, "Processing outputs should round-trip");
+        helper.assertTrue(read.get().outputs().get(0).what().equals(AEItemKey.of(Items.DIAMOND)),
+                "Processing output key should round-trip");
+        helper.assertTrue(read.get().outputs().get(0).amount() == 2,
+                "Processing output amount should round-trip");
         helper.succeed();
     }
 
@@ -1649,6 +1674,43 @@ public final class PackageDataGameTests {
                 "Single preview package should encode as one processing package");
         helper.assertTrue(amountOf(pattern.packages().get(0), AEItemKey.of(Items.IRON_INGOT)) == 64,
                 "Encoded packaged processing pattern should contain iron");
+        helper.assertTrue(pattern.outputs().isEmpty(),
+                "Packaged processing pattern without ghost outputs should encode no processing outputs");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalMenuEncodesProcessingOutputGhost(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = placePackagePatternTerminal(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackagePatternTerminalMenu menu = new PackagePatternTerminalMenu(3, new Inventory(player), terminal);
+        ItemStack carried = new ItemStack(Items.DIAMOND, 2);
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get()));
+
+        menu.setCarried(carried.copy());
+        menu.clicked(PackagePatternTerminalMenu.PROCESSING_OUTPUT_START, 0, ClickType.PICKUP, player);
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern =
+                PackagedProcessingPatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode a packaged processing pattern with ghost outputs");
+        helper.assertTrue(menu.getCarried().getCount() == 2,
+                "Processing output ghost slot should not consume the carried stack");
+        helper.assertTrue(terminal.processingOutput(0).is(Items.DIAMOND),
+                "Terminal should store the ghost output item");
+        helper.assertTrue(terminal.processingOutput(0).getCount() == 2,
+                "Terminal should store the ghost output count");
+        helper.assertTrue(pattern.outputs().size() == 1,
+                "Encoded packaged processing pattern should store processing outputs");
+        helper.assertTrue(pattern.outputs().get(0).what().equals(AEItemKey.of(Items.DIAMOND)),
+                "Encoded processing output should preserve the item key");
+        helper.assertTrue(pattern.outputs().get(0).amount() == 2,
+                "Encoded processing output should preserve the item amount");
         helper.succeed();
     }
 
@@ -1861,6 +1923,15 @@ public final class PackageDataGameTests {
                 APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState(),
                 3);
         return (PackageExportBusBlockEntity) helper.getBlockEntity(pos);
+    }
+
+    private static PackagePatternTerminalBlockEntity placePackagePatternTerminal(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(0, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(pos),
+                APBlocks.PACKAGE_PATTERN_TERMINAL.get().defaultBlockState(),
+                3);
+        return (PackagePatternTerminalBlockEntity) helper.getBlockEntity(pos);
     }
 
     private static FakePlayer newFakePlayer(GameTestHelper helper) {

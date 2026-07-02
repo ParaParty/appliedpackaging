@@ -11,9 +11,11 @@ import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
@@ -28,15 +30,21 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_INPUT_COLOR_BASE = 40;
     public static final int BUTTON_INPUT_COLOR_CLEAR_BASE = 60;
 
-    private static final int MACHINE_SLOT_COUNT = 13;
-    private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
-    private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
-    private static final int HOTBAR_END = PLAYER_INVENTORY_END + 9;
+    public static final int ITEM_HANDLER_SLOT_COUNT = 13;
+    public static final int PROCESSING_OUTPUT_START = ITEM_HANDLER_SLOT_COUNT;
+    public static final int PROCESSING_OUTPUT_END =
+            PROCESSING_OUTPUT_START + PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT;
+    public static final int MACHINE_SLOT_COUNT = PROCESSING_OUTPUT_END;
+    public static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
+    public static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
+    public static final int HOTBAR_END = PLAYER_INVENTORY_END + 9;
 
     private final PackagePatternTerminalBlockEntity blockEntity;
     private final ContainerLevelAccess access;
     private final DataSlot selectedColorSlot;
     private final DataSlot[] inputColorSlots = new DataSlot[PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT];
+    private final SimpleContainer processingOutputDisplay =
+            new SimpleContainer(PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT);
 
     public PackagePatternTerminalMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -66,6 +74,8 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         addSlot(new OutputSlot(blockEntity, 144, 24));
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackagePatternTerminalBlockEntity.SLOT_CAPACITY, 116, 52));
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackagePatternTerminalBlockEntity.SLOT_MARKER, 144, 52));
+        updateProcessingOutputDisplay();
+        addProcessingOutputSlots();
         addPlayerInventory(playerInventory);
         addDataSlot(selectedColorSlot);
         addInputColorSlots();
@@ -131,8 +141,27 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         return Optional.of(values[index]);
     }
 
+    public ItemStack processingOutput(int slot) {
+        if (slot < 0 || slot >= processingOutputDisplay.getContainerSize()) {
+            return ItemStack.EMPTY;
+        }
+        return processingOutputDisplay.getItem(slot).copy();
+    }
+
+    @Override
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (slotId >= PROCESSING_OUTPUT_START && slotId < PROCESSING_OUTPUT_END) {
+            clickProcessingOutput(slotId - PROCESSING_OUTPUT_START, button, clickType, player);
+            return;
+        }
+        super.clicked(slotId, button, clickType, player);
+    }
+
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
+        if (index >= PROCESSING_OUTPUT_START && index < PROCESSING_OUTPUT_END) {
+            return ItemStack.EMPTY;
+        }
         Slot slot = slots.get(index);
         if (!slot.hasItem()) {
             return ItemStack.EMPTY;
@@ -140,7 +169,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
 
         ItemStack source = slot.getItem();
         ItemStack copy = source.copy();
-        if (index < MACHINE_SLOT_COUNT) {
+        if (index < ITEM_HANDLER_SLOT_COUNT) {
             if (!moveItemStackTo(source, PLAYER_INVENTORY_START, HOTBAR_END, true)) {
                 return ItemStack.EMPTY;
             }
@@ -177,6 +206,26 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         return stillValid(access, player, APBlocks.PACKAGE_PATTERN_TERMINAL.get());
     }
 
+    private void clickProcessingOutput(int outputSlot, int button, ClickType clickType, Player player) {
+        if (clickType != ClickType.PICKUP) {
+            return;
+        }
+        if (!player.level().isClientSide) {
+            ItemStack carried = getCarried();
+            if (carried.isEmpty()) {
+                blockEntity.clearProcessingOutput(outputSlot);
+            } else {
+                ItemStack output = carried.copy();
+                if (button == 1) {
+                    output.setCount(1);
+                }
+                blockEntity.setProcessingOutput(outputSlot, output);
+            }
+            updateProcessingOutputDisplay();
+            broadcastChanges();
+        }
+    }
+
     private void addInputSlots() {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
@@ -188,11 +237,23 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     private void addPlayerInventory(Inventory playerInventory) {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
-                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 107 + row * 18));
+                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 125 + row * 18));
             }
         }
         for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(playerInventory, column, 8 + column * 18, 165));
+            addSlot(new Slot(playerInventory, column, 8 + column * 18, 183));
+        }
+    }
+
+    private void addProcessingOutputSlots() {
+        for (int slot = 0; slot < PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT; slot++) {
+            addSlot(new GhostOutputSlot(processingOutputDisplay, slot, 82 + slot * 18, 75));
+        }
+    }
+
+    private void updateProcessingOutputDisplay() {
+        for (int slot = 0; slot < PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT; slot++) {
+            processingOutputDisplay.setItem(slot, blockEntity.processingOutput(slot));
         }
     }
 
@@ -233,6 +294,22 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
+            return false;
+        }
+    }
+
+    private static final class GhostOutputSlot extends Slot {
+        private GhostOutputSlot(SimpleContainer container, int slot, int x, int y) {
+            super(container, slot, x, y);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return false;
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
             return false;
         }
     }

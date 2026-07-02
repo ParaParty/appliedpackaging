@@ -52,15 +52,20 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     public static final int SLOT_OUTPUT = 10;
     public static final int SLOT_CAPACITY = 11;
     public static final int SLOT_MARKER = 12;
+    public static final int PROCESSING_OUTPUT_SLOT_COUNT = 3;
     private static final int SLOT_COUNT = 13;
     private static final String ITEMS_TAG = "items";
     private static final String SELECTED_COLOR_TAG = "selected_color";
     private static final String INPUT_SLOT_COLORS_TAG = "input_slot_colors";
+    private static final String PROCESSING_OUTPUTS_TAG = "processing_outputs";
+    private static final String PROCESSING_OUTPUT_SLOT_TAG = "slot";
+    private static final String PROCESSING_OUTPUT_STACK_TAG = "stack";
     private static final String PENDING_SPLIT_PATTERNS_TAG = "pending_split_patterns";
     private static final int UNCOLORED_SLOT = -1;
 
     private PackageColor selectedColor = PackageColor.FLUIX;
     private final int[] inputSlotColors = new int[INPUT_SLOT_COUNT];
+    private final ItemStack[] processingOutputs = new ItemStack[PROCESSING_OUTPUT_SLOT_COUNT];
     private final List<ItemStack> pendingSplitPatterns = new ArrayList<>();
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -102,6 +107,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     public PackagePatternTerminalBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.PACKAGE_PATTERN_TERMINAL.get(), pos, blockState);
         Arrays.fill(inputSlotColors, UNCOLORED_SLOT);
+        Arrays.fill(processingOutputs, ItemStack.EMPTY);
     }
 
     public ItemStackHandler getItems() {
@@ -161,6 +167,35 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         setChanged();
     }
 
+    public ItemStack processingOutput(int slot) {
+        if (slot < 0 || slot >= processingOutputs.length) {
+            return ItemStack.EMPTY;
+        }
+        return processingOutputs[slot].copy();
+    }
+
+    public void setProcessingOutput(int slot, ItemStack stack) {
+        if (slot < 0 || slot >= processingOutputs.length) {
+            return;
+        }
+        if (stack.isEmpty()) {
+            clearProcessingOutput(slot);
+            return;
+        }
+        ItemStack copy = stack.copy();
+        copy.setCount(Math.min(copy.getCount(), copy.getMaxStackSize()));
+        processingOutputs[slot] = copy;
+        setChanged();
+    }
+
+    public void clearProcessingOutput(int slot) {
+        if (slot < 0 || slot >= processingOutputs.length) {
+            return;
+        }
+        processingOutputs[slot] = ItemStack.EMPTY;
+        setChanged();
+    }
+
     public EncodeResult encodeOnce() {
         if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
             return EncodeResult.OUTPUT_BLOCKED;
@@ -200,7 +235,8 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             PackagedProcessingPatternDataStorage.write(
                     encoded,
                     selectedColor,
-                    plans.stream().map(ItemPackagePlan::data).toList());
+                    plans.stream().map(ItemPackagePlan::data).toList(),
+                    processingOutputStacks());
         } else {
             PackagePatternDataStorage.write(encoded, selectedColor, plan.get().data());
         }
@@ -322,6 +358,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         tag.put(ITEMS_TAG, items.serializeNBT());
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
         tag.putIntArray(INPUT_SLOT_COLORS_TAG, inputSlotColors);
+        tag.put(PROCESSING_OUTPUTS_TAG, saveProcessingOutputs());
         ListTag pendingTag = new ListTag();
         for (ItemStack pendingPattern : pendingSplitPatterns) {
             pendingTag.add(pendingPattern.save(new CompoundTag()));
@@ -341,6 +378,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         for (int slot = 0; slot < Math.min(colors.length, inputSlotColors.length); slot++) {
             setInputSlotColorOrdinal(slot, colors[slot]);
         }
+        loadProcessingOutputs(tag);
         pendingSplitPatterns.clear();
         ListTag pendingTag = tag.getList(PENDING_SPLIT_PATTERNS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND);
         for (int index = 0; index < pendingTag.size(); index++) {
@@ -446,6 +484,52 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
             }
         }
         return colors;
+    }
+
+    private List<GenericStack> processingOutputStacks() {
+        List<GenericStack> outputs = new ArrayList<>();
+        for (ItemStack output : processingOutputs) {
+            if (!output.isEmpty()) {
+                outputs.add(new GenericStack(AEItemKey.of(output), output.getCount()));
+            }
+        }
+        return List.copyOf(outputs);
+    }
+
+    private ListTag saveProcessingOutputs() {
+        ListTag outputs = new ListTag();
+        for (int slot = 0; slot < processingOutputs.length; slot++) {
+            ItemStack output = processingOutputs[slot];
+            if (output.isEmpty()) {
+                continue;
+            }
+            CompoundTag entry = new CompoundTag();
+            entry.putInt(PROCESSING_OUTPUT_SLOT_TAG, slot);
+            entry.put(PROCESSING_OUTPUT_STACK_TAG, output.save(new CompoundTag()));
+            outputs.add(entry);
+        }
+        return outputs;
+    }
+
+    private void loadProcessingOutputs(CompoundTag tag) {
+        Arrays.fill(processingOutputs, ItemStack.EMPTY);
+        if (!tag.contains(PROCESSING_OUTPUTS_TAG, net.minecraft.nbt.Tag.TAG_LIST)) {
+            return;
+        }
+        ListTag outputs = tag.getList(PROCESSING_OUTPUTS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        for (int index = 0; index < outputs.size(); index++) {
+            CompoundTag entry = outputs.getCompound(index);
+            int slot = entry.getInt(PROCESSING_OUTPUT_SLOT_TAG);
+            if (slot < 0 || slot >= processingOutputs.length
+                    || !entry.contains(PROCESSING_OUTPUT_STACK_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+                continue;
+            }
+            ItemStack stack = ItemStack.of(entry.getCompound(PROCESSING_OUTPUT_STACK_TAG));
+            if (!stack.isEmpty()) {
+                stack.setCount(Math.min(stack.getCount(), stack.getMaxStackSize()));
+                processingOutputs[slot] = stack;
+            }
+        }
     }
 
     private static boolean isMarkerItem(ItemStack stack) {

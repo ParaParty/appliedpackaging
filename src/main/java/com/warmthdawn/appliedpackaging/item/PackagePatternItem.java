@@ -1,5 +1,7 @@
 package com.warmthdawn.appliedpackaging.item;
 
+import appeng.api.stacks.AmountFormat;
+import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageTooltipBuilder;
@@ -35,6 +37,7 @@ public class PackagePatternItem extends Item {
                                     hidden)
                             .withStyle(ChatFormatting.DARK_GRAY));
                 }
+                appendProcessingOutputs(pattern.outputs(), tooltip);
             }, () -> tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.blank")
                     .withStyle(ChatFormatting.DARK_GRAY)));
             return;
@@ -43,5 +46,29 @@ public class PackagePatternItem extends Item {
             tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.encoded").withStyle(ChatFormatting.GRAY));
             PackageTooltipBuilder.append(stack, pattern.color(), pattern.data(), tooltip, flag);
         }, () -> tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.blank").withStyle(ChatFormatting.DARK_GRAY)));
+    }
+
+    private static void appendProcessingOutputs(List<GenericStack> outputs, List<Component> tooltip) {
+        if (outputs.isEmpty()) {
+            return;
+        }
+        tooltip.add(Component.translatable("tooltip.appliedpackaging.processing_pattern.outputs")
+                .withStyle(ChatFormatting.GRAY));
+        int shown = Math.min(3, outputs.size());
+        for (int index = 0; index < shown; index++) {
+            GenericStack output = outputs.get(index);
+            tooltip.add(Component.translatable(
+                            "tooltip.appliedpackaging.processing_pattern.output_entry",
+                            output.what().getDisplayName(),
+                            output.what().formatAmount(output.amount(), AmountFormat.FULL))
+                    .withStyle(ChatFormatting.DARK_GRAY));
+        }
+        int hidden = outputs.size() - shown;
+        if (hidden > 0) {
+            tooltip.add(Component.translatable(
+                            "tooltip.appliedpackaging.processing_pattern.more_outputs",
+                            hidden)
+                    .withStyle(ChatFormatting.DARK_GRAY));
+        }
     }
 }

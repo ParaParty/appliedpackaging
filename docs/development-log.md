@@ -621,10 +621,31 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
 ```
 
+最新进展：
+
+```text
+补齐 packaged_processing_pattern 基础处理输出 ghost UI：
+  PackagedProcessingPatternDataStorage 升级到 version 2，新增可选 outputs[]
+  旧 write(color, packages) 入口保留，旧 version 1 数据可继续读取为无 outputs
+  Package Pattern Terminal 新增 3 个物品处理输出 ghost slots
+  左键 ghost slot 复制光标物品与数量，右键复制 1 个，空光标点击清除
+  ghost 输出只写入终端方块实体与样板 NBT，不进入 Forge item handler，不消耗也不掉落玩家物品
+  packaged_processing_pattern tooltip 会显示处理输出
+新增 GameTest：
+  packagedProcessingPatternOutputsRoundTrip
+  packagePatternTerminalMenuEncodesProcessingOutputGhost
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，78 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+再次执行 .\gradlew.bat runClient，客户端启动到 Applied Packaging 初始化、SoundEngine 启动和 block atlas 创建阶段
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、preview_sheet 或 mip level
+smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
+```
+
 下一步：
 
 ```text
-补齐处理输出 UI、可手工编辑 color/marker/content 的高级过滤器 UI 和 AE2 part 形态。
-补客户端实际开 GUI/截图 smoke，重点看 Package Assembler 新容量槽、Package Bus 过滤 UI、终端 Split 按钮和输入槽色标右键清除。
+补齐彩色 AE2 processing pattern 更完整的输出 UI、封装处理样板流体/任意 AEKey 输出 ghost editor、可手工编辑 color/marker/content 的高级过滤器 UI 和 AE2 part 形态。
+补客户端实际开 GUI/截图 smoke，重点看 Package Assembler 新容量槽、Package Bus 过滤 UI、终端 Split 按钮、处理输出 ghost slots 和输入槽色标右键清除。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```

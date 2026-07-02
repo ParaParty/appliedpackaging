@@ -78,6 +78,7 @@ Package Bus 配置 UI 可从光标物品设置 ghost filter 且不消耗光标�
 Package Bus 配置 UI 可从玩家背包 shift-click 设置 ghost filter 且不消耗背包模板
 package_pattern 数据可读写
 packaged_processing_pattern 多包裹数据可读写
+packaged_processing_pattern 处理输出 outputs[] 可读写
 colored_processing_pattern 输入槽颜色数据可读写，并可读取 AE2 sparse processing inputs
 package_pattern_terminal 可从预览输入编码 package_pattern
 package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
@@ -87,6 +88,7 @@ package_pattern_terminal 可把 selectedColor 写入 AE2 encoded processing patt
 package_pattern_terminal 可把逐槽配置的颜色写入 AE2 encoded processing pattern
 package_pattern_terminal 可编码空白 packaged_processing_pattern 并保留物品类型
 package_pattern_terminal 可把 packaged_processing_pattern 拆成多包裹计划
+package_pattern_terminal 配置 UI 可从光标设置 packaged_processing_pattern 处理输出 ghost slot，编码时写入 outputs[] 且不消耗光标物品
 package_pattern_terminal Split 可把已编码 packaged_processing_pattern 逐张拆为 package_pattern
 package_pattern_terminal Split pending queue 可保存/读取后继续输出
 package_pattern_terminal 输入槽颜色可清除
@@ -109,7 +111,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，76 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，78 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -199,7 +201,7 @@ Tooltip 每包/总计正确
 ```text
 2026-07-03 再次执行 .\gradlew.bat runClient，已启动到 Minecraft 客户端主流程。
 日志确认 Applied Packaging 初始化完成、ResourceManager 重载完成、OpenAL/SoundEngine 启动、block atlas 创建完成。
-Package Bus screen/menu 注册后的客户端启动 smoke 通过。
+Package Bus screen/menu 注册后，以及 Package Pattern Terminal 处理输出 ghost slots 布局调整后的客户端启动 smoke 通过。
 run/logs/latest.log 未发现 ERROR、FATAL、Missing model 或 Unable to load model。
 机器 preview sheet 已移至 docs/assets/previews，不再作为 block atlas 资源加载；最新 smoke 未再出现 preview_sheet/mip level 警告。
 本次 smoke 在 atlas 创建完成后手动终止客户端；Gradle 退出码来自人工终止，不代表客户端启动失败。

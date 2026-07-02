@@ -535,6 +535,7 @@ inputs[].color: string，PackageColor.id()
 version
 PackageColor
 ordered List<PackageData>
+outputs: List<GenericStack>，当前 UI 先覆盖物品输出 ghost slots
 每个 PackageData 使用现有 canonical hash 校验
 ```
 
@@ -560,14 +561,15 @@ Split:
 package_pattern 与 packaged_processing_pattern 使用 PackagePatternItem，tooltip 会区分空白/已编码状态。
 PackagePatternDataStorage 在 ItemStack NBT 中写入 version、color 与嵌套 PackageData。
 读取已编码样板时会按样板颜色复验嵌套 PackageData canonical hash。
-PackagedProcessingPatternDataStorage 在 ItemStack NBT 中写入 version、color 与 packages[]。
+PackagedProcessingPatternDataStorage 在 ItemStack NBT 中写入 version、color、packages[] 与可选 outputs[]。
 读取封装处理样板时会逐个复验嵌套 PackageData canonical hash，并兼容旧的单包裹 PackagePatternDataStorage 写法。
 package_pattern_terminal 已注册为水平朝向方块、方块物品、方块实体、菜单和客户端 screen。
 终端后续外形应调整为 AE2 风格面板/part，而不是完整机器方块；当前先保留方块形态以保证功能闭环。
-终端 GUI 当前提供 9 格预览输入、1 格样板槽、1 格输出、容量槽、marker 槽、17 色 swatch、9 个输入槽色标按钮，以及 Encode/Split 按钮。
+终端 GUI 当前提供 9 格预览输入、1 格样板槽、1 格输出、容量槽、marker 槽、3 个处理输出 ghost slots、17 色 swatch、9 个输入槽色标按钮，以及 Encode/Split 按钮。
 样板槽接受未编码 package_pattern、未编码 packaged_processing_pattern、AE2 encoded processing pattern，或已编码 packaged_processing_pattern 作为 Split 来源。
 输出保留输入样板物品类型；AE2 processing pattern 会复制 1 个输出并写入 colored processing metadata。
 编码 package_pattern 时写入单个 PackageData；编码 packaged_processing_pattern 时按容量档把预览输入拆成有序 packages[]。
+编码 packaged_processing_pattern 时会把处理输出 ghost slots 写入 outputs[]；点击 ghost slot 会复制光标物品与数量，右键复制 1 个，空光标点击清除，均不消耗玩家物品。
 编码只读取预览输入，不消耗预览输入、容量槽或 marker 槽；只消耗 1 个未编码空白样板。
 终端保存并同步 selectedColor，GUI 提供 17 色 swatch，编码样板颜色跟随当前选择。
 终端保存并同步 9 个输入槽颜色；选中颜色后左键点击输入槽角落色标即可把该槽设为当前颜色，右键点击清除该槽颜色。
@@ -578,7 +580,7 @@ marker 槽写入 packaged_processing_pattern 时会应用到拆出的每个包�
 Split 会把已编码 packaged_processing_pattern 拆回多个普通 package_pattern；输出槽逐张吐出，剩余拆分结果保存在终端 pending queue，保存/读取后可继续输出。
 输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 或 packaged_processing_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前不含 AE2 原版 blank pattern 承载迁移和处理输出 UI。
+当前不含 AE2 原版 blank pattern 承载迁移；彩色 AE2 processing pattern 的输出仍沿用输入样板自身输出，终端尚不提供流体/任意 AEKey 处理输出 ghost editor。
 ```
 
 ## 10. 包裹总线

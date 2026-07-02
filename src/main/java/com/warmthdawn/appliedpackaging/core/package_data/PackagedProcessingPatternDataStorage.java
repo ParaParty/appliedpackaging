@@ -1,5 +1,6 @@
 package com.warmthdawn.appliedpackaging.core.package_data;
 
+import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import java.util.ArrayList;
@@ -16,7 +17,8 @@ public final class PackagedProcessingPatternDataStorage {
     private static final String VERSION = "version";
     private static final String COLOR = "color";
     private static final String PACKAGES = "packages";
-    private static final int CURRENT_VERSION = 1;
+    private static final String OUTPUTS = "outputs";
+    private static final int CURRENT_VERSION = 2;
 
     private PackagedProcessingPatternDataStorage() {
     }
@@ -36,14 +38,22 @@ public final class PackagedProcessingPatternDataStorage {
         }
 
         return PackagePatternDataStorage.read(stack)
-                .map(pattern -> new EncodedPackagedProcessingPattern(pattern.color(), List.of(pattern.data())));
+                .map(pattern -> new EncodedPackagedProcessingPattern(pattern.color(), List.of(pattern.data()), List.of()));
     }
 
     public static void write(ItemStack stack, PackageColor color, List<PackageData> packages) {
+        write(stack, color, packages, List.of());
+    }
+
+    public static void write(
+            ItemStack stack,
+            PackageColor color,
+            List<PackageData> packages,
+            List<GenericStack> outputs) {
         if (!canStore(stack)) {
             throw new IllegalArgumentException("Packaged processing pattern data can only be written to packaged processing pattern items");
         }
-        EncodedPackagedProcessingPattern encoded = new EncodedPackagedProcessingPattern(color, packages);
+        EncodedPackagedProcessingPattern encoded = new EncodedPackagedProcessingPattern(color, packages, outputs);
         CompoundTag tag = new CompoundTag();
         tag.putInt(VERSION, CURRENT_VERSION);
         tag.putString(COLOR, encoded.color().id());
@@ -53,6 +63,13 @@ public final class PackagedProcessingPatternDataStorage {
             packageList.add(PackageDataStorage.writeTag(data));
         }
         tag.put(PACKAGES, packageList);
+        if (!encoded.outputs().isEmpty()) {
+            ListTag outputList = new ListTag();
+            for (GenericStack output : encoded.outputs()) {
+                outputList.add(GenericStack.writeTag(output));
+            }
+            tag.put(OUTPUTS, outputList);
+        }
         stack.getOrCreateTag().put(PATTERN_TAG, tag);
     }
 
@@ -61,7 +78,8 @@ public final class PackagedProcessingPatternDataStorage {
             return Optional.empty();
         }
         CompoundTag tag = stack.getTagElement(PATTERN_TAG);
-        if (tag == null || tag.getInt(VERSION) != CURRENT_VERSION || !tag.contains(PACKAGES, Tag.TAG_LIST)) {
+        int version = tag == null ? 0 : tag.getInt(VERSION);
+        if (tag == null || version < 1 || version > CURRENT_VERSION || !tag.contains(PACKAGES, Tag.TAG_LIST)) {
             return Optional.empty();
         }
         Optional<PackageColor> color = PackageColor.byId(tag.getString(COLOR));
@@ -83,21 +101,44 @@ public final class PackagedProcessingPatternDataStorage {
         if (packages.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new EncodedPackagedProcessingPattern(color.get(), packages));
+
+        List<GenericStack> outputs = new ArrayList<>();
+        if (version >= 2 && tag.contains(OUTPUTS, Tag.TAG_LIST)) {
+            for (Tag element : tag.getList(OUTPUTS, Tag.TAG_COMPOUND)) {
+                if (!(element instanceof CompoundTag outputTag)) {
+                    return Optional.empty();
+                }
+                GenericStack output = GenericStack.readTag(outputTag);
+                if (output == null || output.amount() <= 0) {
+                    return Optional.empty();
+                }
+                outputs.add(output);
+            }
+        }
+        return Optional.of(new EncodedPackagedProcessingPattern(color.get(), packages, outputs));
     }
 
-    public record EncodedPackagedProcessingPattern(PackageColor color, List<PackageData> packages) {
+    public record EncodedPackagedProcessingPattern(
+            PackageColor color,
+            List<PackageData> packages,
+            List<GenericStack> outputs) {
         public EncodedPackagedProcessingPattern {
             if (color == null) {
                 throw new IllegalArgumentException("Packaged processing pattern color cannot be null");
             }
             packages = List.copyOf(packages);
+            outputs = List.copyOf(outputs);
             if (packages.isEmpty()) {
                 throw new IllegalArgumentException("Packaged processing patterns must contain at least one package");
             }
             for (PackageData data : packages) {
                 if (data == null) {
                     throw new IllegalArgumentException("Packaged processing pattern package data cannot be null");
+                }
+            }
+            for (GenericStack output : outputs) {
+                if (output == null || output.amount() <= 0) {
+                    throw new IllegalArgumentException("Packaged processing pattern outputs must have positive amounts");
                 }
             }
         }

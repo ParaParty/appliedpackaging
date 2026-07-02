@@ -25,11 +25,11 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
     public PackagePatternTerminalScreen(PackagePatternTerminalMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
         imageWidth = 176;
-        imageHeight = 188;
+        imageHeight = 206;
         titleLabelX = 8;
         titleLabelY = 6;
         inventoryLabelX = 8;
-        inventoryLabelY = 96;
+        inventoryLabelY = 114;
     }
 
     @Override
@@ -63,7 +63,7 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
             PackageColor color = PackageColor.values()[index];
             addRenderableWidget(new ColorSwatchButton(
                     leftPos + 10 + index * 9,
-                    topPos + 82,
+                    topPos + 100,
                     color));
         }
 
@@ -91,12 +91,12 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
         int y = topPos;
         graphics.fill(x, y, x + imageWidth, y + imageHeight, PANEL);
         graphics.renderOutline(x, y, imageWidth, imageHeight, PANEL_DARK);
-        graphics.fill(x + 6, y + 18, x + 170, y + 88, 0xffc9d0d4);
-        graphics.renderOutline(x + 6, y + 18, 164, 70, PANEL_MID);
+        graphics.fill(x + 6, y + 18, x + 170, y + 110, 0xffc9d0d4);
+        graphics.renderOutline(x + 6, y + 18, 164, 92, PANEL_MID);
         renderMachineSlots(graphics, x, y);
         renderInventorySlots(graphics, x, y);
-        graphics.fill(x + 8, y + 81, x + 164, y + 92, 0xffaeb7bd);
-        graphics.renderOutline(x + 8, y + 81, 156, 11, PANEL_MID);
+        graphics.fill(x + 8, y + 99, x + 164, y + 110, 0xffaeb7bd);
+        graphics.renderOutline(x + 8, y + 99, 156, 11, PANEL_MID);
         graphics.hLine(x + 86, x + 108, y + 34, PANEL_DARK);
         graphics.hLine(x + 134, x + 142, y + 34, PANEL_DARK);
         graphics.hLine(x + 82, x + 114, y + 60, PANEL_DARK);
@@ -118,6 +118,9 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
         renderSlot(graphics, left + 143, top + 23);
         renderSlot(graphics, left + 115, top + 51);
         renderSlot(graphics, left + 143, top + 51);
+        for (int column = 0; column < 3; column++) {
+            renderSlot(graphics, left + 81 + column * 18, top + 74);
+        }
     }
 
     private static void renderSlot(GuiGraphics graphics, int x, int y) {
@@ -129,11 +132,11 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
     private static void renderInventorySlots(GuiGraphics graphics, int left, int top) {
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
-                renderSlot(graphics, left + 7 + column * 18, top + 106 + row * 18);
+                renderSlot(graphics, left + 7 + column * 18, top + 124 + row * 18);
             }
         }
         for (int column = 0; column < 9; column++) {
-            renderSlot(graphics, left + 7 + column * 18, top + 164);
+            renderSlot(graphics, left + 7 + column * 18, top + 182);
         }
     }
 
