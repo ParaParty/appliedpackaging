@@ -1,0 +1,70 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "appliedpackaging:block/package_assembler_side",
+    "front": "appliedpackaging:block/package_assembler_front",
+    "side": "appliedpackaging:block/package_assembler_side",
+    "top": "appliedpackaging:block/package_assembler_top",
+    "frame": "appliedpackaging:block/package_assembler_frame"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 1],
+      "to": [16, 16, 16],
+      "faces": {
+        "east": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#side",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#side",
+          "cullface": "west"
+        },
+        "south": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#side",
+          "cullface": "south"
+        },
+        "up": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#top",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#frame",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 1],
+      "faces": {
+        "north": {
+          "uv": [0, 0, 16, 16],
+          "texture": "#front",
+          "cullface": "north"
+        },
+        "east": {
+          "uv": [0, 0, 1, 16],
+          "texture": "#frame"
+        },
+        "west": {
+          "uv": [15, 0, 16, 16],
+          "texture": "#frame"
+        },
+        "up": {
+          "uv": [0, 0, 16, 1],
+          "texture": "#frame"
+        },
+        "down": {
+          "uv": [0, 15, 16, 16],
+          "texture": "#frame"
+        }
+      }
+    }
+  ]
+}

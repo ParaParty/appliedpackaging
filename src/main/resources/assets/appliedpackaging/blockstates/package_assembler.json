@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "appliedpackaging:block/package_assembler"
+    }
+  }
+}

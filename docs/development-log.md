@@ -70,6 +70,21 @@ PackageDataStorage 只接受当前 schema version，且必须通过完整 canoni
   asset-briefs/ui-and-icons.md
   contracts/*.yaml
 验证 5 个资产 contract 均通过 assetgen validate-contract
+派发并整合 4 个材质 subagent 交付：
+  packages
+  machines
+  terminal-and-buses
+  ui-and-icons
+主线程资产验收：
+  5 个 asset contract 均 validate ok
+  53 个 PNG 尺寸符合预期
+  33 个 JSON 可解析
+  block model 坐标保持在 0..16
+  texture/model 引用存在
+  抽样视觉检查通过
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runData 成功
+验证 .\gradlew.bat runGameTestServer 成功，14 个必需 GameTest 全部通过
 ```
 
 关键决策：
@@ -103,6 +118,6 @@ AE2 1.20.1 Storage Cells 指南
 下一步：
 
 ```text
-提交资产 brief 和 contract。
-按 AGENTS.md 派发材质 subagent，并整合当前已注册物品的图标和 item model。
+提交资产资源与验收报告。
+注册机器方块，接入基础 BlockEntity/Menu 前的服务端事务骨架。
 ```

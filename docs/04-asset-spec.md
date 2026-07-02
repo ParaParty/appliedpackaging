@@ -203,3 +203,30 @@ docs/assets/contracts/ui_icons.yaml
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
+
+## 9. 当前资产交付状态
+
+已交付：
+
+```text
+19 个当前注册 item 的 32x32 图标与 item model
+ME 包裹装配室与 ME 打包机初版 block textures/blockstate/block model/item model
+包裹样板终端、包裹存储总线、包裹输出总线、包裹拆包总线初版 textures/model
+14 个 GUI 图标
+logo.png
+docs/assets/reports/*.md
+```
+
+主线程已验证：
+
+```text
+5 个 asset contract 均 validate ok
+53 个 PNG 尺寸符合预期
+33 个 JSON 可解析
+block model 坐标保持在 0..16
+texture/model 引用存在
+抽样视觉检查通过
+.\gradlew.bat build 成功
+.\gradlew.bat runData 成功
+.\gradlew.bat runGameTestServer 成功，14 个必需 GameTest 全部通过
+```

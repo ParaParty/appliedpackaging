@@ -98,9 +98,11 @@ tooltip 显示每包/总计
 当前状态：
 
 ```text
-语言文件已有基础 key。
-材质、模型、blockstate、recipe 和 loot 尚未交付。
-资产 brief 需要先在 docs/assets 下准备，再派发给材质 subagent。
+已交付当前注册 item 图标和 item model。
+已交付机器、终端、总线、UI 图标和 logo 初版资源。
+已交付资产 reports。
+recipe 和 loot 尚未交付。
+机器、终端、总线资源已先行存在，Java 注册与玩法实现仍待接入。
 ```
 
 验收：

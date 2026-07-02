@@ -80,6 +80,15 @@ blockstate/model/item model 路径正确
 language key 完整
 ```
 
+当前资产验证：
+
+```text
+5 个 docs/assets/contracts/*.yaml 均通过 assetgen validate-contract
+PNG/JSON/model 引用机械检查通过
+资源抽样视觉检查通过
+.\gradlew.bat runData 成功
+```
+
 ## 4. 构建验证
 
 必须运行：
