@@ -33,6 +33,7 @@ loader: Forge
 toolchain: ModDevGradle Legacy
 Forge baseline: 47.4.10
 AE2 baseline: 15.4.10 Forge
+GuideME dev/runtime dependency: 20.1.7
 Java: 17
 ```
 

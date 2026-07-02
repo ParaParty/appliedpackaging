@@ -1,0 +1,29 @@
+package com.warmthdawn.appliedpackaging;
+
+import com.mojang.logging.LogUtils;
+import com.warmthdawn.appliedpackaging.registry.APCreativeTabs;
+import com.warmthdawn.appliedpackaging.registry.APItems;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import org.slf4j.Logger;
+
+@Mod(AppliedPackaging.MOD_ID)
+public class AppliedPackaging {
+    public static final String MOD_ID = "appliedpackaging";
+    public static final Logger LOGGER = LogUtils.getLogger();
+
+    public AppliedPackaging() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        APItems.register(modEventBus);
+        APCreativeTabs.register(modEventBus);
+
+        modEventBus.addListener(this::commonSetup);
+    }
+
+    private void commonSetup(final FMLCommonSetupEvent event) {
+        LOGGER.info("Applied Packaging initialized.");
+    }
+}

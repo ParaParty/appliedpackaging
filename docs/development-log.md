@@ -32,6 +32,11 @@ git init
   mod_id = appliedpackaging
   package = com.warmthdawn.appliedpackaging
   mod name = Applied Packaging
+从 NeoForgeMDKs/MDK-Forge-1.20.1-ModDevGradle 初始化项目骨架
+替换 MDK 示例源码为 Applied Packaging 主类、注册类、17 色包裹物品和基础样板物品
+配置 Forge 47.4.10、AE2 15.4.10、GuideME 20.1.7
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runData 成功
 ```
 
 关键决策：
@@ -41,6 +46,7 @@ git init
 工具链使用 NeoForgeMDKs/MDK-Forge-1.20.1-ModDevGradle 的 LegacyForge 模板。
 Forge 编译基线优先使用 47.4.10 recommended，而不是更激进的 47.4.20 latest。
 AE2 目标版本使用 15.4.10 Forge。
+AE2 15.4.10 runtime 需要 GuideME 20.1.7；只加入 AE2 Modrinth 坐标时 runData 会缺少 guideme。
 1.20.1 数据保存使用 ItemStack NBT；业务层通过 PackageDataStorage 抽象，为未来 Data Component 适配保留接口。
 设计文档和 AI 指令分离；AI/agent 工作规则只维护在 AGENTS.md。
 设计文档按需求、概要设计、详细设计、资产规格、实施计划、验证发布、参考来源分类维护。
@@ -62,8 +68,7 @@ AE2 1.20.1 Storage Cells 指南
 下一步：
 
 ```text
-提交分类文档与 AGENTS.md 重构。
-从 MDK-Forge-1.20.1-ModDevGradle 初始化项目骨架。
-配置 Gradle metadata、AE2 依赖、runData/build/GameTest。
+提交 ModDevGradle 项目骨架。
+开始实现 PackageDataStorage、canonical hash、容量档和包裹 tooltip。
 建立资产 brief 目录，按 AGENTS.md 准备材质任务。
 ```
