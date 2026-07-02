@@ -11,4 +11,10 @@ public record MarkerSpec(GenericStack stack) {
             throw new IllegalArgumentException("Marker amount must be positive");
         }
     }
+
+    public boolean sameAs(MarkerSpec other) {
+        return other != null
+                && stack.what().equals(other.stack().what())
+                && stack.amount() == other.stack().amount();
+    }
 }

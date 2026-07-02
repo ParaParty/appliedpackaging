@@ -1,12 +1,18 @@
 package com.warmthdawn.appliedpackaging.gametest;
 
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
-import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanFailure;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import java.util.List;
@@ -137,11 +143,120 @@ public final class PackageDataGameTests {
         helper.succeed();
     }
 
+    @GameTest(template = "empty")
+    public static void packagePlanFlattensSourcePackages(GameTestHelper helper) {
+        PackageData source = ironPackageData(PackageColor.RED, 64);
+        PackagePlanResult result = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                List.of(source),
+                MarkerMergeMode.RETAIN,
+                Optional.empty(),
+                PackageCapacityProfile.DEFAULT,
+                0);
+
+        helper.assertTrue(result.success(), "Package plan should flatten source packages into virtual contents");
+        PackageData data = result.data().orElseThrow();
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64, "Flattened plan should contain source iron");
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.COPPER_INGOT)) == 32, "Flattened plan should contain loose copper");
+        helper.assertTrue(data.marker().isEmpty(), "Retain should keep no marker when sources have no marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePlanRejectsRetainMarkerConflict(GameTestHelper helper) {
+        PackageData goldMarked = markedIronPackageData(PackageColor.RED, Items.GOLD_INGOT);
+        PackageData diamondMarked = markedIronPackageData(PackageColor.BLUE, Items.DIAMOND);
+        PackagePlanResult result = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(),
+                List.of(goldMarked, diamondMarked),
+                MarkerMergeMode.RETAIN,
+                Optional.empty(),
+                PackageCapacityProfile.DEFAULT,
+                0);
+
+        helper.assertFalse(result.success(), "Retain mode should reject conflicting source markers");
+        helper.assertTrue(result.failure().orElseThrow() == PackagePlanFailure.MARKER_CONFLICT, "Failure should be marker conflict");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePlanOverridesMarker(GameTestHelper helper) {
+        PackageData source = markedIronPackageData(PackageColor.RED, Items.GOLD_INGOT);
+        MarkerSpec override = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        PackagePlanResult result = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(),
+                List.of(source),
+                MarkerMergeMode.OVERRIDE,
+                Optional.of(override),
+                PackageCapacityProfile.DEFAULT,
+                0);
+
+        helper.assertTrue(result.success(), "Override mode should accept a replacement marker");
+        helper.assertTrue(result.data().orElseThrow().marker().map(marker -> marker.sameAs(override)).orElse(false),
+                "Output marker should be the override marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePlanClearsMarker(GameTestHelper helper) {
+        PackageData source = markedIronPackageData(PackageColor.RED, Items.GOLD_INGOT);
+        PackagePlanResult result = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(),
+                List.of(source),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                PackageCapacityProfile.DEFAULT,
+                0);
+
+        helper.assertTrue(result.success(), "Clear mode should accept marked source packages");
+        helper.assertTrue(result.data().orElseThrow().marker().isEmpty(), "Clear mode should remove output marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePlanRejectsCapacityOverflow(GameTestHelper helper) {
+        PackagePlanResult result = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640)),
+                List.of(),
+                MarkerMergeMode.RETAIN,
+                Optional.empty(),
+                PackageCapacityProfile.DEFAULT,
+                0);
+
+        helper.assertFalse(result.success(), "Default capacity should reject ten item units");
+        helper.assertTrue(result.failure().orElseThrow() == PackagePlanFailure.CAPACITY_EXCEEDED,
+                "Failure should be capacity exceeded");
+        helper.succeed();
+    }
+
     private static PackageData ironPackageData(PackageColor color, long amount) {
         return PackageData.create(
                 color,
                 List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), amount)),
                 Optional.empty(),
                 0);
+    }
+
+    private static PackageData markedIronPackageData(PackageColor color, net.minecraft.world.item.Item markerItem) {
+        return PackageData.create(
+                color,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
+                Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(markerItem), 1))),
+                0);
+    }
+
+    private static long amountOf(PackageData data, AEKey key) {
+        long amount = 0;
+        for (GenericStack stack : data.contents()) {
+            if (stack.what().equals(key)) {
+                amount += stack.amount();
+            }
+        }
+        return amount;
     }
 }

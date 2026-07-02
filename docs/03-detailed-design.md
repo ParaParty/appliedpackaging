@@ -215,6 +215,17 @@ clear:
 
 默认：`retain`。
 
+当前核心实现：
+
+```text
+PackagePlanBuilder 接收 looseContents 与 sourcePackages。
+sourcePackages 的 contents 会展开为虚拟内容后再创建新的 PackageData。
+retain 模式下，所有非空 source marker 必须相同，否则返回 MARKER_CONFLICT。
+override 模式使用传入 overrideMarker。
+clear 模式移除输出 marker。
+capacityProfile 在计划阶段检查 usedUnits 与 usedTypes，超限返回 CAPACITY_EXCEEDED。
+```
+
 ## 7. ME 包裹装配室
 
 职责：

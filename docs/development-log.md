@@ -54,6 +54,13 @@ PackageDataStorage 只接受当前 schema version，且必须通过完整 canoni
   不实现 any/all/exact 模式切换
 验证 .\gradlew.bat build 成功
 验证 .\gradlew.bat runGameTestServer 成功，9 个必需 GameTest 全部通过
+实现 PackagePlanBuilder / MarkerMergeMode / PackagePlanResult：
+  sourcePackages 展开为虚拟内容，避免真实包裹嵌套
+  retain/override/clear marker 策略
+  capacity profile 计划阶段检查
+  EMPTY_CONTENTS / INVALID_INPUT / MARKER_CONFLICT / CAPACITY_EXCEEDED 失败原因
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runGameTestServer 成功，14 个必需 GameTest 全部通过
 建立 docs/assets 执行文档：
   palette.md
   acceptance.md

@@ -66,10 +66,13 @@ unit tests/GameTest
   capacity calculator/profile
   tooltip
   package filter
+  package plan builder
+  marker retain/override/clear plan logic
+  package flattening
   PackageData GameTest
 
 待实现：
-  机器事务中的容量/profile 应用
+  机器事务与 Forge/AE2 endpoint 对接
   hash 稳定性更细粒度测试
 ```
 

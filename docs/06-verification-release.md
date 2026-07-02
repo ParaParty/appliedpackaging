@@ -40,6 +40,11 @@ schema version 不支持时拒绝
 颜色不匹配时过滤拒绝
 颜色/marker/内容同时匹配时过滤接受
 内容数量不足时过滤拒绝
+包裹计划会展开源包裹内容
+retain marker 冲突时计划拒绝
+override marker 时计划使用覆盖 marker
+clear marker 时计划清除 marker
+默认容量超限时计划拒绝
 ```
 
 1.20.1 运行要求：

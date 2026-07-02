@@ -31,7 +31,7 @@ public record PackageFilter(
         if (color.isPresent() && color.get() != packageColor) {
             return false;
         }
-        if (marker.isPresent() && !data.marker().map(actual -> sameStack(actual.stack(), marker.get().stack())).orElse(false)) {
+        if (marker.isPresent() && !data.marker().map(actual -> actual.sameAs(marker.get())).orElse(false)) {
             return false;
         }
         if (requiredContents.isEmpty()) {
@@ -56,7 +56,4 @@ public record PackageFilter(
         return amounts;
     }
 
-    private static boolean sameStack(GenericStack left, GenericStack right) {
-        return left.what().equals(right.what()) && left.amount() == right.amount();
-    }
 }
