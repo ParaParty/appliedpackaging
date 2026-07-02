@@ -1,5 +1,6 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
@@ -11,6 +12,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -18,6 +20,7 @@ import net.minecraftforge.items.SlotItemHandler;
 
 public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_ENCODE = 0;
+    public static final int BUTTON_COLOR_BASE = 10;
 
     private static final int MACHINE_SLOT_COUNT = 11;
     private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
@@ -26,6 +29,7 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
 
     private final PackagePatternTerminalBlockEntity blockEntity;
     private final ContainerLevelAccess access;
+    private final DataSlot selectedColorSlot;
 
     public PackagePatternTerminalMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -35,15 +39,36 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         super(APMenus.PACKAGE_PATTERN_TERMINAL.get(), containerId);
         this.blockEntity = blockEntity;
         this.access = ContainerLevelAccess.create(blockEntity.getLevel(), blockEntity.getBlockPos());
+        this.selectedColorSlot = new DataSlot() {
+            @Override
+            public int get() {
+                return blockEntity.selectedColor().ordinal();
+            }
+
+            @Override
+            public void set(int value) {
+                PackageColor[] values = PackageColor.values();
+                if (value >= 0 && value < values.length) {
+                    blockEntity.setSelectedColor(values[value]);
+                }
+            }
+        };
 
         addInputSlots();
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN, 116, 24));
         addSlot(new OutputSlot(blockEntity, 144, 24));
         addPlayerInventory(playerInventory);
+        addDataSlot(selectedColorSlot);
     }
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (id >= BUTTON_COLOR_BASE && id < BUTTON_COLOR_BASE + PackageColor.values().length) {
+            if (!player.level().isClientSide) {
+                blockEntity.setSelectedColor(PackageColor.values()[id - BUTTON_COLOR_BASE]);
+            }
+            return true;
+        }
         if (id != BUTTON_ENCODE) {
             return false;
         }
@@ -52,6 +77,15 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
             player.displayClientMessage(Component.translatable(result.messageKey()), true);
         }
         return true;
+    }
+
+    public PackageColor selectedColor() {
+        PackageColor[] values = PackageColor.values();
+        int index = selectedColorSlot.get();
+        if (index < 0 || index >= values.length) {
+            return PackageColor.FLUIX;
+        }
+        return values[index];
     }
 
     @Override

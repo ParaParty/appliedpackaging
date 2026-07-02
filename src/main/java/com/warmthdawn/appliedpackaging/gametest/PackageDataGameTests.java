@@ -493,6 +493,26 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternTerminalEncodesSelectedColor(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
+        terminal.setSelectedColor(PackageColor.RED);
+        terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        terminal.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGE_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = terminal.encodeOnce();
+        ItemStack output = terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Terminal should encode with a selected color");
+        helper.assertTrue(pattern.color() == PackageColor.RED, "Encoded pattern should keep the selected color");
+        helper.assertTrue(output.is(APItems.PACKAGE_PATTERN.get()), "Terminal should output a package pattern");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalKeepsBlankWhenOutputBlocked(GameTestHelper helper) {
         PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
         terminal.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));

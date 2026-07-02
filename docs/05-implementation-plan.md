@@ -236,11 +236,12 @@ GameTest/服务器 smoke test
   PackageItemStorage GameTest
   package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern
+  package_pattern_terminal 支持 17 色 swatch 选择，编码样板颜色跟随 selectedColor
   package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
   装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
 
 待实现：
-  17 色选择、marker ghost、容量档等完整终端 UI
+  marker ghost、容量档等完整终端 UI
   彩色处理样板编辑
   封装处理样板合成/拆分
   颜色/marker/content 过滤 UI

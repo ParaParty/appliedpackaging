@@ -58,9 +58,10 @@ AE2 PackageItemStorage 拒绝散装物品插入
 AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
 package_pattern 数据可读写
 package_pattern_terminal 可从预览输入编码 package_pattern
+package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
 package_pattern_terminal 输出阻挡时保留空白样板
 package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆盖
-当前最新执行：.\gradlew.bat runGameTestServer 成功，29 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，30 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

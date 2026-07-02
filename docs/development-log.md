@@ -182,6 +182,7 @@ AE2 1.20.1 Storage Cells 指南
   编码不消耗预览输入，只消耗 1 个未编码空白 package_pattern
   输出槽阻挡时不消耗空白样板
   已编码 package_pattern 不能作为空白样板被覆盖
+  17 色 swatch 可选择 selectedColor，编码样板颜色跟随当前选择
 新增 PackagePatternDataStorage：
   在 ItemStack NBT 写入 version、color、嵌套 PackageData
   读取时按样板颜色复验嵌套 PackageData canonical hash
@@ -195,6 +196,7 @@ Package Assembler 接入已编码 package_pattern：
 新增包裹样板终端 GameTest：
   packagePatternDataRoundTrips
   packagePatternTerminalEncodesInputPreview
+  packagePatternTerminalEncodesSelectedColor
   packagePatternTerminalKeepsBlankWhenOutputBlocked
   packagePatternTerminalRejectsEncodedBlankPattern
   packageAssemblerUsesEncodedPackagePattern
@@ -207,7 +209,7 @@ Package Assembler 接入已编码 package_pattern：
 验证 53 个 PNG 尺寸/模式/模型引用全部通过
 验证 .\gradlew.bat runData 成功
 验证 .\gradlew.bat build 成功
-验证 .\gradlew.bat runGameTestServer 成功，29 个必需 GameTest 全部通过
+验证 .\gradlew.bat runGameTestServer 成功，30 个必需 GameTest 全部通过
 ```
 
 下一步：

@@ -37,7 +37,9 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     public static final int SLOT_OUTPUT = 10;
     private static final int SLOT_COUNT = 11;
     private static final String ITEMS_TAG = "items";
+    private static final String SELECTED_COLOR_TAG = "selected_color";
 
+    private PackageColor selectedColor = PackageColor.FLUIX;
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
@@ -69,6 +71,15 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         return items;
     }
 
+    public PackageColor selectedColor() {
+        return selectedColor;
+    }
+
+    public void setSelectedColor(PackageColor selectedColor) {
+        this.selectedColor = selectedColor;
+        setChanged();
+    }
+
     public EncodeResult encodeOnce() {
         if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
             return EncodeResult.OUTPUT_BLOCKED;
@@ -82,14 +93,14 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 inputView,
-                PackageColor.FLUIX,
+                selectedColor,
                 PackageCapacityProfile.DEFAULT);
         if (plan.isEmpty()) {
             return EncodeResult.NO_CONTENTS;
         }
 
         ItemStack encoded = new ItemStack(APItems.PACKAGE_PATTERN.get());
-        PackagePatternDataStorage.write(encoded, PackageColor.FLUIX, plan.get().data());
+        PackagePatternDataStorage.write(encoded, selectedColor, plan.get().data());
         ItemStack remainder = items.insertItem(SLOT_OUTPUT, encoded, true);
         if (!remainder.isEmpty()) {
             return EncodeResult.OUTPUT_BLOCKED;
@@ -129,6 +140,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
+        tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
     }
 
     @Override
@@ -137,6 +149,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             items.deserializeNBT(tag.getCompound(ITEMS_TAG));
         }
+        PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).ifPresent(color -> selectedColor = color);
     }
 
     @Override

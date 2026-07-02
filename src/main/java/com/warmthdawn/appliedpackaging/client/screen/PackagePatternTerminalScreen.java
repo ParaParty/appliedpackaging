@@ -1,10 +1,13 @@
 package com.warmthdawn.appliedpackaging.client.screen;
 
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -25,7 +28,7 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
         titleLabelX = 8;
         titleLabelY = 6;
         inventoryLabelX = 8;
-        inventoryLabelY = 73;
+        inventoryLabelY = 75;
     }
 
     @Override
@@ -46,6 +49,14 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
                 Component.translatable("gui.appliedpackaging.package_pattern_terminal.encode"));
         encodeButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.package_pattern_terminal.encode")));
         addRenderableWidget(encodeButton);
+
+        for (int index = 0; index < PackageColor.values().length; index++) {
+            PackageColor color = PackageColor.values()[index];
+            addRenderableWidget(new ColorSwatchButton(
+                    leftPos + 10 + index * 9,
+                    topPos + 67,
+                    color));
+        }
     }
 
     @Override
@@ -65,6 +76,8 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
         graphics.renderOutline(x + 6, y + 18, 164, 48, PANEL_MID);
         renderMachineSlots(graphics, x, y);
         renderInventorySlots(graphics, x, y);
+        graphics.fill(x + 8, y + 66, x + 164, y + 77, 0xffaeb7bd);
+        graphics.renderOutline(x + 8, y + 66, 156, 11, PANEL_MID);
         graphics.hLine(x + 86, x + 108, y + 34, PANEL_DARK);
         graphics.hLine(x + 134, x + 142, y + 34, PANEL_DARK);
     }
@@ -99,6 +112,39 @@ public class PackagePatternTerminalScreen extends AbstractContainerScreen<Packag
         }
         for (int column = 0; column < 9; column++) {
             renderSlot(graphics, left + 7 + column * 18, top + 141);
+        }
+    }
+
+    private class ColorSwatchButton extends AbstractButton {
+        private final PackageColor color;
+
+        private ColorSwatchButton(int x, int y, PackageColor color) {
+            super(x, y, 8, 8, Component.translatable("item.appliedpackaging." + color.id() + "_package"));
+            this.color = color;
+            setTooltip(Tooltip.create(getMessage()));
+        }
+
+        @Override
+        public void onPress() {
+            minecraft.gameMode.handleInventoryButtonClick(
+                    menu.containerId,
+                    PackagePatternTerminalMenu.BUTTON_COLOR_BASE + color.ordinal());
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            boolean selected = menu.selectedColor() == color;
+            int border = selected ? 0xffffffff : (isHoveredOrFocused() ? 0xffd6dbde : 0xff2a3036);
+            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
+            graphics.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, color.swatchArgb());
+            if (selected) {
+                graphics.renderOutline(getX() - 1, getY() - 1, width + 2, height + 2, 0xff2a3036);
+            }
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
         }
     }
 }
