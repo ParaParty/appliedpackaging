@@ -32,7 +32,7 @@ build/libs/appliedpackaging-0.1.0-dev.jar
 - Nested packages are flattened when repackaged, so packages do not become recursive containers.
 - ME Package Assembler for AE2 pattern-driven package output with optional auto-export to adjacent AE2 storage or item inventories.
 - ME Packager for adjacent inventory, adjacent fluid tank, and adjacent AE2 storage endpoint packaging and unpacking, with manual, pulse, and cyclic redstone operation.
-- Package Pattern Terminal for encoding package patterns on AE2 blank patterns.
+- Package Pattern Terminal as an AE2 cable part item for encoding package patterns on AE2 blank patterns.
 - AE2 encoded processing pattern carrier support for packaged-processing automation.
 - Package Storage Bus, Package Export Bus, and Package Unpacking Bus that expose or move only valid packages.
 - Color, marker, required-content, and package-template filtering for routing and unpacking.
@@ -91,7 +91,7 @@ Latest recorded verification:
 
 ```text
 compileJava:       passed
-runGameTestServer: passed, 110 required GameTests
+runGameTestServer: passed, 112 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas
@@ -103,7 +103,8 @@ The dedicated server smoke stops at Mojang's EULA prompt until the user explicit
 
 ## Known Limitations
 
-- The Package Pattern Terminal is implemented as a thin AE2-style panel block. A true AE2 cable part form is not implemented yet.
+- The Package Pattern Terminal keeps a compatible block path for old saves and tests, but the player-facing item is now an AE2 cable part.
+- The terminal part currently reuses the existing Applied Packaging terminal face and AE2-style part layers; final bespoke part artwork is still pending.
 - Manual filter editing supports item and Forge fluid-container required content ghosts. A direct arbitrary AEKey ghost editor is not yet provided.
 - Packaged-processing pattern output ghost slots support item stacks and Forge fluid containers. A direct arbitrary AEKey output editor is not yet provided.
 - Full dedicated-server world-load verification is pending explicit EULA acceptance.

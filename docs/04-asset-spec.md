@@ -232,8 +232,8 @@ docs/assets/reports/*.md
 
 ```text
 5 个 asset contract 均 validate ok
-53 个 PNG 尺寸符合预期
-33 个 JSON 可解析
+52 个 PNG 尺寸符合预期
+54 个 JSON 可解析
 block model 坐标保持在 0..16
 texture/model 引用存在
 抽样视觉检查通过

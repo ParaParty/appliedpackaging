@@ -1021,3 +1021,19 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat runClientSmoke 成功，生成 6 张真实菜单截图并正常退出客户端，其中 Package Pattern Terminal 截图来自真实 AE2 part 菜单
 验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
 ```
+
+最新进展：
+
+```text
+补齐发布 jar 元数据与随包文件：
+  README.md / CHANGELOG.md 的 Package Pattern Terminal 状态已更新为 AE2 cable part item，不再误写为未实现 true cable part
+  README.md / CHANGELOG.md / docs/chat-summary.md / docs/06-verification-release.md 的 GameTest 数量更新为 112
+  Gradle jar 任务现在随包包含 LICENSE.md、README.md、CHANGELOG.md
+  jar manifest 写入 Applied Packaging 的 specification/implementation title、version、vendor
+  已检查 build/libs/appliedpackaging-0.1.0-dev.jar 内含 META-INF/mods.toml、META-INF/MANIFEST.MF、LICENSE.md、README.md、CHANGELOG.md 与 logo.png
+  当前资源轻量审计：英文/简体中文语言 key 对齐，src/main/resources 下 52 个 PNG 均非空，54 个 JSON 可解析
+验证 .\gradlew.bat build 成功，重新生成 build/libs/appliedpackaging-0.1.0-dev.jar
+验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+验证 .\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张真实菜单截图并正常退出客户端，其中 Package Pattern Terminal 仍通过 AE2 part host 打开
+```

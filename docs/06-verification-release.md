@@ -147,7 +147,8 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
-当前最新执行：.\gradlew.bat runGameTestServer 成功，110 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
+2026-07-03 06:15 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -190,10 +191,13 @@ language key 完整
 PNG/JSON/model 引用机械检查通过
 资源抽样视觉检查通过
 已按 AE2 forge/v15.4.10 源码资产生成参考 sheet，并基于参考完成二轮材质重做
-53 个 PNG 尺寸/模式/模型引用检查通过
+52 个 PNG 尺寸/模式/模型引用检查通过
+54 个 JSON 可解析
 .\gradlew.bat runData 成功
 2026-07-03 05:35 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
 2026-07-03 05:43 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+2026-07-03 06:14 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+2026-07-03 06:16 轻量资源审计通过：英文/简体中文语言 key 对齐，52 个 PNG 非空。
 ```
 
 ## 4. 构建验证
@@ -214,6 +218,9 @@ jar 文件名包含 mod id 和版本
 ```
 
 当前最新执行：`.\gradlew.bat build` 成功，生成 `build/libs/appliedpackaging-0.1.0-dev.jar`。
+
+2026-07-03 06:13 再次执行 `.\gradlew.bat build` 成功。
+本次发布 jar 重新打包后已确认包含 `META-INF/mods.toml`、`META-INF/MANIFEST.MF`、`LICENSE.md`、`README.md`、`CHANGELOG.md` 和 `assets/appliedpackaging/logo.png`。
 
 ## 5. 客户端验证
 
@@ -270,6 +277,12 @@ run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable
 2026-07-03 06:04 在 Package Pattern Terminal 改为 AE2 cable part item 后再次执行 .\gradlew.bat runClientSmoke 成功。
 本次 smoke 的 Package Pattern Terminal 步骤通过 PartHelper.setPart 放置真实 AE2 part，再用 part host buffer 打开 PackagePatternTerminalScreen。
 6 张截图均重新生成并正常退出客户端；run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout。
+
+2026-07-03 06:08 再次执行 .\gradlew.bat runClientSmoke 成功。
+本次 smoke 仍通过 PartHelper.setPart 放置 Package Pattern Terminal AE2 part，并生成 6 张真实菜单截图；人工抽看 Package Pattern Terminal 截图，确认菜单非空屏、核心控件和槽位显示正常。
+
+2026-07-03 06:18 再次执行 .\gradlew.bat runClientSmoke 成功。
+本次 smoke 自动摆放 6 个目标，Package Pattern Terminal 步骤继续使用 AE2 part host，6 张真实菜单截图均重新生成并正常退出客户端。
 ```
 
 ## 6. Dedicated Server 验证
@@ -321,6 +334,7 @@ docs 与实现一致
 CHANGELOG.md：已补齐 0.1.0-dev 发布记录、验证结果和已知限制
 LICENSE.md：已补齐 All Rights Reserved 许可声明
 README.md：已补齐安装要求、玩法流程、功能清单、验证状态和已知限制
+release jar：已包含 README.md、CHANGELOG.md、LICENSE.md、META-INF/MANIFEST.MF 与 META-INF/mods.toml
 logo/icon：assets/appliedpackaging/logo.png、textures/gui/logo.png 和包裹/机器/总线图标已存在
 release notes：已写入 CHANGELOG.md
 known limitations：已写入 README.md 与 CHANGELOG.md
