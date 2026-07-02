@@ -2,6 +2,7 @@ package com.warmthdawn.appliedpackaging.client;
 
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
+import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import net.minecraft.client.gui.screens.MenuScreens;
@@ -21,6 +22,7 @@ public final class AppliedPackagingClient {
             MenuScreens.register(APMenus.ME_PACKAGER.get(), MePackagerScreen::new);
             MenuScreens.register(APMenus.PACKAGE_ASSEMBLER.get(), PackageAssemblerScreen::new);
             MenuScreens.register(APMenus.PACKAGE_PATTERN_TERMINAL.get(), PackagePatternTerminalScreen::new);
+            MenuScreens.register(APMenus.PACKAGE_BUS.get(), PackageBusScreen::new);
         });
     }
 }

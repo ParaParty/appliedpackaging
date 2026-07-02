@@ -7,6 +7,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageStorageBusB
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageUnpackingBusBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -18,6 +19,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.network.NetworkHooks;
 
 public class PackageBusBlock extends AbstractHorizontalMachineBlock {
     private final BusKind kind;
@@ -48,7 +50,7 @@ public class PackageBusBlock extends AbstractHorizontalMachineBlock {
         boolean shouldClear = player.isShiftKeyDown() && held.isEmpty();
         boolean shouldSet = !held.isEmpty() && PackageFilter.fromTemplate(held).isPresent();
         if (level.isClientSide) {
-            return shouldClear || shouldSet ? InteractionResult.SUCCESS : InteractionResult.PASS;
+            return shouldClear || shouldSet || held.isEmpty() ? InteractionResult.SUCCESS : InteractionResult.PASS;
         }
 
         BlockEntity blockEntity = level.getBlockEntity(pos);
@@ -63,6 +65,10 @@ public class PackageBusBlock extends AbstractHorizontalMachineBlock {
         if (shouldSet) {
             bus.setFilterTemplate(held);
             player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_set"), true);
+            return InteractionResult.CONSUME;
+        }
+        if (held.isEmpty() && player instanceof ServerPlayer serverPlayer) {
+            NetworkHooks.openScreen(serverPlayer, bus, pos);
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;

@@ -600,10 +600,31 @@ Package Assembler 接入已编码 package_pattern：
 smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
 ```
 
+最新进展：
+
+```text
+补齐 Package Bus ghost filter 配置 UI：
+  AbstractPackageBusBlockEntity 实现 MenuProvider
+  package_storage_bus、package_export_bus、package_unpacking_bus 共用 PackageBusMenu / PackageBusScreen
+  普通空手右键打开配置 UI；手持有效模板右键快速设置、潜行空手清除的旧路径保留
+  UI 显示当前 ghost filter 模板，支持从光标物品复制模板、清除模板
+  shift-click 玩家背包中的已编码 package_pattern、packaged_processing_pattern 或合法包裹可设置 ghost filter
+  UI 设置与 shift-click 都不消耗玩家模板物品
+新增 GameTest：
+  packageBusMenuSetsFilterFromCursor
+  packageBusMenuShiftClickSetsGhostFilter
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，76 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+再次执行 .\gradlew.bat runClient，客户端启动到 Applied Packaging 初始化、SoundEngine 启动和 block atlas 创建阶段
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、preview_sheet 或 mip level
+smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
+```
+
 下一步：
 
 ```text
-补齐处理输出 UI、完整过滤 UI 和 AE2 part 形态。
-补客户端实际开 GUI/截图 smoke，重点看 Package Assembler 新容量槽、终端 Split 按钮和输入槽色标右键清除。
+补齐处理输出 UI、可手工编辑 color/marker/content 的高级过滤器 UI 和 AE2 part 形态。
+补客户端实际开 GUI/截图 smoke，重点看 Package Assembler 新容量槽、Package Bus 过滤 UI、终端 Split 按钮和输入槽色标右键清除。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```

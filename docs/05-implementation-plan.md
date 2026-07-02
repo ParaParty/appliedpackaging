@@ -256,6 +256,8 @@ GameTest/服务器 smoke test
   package_export_bus 只从 AE 网络输出已有合法包裹
   package_unpacking_bus 整包事务性拆入背面库存
   总线支持手持已编码样板/合法包裹设置 ghost 过滤模板，潜行空手清除
+  总线提供共享 Package Bus 配置 UI，可显示 ghost filter、从光标复制模板、清除模板、shift-click 背包模板设置 ghost filter
+  Package Bus 配置 UI 不消耗玩家光标或背包中的模板物品
   PackageItemStorage/总线过滤 GameTest
   package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern
@@ -277,7 +279,7 @@ GameTest/服务器 smoke test
   彩色处理样板更完整的处理输出 UI
   封装处理样板处理输出 UI
   AE2 原版 blank/encoded pattern 承载迁移评估
-  颜色/marker/content 完整过滤 UI
+  可手工编辑 color/marker/content 的高级过滤器 UI
   AE2 cable part 形态
   package_pattern_terminal 调整为 AE2 风格面板/part
   客户端模型/GUI 冒烟验证

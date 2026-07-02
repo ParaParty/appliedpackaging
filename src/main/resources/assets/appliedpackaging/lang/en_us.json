@@ -64,6 +64,8 @@
   "gui.appliedpackaging.package_pattern_terminal.encode": "Encode package pattern",
   "gui.appliedpackaging.package_pattern_terminal.split": "Split",
   "gui.appliedpackaging.package_pattern_terminal.input_slot_color": "Set input slot color",
+  "gui.appliedpackaging.package_bus.set_filter": "Set filter from cursor",
+  "gui.appliedpackaging.package_bus.clear_filter": "Clear filter",
   "message.appliedpackaging.me_packager.inserted_package": "Package inserted",
   "message.appliedpackaging.me_packager.input_blocked": "Input slot blocked",
   "message.appliedpackaging.me_packager.output_taken": "Package output taken",
@@ -83,5 +85,6 @@
   "message.appliedpackaging.package_pattern_terminal.no_contents": "No packable input contents",
   "message.appliedpackaging.package_pattern_terminal.output_blocked": "Output slot blocked",
   "message.appliedpackaging.package_bus.filter_set": "Package bus filter set",
+  "message.appliedpackaging.package_bus.filter_invalid": "Cursor item is not a package filter template",
   "message.appliedpackaging.package_bus.filter_cleared": "Package bus filter cleared"
 }

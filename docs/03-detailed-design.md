@@ -642,8 +642,10 @@ package_unpacking_bus:
 
 过滤模板当前为 ghost 配置：手持已编码 package_pattern、packaged_processing_pattern 或合法包裹右键总线写入模板；
 潜行空手右键清除模板；模板物品不被消耗，也不会作为实体库存掉落。
+普通空手右键打开共享 Package Bus 配置 UI；UI 显示当前 ghost 模板，支持从光标物品复制模板、清除模板，以及从玩家背包 shift-click 有效模板复制为 ghost filter。
+UI 仍复用 PackageFilter.fromTemplate，因此 package_pattern、packaged_processing_pattern 和合法包裹的颜色、marker、内容过滤语义与右键快捷配置完全一致。
 
-当前不含完整过滤 UI，也未实现 AE2 cable part 形态。
+当前不含手工编辑 color/marker/content 的高级过滤器 UI，也未实现 AE2 cable part 形态。
 ```
 
 ## 11. 过滤规则

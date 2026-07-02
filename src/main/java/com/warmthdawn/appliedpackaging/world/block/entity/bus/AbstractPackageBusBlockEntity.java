@@ -15,12 +15,17 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
+import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -30,7 +35,7 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
-public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity {
+public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity implements MenuProvider {
     private static final String FILTER_TEMPLATE_TAG = "filter_template";
 
     private int tickCounter;
@@ -54,6 +59,16 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
     }
 
     protected abstract void tickNetwork();
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable(getBlockState().getBlock().getDescriptionId());
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+        return new PackageBusMenu(containerId, playerInventory, this);
+    }
 
     protected Optional<IItemHandler> findTargetItemHandler() {
         if (level == null) {

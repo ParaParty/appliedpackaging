@@ -44,13 +44,16 @@ import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -60,9 +63,12 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.fluids.FluidStack;
@@ -1327,6 +1333,52 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageBusMenuSetsFilterFromCursor(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = placePackageExportBus(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackageBusMenu menu = new PackageBusMenu(1, new Inventory(player), bus);
+        ItemStack encodedPattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(encodedPattern, PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+
+        menu.setCarried(encodedPattern.copy());
+        boolean setClicked = menu.clickMenuButton(player, PackageBusMenu.BUTTON_SET_FROM_CURSOR);
+        Optional<PackageFilter> configured = PackageFilter.fromTemplate(bus.getFilterTemplate());
+        boolean clearClicked = menu.clickMenuButton(player, PackageBusMenu.BUTTON_CLEAR_FILTER);
+
+        helper.assertTrue(setClicked, "Package bus filter menu should accept the set button");
+        helper.assertTrue(configured.isPresent(), "Package bus filter menu should store a ghost template");
+        helper.assertTrue(configured.get().color().orElseThrow() == PackageColor.RED,
+                "Package bus filter menu should preserve template color");
+        helper.assertTrue(!menu.getCarried().isEmpty(),
+                "Package bus filter menu should not consume the carried template");
+        helper.assertTrue(clearClicked, "Package bus filter menu should accept the clear button");
+        helper.assertTrue(bus.getFilterTemplate().isEmpty(), "Package bus filter menu should clear the template");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusMenuShiftClickSetsGhostFilter(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = placePackageExportBus(helper);
+        FakePlayer player = newFakePlayer(helper);
+        Inventory inventory = new Inventory(player);
+        PackageBusMenu menu = new PackageBusMenu(2, inventory, bus);
+        ItemStack encodedPattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(encodedPattern, PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        inventory.setItem(0, encodedPattern.copy());
+
+        ItemStack moved = menu.quickMoveStack(player, PackageBusMenu.HOTBAR_START);
+        Optional<PackageFilter> configured = PackageFilter.fromTemplate(bus.getFilterTemplate());
+
+        helper.assertTrue(moved.isEmpty(), "Package bus filter shift-click should not move real items");
+        helper.assertTrue(configured.isPresent(), "Package bus filter shift-click should store a ghost template");
+        helper.assertTrue(configured.get().color().orElseThrow() == PackageColor.BLUE,
+                "Package bus filter shift-click should preserve template color");
+        helper.assertTrue(!inventory.getItem(0).isEmpty(),
+                "Package bus filter shift-click should not consume the inventory template");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageItemStorageRejectsLooseItemInsert(GameTestHelper helper) {
         ItemStackHandler target = new ItemStackHandler(1);
         PackageItemStorage storage = new PackageItemStorage(target, net.minecraft.network.chat.Component.literal("test"));
@@ -1800,6 +1852,21 @@ public final class PackageDataGameTests {
 
     private static PackageAssemblerBlockEntity newPackageAssembler() {
         return new PackageAssemblerBlockEntity(BlockPos.ZERO, APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState());
+    }
+
+    private static PackageExportBusBlockEntity placePackageExportBus(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(0, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(pos),
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState(),
+                3);
+        return (PackageExportBusBlockEntity) helper.getBlockEntity(pos);
+    }
+
+    private static FakePlayer newFakePlayer(GameTestHelper helper) {
+        return FakePlayerFactory.get(
+                helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "appliedpackaging_test"));
     }
 
     private static PackagePatternTerminalBlockEntity newPackagePatternTerminal() {
