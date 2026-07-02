@@ -273,9 +273,11 @@ pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物
 封装处理 pushPattern 当前只接受 item-only packages；遇到包裹内容中的非物品 AEKey 或额外输入时整批拒绝。
 一次 pushPattern 产生多个包裹时，先输出第一个，剩余包裹写入待输出队列；输出槽清空后 server tick/tryAssemble 继续吐出。
 待输出队列写入方块实体 NBT，破坏方块时以合法包裹掉落。
+自动导出开启时，server tick 会优先把输出槽包裹导出到机器背面端点；背面优先识别 AE2 MEStorage capability，其次回落到 Forge item handler。
 已通过 GameTest 验证真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送到 package_assembler。
 已通过 GameTest 验证真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可解码并推送带 packaged_processing_pattern NBT 的 AE2 encoded processing pattern。
 已通过 GameTest 验证真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider 自动合成 job 会从 AE 网络抽取输入，并把 processing pattern 输入推入 package_assembler。
+已通过 GameTest 验证装配室默认自动导出开关、NBT 持久化、相邻 item handler 导出和真实 AE2 Interface 网络导出。
 ```
 
 方块实体状态：
@@ -303,7 +305,7 @@ Forge item handler capability 暴露完整 12 格机器库存
 AE2 CRAFTING_MACHINE capability 暴露装配室本体
 colored processing pending package queue 持久化保存
 容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
-17 格输出缓存和自动导入 AE 网络仍属于后续实现项；当前为 1 格输出槽
+17 格输出缓存仍属于后续实现项；当前为 1 格输出槽，输出自动导出已实现为背面 AE2 MEStorage / Forge item handler 端点导出
 ```
 
 普通处理样板：
@@ -342,7 +344,7 @@ UI：
 左侧：样板槽、本地输入缓存、容量元件槽
 中间：包裹计划预览和彩色分组
 右侧：当前 1 格输出口；目标 17 格输出口
-下方：默认颜色、default marker、阻挡模式、自动导入 AE 网络、状态文本
+下方：默认颜色、default marker、阻挡模式、自动导出、状态文本
 ```
 
 当前基础实现：
@@ -365,7 +367,9 @@ packaged_processing_pattern 不会被消耗；输出被取走后可继续生成�
 彩色 Pattern Provider 推送可产生多个包裹；当前 1 格输出槽通过 pending queue 顺序吐出后续包裹。
 未编码样板或空样板槽时，装配室使用 Fluix 包裹行为，并按容量槽档位规划。
 普通 Pattern Provider pushPattern 在空样板槽时直接从 KeyCounter 规划包裹，可承载超过 9 个物品栈的输入，只受容量档约束。
-当前不含 AE2 网络自动导出。
+自动导出默认开启，可在装配室 GUI 中通过 auto_export 图标切换并保存到 NBT。
+自动导出只移动输出槽中的合法包裹；目标拒绝或容量不足时保留输出槽内容，不丢弃、不消耗新的输入。
+自动导出端点为机器背面，优先 AE2 MEStorage，其次 Forge item handler。
 ```
 
 ## 8. ME 打包机

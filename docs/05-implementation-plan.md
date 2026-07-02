@@ -218,9 +218,13 @@ GameTest/客户端验证
   彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
   同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
   彩色 pushPattern 产生多个包裹时通过 pending queue 顺序输出并持久化保存
+  装配室输出自动导出默认开启，可通过 GUI 图标按钮切换并持久化保存
+  装配室 server tick 会把输出槽包裹优先导出到背面 AE2 MEStorage，其次回落到背面 Forge item handler
+  自动导出失败时保留输出槽包裹，不丢弃、不继续消耗新输入
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler GameTest smoke
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler 彩色处理样板 GameTest smoke
   真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider + Package Assembler 自动合成 job smoke
+  真实 AE2 Creative Energy Cell + Drive + Interface + Package Assembler 自动导出 GameTest smoke
   装配室基础 GameTest
 
 客户端验证：

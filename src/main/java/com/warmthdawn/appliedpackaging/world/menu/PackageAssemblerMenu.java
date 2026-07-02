@@ -10,12 +10,15 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
 
 public class PackageAssemblerMenu extends AbstractContainerMenu {
+    public static final int BUTTON_AUTO_EXPORT = 0;
+
     private static final int MACHINE_SLOT_COUNT = 12;
     private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
     private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
@@ -23,6 +26,7 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
 
     private final PackageAssemblerBlockEntity blockEntity;
     private final ContainerLevelAccess access;
+    private final DataSlot autoExportSlot;
 
     public PackageAssemblerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -32,12 +36,39 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
         super(APMenus.PACKAGE_ASSEMBLER.get(), containerId);
         this.blockEntity = blockEntity;
         this.access = ContainerLevelAccess.create(blockEntity.getLevel(), blockEntity.getBlockPos());
+        this.autoExportSlot = new DataSlot() {
+            @Override
+            public int get() {
+                return blockEntity.autoExport() ? 1 : 0;
+            }
+
+            @Override
+            public void set(int value) {
+                blockEntity.setAutoExport(value != 0);
+            }
+        };
 
         addInputSlots();
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackageAssemblerBlockEntity.SLOT_PATTERN, 116, 24));
         addSlot(new OutputSlot(blockEntity, 144, 24));
         addSlot(new SlotItemHandler(blockEntity.getItems(), PackageAssemblerBlockEntity.SLOT_CAPACITY, 116, 52));
         addPlayerInventory(playerInventory);
+        addDataSlot(autoExportSlot);
+    }
+
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (id != BUTTON_AUTO_EXPORT) {
+            return false;
+        }
+        if (!player.level().isClientSide) {
+            blockEntity.toggleAutoExport();
+        }
+        return true;
+    }
+
+    public boolean autoExport() {
+        return autoExportSlot.get() != 0;
     }
 
     @Override

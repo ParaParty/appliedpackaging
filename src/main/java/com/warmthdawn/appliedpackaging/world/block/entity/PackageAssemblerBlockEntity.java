@@ -3,10 +3,13 @@ package com.warmthdawn.appliedpackaging.world.block.entity;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.api.config.Actionable;
+import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.api.storage.MEStorage;
 import appeng.capabilities.Capabilities;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
@@ -23,6 +26,7 @@ import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import java.util.ArrayList;
@@ -64,6 +68,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     private static final String PENDING_PACKAGES_TAG = "pending_packages";
     private static final String PENDING_COLOR_TAG = "color";
     private static final String PENDING_DATA_TAG = "data";
+    private static final String AUTO_EXPORT_TAG = "auto_export";
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -100,13 +105,25 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
     private final LazyOptional<ICraftingMachine> craftingMachine = LazyOptional.of(() -> this);
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
+    private boolean autoExport = true;
 
     public PackageAssemblerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.PACKAGE_ASSEMBLER.get(), pos, blockState);
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, PackageAssemblerBlockEntity blockEntity) {
-        blockEntity.tryAssemble();
+        blockEntity.serverTick();
+    }
+
+    public void serverTick() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        exportOutputIfEnabled();
+        AssemblyResult result = tryAssemble();
+        if (result == AssemblyResult.ASSEMBLED) {
+            exportOutputIfEnabled();
+        }
     }
 
     public ItemStackHandler getItems() {
@@ -115,6 +132,21 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     public static boolean isPatternSlotItem(ItemStack stack) {
         return PackagePatternDataStorage.canStore(stack) || PackagedProcessingPatternDataStorage.canStore(stack);
+    }
+
+    public boolean autoExport() {
+        return autoExport;
+    }
+
+    public void setAutoExport(boolean autoExport) {
+        if (this.autoExport != autoExport) {
+            this.autoExport = autoExport;
+            setChanged();
+        }
+    }
+
+    public void toggleAutoExport() {
+        setAutoExport(!autoExport);
     }
 
     @Override
@@ -140,6 +172,64 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         }
 
         return commitAssemblyPlan(inputView, attempt.plan().orElseThrow());
+    }
+
+    public boolean exportOutputOnce() {
+        if (level == null || level.isClientSide) {
+            return false;
+        }
+        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
+        if (output.isEmpty()) {
+            return false;
+        }
+
+        Optional<MEStorage> meStorage = findOutputMEStorage();
+        if (meStorage.isPresent() && exportOutputToMEStorage(meStorage.get(), output)) {
+            return true;
+        }
+
+        Optional<IItemHandler> itemTarget = findOutputItemHandler();
+        return itemTarget.isPresent() && exportOutputToItemHandler(itemTarget.get(), output);
+    }
+
+    private boolean exportOutputIfEnabled() {
+        return autoExport && exportOutputOnce();
+    }
+
+    private boolean exportOutputToMEStorage(MEStorage target, ItemStack output) {
+        AEItemKey key = AEItemKey.of(output);
+        long simulated = target.insert(key, output.getCount(), Actionable.SIMULATE, IActionSource.empty());
+        if (simulated <= 0) {
+            return false;
+        }
+        long committed = target.insert(key, simulated, Actionable.MODULATE, IActionSource.empty());
+        if (committed <= 0) {
+            return false;
+        }
+        items.extractItem(SLOT_OUTPUT, (int) committed, false);
+        setChanged();
+        return true;
+    }
+
+    private boolean exportOutputToItemHandler(IItemHandler target, ItemStack output) {
+        ItemStack simulatedRemainder = ItemHandlerHelper.insertItemStacked(target, output.copy(), true);
+        int transferable = output.getCount() - simulatedRemainder.getCount();
+        if (transferable <= 0) {
+            return false;
+        }
+
+        ItemStack extracted = items.extractItem(SLOT_OUTPUT, transferable, true);
+        if (extracted.isEmpty()) {
+            return false;
+        }
+        ItemStack remainder = ItemHandlerHelper.insertItemStacked(target, extracted.copy(), false);
+        int inserted = extracted.getCount() - remainder.getCount();
+        if (inserted <= 0) {
+            return false;
+        }
+        items.extractItem(SLOT_OUTPUT, inserted, false);
+        setChanged();
+        return true;
     }
 
     private AssemblyResult commitAssemblyPlan(IItemHandler input, AssemblyPlan plan) {
@@ -538,6 +628,35 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         return items.getStackInSlot(SLOT_OUTPUT).isEmpty() && inputBufferIsEmpty() && pendingPackages.isEmpty();
     }
 
+    private Optional<MEStorage> findOutputMEStorage() {
+        Direction targetDirection = outputDirection();
+        BlockEntity targetBlockEntity = level.getBlockEntity(worldPosition.relative(targetDirection));
+        if (targetBlockEntity == null) {
+            return Optional.empty();
+        }
+        LazyOptional<MEStorage> capability = targetBlockEntity.getCapability(
+                Capabilities.STORAGE,
+                targetDirection.getOpposite());
+        return capability.resolve();
+    }
+
+    private Optional<IItemHandler> findOutputItemHandler() {
+        Direction targetDirection = outputDirection();
+        BlockEntity targetBlockEntity = level.getBlockEntity(worldPosition.relative(targetDirection));
+        if (targetBlockEntity == null) {
+            return Optional.empty();
+        }
+        LazyOptional<IItemHandler> capability = targetBlockEntity.getCapability(
+                ForgeCapabilities.ITEM_HANDLER,
+                targetDirection.getOpposite());
+        return capability.resolve();
+    }
+
+    private Direction outputDirection() {
+        Direction facing = getBlockState().getValue(AbstractHorizontalMachineBlock.FACING);
+        return facing.getOpposite();
+    }
+
     @Override
     public <T> LazyOptional<T> getCapability(Capability<T> capability, net.minecraft.core.Direction side) {
         if (capability == Capabilities.CRAFTING_MACHINE) {
@@ -561,6 +680,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
         tag.put(PENDING_PACKAGES_TAG, savePendingPackages());
+        tag.putBoolean(AUTO_EXPORT_TAG, autoExport);
     }
 
     @Override
@@ -569,6 +689,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             loadItems(tag.getCompound(ITEMS_TAG));
         }
+        autoExport = !tag.contains(AUTO_EXPORT_TAG, Tag.TAG_BYTE) || tag.getBoolean(AUTO_EXPORT_TAG);
         loadPendingPackages(tag);
     }
 

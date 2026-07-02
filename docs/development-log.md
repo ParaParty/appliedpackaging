@@ -791,6 +791,30 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最新进展：
 
 ```text
+补齐 Package Assembler 输出自动导出：
+  PackageAssemblerBlockEntity 新增 autoExport 设置，默认开启，保存到 NBT
+  装配室 server tick 会先尝试导出现有输出，再执行装配，装配成功后再次尝试导出
+  输出导出端点为机器背面，优先 AE2 MEStorage capability，其次 Forge item handler
+  AE2 与 item handler 导出均先模拟可接收数量；实际成功插入多少，才从输出槽扣除多少
+  目标不可用或容量不足时保留输出槽包裹，不丢弃、不继续消耗新输入
+  Package Assembler GUI 新增 auto_export 图标按钮，DataSlot 同步当前开关状态
+新增 4 个 GameTest：
+  packageAssemblerMenuTogglesAutoExport
+  packageAssemblerAutoExportSettingPersists
+  packageAssemblerAutoExportsToAdjacentItemHandler
+  packageAssemblerAutoExportsToAe2Interface
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，101 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功，生成 build/libs/appliedpackaging-0.1.0-dev.jar
+验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+验证 .\gradlew.bat runClientSmoke 成功，生成并人工查看 6 张真实菜单截图；Package Assembler 自动导出按钮显示正常且未遮挡槽位
+验证 runClientSmoke 后 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture、client smoke timeout、Timed out 或 Exception
+验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现客户端类误加载；完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
+```
+
+最新进展：
+
+```text
 补齐包裹 canonical hash / NBT 堆叠稳定性：
   PackageData normalize 现在合并同 AEKey 后按 canonical stack key 排序 contents
   同内容不同输入顺序会写入相同 package NBT，确保 ItemStack 可自然堆叠

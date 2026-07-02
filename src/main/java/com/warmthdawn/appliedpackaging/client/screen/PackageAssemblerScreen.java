@@ -1,12 +1,19 @@
 package com.warmthdawn.appliedpackaging.client.screen;
 
+import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 public class PackageAssemblerScreen extends AbstractContainerScreen<PackageAssemblerMenu> {
+    private static final ResourceLocation AUTO_EXPORT_ICON =
+            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/auto_export.png");
     private static final int PANEL = 0xffd6dbde;
     private static final int PANEL_DARK = 0xff4a5058;
     private static final int PANEL_MID = 0xff879198;
@@ -20,6 +27,12 @@ public class PackageAssemblerScreen extends AbstractContainerScreen<PackageAssem
         titleLabelY = 6;
         inventoryLabelX = 8;
         inventoryLabelY = 96;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        addRenderableWidget(new AutoExportButton(leftPos + 144, topPos + 52));
     }
 
     @Override
@@ -75,6 +88,45 @@ public class PackageAssemblerScreen extends AbstractContainerScreen<PackageAssem
         }
         for (int column = 0; column < 9; column++) {
             renderSlot(graphics, left + 7 + column * 18, top + 164);
+        }
+    }
+
+    private class AutoExportButton extends AbstractButton {
+        private AutoExportButton(int x, int y) {
+            super(x, y, 16, 16, Component.empty());
+            setMessage(autoExportMessage());
+            setTooltip(Tooltip.create(autoExportMessage()));
+        }
+
+        @Override
+        public void onPress() {
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, PackageAssemblerMenu.BUTTON_AUTO_EXPORT);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            Component message = autoExportMessage();
+            setMessage(message);
+            setTooltip(Tooltip.create(message));
+            int border = isHoveredOrFocused() ? 0xffffffff : (menu.autoExport() ? 0xff5aa86a : 0xff2a3036);
+            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
+            graphics.blit(AUTO_EXPORT_ICON, getX(), getY(), 0, 0, width, height, width, height);
+            if (!menu.autoExport()) {
+                for (int offset = 0; offset < 11; offset++) {
+                    graphics.fill(getX() + 3 + offset, getY() + 13 - offset, getX() + 5 + offset, getY() + 15 - offset, 0xffffffff);
+                }
+            }
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
+
+        private Component autoExportMessage() {
+            return Component.translatable(
+                    "gui.appliedpackaging.package_assembler.auto_export."
+                            + (menu.autoExport() ? "enabled" : "disabled"));
         }
     }
 }

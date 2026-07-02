@@ -141,7 +141,7 @@ Package Unpacking Bus: Bus 轮廓 + 打开包裹图标
 marker
 容量档
 阻挡模式
-自动导入 AE 网络
+自动导出输出包裹
 打包一次
 保留/覆盖/清除 marker
 打包过滤

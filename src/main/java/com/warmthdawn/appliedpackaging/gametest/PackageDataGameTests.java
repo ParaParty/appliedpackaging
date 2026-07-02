@@ -47,6 +47,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockE
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
+import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import java.util.List;
@@ -1314,6 +1315,110 @@ public final class PackageDataGameTests {
         helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY).isEmpty(),
                 "Assembler should add an empty capacity slot for legacy NBT");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerMenuTogglesAutoExport(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, new BlockPos(0, 0, 0), Direction.NORTH);
+        FakePlayer player = newFakePlayer(helper);
+        PackageAssemblerMenu menu = new PackageAssemblerMenu(4, new Inventory(player), assembler);
+
+        helper.assertTrue(menu.autoExport(), "Assembler auto-export should default on");
+        boolean clicked = menu.clickMenuButton(player, PackageAssemblerMenu.BUTTON_AUTO_EXPORT);
+
+        helper.assertTrue(clicked, "Assembler menu should accept the auto-export button");
+        helper.assertFalse(assembler.autoExport(), "Auto-export button should toggle the block entity setting");
+        helper.assertFalse(menu.autoExport(), "Auto-export button should update the synced menu state");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerAutoExportSettingPersists(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.setAutoExport(false);
+        CompoundTag tag = assembler.saveWithoutMetadata();
+        PackageAssemblerBlockEntity loaded = newPackageAssembler();
+
+        loaded.load(tag);
+
+        helper.assertFalse(loaded.autoExport(), "Assembler auto-export setting should persist");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerAutoExportsToAdjacentItemHandler(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(0, 0, 0);
+        BlockPos assemblerPos = new BlockPos(1, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(chestPos),
+                Blocks.CHEST.defaultBlockState(),
+                3);
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, assemblerPos, Direction.EAST);
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+
+        assembler.serverTick();
+
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        ItemStack exported = chest.getItem(0);
+        PackageData exportedData = PackageDataStorage.read(exported).orElseThrow();
+        helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                "Auto-export should clear the assembler output slot");
+        helper.assertTrue(assembler.getItems().getStackInSlot(0).isEmpty(),
+                "Auto-export should only happen after assembly consumes input");
+        helper.assertTrue(amountOf(exportedData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Adjacent item handler should receive the assembled package");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerAutoExportsToAe2Interface(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos drivePos = new BlockPos(1, 0, 0);
+        BlockPos interfacePos = new BlockPos(2, 0, 0);
+        BlockPos assemblerPos = new BlockPos(3, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(drivePos),
+                AEBlocks.DRIVE.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(interfacePos),
+                AEBlocks.INTERFACE.block().defaultBlockState(),
+                3);
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, assemblerPos, Direction.EAST);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    InterfaceBlockEntity aeInterface =
+                            (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+                    helper.assertTrue(aeInterface.getMainNode().isActive(),
+                            "AE2 Interface grid node should be active before assembler auto-export");
+                    helper.assertTrue(aeInterface.getMainNode().hasGridBooted(),
+                            "AE2 Interface grid should finish booting before assembler auto-export");
+                })
+                .thenExecute(() -> {
+                    DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+                    InterfaceBlockEntity aeInterface =
+                            (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+                    drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+                    assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+
+                    assembler.serverTick();
+
+                    var storage = aeInterface.getMainNode().getGrid().getStorageService().getInventory();
+                    var source = IActionSource.ofMachine(aeInterface);
+                    ItemStack expectedPackage = packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 64));
+                    long storedPackages =
+                            storage.extract(AEItemKey.of(expectedPackage), 1, Actionable.SIMULATE, source);
+                    helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "AE2 auto-export should clear the assembler output slot");
+                    helper.assertTrue(storedPackages == 1,
+                            "AE2 Interface network should receive the assembled package item");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "ae_network_column")
@@ -2588,6 +2693,18 @@ public final class PackageDataGameTests {
 
     private static PackageAssemblerBlockEntity newPackageAssembler() {
         return new PackageAssemblerBlockEntity(BlockPos.ZERO, APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState());
+    }
+
+    private static PackageAssemblerBlockEntity placePackageAssembler(
+            GameTestHelper helper,
+            BlockPos pos,
+            Direction facing) {
+        helper.getLevel().setBlock(
+                helper.absolutePos(pos),
+                APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, facing),
+                3);
+        return (PackageAssemblerBlockEntity) helper.getBlockEntity(pos);
     }
 
     private static PackageExportBusBlockEntity placePackageExportBus(GameTestHelper helper) {

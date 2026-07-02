@@ -69,6 +69,10 @@ item handler 拆包可完整插入目标
 装配室输出阻挡时拒绝 Pattern Provider pushPattern 且不消耗输入
 装配室拒绝 Pattern Provider pushPattern 的 fluid/non-item 输入且不消耗输入
 装配室可把旧 11 槽库存 NBT 迁移为当前 12 槽库存并补空容量槽
+装配室自动导出开关默认开启，可通过菜单按钮切换并同步到 menu state
+装配室自动导出设置可保存/读取
+装配室 server tick 可把输出包裹导出到相邻 Forge item handler
+真实 AE2 Interface 网络可接收装配室自动导出的包裹物品
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送处理样板输入到装配室
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送彩色处理样板输入到装配室
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可解码并推送带 packaged_processing_pattern NBT 的 AE2 encoded processing pattern
@@ -131,7 +135,7 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
-当前最新执行：.\gradlew.bat runGameTestServer 成功，97 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，101 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

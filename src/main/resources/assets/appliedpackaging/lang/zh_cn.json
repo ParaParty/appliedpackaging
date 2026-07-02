@@ -67,6 +67,8 @@
   "gui.appliedpackaging.me_packager.redstone_mode.disabled": "忽略红石",
   "gui.appliedpackaging.me_packager.redstone_mode.pulse": "红石脉冲执行一次",
   "gui.appliedpackaging.me_packager.redstone_mode.cyclic": "持续供电时周期执行",
+  "gui.appliedpackaging.package_assembler.auto_export.enabled": "自动导出输出包裹",
+  "gui.appliedpackaging.package_assembler.auto_export.disabled": "输出包裹保留在装配室",
   "gui.appliedpackaging.package_pattern_terminal.encode": "编码包裹样板",
   "gui.appliedpackaging.package_pattern_terminal.split": "拆分",
   "gui.appliedpackaging.package_pattern_terminal.input_slot_color": "设置输入槽颜色",
