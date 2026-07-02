@@ -10,7 +10,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 
 - 17 colored package items with stack-safe package data semantics.
 - Package data serialization, canonical hashing, capacity calculation, marker handling, filtering, and tooltips.
-- ME Package Assembler with AE2 pattern push support and optional auto-export to adjacent AE2 storage or item inventories.
+- ME Package Assembler with item/fluid AE2 pattern push support and optional auto-export to adjacent AE2 storage or item inventories.
 - ME Packager with adjacent item handler, fluid handler, AE2 storage endpoint packaging and unpacking, and manual/pulse/cyclic redstone operation.
 - Package Pattern Terminal for encoding package patterns on AE2 blank patterns.
 - AE2 encoded processing pattern carrier support for packaged-processing package automation.
@@ -31,7 +31,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 ### Verification
 
 - `.\gradlew.bat compileJava` passed.
-- `.\gradlew.bat runGameTestServer` passed with 103 required GameTests.
+- `.\gradlew.bat runGameTestServer` passed with 105 required GameTests.
 - `.\gradlew.bat runData` passed.
 - `.\gradlew.bat build` passed and generated `build/libs/appliedpackaging-0.1.0-dev.jar`.
 - `.\gradlew.bat runClient` smoke reached Applied Packaging initialization, SoundEngine startup, and block atlas creation with no recorded missing model or missing texture errors.

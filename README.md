@@ -43,7 +43,7 @@ build/libs/appliedpackaging-0.1.0-dev.jar
 
 Use an AE2 blank pattern in the Package Pattern Terminal to encode package data. Simple package patterns stay on the AE2 blank-pattern carrier with Applied Packaging NBT. Packaged-processing patterns with item or fluid-container output ghosts are emitted as AE2 encoded processing patterns that also carry Applied Packaging package data.
 
-The ME Package Assembler accepts AE2 pattern pushes and outputs one or more valid package items. It supports normal processing patterns, colored processing input metadata, package patterns, packaged-processing patterns, and auto-export from its back side into adjacent AE2 storage or item inventories.
+The ME Package Assembler accepts AE2 pattern pushes and outputs one or more valid package items. It supports item and fluid AE2 processing inputs, colored processing input metadata, package patterns, packaged-processing patterns, and auto-export from its back side into adjacent AE2 storage or item inventories.
 
 The ME Packager handles adjacent storage endpoints. It can package item handlers, fluid handlers, and adjacent AE2 storage endpoints such as an ME Interface-backed subnet, then unpack complete packages transactionally into compatible targets. Its redstone mode can ignore redstone, run once on a pulse, or run repeatedly while powered.
 
@@ -90,7 +90,7 @@ Latest recorded verification:
 
 ```text
 compileJava:       passed
-runGameTestServer: passed, 103 required GameTests
+runGameTestServer: passed, 105 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas

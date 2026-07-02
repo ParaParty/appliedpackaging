@@ -257,9 +257,9 @@ AE2 Pattern Provider 集成：
 package_assembler 暴露 appeng.capabilities.Capabilities.CRAFTING_MACHINE。
 AE2 Pattern Provider 与装配室相邻时，通过 ICraftingMachine.pushPattern 推入样板输入。
 acceptsPlans 仅在本机输入缓冲为空、输出槽为空且待输出队列为空时返回 true。
-pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物品 AEKey 时整批拒绝。
+pushPattern 的空样板槽、彩色处理样板与封装处理样板载体路径直接读取 KeyCounter 中的 GenericStack；AEItemKey、AEFluidKey 与其它 AEKey 均可进入 PackagePlanBuilder，只受容量档和类型数约束。
 普通 AE2 processing pattern 且本地样板槽为空时，直接从 Pattern Provider 的 KeyCounter 内容生成包裹计划，避免 9 格临时输入缓存限制。
-本地 package_pattern / packaged_processing_pattern 路径仍把 KeyCounter 转成临时 9 格输入缓冲，并复用本地装配计划逻辑。
+本地 package_pattern / packaged_processing_pattern 样板槽路径仍把 KeyCounter 转成临时 9 格物品输入缓冲，并复用本地装配计划逻辑，因此该兼容路径只接受可转成 ItemStack 的 AEItemKey。
 全部校验通过后，才提交输出包裹、从 KeyCounter 扣减输入。
 任何一步失败都保持 all-or-nothing：不消耗 Pattern Provider 输入，不生成半包裹。
 本地 package_pattern 和 packaged_processing_pattern 与 GUI 输入共用同一套计划逻辑。
@@ -270,7 +270,7 @@ pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物
 彩色拆包不依赖 AE2 已压缩的 IInput 顺序；即使相同 AEKey 被 AE2 汇总，仍按原始 sparse 槽位拆成不同颜色包。
 带 appliedpackaging.packaged_processing_pattern 扩展 NBT 的 AE2 encoded processing pattern 走封装处理推送路径。
 封装处理推送路径使用 AE2 原版 processing outputs 暴露给 Pattern Provider/Planner，装配室读取 packages[] 并输出一个或多个包裹。
-封装处理 pushPattern 当前只接受 item-only packages；遇到包裹内容中的非物品 AEKey 或额外输入时整批拒绝。
+封装处理 pushPattern 按 packages[] 中的 GenericStack 精确消费输入；包裹内容可包含 AEItemKey 或 AEFluidKey，输入不足或存在额外输入时整批拒绝。
 一次 pushPattern 产生多个包裹时，先输出第一个，剩余包裹写入待输出队列；输出槽清空后 server tick/tryAssemble 继续吐出。
 待输出队列写入方块实体 NBT，破坏方块时以合法包裹掉落。
 自动导出开启时，server tick 会优先把输出槽包裹导出到机器背面端点；背面优先识别 AE2 MEStorage capability，其次回落到 Forge item handler。
@@ -363,10 +363,10 @@ GUI 提供 9 格输入缓冲、样板槽、输出槽、容量槽与玩家背包�
 已编码 package_pattern 不会被消耗，输出包裹颜色跟随样板颜色。
 如果 packaged_processing_pattern 已编码，装配室读取有序 package list，每次在输出槽为空时生成一个当前输入可满足且 canonical hash 匹配的包裹。
 packaged_processing_pattern 不会被消耗；输出被取走后可继续生成该处理样板中的下一个可满足包裹。
-如果 AE2 encoded processing pattern 带彩色输入槽元数据，Pattern Provider pushPattern 会按 sparse input 槽位拆成对应颜色包裹。
+如果 AE2 encoded processing pattern 带彩色输入槽元数据，Pattern Provider pushPattern 会按 sparse input 槽位拆成对应颜色包裹，输入槽可包含物品或流体 AEKey。
 彩色 Pattern Provider 推送可产生多个包裹；当前 1 格输出槽通过 pending queue 顺序吐出后续包裹。
 未编码样板或空样板槽时，装配室使用 Fluix 包裹行为，并按容量槽档位规划。
-普通 Pattern Provider pushPattern 在空样板槽时直接从 KeyCounter 规划包裹，可承载超过 9 个物品栈的输入，只受容量档约束。
+普通 Pattern Provider pushPattern 在空样板槽时直接从 KeyCounter 规划包裹，可承载超过 9 个物品栈或流体输入，只受容量档约束。
 自动导出默认开启，可在装配室 GUI 中通过 auto_export 图标切换并保存到 NBT。
 自动导出只移动输出槽中的合法包裹；目标拒绝或容量不足时保留输出槽内容，不丢弃、不消耗新的输入。
 自动导出端点为机器背面，优先 AE2 MEStorage，其次 Forge item handler。

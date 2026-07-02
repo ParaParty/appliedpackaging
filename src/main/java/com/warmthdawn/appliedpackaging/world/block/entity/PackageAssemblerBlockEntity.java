@@ -341,7 +341,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             }
         }
 
-        Optional<Map<AEKey, Long>> availableInputs = aggregateItemInputs(inputHolder);
+        Optional<Map<AEKey, Long>> availableInputs = aggregateInputs(inputHolder);
         if (availableInputs.isEmpty()) {
             return Optional.empty();
         }
@@ -354,10 +354,6 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             if (sparseInput == null || sparseInput.amount() <= 0) {
                 continue;
             }
-            if (!AEItemKey.is(sparseInput.what())) {
-                return Optional.empty();
-            }
-
             long available = remainingInputs.getOrDefault(sparseInput.what(), 0L);
             if (available < sparseInput.amount()) {
                 return Optional.empty();
@@ -450,9 +446,6 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                 if (entry.getLongValue() <= 0) {
                     continue;
                 }
-                if (!AEItemKey.is(entry.getKey())) {
-                    return Optional.empty();
-                }
                 contents.add(new GenericStack(entry.getKey(), entry.getLongValue()));
             }
         }
@@ -462,7 +455,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         return Optional.of(List.copyOf(contents));
     }
 
-    private static Optional<Map<AEKey, Long>> aggregateItemInputs(KeyCounter[] inputHolder) {
+    private static Optional<Map<AEKey, Long>> aggregateInputs(KeyCounter[] inputHolder) {
         Map<AEKey, Long> inputs = new HashMap<>();
         for (KeyCounter counter : inputHolder) {
             if (counter == null) {
@@ -471,9 +464,6 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             for (var entry : counter) {
                 if (entry.getLongValue() <= 0) {
                     continue;
-                }
-                if (!AEItemKey.is(entry.getKey())) {
-                    return Optional.empty();
                 }
                 inputs.merge(entry.getKey(), entry.getLongValue(), Long::sum);
             }
@@ -586,7 +576,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (encoded.isEmpty()) {
             return Optional.empty();
         }
-        Optional<Map<AEKey, Long>> availableInputs = aggregateItemInputs(inputHolder);
+        Optional<Map<AEKey, Long>> availableInputs = aggregateInputs(inputHolder);
         if (availableInputs.isEmpty()) {
             return Optional.empty();
         }
@@ -596,9 +586,6 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         List<QueuedPackage> packages = new ArrayList<>();
         for (PackageData data : encoded.get().packages()) {
             for (GenericStack stack : data.contents()) {
-                if (!AEItemKey.is(stack.what())) {
-                    return Optional.empty();
-                }
                 long available = remainingInputs.getOrDefault(stack.what(), 0L);
                 if (available < stack.amount()) {
                     return Optional.empty();

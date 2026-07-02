@@ -1068,6 +1068,31 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerAcceptsColoredFluidPatternProviderPush(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] { new GenericStack(AEFluidKey.of(Fluids.WATER), 1000) },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        ColoredProcessingPatternDataStorage.write(pattern, Map.of(0, PackageColor.BLUE));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details != null, "AE2 should decode the colored fluid processing pattern");
+        KeyCounter water = new KeyCounter();
+        water.add(AEFluidKey.of(Fluids.WATER), 1000);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { water }, Direction.UP);
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(accepted, "Assembler should accept colored fluid Pattern Provider pushes");
+        helper.assertTrue(water.isEmpty(), "Accepted colored fluid push should consume the input holder");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.BLUE).get()),
+                "Colored fluid push should use the configured slot color");
+        helper.assertTrue(amountOf(outputData, AEFluidKey.of(Fluids.WATER)) == 1000,
+                "Colored fluid push should package water");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerUsesPackagedProcessingPattern(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
@@ -1196,6 +1221,44 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerAcceptsFluidPackagedProcessingPush(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData waterPackage = PackageData.create(
+                PackageColor.BLUE,
+                List.of(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] { new GenericStack(AEFluidKey.of(Fluids.WATER), 1000) },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        PackagedProcessingPatternDataStorage.write(
+                pattern,
+                PackageColor.BLUE,
+                List.of(waterPackage),
+                List.of(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details != null, "AE2 should decode the fluid packaged-processing carrier");
+        KeyCounter water = new KeyCounter();
+        water.add(AEFluidKey.of(Fluids.WATER), 1000);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { water }, Direction.UP);
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(accepted,
+                "Assembler should accept packaged-processing pushes with fluid package contents");
+        helper.assertTrue(water.isEmpty(),
+                "Accepted fluid packaged-processing push should consume water input");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.BLUE).get()),
+                "Fluid packaged-processing output should use the encoded color");
+        helper.assertTrue(outputData.canonicalHash().equals(waterPackage.canonicalHash()),
+                "Fluid packaged-processing output should match the encoded package");
+        helper.assertTrue(amountOf(outputData, AEFluidKey.of(Fluids.WATER)) == 1000,
+                "Fluid packaged-processing output should contain water");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerAcceptsPatternProviderPush(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         KeyCounter iron = new KeyCounter();
@@ -1280,7 +1343,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerRejectsFluidPatternProviderPush(GameTestHelper helper) {
+    public static void packageAssemblerAcceptsFluidPatternProviderPush(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         KeyCounter water = new KeyCounter();
         water.add(AEFluidKey.of(Fluids.WATER), 1000);
@@ -1289,12 +1352,13 @@ public final class PackageDataGameTests {
                 new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
                 new KeyCounter[] { water },
                 Direction.UP);
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
 
-        helper.assertFalse(accepted, "Item-only assembler pushPattern should reject fluid inputs");
-        helper.assertTrue(water.get(AEFluidKey.of(Fluids.WATER)) == 1000,
-                "Rejected fluid push should not consume input holders");
-        helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
-                "Rejected fluid push should not create output");
+        helper.assertTrue(accepted, "Assembler should accept Pattern Provider fluid inputs");
+        helper.assertTrue(water.isEmpty(), "Accepted fluid push should consume input holders");
+        helper.assertTrue(amountOf(outputData, AEFluidKey.of(Fluids.WATER)) == 1000,
+                "Pushed water should be packaged");
         helper.succeed();
     }
 

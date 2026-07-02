@@ -210,12 +210,13 @@ GameTest/客户端验证
   已编码 packaged_processing_pattern 保存有序多包裹计划
   package_assembler 可按 packaged_processing_pattern 逐包生成匹配包裹
   package_assembler 暴露 AE2 ICraftingMachine capability
-  Pattern Provider pushPattern 可把 item-only KeyCounter 输入装配为包裹
+  Pattern Provider pushPattern 可把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
   空样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
   本地自由封装、普通 Pattern Provider pushPattern、彩色 Pattern Provider pushPattern 均使用容量槽档位
   pushPattern 在输出阻挡、输入缓冲非空、非物品 AEKey 或规划失败时整批拒绝且不消耗输入
   ColoredProcessingPatternDataStorage 可在 AE2 encoded processing pattern 上保存输入槽颜色元数据
   彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
+  彩色 Pattern Provider pushPattern 支持流体 AEKey 输入
   同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
   彩色 pushPattern 产生多个包裹时通过 pending queue 顺序输出并持久化保存
   装配室输出自动导出默认开启，可通过 GUI 图标按钮切换并持久化保存
@@ -298,6 +299,7 @@ GameTest/服务器 smoke test
   装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT，样板槽和 shift-click 验证共用统一载体判断
   装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT，并逐包输出
   装配室可接受 AE2 encoded processing pattern 承载的 packaged_processing_pattern Pattern Provider push，并逐包输出
+  装配室可接受带流体内容的 packaged_processing_pattern Pattern Provider push，并逐包输出
   真实 AE2 Pattern Provider 可解码并推送带 packaged_processing_pattern NBT 的 AE2 encoded processing pattern
   装配室可读取 packaged_processing_pattern 并逐包输出
   已编码 packaged_processing_pattern 不会被终端当空白样板覆盖

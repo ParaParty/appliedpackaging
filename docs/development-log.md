@@ -933,3 +933,19 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat compileJava 成功
 验证 .\gradlew.bat runGameTestServer 成功，103 个必需 GameTest 全部通过
 ```
+
+最新进展：
+
+```text
+补齐 Package Assembler 的 AE2 Pattern Provider 流体输入封装：
+  空样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 读取 GenericStack，不再限制为 AEItemKey
+  彩色处理样板 pushPattern 可按 AE2 sparse input 槽位把 AEFluidKey 拆入对应颜色包裹
+  packaged_processing_pattern carrier pushPattern 可按 packages[] 精确消费流体 GenericStack 并输出对应包裹
+  本地 package_pattern / packaged_processing_pattern 样板槽兼容路径仍通过 9 格物品缓冲执行，因此仍只接受可转成 ItemStack 的 AEItemKey
+新增 2 个 GameTest，并将原 fluid reject 测试改为 accept：
+  packageAssemblerAcceptsFluidPatternProviderPush
+  packageAssemblerAcceptsColoredFluidPatternProviderPush
+  packageAssemblerAcceptsFluidPackagedProcessingPush
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，105 个必需 GameTest 全部通过
+```
