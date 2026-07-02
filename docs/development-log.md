@@ -210,11 +210,20 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat runData 成功
 验证 .\gradlew.bat build 成功
 验证 .\gradlew.bat runGameTestServer 成功，30 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClient 已进入客户端主流程：
+  Applied Packaging 初始化完成
+  ResourceManager 重载完成
+  OpenAL/SoundEngine 启动
+  block atlas 创建完成
+  未发现 appliedpackaging 相关 missing model/texture、客户端类加载异常或崩溃
+验证 .\gradlew.bat runServer 已进入专用服务端启动流程：
+  服务端按 Mojang EULA 要求在 run/eula.txt 未同意时停止
+  停止前未发现 Applied Packaging 客户端类误加载、注册崩溃或 mod 扫描异常
 ```
 
 下一步：
 
 ```text
-提交包裹样板终端、已编码样板支持和 AE2 参考材质重做。
-继续实现过滤 UI，并补客户端 runClient 冒烟验证。
+用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
+继续补齐过滤 UI、ME 接口/子网交互、处理样板多包裹工作流等发布阻塞项。
 ```

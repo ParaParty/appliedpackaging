@@ -144,6 +144,16 @@ Tooltip 每包/总计正确
 .\gradlew.bat runClient
 ```
 
+当前客户端 smoke：
+
+```text
+.\gradlew.bat runClient 已启动到 Minecraft 客户端主流程。
+日志确认 Applied Packaging 初始化完成、ResourceManager 重载完成、OpenAL/SoundEngine 启动、block atlas 创建完成。
+未发现 appliedpackaging 相关 missing model/texture、客户端类加载异常或崩溃。
+本次 smoke 后客户端正常 Stopping。
+已观察到的警告为 Forge/AE2/Vanilla 常规开发环境警告，以及 me_packager_preview_sheet 68x68 导致 mip level 降至 2；不阻塞发布，但后续可把预览 sheet 改成 64x64 或 128x128。
+```
+
 ## 6. Dedicated Server 验证
 
 必须验证：
@@ -158,6 +168,15 @@ Tooltip 每包/总计正确
 
 ```powershell
 .\gradlew.bat runServer
+```
+
+当前服务端 smoke：
+
+```text
+.\gradlew.bat runServer 已执行到专用服务端启动阶段。
+服务端在读取 run/eula.txt 时按 Mojang EULA 要求停止，未继续进入世界加载。
+停止前未出现 Applied Packaging 客户端类误加载、注册崩溃或 mod 扫描异常。
+验收专用服务端完整启动前，需要用户显式同意 EULA 后再重新运行；AI 不自动修改 eula.txt。
 ```
 
 ## 7. 发布验收
