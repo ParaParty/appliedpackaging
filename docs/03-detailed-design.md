@@ -260,6 +260,7 @@ pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物
 全部校验通过后，才写入真实输入缓冲、提交装配、从 KeyCounter 扣减输入。
 任何一步失败都保持 all-or-nothing：不消耗 Pattern Provider 输入，不生成半包裹。
 本地 package_pattern 和 packaged_processing_pattern 与 GUI 输入共用同一套计划逻辑。
+已编码 package_pattern 使用目标 PackageData 做 exact package plan，不再先按默认容量自由规划后比对 hash。
 已通过 GameTest 验证真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送到 package_assembler。
 ```
 

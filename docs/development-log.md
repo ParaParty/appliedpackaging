@@ -429,6 +429,20 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+修正 Package Assembler 执行已编码 package_pattern 的规划路径：
+  普通已编码 package_pattern 现在直接使用 ItemPackageTransactions.planExactPackage
+  没有本地样板时仍使用默认 Fluix 自由打包
+  这避免大于默认容量的已编码源包裹被默认容量规划提前挡掉
+新增 GameTest：
+  packageAssemblerUsesLargeEncodedPackagePattern
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，60 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text

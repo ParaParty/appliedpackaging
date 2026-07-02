@@ -136,24 +136,31 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
         Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern =
                 PackagePatternDataStorage.read(patternStack);
-        PackageColor color = pattern.map(PackagePatternDataStorage.EncodedPackagePattern::color)
-                .orElse(PackageColor.FLUIX);
+        if (pattern.isPresent()) {
+            Optional<ItemPackagePlan> exactPlan = ItemPackageTransactions.planExactPackage(
+                    input,
+                    pattern.get().color(),
+                    pattern.get().data());
+            if (exactPlan.isEmpty()) {
+                return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
+            }
+            if (!ItemPackageTransactions.canExtract(input, exactPlan.get())) {
+                return AssemblyAttempt.failed(AssemblyResult.SOURCE_CHANGED);
+            }
+            return AssemblyAttempt.planned(new AssemblyPlan(pattern.get().color(), exactPlan.get()));
+        }
 
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 input,
-                color,
+                PackageColor.FLUIX,
                 PackageCapacityProfile.DEFAULT);
         if (plan.isEmpty()) {
             return AssemblyAttempt.failed(AssemblyResult.NO_CONTENTS);
         }
-        if (pattern.isPresent()
-                && !plan.get().data().canonicalHash().equals(pattern.get().data().canonicalHash())) {
-            return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
-        }
         if (!ItemPackageTransactions.canExtract(input, plan.get())) {
             return AssemblyAttempt.failed(AssemblyResult.SOURCE_CHANGED);
         }
-        return AssemblyAttempt.planned(new AssemblyPlan(color, plan.get()));
+        return AssemblyAttempt.planned(new AssemblyPlan(PackageColor.FLUIX, plan.get()));
     }
 
     private AssemblyAttempt planProcessingPattern(

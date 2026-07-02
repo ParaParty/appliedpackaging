@@ -197,6 +197,7 @@ GameTest/客户端验证
   输入合法包裹展开后再封装
   输出非空时阻挡且不消耗输入
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
+  已编码 package_pattern 走 exact package plan，可重封装大于默认容量的源包裹
   已编码 package_pattern 不消耗，可重复作为本地装配计划
   已编码 packaged_processing_pattern 保存有序多包裹计划
   package_assembler 可按 packaged_processing_pattern 逐包生成匹配包裹

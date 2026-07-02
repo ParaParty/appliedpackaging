@@ -748,6 +748,30 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerUsesLargeEncodedPackagePattern(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, data);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(0, packageStack(PackageColor.FLUIX, data));
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should assemble encoded source-package patterns larger than default capacity");
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+        helper.assertTrue(outputData.canonicalHash().equals(data.canonicalHash()),
+                "Large output package should match the encoded pattern");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerUsesPackagedProcessingPattern(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         PackageData iron = ironPackageData(PackageColor.FLUIX, 64);
