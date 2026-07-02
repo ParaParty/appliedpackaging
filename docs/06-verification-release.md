@@ -395,3 +395,35 @@ Dedicated server full world-load：未完成。
 任意 AEKey 直接 required-content filter editor
 批量 required content 编辑
 ```
+
+## 10. 目标级验收审计
+
+本节对照最初目标进行完成度判定。只有所有必需项都有当前证据时，才允许把目标标记为完成。
+
+```text
+需求分析：已完成。证据：docs/01-requirements.md 定义目标用户、核心场景、R1-R13、NF1-NF6 和范围边界。
+概要设计：已完成。证据：docs/02-system-architecture.md 定义模块划分、数据流、版本适配和客户端/服务端边界。
+详细设计：已完成。证据：docs/03-detailed-design.md 定义 PackageData、事务、机器、样板、总线、过滤和菜单规则。
+设计入口：已完成。证据：docs/design.md 只保留当前定案摘要和分类文档入口。
+讨论记录：已完成。证据：docs/chat-summary.md 保留历史讨论，并声明不作为最新实现规格。
+AI 指令分离：已完成。证据：AGENTS.md 只放 agent 工作规则，docs/00-document-index.md 声明设计文档不承载 AI 指令。
+Minecraft 1.20.1 优先：已完成。证据：gradle.properties、build.gradle、README.md 和 docs/design.md 均固定 Minecraft 1.20.1 Forge / AE2 15.4.10。
+材质准备：已完成。证据：docs/04-asset-spec.md、docs/assets/*、src/main/resources/assets/appliedpackaging 下 PNG/模型/语言文件，以及资源审计记录。
+功能实现：已完成到 0.1.0-dev 范围。证据：R1-R13 完成度审计均为已满足，112 个必需 GameTest 全部通过。
+Git 初始化和文档管理：已完成。证据：仓库有连续提交记录，文档按 00-07 分类维护，开发流水记录在 docs/development-log.md。
+发布 jar：已完成。证据：build/libs/appliedpackaging-0.1.0-dev.jar 存在，已通过 build、jar 内容审计和 release metadata 审计。
+客户端可用性：已完成。证据：runClientSmoke 进入真实单人世界并打开 6 个关键菜单截图，无 missing model/texture/classloading 关键错误。
+GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
+DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
+Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
+Dedicated server full world-load：未完成。证据不足原因：run/eula.txt 当前为 eula=false，服务端在世界加载前按 Mojang EULA 停止。
+发布 tag：未完成。原因：最终 dedicated server full world-load 尚未验收；发布 tag 应在该验收通过后创建。
+```
+
+当前目标完成判定：
+
+```text
+不能标记完成。
+阻塞项不是玩法功能缺失，而是本地 dedicated server full world-load 需要用户显式接受 Mojang EULA 后才能继续验证。
+发布 tag 也应等待该最终验证通过后再创建。
+```

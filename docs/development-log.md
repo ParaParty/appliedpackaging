@@ -1084,3 +1084,14 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
 验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现客户端类误加载关键字；run/eula.txt 仍为 eula=false，完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
 ```
+
+最新进展：
+
+```text
+补齐目标级验收审计：
+  在 docs/06-verification-release.md 增加最初目标到当前证据的逐项映射
+  明确需求分析、概要设计、详细设计、设计入口、讨论记录、AGENTS.md 指令分离、1.20.1 Forge/AE2 基线、材质、R1-R13 功能、GameTest、DataGen、客户端 smoke 和发布 jar 均已有证据
+  明确 dedicated server full world-load 仍因 run/eula.txt 为 eula=false 缺少最终证据
+  明确发布 tag 应等待 dedicated server full world-load 通过后创建
+本次仅补齐验收证据文档；GameTest 已按规则考虑，未新增行为测试。
+```
