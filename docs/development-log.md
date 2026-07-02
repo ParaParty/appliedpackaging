@@ -263,6 +263,22 @@ Package Assembler 接入已编码 package_pattern：
 验证 .\gradlew.bat build 成功
 ```
 
+最新进展：
+
+```text
+补齐 Package Assembler GUI/Menu：
+  package_assembler 右键打开 GUI
+  GUI 显示 9 格输入缓冲、样板槽、输出槽和玩家背包
+  shift-click 会把 package_pattern / packaged_processing_pattern 优先放入样板槽
+  其它物品 shift-click 进入 9 格输入缓冲
+  输出槽禁止玩家放入物品
+新增 PackageAssemblerMenu 与 PackageAssemblerScreen
+注册 APMenus.PACKAGE_ASSEMBLER 与客户端 MenuScreens
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，39 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text

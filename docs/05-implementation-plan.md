@@ -189,7 +189,9 @@ GameTest/客户端验证
   package_assembler 方块/方块物品/方块实体注册
   水平朝向 blockstate
   方块掉落表
+  Package Assembler GUI/Menu
   9 格输入缓冲 + 1 格样板槽 + 1 格输出槽
+  shift-click 样板进样板槽，其它物品进入输入缓冲
   输入缓冲自动封装为 Fluix 包裹
   输入合法包裹展开后再封装
   输出非空时阻挡且不消耗输入
@@ -198,7 +200,6 @@ GameTest/客户端验证
   装配室基础 GameTest
 
 待实现：
-  装配室 GUI/Menu
   彩色处理样板元数据读取
   封装处理样板拆分为多包裹计划
   容量元件槽

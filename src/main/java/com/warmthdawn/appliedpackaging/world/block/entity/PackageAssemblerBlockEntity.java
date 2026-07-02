@@ -10,10 +10,16 @@ import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Containers;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.common.capabilities.Capability;
@@ -25,7 +31,7 @@ import net.minecraftforge.items.wrapper.RangedWrapper;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class PackageAssemblerBlockEntity extends BlockEntity implements InventoryDroppingBlockEntity {
+public class PackageAssemblerBlockEntity extends BlockEntity implements InventoryDroppingBlockEntity, MenuProvider {
     public static final int INPUT_SLOT_COUNT = 9;
     public static final int SLOT_PATTERN = 9;
     public static final int SLOT_OUTPUT = 10;
@@ -65,6 +71,16 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     public ItemStackHandler getItems() {
         return items;
+    }
+
+    @Override
+    public Component getDisplayName() {
+        return Component.translatable("block.appliedpackaging.package_assembler");
+    }
+
+    @Override
+    public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
+        return new PackageAssemblerMenu(containerId, playerInventory, this);
     }
 
     public AssemblyResult tryAssemble() {
