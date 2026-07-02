@@ -90,7 +90,7 @@ Latest recorded verification:
 
 ```text
 compileJava:       passed
-runGameTestServer: passed, 95 required GameTests
+runGameTestServer: passed, 97 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas

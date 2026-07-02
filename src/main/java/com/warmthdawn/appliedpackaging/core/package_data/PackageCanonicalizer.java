@@ -49,7 +49,7 @@ public final class PackageCanonicalizer {
         return builder.toString();
     }
 
-    private static String canonicalStack(GenericStack stack) {
+    static String canonicalStack(GenericStack stack) {
         return stack.what().getType().getId()
                 + "|"
                 + stack.what().getId()

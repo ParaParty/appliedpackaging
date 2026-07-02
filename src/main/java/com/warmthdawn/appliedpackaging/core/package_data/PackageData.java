@@ -52,6 +52,7 @@ public record PackageData(
                 normalized.add(new GenericStack(key, amount));
             }
         });
+        normalized.sort(java.util.Comparator.comparing(PackageCanonicalizer::canonicalStack));
         return normalized;
     }
 }

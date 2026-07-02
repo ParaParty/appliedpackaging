@@ -105,6 +105,8 @@ contents sorted by:
   amount
 ```
 
+`PackageData` 创建时会先合并相同 AEKey，再按同一 canonical stack key 排序 contents；`PackageDataStorage.writeTag` 写入的是该规范化顺序，保证同内容不同输入顺序不仅 hash 相同，也能得到相同 NBT 并自然堆叠。
+
 Hash 算法：
 
 ```text

@@ -69,11 +69,13 @@ unit tests/GameTest
   package plan builder
   marker retain/override/clear plan logic
   package flattening
+  item handler / Forge fluid handler / AE2 MEStorage endpoint 事务接入
+  同内容不同顺序 canonical hash 稳定，并写入可堆叠的规范化 NBT
+  颜色、marker、内容差异会产生不同 canonical hash
   PackageData GameTest
 
 待实现：
-  机器事务与 Forge/AE2 endpoint 对接
-  hash 稳定性更细粒度测试
+  无
 ```
 
 验收：

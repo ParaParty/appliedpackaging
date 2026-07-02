@@ -791,6 +791,22 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最新进展：
 
 ```text
+补齐包裹 canonical hash / NBT 堆叠稳定性：
+  PackageData normalize 现在合并同 AEKey 后按 canonical stack key 排序 contents
+  同内容不同输入顺序会写入相同 package NBT，确保 ItemStack 可自然堆叠
+  颜色、marker 或内容不同仍会产生不同 canonical hash，避免误堆叠
+新增 2 个 GameTest：
+  packageDataCanonicalOrderStacksEquivalentContents
+  packageDataCanonicalHashSeparatesIdentity
+首次 runGameTestServer 发现旧 itemHandlerUnpackInsertsAllContents 依赖槽位顺序；已改为按目标 handler 总量断言完整拆包
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，97 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
+最新进展：
+
+```text
 补齐 ME Packager 真实 Forge fluid handler 世界内 smoke：
   新增 mePackagerPackagesAndUnpacksThroughWorldFluidHandler GameTest
   测试在世界内放置带 Forge FLUID_HANDLER capability 的临时 tank 方块实体与 ME Packager

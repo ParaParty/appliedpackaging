@@ -111,6 +111,50 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageDataCanonicalOrderStacksEquivalentContents(GameTestHelper helper) {
+        PackageData first = PackageData.create(
+                PackageColor.RED,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        PackageData second = PackageData.create(
+                PackageColor.RED,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32),
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
+                Optional.empty(),
+                0);
+        ItemStack firstStack = new ItemStack(APItems.packageItems().get(PackageColor.RED).get());
+        ItemStack secondStack = new ItemStack(APItems.packageItems().get(PackageColor.RED).get());
+        PackageDataStorage.write(firstStack, first);
+        PackageDataStorage.write(secondStack, second);
+
+        helper.assertTrue(first.canonicalHash().equals(second.canonicalHash()),
+                "Equivalent contents should produce the same canonical hash");
+        helper.assertTrue(ItemStack.isSameItemSameTags(firstStack, secondStack),
+                "Equivalent contents should write identical package tags for stacking");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageDataCanonicalHashSeparatesIdentity(GameTestHelper helper) {
+        PackageData base = ironPackageData(PackageColor.RED, 64);
+        PackageData differentContent = ironPackageData(PackageColor.RED, 65);
+        PackageData differentMarker = markedIronPackageData(PackageColor.RED, Items.GOLD_INGOT);
+        PackageData differentColor = ironPackageData(PackageColor.BLUE, 64);
+
+        helper.assertFalse(base.canonicalHash().equals(differentContent.canonicalHash()),
+                "Different contents should produce different canonical hashes");
+        helper.assertFalse(base.canonicalHash().equals(differentMarker.canonicalHash()),
+                "Different markers should produce different canonical hashes");
+        helper.assertFalse(base.canonicalHash().equals(differentColor.canonicalHash()),
+                "Different colors should produce different canonical hashes");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void playerRecipesUseAe2BlankPatterns(GameTestHelper helper) {
         helper.assertFalse(hasRecipeOutput(helper, APItems.PACKAGE_PATTERN.get()),
                 "Local package_pattern should remain as a compatibility carrier, not a player-craftable item");
@@ -350,12 +394,10 @@ public final class PackageDataGameTests {
                 "Target should simulate accepting all package contents");
         helper.assertTrue(ItemPackageTransactions.insertPackageContents(data, target, false),
                 "Target should accept all package contents");
-        helper.assertTrue(target.getStackInSlot(0).getItem() == Items.IRON_INGOT
-                        && target.getStackInSlot(0).getCount() == 64,
-                "First target slot should contain iron");
-        helper.assertTrue(target.getStackInSlot(1).getItem() == Items.COPPER_INGOT
-                        && target.getStackInSlot(1).getCount() == 32,
-                "Second target slot should contain copper");
+        helper.assertTrue(itemAmountInHandler(target, Items.IRON_INGOT) == 64,
+                "Target should contain all unpacked iron");
+        helper.assertTrue(itemAmountInHandler(target, Items.COPPER_INGOT) == 32,
+                "Target should contain all unpacked copper");
         helper.succeed();
     }
 
@@ -2593,6 +2635,17 @@ public final class PackageDataGameTests {
         for (int slot = 0; slot < chest.getContainerSize(); slot++) {
             ItemStack stack = chest.getItem(slot);
             if (stack.is(Items.IRON_INGOT)) {
+                amount += stack.getCount();
+            }
+        }
+        return amount;
+    }
+
+    private static int itemAmountInHandler(ItemStackHandler handler, Item item) {
+        int amount = 0;
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (stack.is(item)) {
                 amount += stack.getCount();
             }
         }

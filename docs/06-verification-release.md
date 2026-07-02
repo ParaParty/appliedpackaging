@@ -33,6 +33,8 @@ marker 冲突拒绝
 ```text
 PackageData 合法 NBT 可读写
 无 PackageData 的包裹被拒绝
+同内容不同顺序的包裹生成相同 canonical hash，并写入可堆叠的相同 NBT
+颜色、marker 或内容不同的包裹生成不同 canonical hash
 canonical hash 被篡改时拒绝
 缺失 canonical hash 时拒绝
 schema version 不支持时拒绝
@@ -129,7 +131,7 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
-当前最新执行：.\gradlew.bat runGameTestServer 成功，95 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，97 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
