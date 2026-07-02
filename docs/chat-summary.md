@@ -1,8 +1,8 @@
-> 当前工程结论（2026-07-02）：本文件保留命名、美术和玩法讨论过程。开发实现以 `docs/design.md` 为准；其中已经固定 Minecraft 1.20.1 Forge、ModDevGradle Legacy、AE2 15.4.10、`appliedpackaging`、`com.warmthdawn.appliedpackaging`，并补齐需求分析、概要设计、详细设计、测试验收、资产约束和发布标准。
+> 当前工程结论（2026-07-02）：本文件保留命名、美术和玩法讨论过程，不作为最新实现规格。开发实现以 `docs/design.md` 和 `docs/00-document-index.md` 指向的分类文档为准；其中已经固定 Minecraft 1.20.1 Forge、ModDevGradle Legacy、AE2 15.4.10、`appliedpackaging`、`com.warmthdawn.appliedpackaging`。
 >
 > 已定案边界：ME 包裹装配室负责 AE2 样板语义和彩色分包；ME 打包机负责相邻存储端点与包裹互转；包裹总线家族只路由或拆包合法包裹。空包裹、真实嵌套、打包机读样板、总线伪装包裹内部内容、打包机扫描自身所在任意 AE 网络都不做。
 >
-> 材质执行方式：主 agent 只负责资产 brief、路径、颜色表和验收标准；具体包裹、机器、终端/总线、UI 图标材质可拆给多个 subagent 并行生成。
+> AI/agent 指令已迁移到仓库根目录 `AGENTS.md`。
 
 我建议名字不要太“工业物流”，而是偏 **AE2 风格的精密封装 / 数据化物流 / Fluix 包裹**。核心感觉应该是：
 

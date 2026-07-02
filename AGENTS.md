@@ -1,0 +1,151 @@
+# AGENTS.md
+
+本文件只放 AI/agent 工作指令。产品需求、架构设计、详细设计、资产规格、实施计划和验收标准分别维护在 `docs/` 下对应文档中。
+
+## 1. 必读文档
+
+开始工作前按需读取：
+
+```text
+docs/design.md
+docs/00-document-index.md
+docs/01-requirements.md
+docs/02-system-architecture.md
+docs/03-detailed-design.md
+docs/04-asset-spec.md
+docs/05-implementation-plan.md
+docs/06-verification-release.md
+docs/07-references.md
+docs/development-log.md
+```
+
+`docs/chat-summary.md` 是历史讨论记录，只在需要追溯命名、美术或玩法推导时阅读；实现以分类文档为准。
+
+## 2. 项目基线
+
+```text
+mod_id: appliedpackaging
+mod_name: Applied Packaging
+中文名: 应用封装
+package: com.warmthdawn.appliedpackaging
+target Minecraft: 1.20.1
+loader: Forge
+toolchain: ModDevGradle Legacy
+Forge baseline: 47.4.10
+AE2 baseline: 15.4.10 Forge
+Java: 17
+```
+
+## 3. 文档维护规则
+
+1. 不把 AI 操作步骤、subagent 分工、工具使用规则写进设计文档；这些内容只写在本文件。
+2. 不把开发流水账写进需求/架构/详细设计；开发过程写入 `docs/development-log.md`。
+3. 新需求写入 `docs/01-requirements.md`。
+4. 模块、数据流、版本适配写入 `docs/02-system-architecture.md`。
+5. 数据结构、事务、机器状态、总线和样板规则写入 `docs/03-detailed-design.md`。
+6. 材质、模型、颜色、UI 图标、资源路径和资源验收写入 `docs/04-asset-spec.md`。
+7. 阶段计划和风险写入 `docs/05-implementation-plan.md`。
+8. 测试、GameTest、构建、客户端/服务端验证和发布标准写入 `docs/06-verification-release.md`。
+9. 外部版本和语义来源写入 `docs/07-references.md`。
+10. 修改文档结构时同步更新 `docs/design.md` 与 `docs/00-document-index.md`。
+
+## 4. 开发工作流
+
+1. 先检查 git 状态，保护用户已有改动。
+2. 修改前读取相关分类文档。
+3. 代码实现优先遵循现有项目结构；没有项目结构时先从 1.20.1 Forge ModDevGradle Legacy 模板初始化。
+4. 不把未验证的网络/版本事实写成当前事实；版本选择改变前重新核实来源。
+5. 行为敏感变更必须考虑 GameTest；未运行或未添加时在 `docs/development-log.md` 记录原因。
+6. 每个阶段完成后运行最窄验证命令，并记录命令与结果。
+7. 保持提交粒度清晰，优先使用：
+
+```text
+docs:
+build:
+feat:
+test:
+assets:
+fix:
+```
+
+## 5. 材质与 subagent 协作
+
+材质生成可以使用 subagent 并行执行。主 agent 只负责描述需求、拆分任务、验收和整合。
+
+主 agent 职责：
+
+```text
+拆分资产包
+为每个资产包编写 visual brief
+提供颜色表、命名表、尺寸、输出路径和验收标准
+审阅 subagent 交付文件和报告
+把通过验收的资源纳入项目
+```
+
+subagent 职责：
+
+```text
+根据 brief 生成或绘制材质
+保持输出路径与命名一致
+记录来源、生成提示、修改说明和预览
+不修改 Java/Gradle/设计文档
+不覆盖其他 subagent 的资产
+```
+
+推荐资产分包：
+
+```text
+packages:
+  17 色包裹 item 图标、包裹基础模型、颜色替换表
+
+machines:
+  ME 包裹装配室、ME 打包机、方块模型与 block/item 贴图
+
+terminal-and-buses:
+  包裹样板终端、包裹存储总线、包裹输出总线、包裹拆包总线
+
+ui-and-icons:
+  GUI 图标、按钮、状态灯、marker/过滤图标、logo
+```
+
+主 agent 派发前应准备：
+
+```text
+docs/assets/asset-briefs/*.md
+docs/assets/palette.md
+docs/assets/acceptance.md
+```
+
+subagent 交付应包含：
+
+```text
+src/main/resources/assets/appliedpackaging/...
+docs/assets/reports/<package-name>.md
+preview image 或 renderer/screenshot 记录
+```
+
+## 6. 验证要求
+
+常规顺序：
+
+```powershell
+.\gradlew.bat build
+.\gradlew.bat runData
+.\gradlew.bat runGameTestServer
+.\gradlew.bat runClient
+.\gradlew.bat runServer
+```
+
+如果项目阶段还没有对应任务，记录原因，不要把 build-only 当成行为验证。
+
+## 7. 禁止事项
+
+```text
+不要把包裹内容伪装成 AE2 散装库存。
+不要让 ME 打包机读取 Pattern Provider 或执行样板。
+不要让 ME 包裹装配室扫描相邻存储或拆包。
+不要创建玩家可获得的空包裹。
+不要实现真实包裹嵌套。
+不要把 agent 指令写入设计正文。
+不要让材质 subagent 修改代码、Gradle 或核心设计文档。
+```
