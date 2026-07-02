@@ -188,6 +188,7 @@ PNG/JSON/model 引用机械检查通过
 已按 AE2 forge/v15.4.10 源码资产生成参考 sheet，并基于参考完成二轮材质重做
 53 个 PNG 尺寸/模式/模型引用检查通过
 .\gradlew.bat runData 成功
+2026-07-03 05:35 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
 ```
 
 ## 4. 构建验证
@@ -251,6 +252,11 @@ runClientSmoke 使用 --quickPlaySingleplayer 进入本地单人世界，自动�
   run/screenshots/appliedpackaging-client-smoke-package_unpacking_bus.png
 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture 或客户端 smoke timeout。
 默认 quick-play 世界名为 New World；可用 -Pappliedpackaging.clientSmoke.world="世界名" 覆盖。
+
+2026-07-03 05:35 在 Package Bus 流体 required content ghost 完成后再次执行 .\gradlew.bat runClientSmoke 成功。
+本次 smoke 仍自动摆放 6 个关键方块，打开 Package Assembler、ME Packager、Package Pattern Terminal、Package Storage Bus、Package Export Bus、Package Unpacking Bus 真实菜单并截图后退出。
+6 张截图均已生成；人工抽看 Package Pattern Terminal 与 Package Storage Bus，确认菜单非空屏、核心控件和槽位显示正常。
+run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout。
 ```
 
 ## 6. Dedicated Server 验证

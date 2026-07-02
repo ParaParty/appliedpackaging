@@ -965,3 +965,21 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat compileJava 成功
 验证 .\gradlew.bat runGameTestServer 成功，108 个必需 GameTest 全部通过
 ```
+
+最新进展：
+
+```text
+发布侧复核：
+  在 Package Bus 流体 required content ghost 完成后重新执行 DataGen 与客户端菜单 smoke
+验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张真实菜单截图：
+  run/screenshots/appliedpackaging-client-smoke-package_assembler.png
+  run/screenshots/appliedpackaging-client-smoke-me_packager.png
+  run/screenshots/appliedpackaging-client-smoke-package_pattern_terminal.png
+  run/screenshots/appliedpackaging-client-smoke-package_storage_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_export_bus.png
+  run/screenshots/appliedpackaging-client-smoke-package_unpacking_bus.png
+人工抽看 Package Pattern Terminal 与 Package Storage Bus 截图，确认菜单非空屏、核心控件和槽位显示正常
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
+本次仅补验证证据与文档；GameTest 已按规则考虑，行为覆盖仍使用刚完成的 108 个必需 GameTest
+```
