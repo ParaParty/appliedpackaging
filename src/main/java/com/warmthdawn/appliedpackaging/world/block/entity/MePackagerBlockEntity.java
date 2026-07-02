@@ -57,11 +57,13 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     public static final int SLOT_CAPACITY = 2;
     public static final int SLOT_FILTER = 3;
     public static final int SLOT_MARKER = 4;
+    public static final int CYCLIC_REDSTONE_INTERVAL_TICKS = 20;
     private static final int SLOT_COUNT = 5;
     private static final String ITEMS_TAG = "items";
     private static final String POWERED_TAG = "powered";
     private static final String SELECTED_COLOR_TAG = "selected_color";
     private static final String MARKER_MODE_TAG = "marker_mode";
+    private static final String REDSTONE_MODE_TAG = "redstone_mode";
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -99,8 +101,10 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     };
     private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
     private boolean powered;
+    private int redstoneCooldown;
     private PackageColor selectedColor = PackageColor.FLUIX;
     private MarkerMergeMode markerMode = MarkerMergeMode.RETAIN;
+    private RedstoneMode redstoneMode = RedstoneMode.PULSE;
 
     public MePackagerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.ME_PACKAGER.get(), pos, blockState);
@@ -131,6 +135,21 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     public void cycleMarkerMode() {
         MarkerMergeMode[] values = MarkerMergeMode.values();
         setMarkerMode(values[(markerMode.ordinal() + 1) % values.length]);
+    }
+
+    public RedstoneMode redstoneMode() {
+        return redstoneMode;
+    }
+
+    public void setRedstoneMode(RedstoneMode redstoneMode) {
+        this.redstoneMode = redstoneMode == null ? RedstoneMode.PULSE : redstoneMode;
+        this.redstoneCooldown = 0;
+        setChanged();
+    }
+
+    public void cycleRedstoneMode() {
+        RedstoneMode[] values = RedstoneMode.values();
+        setRedstoneMode(values[(redstoneMode.ordinal() + 1) % values.length]);
     }
 
     @Override
@@ -168,11 +187,34 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     }
 
     public void updatePowered(boolean nowPowered) {
-        if (nowPowered && !powered) {
+        boolean wasPowered = powered;
+        powered = nowPowered;
+        if (!nowPowered) {
+            redstoneCooldown = 0;
+        }
+        if (redstoneMode == RedstoneMode.PULSE && nowPowered && !wasPowered) {
             runOnce();
         }
-        powered = nowPowered;
         setChanged();
+    }
+
+    public void serverTick() {
+        if (level == null || level.isClientSide) {
+            return;
+        }
+        boolean nowPowered = level.hasNeighborSignal(worldPosition);
+        if (nowPowered != powered) {
+            updatePowered(nowPowered);
+        }
+        if (redstoneMode != RedstoneMode.CYCLIC || !powered) {
+            return;
+        }
+        if (redstoneCooldown > 0) {
+            redstoneCooldown--;
+            return;
+        }
+        runOnce();
+        redstoneCooldown = CYCLIC_REDSTONE_INTERVAL_TICKS;
     }
 
     public MachineResult runOnce() {
@@ -504,6 +546,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         tag.putBoolean(POWERED_TAG, powered);
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
         tag.putString(MARKER_MODE_TAG, markerMode.name());
+        tag.putString(REDSTONE_MODE_TAG, redstoneMode.name());
     }
 
     @Override
@@ -515,6 +558,7 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
         powered = tag.getBoolean(POWERED_TAG);
         selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
         markerMode = markerModeByName(tag.getString(MARKER_MODE_TAG));
+        redstoneMode = RedstoneMode.byName(tag.getString(REDSTONE_MODE_TAG));
     }
 
     @Override
@@ -553,6 +597,27 @@ public class MePackagerBlockEntity extends BlockEntity implements InventoryDropp
     public record ActionResult(boolean consumed, String messageKey) {
         public static ActionResult consumed(String messageKey) {
             return new ActionResult(true, messageKey);
+        }
+    }
+
+    public enum RedstoneMode {
+        DISABLED,
+        PULSE,
+        CYCLIC;
+
+        public String id() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+
+        private static RedstoneMode byName(String name) {
+            if (name == null || name.isBlank()) {
+                return PULSE;
+            }
+            try {
+                return RedstoneMode.valueOf(name);
+            } catch (IllegalArgumentException e) {
+                return PULSE;
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.world.block;
 
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
+import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -10,6 +11,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -24,6 +27,15 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new MePackagerBlockEntity(pos, state);
+    }
+
+    @Override
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
+        if (level.isClientSide) {
+            return null;
+        }
+        return createTickerHelper(type, APBlockEntities.ME_PACKAGER.get(), (tickLevel, pos, tickState, packager) ->
+                packager.serverTick());
     }
 
     @Override

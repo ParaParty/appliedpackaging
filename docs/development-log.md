@@ -791,6 +791,29 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最新进展：
 
 ```text
+补齐 ME Packager 周期红石模式：
+  MePackagerBlockEntity 新增 RedstoneMode：disabled/pulse/cyclic
+  默认保持 pulse，上升沿触发一次，兼容旧行为
+  cyclic 模式在持续供电时每 20 tick 尝试一次 pack/unpack
+  MePackagerBlock 接入服务端 ticker，周期模式可在真实世界内运行
+  ME Packager GUI 新增红石模式图标按钮，使用 minecraft redstone 图标和模式标记
+  红石模式保存到 NBT，并通过 menu DataSlot 同步到客户端
+  en_us/zh_cn 补齐红石模式 tooltip 文案
+新增 3 个 GameTest：
+  mePackagerMenuCyclesRedstoneMode
+  mePackagerPulseRedstoneRunsOnce
+  mePackagerCyclicRedstoneRepeatsWhilePowered
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，93 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，6 张真实菜单截图均生成；人工查看 ME Packager 截图，红石模式按钮正常显示且未挤压布局
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture 或客户端 smoke timeout
+验证 .\gradlew.bat build 成功
+验证 .\gradlew.bat runServer 成功到达 EULA gate，完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
+```
+
+最新进展：
+
+```text
 扩展客户端 GUI screenshot smoke：
   runClientSmoke 现在同时摆放并打开 Package Storage Bus、Package Export Bus、Package Unpacking Bus
   客户端 smoke 覆盖 Package Assembler、ME Packager、Package Pattern Terminal 和三种 Package Bus 真实菜单

@@ -469,12 +469,14 @@ while stack.count > 0:
 ```text
 me_packager 已注册为方块、方块实体和方块物品。
 非潜行右键打开 ME Packager GUI。
-GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮和 marker 策略图标按钮。
+GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮、marker 策略图标按钮和红石模式图标按钮。
 潜行右键保留快速交互：
   手持合法包裹时放入输入槽。
   空手或非包裹物品时先尝试取出输出槽。
   输出槽为空时触发一次 pack/unpack。
-红石上升沿触发一次 pack/unpack。
+红石模式可在 ignored/pulse/cyclic 三档切换。
+pulse 为默认兼容模式，红石上升沿触发一次 pack/unpack。
+cyclic 在持续供电时每 20 tick 尝试一次 pack/unpack；输出槽堵塞或端点不可用时不会改变源库存。
 机器背面优先识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；若无 AE2 storage，则回落到 Forge item handler / fluid handler。
 输入槽存在合法包裹时执行整包拆包。
 输入槽为空时从背面库存或流体槽选择当前容量档可承载的内容生成包裹。
@@ -490,7 +492,7 @@ GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背
   拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
 AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
 Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽打包和整包拆入流体槽；没有 MEStorage 时，混合物品+流体包裹不会拆入单一 Forge 端点。
-当前不含周期红石模式。
+周期红石模式已有菜单按钮、服务端 ticker、NBT 持久化和 GameTest 覆盖。
 ```
 
 ## 9. 样板与终端

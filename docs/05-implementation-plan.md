@@ -140,9 +140,11 @@ GameTest
   方块掉落表
   内部输入/输出 item handler
   非潜行右键打开 GUI/Menu
-  GUI 输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮和 marker 策略图标按钮
+  GUI 输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮、marker 策略图标按钮和红石模式图标按钮
   潜行右键放入包裹、取出输出、触发一次操作
   红石上升沿触发一次操作
+  红石模式可在忽略/上升沿/周期之间切换，默认上升沿以兼容旧行为
+  周期红石模式在持续供电时每 20 tick 尝试一次 pack/unpack
   背面 Forge item handler 打包/拆包事务
   容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
   selectedColor 控制无过滤模板时的输出包裹颜色
@@ -155,9 +157,9 @@ GameTest
   item-only GameTest，覆盖显式 marker retain/override/clear
   MEStorage endpoint GameTest
   fluid handler endpoint GameTest
+  ME Packager 红石模式菜单、红石上升沿和周期红石 GameTest
 
 待实现：
-  周期红石模式
   真实 AE 网络/Interface 世界内 smoke
 ```
 

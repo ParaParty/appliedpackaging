@@ -117,6 +117,9 @@ item handler 打包计划在显式 clear 模式移除 marker
 item handler 打包计划可使用 64k 容量档
 过滤系统可从已编码 package_pattern 读取过滤模板
 ME Packager 可识别 AE2 64k storage component 为 64k 包裹容量档
+ME Packager 菜单可切换红石模式
+ME Packager 红石上升沿只执行一次
+ME Packager 周期红石模式在持续供电时重复执行
 MEStorage 打包计划可从 AE2 storage 抽取 GenericStack 内容
 MEStorage 拆包可把包裹完整插入 AE2 storage
 MEStorage 打包计划会展开 storage 中已有源包裹再封装
@@ -124,7 +127,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，90 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，93 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

@@ -21,6 +21,7 @@ import net.minecraftforge.items.SlotItemHandler;
 public class MePackagerMenu extends AbstractContainerMenu {
     public static final int BUTTON_PACK_ONCE = 0;
     public static final int BUTTON_MARKER_MODE = 1;
+    public static final int BUTTON_REDSTONE_MODE = 2;
     public static final int BUTTON_COLOR_BASE = 10;
 
     private static final int MACHINE_SLOT_COUNT = 5;
@@ -32,6 +33,7 @@ public class MePackagerMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
     private final DataSlot selectedColorSlot;
     private final DataSlot markerModeSlot;
+    private final DataSlot redstoneModeSlot;
 
     public MePackagerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -69,6 +71,20 @@ public class MePackagerMenu extends AbstractContainerMenu {
                 }
             }
         };
+        this.redstoneModeSlot = new DataSlot() {
+            @Override
+            public int get() {
+                return blockEntity.redstoneMode().ordinal();
+            }
+
+            @Override
+            public void set(int value) {
+                MePackagerBlockEntity.RedstoneMode[] values = MePackagerBlockEntity.RedstoneMode.values();
+                if (value >= 0 && value < values.length) {
+                    blockEntity.setRedstoneMode(values[value]);
+                }
+            }
+        };
 
         addSlot(new SlotItemHandler(blockEntity.getItems(), MePackagerBlockEntity.SLOT_INPUT, 35, 34));
         addSlot(new OutputPackageSlot(blockEntity, 123, 34));
@@ -78,6 +94,7 @@ public class MePackagerMenu extends AbstractContainerMenu {
         addPlayerInventory(playerInventory);
         addDataSlot(selectedColorSlot);
         addDataSlot(markerModeSlot);
+        addDataSlot(redstoneModeSlot);
     }
 
     @Override
@@ -91,6 +108,12 @@ public class MePackagerMenu extends AbstractContainerMenu {
         if (id == BUTTON_MARKER_MODE) {
             if (!player.level().isClientSide) {
                 blockEntity.cycleMarkerMode();
+            }
+            return true;
+        }
+        if (id == BUTTON_REDSTONE_MODE) {
+            if (!player.level().isClientSide) {
+                blockEntity.cycleRedstoneMode();
             }
             return true;
         }
@@ -118,6 +141,15 @@ public class MePackagerMenu extends AbstractContainerMenu {
         int index = markerModeSlot.get();
         if (index < 0 || index >= values.length) {
             return MarkerMergeMode.RETAIN;
+        }
+        return values[index];
+    }
+
+    public MePackagerBlockEntity.RedstoneMode redstoneMode() {
+        MePackagerBlockEntity.RedstoneMode[] values = MePackagerBlockEntity.RedstoneMode.values();
+        int index = redstoneModeSlot.get();
+        if (index < 0 || index >= values.length) {
+            return MePackagerBlockEntity.RedstoneMode.PULSE;
         }
         return values[index];
     }

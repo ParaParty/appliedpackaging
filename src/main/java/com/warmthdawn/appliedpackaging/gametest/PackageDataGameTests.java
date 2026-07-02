@@ -45,6 +45,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import java.util.List;
@@ -71,6 +72,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
@@ -551,6 +554,85 @@ public final class PackageDataGameTests {
                         .isPresent(),
                 "ME Packager should map AE2 64k storage component to the 64k package profile");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerMenuCyclesRedstoneMode(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(0, 1, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState(),
+                3);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        FakePlayer player = newFakePlayer(helper);
+        MePackagerMenu menu = new MePackagerMenu(4, new Inventory(player), packager);
+
+        boolean clicked = menu.clickMenuButton(player, MePackagerMenu.BUTTON_REDSTONE_MODE);
+
+        helper.assertTrue(clicked, "ME Packager menu should accept the redstone mode button");
+        helper.assertTrue(packager.redstoneMode() == MePackagerBlockEntity.RedstoneMode.CYCLIC,
+                "ME Packager redstone mode should cycle from pulse to cyclic");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerPulseRedstoneRunsOnce(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(1, 1, 0);
+        ChestBlockEntity chest = placeMePackagerIronChest(helper, packagerPos, 10);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.PULSE);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos.above()),
+                Blocks.REDSTONE_BLOCK.defaultBlockState(),
+                3);
+
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> {
+                    ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
+                            "Pulse redstone should package the first default-capacity batch");
+                    helper.assertTrue(ironAmountInChest(chest) == 64,
+                            "Pulse redstone should leave the remaining iron in the source chest");
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () -> {
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Pulse redstone should not keep running while power remains high");
+                    helper.assertTrue(ironAmountInChest(chest) == 64,
+                            "Pulse redstone should not consume the second batch without a new pulse");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerCyclicRedstoneRepeatsWhilePowered(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(1, 1, 0);
+        ChestBlockEntity chest = placeMePackagerIronChest(helper, packagerPos, 10);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.CYCLIC);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos.above()),
+                Blocks.REDSTONE_BLOCK.defaultBlockState(),
+                3);
+
+        helper.startSequence()
+                .thenExecuteAfter(5, () -> {
+                    ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
+                            "Cyclic redstone should package the first default-capacity batch");
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () -> {
+                    ItemStack secondOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+                    helper.assertTrue(amountOf(secondData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "Cyclic redstone should package the remaining batch after its cooldown");
+                    helper.assertTrue(ironAmountInChest(chest) == 0,
+                            "Cyclic redstone should consume both batches while power remains high");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "empty")
@@ -2357,6 +2439,39 @@ public final class PackageDataGameTests {
                 APBlocks.PACKAGE_PATTERN_TERMINAL.get().defaultBlockState(),
                 3);
         return (PackagePatternTerminalBlockEntity) helper.getBlockEntity(pos);
+    }
+
+    private static ChestBlockEntity placeMePackagerIronChest(
+            GameTestHelper helper,
+            BlockPos packagerPos,
+            int ironStacks) {
+        BlockPos chestPos = packagerPos.relative(Direction.WEST);
+        helper.getLevel().setBlock(
+                helper.absolutePos(chestPos),
+                Blocks.CHEST.defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        for (int slot = 0; slot < ironStacks; slot++) {
+            chest.setItem(slot, new ItemStack(Items.IRON_INGOT, 64));
+        }
+        chest.setChanged();
+        return chest;
+    }
+
+    private static int ironAmountInChest(ChestBlockEntity chest) {
+        int amount = 0;
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+            ItemStack stack = chest.getItem(slot);
+            if (stack.is(Items.IRON_INGOT)) {
+                amount += stack.getCount();
+            }
+        }
+        return amount;
     }
 
     private static FakePlayer newFakePlayer(GameTestHelper helper) {

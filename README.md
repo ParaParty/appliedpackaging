@@ -31,7 +31,7 @@ build/libs/appliedpackaging-0.1.0-dev.jar
 - Package contents modeled as AE2 `GenericStack` values, with item and fluid transaction paths in the core model.
 - Nested packages are flattened when repackaged, so packages do not become recursive containers.
 - ME Package Assembler for AE2 pattern-driven package output.
-- ME Packager for adjacent inventory, adjacent fluid tank, and adjacent AE2 storage endpoint packaging and unpacking.
+- ME Packager for adjacent inventory, adjacent fluid tank, and adjacent AE2 storage endpoint packaging and unpacking, with manual, pulse, and cyclic redstone operation.
 - Package Pattern Terminal for encoding package patterns on AE2 blank patterns.
 - AE2 encoded processing pattern carrier support for packaged-processing automation.
 - Package Storage Bus, Package Export Bus, and Package Unpacking Bus that expose or move only valid packages.
@@ -45,7 +45,7 @@ Use an AE2 blank pattern in the Package Pattern Terminal to encode package data.
 
 The ME Package Assembler accepts AE2 pattern pushes and outputs one or more valid package items. It supports normal processing patterns, colored processing input metadata, package patterns, and packaged-processing patterns.
 
-The ME Packager handles adjacent storage endpoints. It can package item handlers, fluid handlers, and adjacent AE2 storage endpoints such as an ME Interface-backed subnet, then unpack complete packages transactionally into compatible targets.
+The ME Packager handles adjacent storage endpoints. It can package item handlers, fluid handlers, and adjacent AE2 storage endpoints such as an ME Interface-backed subnet, then unpack complete packages transactionally into compatible targets. Its redstone mode can ignore redstone, run once on a pulse, or run repeatedly while powered.
 
 Package buses are routing tools. They only accept valid packages, never expose package internals as loose AE2 inventory, and never auto-package loose input items.
 
@@ -90,7 +90,7 @@ Latest recorded verification:
 
 ```text
 compileJava:       passed
-runGameTestServer: passed, 90 required GameTests
+runGameTestServer: passed, 93 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas

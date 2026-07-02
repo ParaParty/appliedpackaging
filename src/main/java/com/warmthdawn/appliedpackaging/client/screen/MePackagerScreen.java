@@ -23,6 +23,8 @@ public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
             new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_override.png");
     private static final ResourceLocation MARKER_CLEAR_ICON =
             new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_clear.png");
+    private static final ResourceLocation REDSTONE_ICON =
+            new ResourceLocation("minecraft", "textures/item/redstone.png");
     private static final int PANEL = 0xffd6dbde;
     private static final int PANEL_DARK = 0xff4a5058;
     private static final int PANEL_MID = 0xff879198;
@@ -57,6 +59,7 @@ public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
         packButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.me_packager.pack_once")));
         addRenderableWidget(packButton);
         addRenderableWidget(new MarkerModeButton(leftPos + 104, topPos + 35));
+        addRenderableWidget(new RedstoneModeButton(leftPos + 146, topPos + 35));
 
         for (int index = 0; index < PackageColor.values().length; index++) {
             PackageColor color = PackageColor.values()[index];
@@ -190,6 +193,62 @@ public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
                 case OVERRIDE -> MARKER_OVERRIDE_ICON;
                 case CLEAR -> MARKER_CLEAR_ICON;
             };
+        }
+    }
+
+    private class RedstoneModeButton extends AbstractButton {
+        private RedstoneModeButton(int x, int y) {
+            super(x, y, 16, 16, Component.empty());
+            setMessage(redstoneModeMessage());
+            setTooltip(Tooltip.create(redstoneModeMessage()));
+        }
+
+        @Override
+        public void onPress() {
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, MePackagerMenu.BUTTON_REDSTONE_MODE);
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            Component message = redstoneModeMessage();
+            setMessage(message);
+            setTooltip(Tooltip.create(message));
+            int border = isHoveredOrFocused() ? 0xffffffff : 0xff2a3036;
+            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
+            graphics.blit(REDSTONE_ICON, getX(), getY(), 0, 0, width, height, width, height);
+            renderModeMark(graphics);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
+
+        private Component redstoneModeMessage() {
+            return Component.translatable(
+                    "gui.appliedpackaging.me_packager.redstone_mode." + menu.redstoneMode().id());
+        }
+
+        private void renderModeMark(GuiGraphics graphics) {
+            int x = getX();
+            int y = getY();
+            switch (menu.redstoneMode()) {
+                case DISABLED -> {
+                    for (int offset = 0; offset < 11; offset++) {
+                        graphics.fill(x + 3 + offset, y + 13 - offset, x + 5 + offset, y + 15 - offset, 0xffffffff);
+                    }
+                }
+                case PULSE -> {
+                    graphics.fill(x + 11, y + 2, x + 14, y + 5, 0xffffffff);
+                    graphics.fill(x + 12, y + 5, x + 13, y + 12, 0xffffffff);
+                }
+                case CYCLIC -> {
+                    graphics.hLine(x + 3, x + 12, y + 3, 0xffffffff);
+                    graphics.hLine(x + 3, x + 12, y + 12, 0xffffffff);
+                    graphics.fill(x + 10, y + 4, x + 13, y + 7, 0xffffffff);
+                    graphics.fill(x + 3, y + 8, x + 6, y + 11, 0xffffffff);
+                }
+            }
         }
     }
 }
