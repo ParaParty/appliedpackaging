@@ -201,7 +201,7 @@ public class PackageBusMenu extends AbstractContainerMenu {
             if (carried.isEmpty()) {
                 blockEntity.clearManualFilterContent(contentSlot);
             } else {
-                blockEntity.setManualFilterContent(contentSlot, carried, button == 1 ? 1 : carried.getCount());
+                blockEntity.setManualFilterContentFromGhostStack(contentSlot, carried, button == 1);
             }
             updateFilterDisplays();
             broadcastChanges();

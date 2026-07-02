@@ -90,7 +90,7 @@ Latest recorded verification:
 
 ```text
 compileJava:       passed
-runGameTestServer: passed, 105 required GameTests
+runGameTestServer: passed, 108 required GameTests
 runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas
@@ -103,7 +103,7 @@ The dedicated server smoke stops at Mojang's EULA prompt until the user explicit
 ## Known Limitations
 
 - The Package Pattern Terminal is implemented as a thin AE2-style panel block. A true AE2 cable part form is not implemented yet.
-- Manual filter editing currently focuses on item package templates, marker, color, and required item content. Advanced fluid and arbitrary AEKey ghost editors are not yet provided.
+- Manual filter editing supports item and Forge fluid-container required content ghosts. A direct arbitrary AEKey ghost editor is not yet provided.
 - Packaged-processing pattern output ghost slots support item stacks and Forge fluid containers. A direct arbitrary AEKey output editor is not yet provided.
 - Full dedicated-server world-load verification is pending explicit EULA acceptance.
 

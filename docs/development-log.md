@@ -949,3 +949,19 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat compileJava 成功
 验证 .\gradlew.bat runGameTestServer 成功，105 个必需 GameTest 全部通过
 ```
+
+最新进展：
+
+```text
+补齐 Package Bus 手工 required content 流体过滤：
+  Package Bus required content ghost 槽现在可从 Forge 流体容器编码 AEFluidKey 过滤条件
+  水桶会保存为 1000 mB water required content，ghost 编辑不消耗玩家光标容器
+  手工流体过滤条件继续使用 PackageFilter NBT 保存/读取
+  任意 AEKey 直接编辑器仍后置；当前流体通过容器作为可用玩家入口
+新增 3 个 GameTest：
+  packageFilterMatchesFluidRequiredContent
+  packageBusMenuEditsManualFluidFilter
+  packageBusManualFluidFilterPersists
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，108 个必需 GameTest 全部通过
+```

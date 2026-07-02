@@ -119,6 +119,9 @@ package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
 装配室可接受 AE2 Pattern Provider 推送的 AE2 encoded packaged-processing carrier
 package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
 package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
+package_bus 配置 UI 可从 Forge 流体容器设置 required content ghost，编码时写入 AEFluidKey 过滤条件且不消耗光标容器
+package_bus 手工流体过滤器保存/读取后保留 color、required content key 和 amount
+PackageFilter 可匹配流体 required content
 item handler 打包计划可按内容过滤只选择 requiredContents
 item handler 打包计划在 requiredContents 缺失时拒绝
 item handler 打包计划可从过滤模板 override marker
@@ -140,7 +143,7 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
-当前最新执行：.\gradlew.bat runGameTestServer 成功，105 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，108 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：

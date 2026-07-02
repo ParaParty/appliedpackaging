@@ -268,6 +268,23 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageFilterMatchesFluidRequiredContent(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.BLUE,
+                List.of(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)),
+                Optional.empty(),
+                0);
+        PackageFilter filter = new PackageFilter(
+                Optional.of(PackageColor.BLUE),
+                Optional.empty(),
+                List.of(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)));
+
+        helper.assertTrue(filter.matches(PackageColor.BLUE, data),
+                "Content filter should accept matching fluid requirements");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePlanFlattensSourcePackages(GameTestHelper helper) {
         PackageData source = ironPackageData(PackageColor.RED, 64);
         PackagePlanResult result = PackagePlanBuilder.build(
@@ -2056,6 +2073,36 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageBusMenuEditsManualFluidFilter(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = placePackageExportBus(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackageBusMenu menu = new PackageBusMenu(3, new Inventory(player), bus);
+        ItemStack carried = new ItemStack(Items.WATER_BUCKET);
+
+        menu.setCarried(carried.copy());
+        menu.clicked(PackageBusMenu.CONTENT_FILTER_START, 0, ClickType.PICKUP, player);
+        PackageFilter filter = bus.getConfiguredFilter();
+        PackageData waterData = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)),
+                Optional.empty(),
+                0);
+
+        helper.assertTrue(filter.requiredContents().size() == 1,
+                "Manual package bus filter should store one required fluid ghost");
+        helper.assertTrue(filter.requiredContents().get(0).what().equals(AEFluidKey.of(Fluids.WATER)),
+                "Manual package bus filter should store the required fluid key");
+        helper.assertTrue(filter.requiredContents().get(0).amount() == 1000,
+                "Manual package bus filter should store one bucket of fluid");
+        helper.assertTrue(filter.matches(PackageColor.FLUIX, waterData),
+                "Manual package bus filter should match equivalent fluid package contents");
+        helper.assertTrue(!menu.contentFilter(0).isEmpty(), "Fluid content ghost should be visible in the menu");
+        helper.assertTrue(menu.getCarried().is(Items.WATER_BUCKET),
+                "Manual package bus fluid filter should not consume the carried bucket");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageBusManualFilterPersists(GameTestHelper helper) {
         PackageExportBusBlockEntity bus = new PackageExportBusBlockEntity(
                 BlockPos.ZERO,
@@ -2084,6 +2131,34 @@ public final class PackageDataGameTests {
                 "Manual package bus filter content key should persist");
         helper.assertTrue(filter.requiredContents().get(0).amount() == 24,
                 "Manual package bus filter content amount should persist");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusManualFluidFilterPersists(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = new PackageExportBusBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState());
+        bus.setManualFilterColor(PackageColor.BLUE);
+        bus.setManualFilterContentFromGhostStack(0, new ItemStack(Items.WATER_BUCKET), false);
+
+        CompoundTag tag = new CompoundTag();
+        bus.saveAdditional(tag);
+
+        PackageExportBusBlockEntity loaded = new PackageExportBusBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState());
+        loaded.loadTag(tag);
+        PackageFilter filter = loaded.getConfiguredFilter();
+
+        helper.assertTrue(filter.color().orElseThrow() == PackageColor.BLUE,
+                "Manual package bus fluid filter color should persist");
+        helper.assertTrue(filter.requiredContents().size() == 1,
+                "Manual package bus fluid filter contents should persist");
+        helper.assertTrue(filter.requiredContents().get(0).what().equals(AEFluidKey.of(Fluids.WATER)),
+                "Manual package bus fluid filter key should persist");
+        helper.assertTrue(filter.requiredContents().get(0).amount() == 1000,
+                "Manual package bus fluid filter amount should persist");
         helper.succeed();
     }
 

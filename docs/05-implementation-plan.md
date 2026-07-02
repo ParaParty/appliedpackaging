@@ -271,6 +271,7 @@ GameTest/服务器 smoke test
   总线提供共享 Package Bus 配置 UI，可显示 ghost filter、从光标复制模板、清除模板、shift-click 背包模板设置 ghost filter
   Package Bus 配置 UI 不消耗玩家光标或背包中的模板物品
   Package Bus 配置 UI 支持手工编辑颜色、marker ghost 和 3 个 required content ghost slots
+  Package Bus required content ghost slots 可从 Forge 流体容器编码 AEFluidKey 过滤条件
   手工 Package Bus 过滤器以 PackageFilter NBT 保存，并兼容旧 filter_template 读取
   runClientSmoke 可 quick-play 单人世界、摆放关键方块、打开真实菜单、截图 Package Assembler/ME Packager/Package Pattern Terminal/Package Storage Bus/Package Export Bus/Package Unpacking Bus 后退出
   PackageItemStorage/总线过滤 GameTest
@@ -308,7 +309,7 @@ GameTest/服务器 smoke test
   彩色处理样板更完整的处理输出 UI
   封装处理样板任意 AEKey 处理输出 ghost editor
   封装处理样板直接流体量编辑器
-  批量 required content / 流体 / 任意 AEKey 高级过滤器编辑器
+  批量 required content / 任意 AEKey 高级过滤器编辑器
   AE2 cable part 形态
 ```
 

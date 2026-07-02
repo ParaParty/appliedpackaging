@@ -31,7 +31,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 ### Verification
 
 - `.\gradlew.bat compileJava` passed.
-- `.\gradlew.bat runGameTestServer` passed with 105 required GameTests.
+- `.\gradlew.bat runGameTestServer` passed with 108 required GameTests.
 - `.\gradlew.bat runData` passed.
 - `.\gradlew.bat build` passed and generated `build/libs/appliedpackaging-0.1.0-dev.jar`.
 - `.\gradlew.bat runClient` smoke reached Applied Packaging initialization, SoundEngine startup, and block atlas creation with no recorded missing model or missing texture errors.
@@ -40,6 +40,6 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 ### Known Limitations
 
 - The terminal is a panel-like block, not a true AE2 cable part.
-- Advanced manual ghost editors for fluid and arbitrary AEKey filters are not yet implemented.
+- Manual filter ghost editing supports item and Forge fluid-container required content; arbitrary AEKey filter editing is not yet implemented.
 - Packaged-processing output ghost slots support item stacks and Forge fluid containers; arbitrary AEKey output editing is not yet implemented.
 - Full dedicated-server world-load smoke is pending explicit local EULA acceptance.

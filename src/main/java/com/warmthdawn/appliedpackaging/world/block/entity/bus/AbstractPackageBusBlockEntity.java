@@ -4,6 +4,7 @@ import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -38,6 +39,8 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
@@ -175,16 +178,46 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
     }
 
     public void setManualFilterContent(int slot, ItemStack stack, long amount) {
+        if (stack.isEmpty() || amount <= 0) {
+            clearManualFilterContent(slot);
+            return;
+        }
+        setManualFilterContent(slot, new GenericStack(AEItemKey.of(stack), amount));
+    }
+
+    public void setManualFilterContentFromGhostStack(int slot, ItemStack stack, boolean singleContainerOrItem) {
         if (slot < 0 || slot >= REQUIRED_CONTENT_SLOT_COUNT) {
             return;
         }
-        if (stack.isEmpty() || amount <= 0) {
+        if (stack.isEmpty()) {
+            clearManualFilterContent(slot);
+            return;
+        }
+
+        Optional<FluidStack> fluid = FluidUtil.getFluidContained(stack);
+        if (fluid.isPresent() && !fluid.get().isEmpty()) {
+            FluidStack fluidStack = fluid.get();
+            long amount = fluidStack.getAmount();
+            if (!singleContainerOrItem) {
+                amount *= Math.max(1, stack.getCount());
+            }
+            setManualFilterContent(slot, new GenericStack(AEFluidKey.of(fluidStack), amount));
+            return;
+        }
+
+        setManualFilterContent(slot, stack, singleContainerOrItem ? 1 : stack.getCount());
+    }
+
+    public void setManualFilterContent(int slot, GenericStack required) {
+        if (slot < 0 || slot >= REQUIRED_CONTENT_SLOT_COUNT) {
+            return;
+        }
+        if (required == null || required.amount() <= 0) {
             clearManualFilterContent(slot);
             return;
         }
 
         List<GenericStack> requiredContents = new ArrayList<>(filter.requiredContents());
-        GenericStack required = new GenericStack(AEItemKey.of(stack), amount);
         if (slot < requiredContents.size()) {
             requiredContents.set(slot, required);
         } else {
