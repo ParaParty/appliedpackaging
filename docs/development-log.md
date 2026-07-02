@@ -1067,3 +1067,20 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 run/logs/latest.log 未发现 ERROR、FATAL、ClientSmokeRunner、NoClassDefFoundError、ClassNotFoundException 或客户端类误加载关键字
 完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
 ```
+
+最新进展：
+
+```text
+发布 jar 清洁度修复：
+  jar 任务排除 com/warmthdawn/appliedpackaging/client/ClientSmokeRunner*.class 和 com/warmthdawn/appliedpackaging/gametest/**
+  AppliedPackagingClient 仅在 appliedpackaging.clientSmoke.enabled=true 时通过反射加载 ClientSmokeRunner，因此发布 jar 缺少该类不会影响普通客户端
+  runClientSmoke 开发运行仍可从 build/classes 加载 ClientSmokeRunner
+验证 .\gradlew.bat build 成功，重新生成 build/libs/appliedpackaging-0.1.0-dev.jar
+验证 jar tf 未发现 ClientSmokeRunner、gametest、build/tmp/reference/preview/docs/assets/run 等 dev/test entries
+验证 release jar 文本资源未发现 E:\、C:\Users、build/reference、build/asset-reference、.codex 或 asset-reference
+验证 .\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，反射加载 smoke runner 并生成 6 张真实菜单截图
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture、NoClassDefFoundError、ClassNotFoundException、InvocationTargetException、IllegalStateException、Timed out 或 timeout
+验证 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
+验证 .\gradlew.bat runServer 成功到达 EULA gate，未出现客户端类误加载关键字；run/eula.txt 仍为 eula=false，完整 dedicated server world-load 仍需用户显式同意 EULA 后执行
+```

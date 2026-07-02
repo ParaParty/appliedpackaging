@@ -41,6 +41,8 @@ base {
 
 tasks.named('jar', Jar).configure {
     from('LICENSE.md', 'README.md', 'CHANGELOG.md')
+    exclude 'com/warmthdawn/appliedpackaging/client/ClientSmokeRunner*.class'
+    exclude 'com/warmthdawn/appliedpackaging/gametest/**'
     manifest {
         attributes([
                 'Specification-Title'     : mod_name,
