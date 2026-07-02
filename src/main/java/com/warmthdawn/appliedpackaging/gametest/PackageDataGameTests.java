@@ -7,6 +7,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.config.Actionable;
+import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.security.IActionSource;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
@@ -36,6 +37,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatter
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -778,6 +780,71 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerAcceptsPatternProviderPush(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
+        KeyCounter copper = new KeyCounter();
+        copper.add(AEItemKey.of(Items.COPPER_INGOT), 32);
+
+        helper.assertTrue(assembler.acceptsPlans(), "Empty assembler should accept Pattern Provider plans");
+        boolean accepted = assembler.pushPattern(
+                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
+                new KeyCounter[] { iron, copper },
+                Direction.UP);
+        helper.assertTrue(accepted, "Assembler should accept Pattern Provider item inputs");
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(iron.isEmpty(), "Accepted push should consume the iron input holder");
+        helper.assertTrue(copper.isEmpty(), "Accepted push should consume the copper input holder");
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Pushed iron should be packaged");
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Pushed copper should be packaged");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerRejectsPatternProviderPushWhenOutputBlocked(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_OUTPUT,
+                packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 16)));
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
+
+        boolean accepted = assembler.pushPattern(
+                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
+                new KeyCounter[] { iron },
+                Direction.UP);
+
+        helper.assertFalse(accepted, "Blocked output should reject Pattern Provider pushes");
+        helper.assertTrue(iron.get(AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Rejected push should not consume input holders");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerRejectsFluidPatternProviderPush(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        KeyCounter water = new KeyCounter();
+        water.add(AEFluidKey.of(Fluids.WATER), 1000);
+
+        boolean accepted = assembler.pushPattern(
+                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
+                new KeyCounter[] { water },
+                Direction.UP);
+
+        helper.assertFalse(accepted, "Item-only assembler pushPattern should reject fluid inputs");
+        helper.assertTrue(water.get(AEFluidKey.of(Fluids.WATER)) == 1000,
+                "Rejected fluid push should not consume input holders");
+        helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                "Rejected fluid push should not create output");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageItemStorageExposesOnlyLegalPackages(GameTestHelper helper) {
         ItemStackHandler target = new ItemStackHandler(3);
         ItemStack legalPackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
@@ -1118,6 +1185,23 @@ public final class PackageDataGameTests {
             }
         }
         return amount;
+    }
+
+    private record DummyPatternDetails(GenericStack output) implements IPatternDetails {
+        @Override
+        public AEItemKey getDefinition() {
+            return AEItemKey.of(Items.PAPER);
+        }
+
+        @Override
+        public IInput[] getInputs() {
+            return new IInput[0];
+        }
+
+        @Override
+        public GenericStack[] getOutputs() {
+            return new GenericStack[] { output };
+        }
     }
 
     private static final class MemoryMEStorage implements MEStorage {

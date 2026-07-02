@@ -136,13 +136,12 @@ gametest
 普通/彩色自动合成：
 
 ```text
-Pattern Provider pushPattern
--> PackageAssembler.acceptInputs(...)
--> PatternAdapter.resolvePackagePlan(...)
--> PackagePlanner.validateCapacity(...)
--> outputBuffer.simulateInsert(packages)
--> inputBuffer.consume(...)
--> outputBuffer.insert(packages)
+AE2 Pattern Provider
+-> adjacent ICraftingMachine.pushPattern(...)
+-> PackageAssembler converts item KeyCounter inputs into a local package plan
+-> output slot simulateInsert(package)
+-> input holder all-or-nothing consume
+-> output slot insert(package)
 -> optional AE network insert
 ```
 

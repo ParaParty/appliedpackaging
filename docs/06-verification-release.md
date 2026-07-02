@@ -54,6 +54,9 @@ item handler 拆包可完整插入目标
 装配室输入包裹会展开后再封装
 装配室可使用已编码 package_pattern 精确匹配输入计划
 装配室可使用 packaged_processing_pattern 逐包生成有序处理包裹
+装配室可接受 AE2 Pattern Provider pushPattern 的 item-only 输入
+装配室输出阻挡时拒绝 Pattern Provider pushPattern 且不消耗输入
+装配室拒绝 Pattern Provider pushPattern 的 fluid/non-item 输入且不消耗输入
 AE2 PackageItemStorage 只暴露合法包裹
 AE2 PackageItemStorage 拒绝散装物品插入
 AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
@@ -84,7 +87,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-当前最新执行：.\gradlew.bat runGameTestServer 成功，53 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer 成功，56 个必需 GameTest 全部通过。
 ```
 
 1.20.1 运行要求：
@@ -147,6 +150,8 @@ PNG/JSON/model 引用机械检查通过
 jar 生成在 build/libs
 jar 文件名包含 mod id 和版本
 ```
+
+当前最新执行：`.\gradlew.bat build` 成功，生成 `build/libs/appliedpackaging-0.1.0-dev.jar`。
 
 ## 5. 客户端验证
 

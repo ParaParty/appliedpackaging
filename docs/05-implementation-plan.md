@@ -200,12 +200,15 @@ GameTest/客户端验证
   已编码 package_pattern 不消耗，可重复作为本地装配计划
   已编码 packaged_processing_pattern 保存有序多包裹计划
   package_assembler 可按 packaged_processing_pattern 逐包生成匹配包裹
+  package_assembler 暴露 AE2 ICraftingMachine capability
+  Pattern Provider pushPattern 可把 item-only KeyCounter 输入装配为包裹
+  pushPattern 在输出阻挡、输入缓冲非空、非物品 AEKey 或规划失败时整批拒绝且不消耗输入
   装配室基础 GameTest
 
 待实现：
   彩色处理样板元数据读取
   容量元件槽
-  AE2 Pattern Provider/pushPattern 深集成
+  真实 AE 网络 Pattern Provider 端到端 smoke test
   客户端验证
 ```
 

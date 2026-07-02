@@ -374,10 +374,31 @@ Package Assembler 接入已编码 package_pattern：
   后续应评估扩展 AE2 原版 blank/encoded pattern 作为样板承载，避免继续新增样板物品
 ```
 
+最新进展：
+
+```text
+补齐 Package Assembler 与 AE2 Pattern Provider 的基础可用集成：
+  Package Assembler 实现 AE2 ICraftingMachine
+  方块实体暴露 appeng.capabilities.Capabilities.CRAFTING_MACHINE
+  acceptsPlans 在输入缓冲为空且输出槽为空时接受 Pattern Provider 计划
+  pushPattern 将 item-only KeyCounter 输入转换为本机 9 格输入缓冲并复用装配计划逻辑
+  成功装配后才从 KeyCounter 扣减输入，失败路径保持 all-or-nothing
+  输出阻挡、输入缓冲非空、fluid/non-item AEKey、规划失败或提交失败时整批拒绝
+新增 GameTest：
+  packageAssemblerAcceptsPatternProviderPush
+  packageAssemblerRejectsPatternProviderPushWhenOutputBlocked
+  packageAssemblerRejectsFluidPatternProviderPush
+修复：
+  planAssembly 现在使用传入的 IItemHandler 规划，避免 pushPattern 的临时输入被成员 inputView 覆盖
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，56 个必需 GameTest 全部通过
+验证 .\gradlew.bat build 成功
+```
+
 下一步：
 
 ```text
-继续补齐 AE2 Pattern Provider/pushPattern 深集成，让装配室不只依赖本地 GUI 输入。
+搭建真实 AE 网络 Pattern Provider -> Package Assembler 端到端 smoke test。
 补齐彩色处理样板元数据、处理输出 UI / Split UI、总线过滤 UI 和 AE2 part 形态。
 用户显式同意 EULA 后重新运行 .\gradlew.bat runServer，完成专用服务端完整启动验收。
 ```

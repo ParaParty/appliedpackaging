@@ -231,7 +231,7 @@ capacityProfile 在计划阶段检查 usedUnits 与 usedTypes，超限返回 CAP
 职责：
 
 ```text
-接收 Pattern Provider 推入的一批输入
+通过 AE2 ICraftingMachine/pushPattern 接收 Pattern Provider 推入的一批输入
 读取普通/彩色/包裹/封装处理样板
 生成一个或多个包裹
 维护本机输入缓存与输出缓存
@@ -249,6 +249,19 @@ capacityProfile 在计划阶段检查 usedUnits 与 usedTypes，超限返回 CAP
 执行 ME 打包机逻辑
 ```
 
+AE2 Pattern Provider 集成：
+
+```text
+package_assembler 暴露 appeng.capabilities.Capabilities.CRAFTING_MACHINE。
+AE2 Pattern Provider 与装配室相邻时，通过 ICraftingMachine.pushPattern 推入样板输入。
+acceptsPlans 仅在本机输入缓冲为空且输出槽为空时返回 true。
+pushPattern 当前只接受 AEItemKey 输入；遇到 AEFluidKey 或其它非物品 AEKey 时整批拒绝。
+接收流程先把 KeyCounter 转成临时 9 格输入缓冲，生成 ItemPackagePlan，并模拟输出槽插入。
+全部校验通过后，才写入真实输入缓冲、提交装配、从 KeyCounter 扣减输入。
+任何一步失败都保持 all-or-nothing：不消耗 Pattern Provider 输入，不生成半包裹。
+本地 package_pattern 和 packaged_processing_pattern 与 GUI 输入共用同一套计划逻辑。
+```
+
 方块实体状态：
 
 ```text
@@ -261,6 +274,17 @@ defaultMarker: MarkerSpec optional
 blockingMode: boolean
 autoExportToNetwork: boolean
 lastFailure: enum/string
+```
+
+当前 0.1.0-dev 落地状态：
+
+```text
+input slots 0-8
+SLOT_PATTERN = 9
+SLOT_OUTPUT = 10
+Forge item handler capability 暴露完整 11 格机器库存
+AE2 CRAFTING_MACHINE capability 暴露装配室本体
+17 格输出缓存、自动导入 AE 网络、彩色处理样板元数据仍属于后续实现项
 ```
 
 普通处理样板：
