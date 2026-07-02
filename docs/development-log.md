@@ -587,6 +587,19 @@ Package Assembler 接入已编码 package_pattern：
   已观察到 me_packager_preview_sheet 68x68 mip level 降级警告，后续资源整理时可改为 64x64 或 128x128
 ```
 
+最新进展：
+
+```text
+清理客户端 block atlas 发布噪音：
+  将 me_packager_preview_sheet.png 和 package_assembler_preview_sheet.png 从 src/main/resources/assets/.../textures/block 移到 docs/assets/previews
+  preview sheet 保留为文档审查资产，不再随 mod 资源包进入 Minecraft block atlas
+  更新 docs/assets/reports/machines.md 中的预览图路径说明
+验证 .\gradlew.bat build 成功
+再次执行 .\gradlew.bat runClient，客户端启动到 Applied Packaging 初始化、SoundEngine 启动和 block atlas 创建阶段
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、preview_sheet 或 mip level
+smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终止
+```
+
 下一步：
 
 ```text

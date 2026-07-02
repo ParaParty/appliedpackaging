@@ -16,12 +16,12 @@ src/main/resources/assets/appliedpackaging/textures/block/me_packager_front.png
 src/main/resources/assets/appliedpackaging/textures/block/me_packager_side.png
 src/main/resources/assets/appliedpackaging/textures/block/me_packager_top.png
 src/main/resources/assets/appliedpackaging/textures/block/me_packager_frame.png
-src/main/resources/assets/appliedpackaging/textures/block/me_packager_preview_sheet.png
+docs/assets/previews/me_packager_preview_sheet.png
 src/main/resources/assets/appliedpackaging/textures/block/package_assembler_front.png
 src/main/resources/assets/appliedpackaging/textures/block/package_assembler_side.png
 src/main/resources/assets/appliedpackaging/textures/block/package_assembler_top.png
 src/main/resources/assets/appliedpackaging/textures/block/package_assembler_frame.png
-src/main/resources/assets/appliedpackaging/textures/block/package_assembler_preview_sheet.png
+docs/assets/previews/package_assembler_preview_sheet.png
 docs/assets/reports/machines.md
 ```
 
@@ -102,8 +102,8 @@ bottom-right: isometric sketch preview
 Preview paths:
 
 ```text
-src/main/resources/assets/appliedpackaging/textures/block/me_packager_preview_sheet.png
-src/main/resources/assets/appliedpackaging/textures/block/package_assembler_preview_sheet.png
+docs/assets/previews/me_packager_preview_sheet.png
+docs/assets/previews/package_assembler_preview_sheet.png
 ```
 
 ## Validation
@@ -163,6 +163,7 @@ package_assembler_preview_sheet.png inspected
 ```text
 This pass did not run Gradle build, runData, GameTest, runClient, or runServer because it changed only static block PNG textures and the machines asset report.
 The preview sheets are lightweight equivalent previews, not renderer-backed model renders.
+Preview sheets live under docs/assets/previews and are not shipped as Minecraft block atlas resources.
 ```
 
 ## Main-thread Integration Validation
