@@ -13,6 +13,8 @@ import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.parts.IPartItem;
+import appeng.api.parts.PartHelper;
 import appeng.blockentity.crafting.PatternProviderBlockEntity;
 import appeng.blockentity.misc.InterfaceBlockEntity;
 import appeng.blockentity.storage.DriveBlockEntity;
@@ -39,6 +41,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanFailure;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
@@ -2352,6 +2355,69 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packagePatternTerminalItemPlacesAe2Part(GameTestHelper helper) {
+        helper.assertTrue(APItems.PACKAGE_PATTERN_TERMINAL.get() instanceof IPartItem<?>,
+                "Package pattern terminal item should be an AE2 part item");
+        IPartItem<PackagePatternTerminalPart> partItem = packagePatternTerminalPartItem();
+        BlockPos absolutePos = helper.absolutePos(new BlockPos(1, 2, 1));
+        PackagePatternTerminalPart part = PartHelper.setPart(
+                helper.getLevel(),
+                absolutePos,
+                Direction.NORTH,
+                null,
+                partItem);
+
+        helper.assertTrue(part != null, "Package pattern terminal should place as an AE2 cable part");
+        helper.assertTrue(PartHelper.getPart(partItem, helper.getLevel(), absolutePos, Direction.NORTH) == part,
+                "Placed AE2 part should be retrievable from the cable bus side");
+
+        part.setSelectedColor(PackageColor.BLUE);
+        part.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        part.getItems().setStackInSlot(
+                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                new ItemStack(APItems.PACKAGE_PATTERN.get()));
+
+        PackagePatternTerminalBlockEntity.EncodeResult result = part.encodeOnce();
+        ItemStack output = part.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT);
+        PackagePatternDataStorage.EncodedPackagePattern pattern = PackagePatternDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackagePatternTerminalBlockEntity.EncodeResult.ENCODED,
+                "Package pattern terminal part should encode package patterns");
+        helper.assertTrue(pattern.color() == PackageColor.BLUE,
+                "Package pattern terminal part should preserve selected color in encoded output");
+        helper.assertTrue(amountOf(pattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Package pattern terminal part should encode preview contents");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalPartPersistsContents(GameTestHelper helper) {
+        IPartItem<PackagePatternTerminalPart> partItem = packagePatternTerminalPartItem();
+        PackagePatternTerminalPart part = partItem.createPart();
+        part.setSelectedColor(PackageColor.GREEN);
+        part.getItems().setStackInSlot(0, new ItemStack(Items.COPPER_INGOT, 32));
+        part.setProcessingOutputFromGhostStack(0, new ItemStack(Items.WATER_BUCKET), false);
+
+        CompoundTag tag = new CompoundTag();
+        part.writeToNBT(tag);
+
+        PackagePatternTerminalPart loaded = partItem.createPart();
+        loaded.readFromNBT(tag);
+
+        helper.assertTrue(loaded.selectedColor() == PackageColor.GREEN,
+                "Package pattern terminal part should persist selected color");
+        helper.assertTrue(loaded.getItems().getStackInSlot(0).is(Items.COPPER_INGOT),
+                "Package pattern terminal part should persist preview item slots");
+        helper.assertTrue(loaded.processingOutput(0).is(Items.WATER_BUCKET),
+                "Package pattern terminal part should persist processing output display stack");
+        helper.assertTrue(loaded.processingOutputKey(0).what().equals(AEFluidKey.of(Fluids.WATER)),
+                "Package pattern terminal part should persist fluid processing output key");
+        helper.assertTrue(loaded.processingOutputKey(0).amount() == 1000,
+                "Package pattern terminal part should persist fluid processing output amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalEncodesSelectedColorOntoAe2ProcessingPattern(GameTestHelper helper) {
         PackagePatternTerminalBlockEntity terminal = newPackagePatternTerminal();
         terminal.setSelectedColor(PackageColor.GREEN);
@@ -3053,6 +3119,11 @@ public final class PackageDataGameTests {
         return new PackagePatternTerminalBlockEntity(
                 BlockPos.ZERO,
                 APBlocks.PACKAGE_PATTERN_TERMINAL.get().defaultBlockState());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static IPartItem<PackagePatternTerminalPart> packagePatternTerminalPartItem() {
+        return (IPartItem<PackagePatternTerminalPart>) APItems.PACKAGE_PATTERN_TERMINAL.get();
     }
 
     private static ItemStack packageStack(PackageColor color, PackageData data) {

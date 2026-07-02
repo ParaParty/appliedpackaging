@@ -273,9 +273,12 @@ GameTest/服务器 smoke test
   Package Bus 配置 UI 支持手工编辑颜色、marker ghost 和 3 个 required content ghost slots
   Package Bus required content ghost slots 可从 Forge 流体容器编码 AEFluidKey 过滤条件
   手工 Package Bus 过滤器以 PackageFilter NBT 保存，并兼容旧 filter_template 读取
-  runClientSmoke 可 quick-play 单人世界、摆放关键方块、打开真实菜单、截图 Package Assembler/ME Packager/Package Pattern Terminal/Package Storage Bus/Package Export Bus/Package Unpacking Bus 后退出
+  runClientSmoke 可 quick-play 单人世界、摆放关键方块与 Package Pattern Terminal AE2 part、打开真实菜单、截图 Package Assembler/ME Packager/Package Pattern Terminal/Package Storage Bus/Package Export Bus/Package Unpacking Bus 后退出
   PackageItemStorage/总线过滤 GameTest
-  package_pattern_terminal 方块、方块物品、方块实体、菜单、客户端 screen
+  package_pattern_terminal AE2 cable part item、part host、兼容方块、方块实体、菜单、客户端 screen
+  package_pattern_terminal 物品 id 改为 AE2 part item，不新增重复终端物品；既有方块路径保留给兼容/测试
+  Package Pattern Terminal 菜单通过 PackagePatternTerminalHost 同时支持方块 host 与 AE2 part host
+  Package Pattern Terminal AE2 part 可通过 PartHelper 放置到 cable bus 侧面，并保存/读取终端库存、颜色和处理输出 ghost
   package_pattern_terminal 可从 9 格预览输入编码 package_pattern
   package_pattern_terminal 支持 17 色 swatch 选择，编码样板颜色跟随 selectedColor
   package_pattern_terminal 支持 9 个输入槽颜色色标，并保存/同步槽位颜色
@@ -311,7 +314,7 @@ GameTest/服务器 smoke test
   彩色处理样板更完整的处理输出 UI
   封装处理样板任意 AEKey 处理输出 ghost editor
   批量 required content / 任意 AEKey 高级过滤器编辑器
-  AE2 cable part 形态
+  Package Pattern Terminal 最终自有 part 材质
 ```
 
 验收：

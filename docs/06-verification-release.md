@@ -114,6 +114,8 @@ package_pattern_terminal 输出阻挡时保留空白样板
 package_pattern_terminal 拒绝把已编码 package_pattern 当空白样板覆盖
 package_pattern_terminal 拒绝把已编码 packaged_processing_pattern 当空白样板覆盖
 package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
+package_pattern_terminal 物品是 AE2 part item，可通过 PartHelper 放置到 cable bus 侧面并打开/使用同一终端逻辑
+package_pattern_terminal AE2 part 可保存/读取 selectedColor、预览输入槽和流体处理输出 ghost
 玩家配方不再产出本地 package_pattern / packaged_processing_pattern，关键机器、终端和总线配方仍可加载
 装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT 并生成匹配包裹
 装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT 并逐包生成匹配包裹
@@ -264,6 +266,10 @@ run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable
 2026-07-03 05:44 在流体 ghost 数量滚轮调整 UI 完成后再次执行 .\gradlew.bat runClientSmoke 成功。
 本次 smoke 生成 6 张真实菜单截图并正常退出客户端。
 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout。
+
+2026-07-03 06:04 在 Package Pattern Terminal 改为 AE2 cable part item 后再次执行 .\gradlew.bat runClientSmoke 成功。
+本次 smoke 的 Package Pattern Terminal 步骤通过 PartHelper.setPart 放置真实 AE2 part，再用 part host buffer 打开 PackagePatternTerminalScreen。
+6 张截图均重新生成并正常退出客户端；run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout。
 ```
 
 ## 6. Dedicated Server 验证

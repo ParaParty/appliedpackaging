@@ -51,7 +51,8 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.wrapper.RangedWrapper;
 
-public class PackagePatternTerminalBlockEntity extends BlockEntity implements MenuProvider, InventoryDroppingBlockEntity {
+public class PackagePatternTerminalBlockEntity extends BlockEntity
+        implements MenuProvider, InventoryDroppingBlockEntity, PackagePatternTerminalHost {
     public static final int INPUT_SLOT_COUNT = 9;
     public static final int SLOT_BLANK_PATTERN = 9;
     public static final int SLOT_OUTPUT = 10;
@@ -120,6 +121,28 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
     public ItemStackHandler getItems() {
         return items;
+    }
+
+    @Override
+    public Level getTerminalLevel() {
+        return getLevel();
+    }
+
+    @Override
+    public BlockPos getTerminalPos() {
+        return getBlockPos();
+    }
+
+    @Override
+    public boolean isTerminalMenuValid(Player player) {
+        if (getLevel() == null || isRemoved()) {
+            return false;
+        }
+        BlockPos pos = getBlockPos();
+        return player.distanceToSqr(
+                pos.getX() + 0.5D,
+                pos.getY() + 0.5D,
+                pos.getZ() + 0.5D) <= 64.0D;
     }
 
     public PackageColor selectedColor() {
@@ -503,17 +526,33 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity implements Me
 
     @Override
     public void dropContents(Level level, BlockPos pos) {
+        List<ItemStack> drops = new ArrayList<>();
+        addContentDrops(drops);
+        for (ItemStack stack : drops) {
+            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
+        }
+    }
+
+    public void addContentDrops(List<ItemStack> drops) {
         for (int slot = 0; slot < items.getSlots(); slot++) {
             ItemStack stack = items.getStackInSlot(slot);
             if (!stack.isEmpty()) {
-                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
+                drops.add(stack.copy());
             }
         }
         for (ItemStack pendingPattern : pendingSplitPatterns) {
             if (!pendingPattern.isEmpty()) {
-                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), pendingPattern);
+                drops.add(pendingPattern.copy());
             }
         }
+    }
+
+    public void clearTerminalContent() {
+        for (int slot = 0; slot < items.getSlots(); slot++) {
+            items.setStackInSlot(slot, ItemStack.EMPTY);
+        }
+        pendingSplitPatterns.clear();
+        setChanged();
     }
 
     public enum EncodeResult {

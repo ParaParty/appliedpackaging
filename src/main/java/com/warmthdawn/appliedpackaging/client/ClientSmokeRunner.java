@@ -1,12 +1,18 @@
 package com.warmthdawn.appliedpackaging.client;
 
+import appeng.api.parts.IPartItem;
+import appeng.api.parts.PartHelper;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
+import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
+import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
+import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -33,12 +39,12 @@ public final class ClientSmokeRunner {
     private static final int SCREEN_TIMEOUT_TICKS = 200;
     private static final int QUIT_DELAY_TICKS = 20;
     private static final SmokeStep[] STEPS = {
-            new SmokeStep("package_assembler", APBlocks.PACKAGE_ASSEMBLER, PackageAssemblerScreen.class),
-            new SmokeStep("me_packager", APBlocks.ME_PACKAGER, MePackagerScreen.class),
-            new SmokeStep("package_pattern_terminal", APBlocks.PACKAGE_PATTERN_TERMINAL, PackagePatternTerminalScreen.class),
-            new SmokeStep("package_storage_bus", APBlocks.PACKAGE_STORAGE_BUS, PackageBusScreen.class),
-            new SmokeStep("package_export_bus", APBlocks.PACKAGE_EXPORT_BUS, PackageBusScreen.class),
-            new SmokeStep("package_unpacking_bus", APBlocks.PACKAGE_UNPACKING_BUS, PackageBusScreen.class)
+            SmokeStep.block("package_assembler", APBlocks.PACKAGE_ASSEMBLER, PackageAssemblerScreen.class),
+            SmokeStep.block("me_packager", APBlocks.ME_PACKAGER, MePackagerScreen.class),
+            SmokeStep.part("package_pattern_terminal", PackagePatternTerminalScreen.class),
+            SmokeStep.block("package_storage_bus", APBlocks.PACKAGE_STORAGE_BUS, PackageBusScreen.class),
+            SmokeStep.block("package_export_bus", APBlocks.PACKAGE_EXPORT_BUS, PackageBusScreen.class),
+            SmokeStep.block("package_unpacking_bus", APBlocks.PACKAGE_UNPACKING_BUS, PackageBusScreen.class)
     };
 
     private static final ClientSmokeRunner INSTANCE = new ClientSmokeRunner();
@@ -127,12 +133,24 @@ public final class ClientSmokeRunner {
                 for (int index = 0; index < STEPS.length; index++) {
                     SmokeStep step = STEPS[index];
                     BlockPos pos = posForStep(index);
-                    level.setBlock(pos, step.block().defaultBlockState()
-                            .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH), 3);
+                    if (step.isPart()) {
+                        PackagePatternTerminalPart part = PartHelper.setPart(
+                                level,
+                                pos,
+                                Direction.NORTH,
+                                serverPlayer,
+                                packagePatternTerminalPartItem());
+                        if (part == null) {
+                            throw new IllegalStateException("Could not place package pattern terminal part at " + pos);
+                        }
+                    } else {
+                        level.setBlock(pos, step.block().defaultBlockState()
+                                .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH), 3);
+                    }
                 }
                 setupComplete = true;
                 AppliedPackaging.LOGGER.info(
-                        "Applied Packaging client smoke placed {} test blocks near {} in '{}'",
+                        "Applied Packaging client smoke placed {} test targets near {} in '{}'",
                         STEPS.length,
                         basePos,
                         worldName);
@@ -160,9 +178,28 @@ public final class ClientSmokeRunner {
         BlockPos pos = posForStep(currentStep);
         state = State.WAITING_FOR_SCREEN;
         server.execute(() -> {
+            if (step.isPart()) {
+                PackagePatternTerminalPart part = PartHelper.getPart(
+                        packagePatternTerminalPartItem(),
+                        serverPlayer.serverLevel(),
+                        pos,
+                        Direction.NORTH);
+                if (part == null) {
+                    setupFailure = new IllegalStateException("Expected package pattern terminal part at " + pos);
+                    return;
+                }
+                NetworkHooks.openScreen(serverPlayer, part,
+                        buffer -> PackagePatternTerminalMenu.writePartHost(buffer, pos, Direction.NORTH));
+                return;
+            }
             BlockEntity blockEntity = serverPlayer.serverLevel().getBlockEntity(pos);
             if (!(blockEntity instanceof MenuProvider provider)) {
                 setupFailure = new IllegalStateException("Expected menu provider for " + step.id() + " at " + pos);
+                return;
+            }
+            if (blockEntity instanceof PackagePatternTerminalBlockEntity) {
+                NetworkHooks.openScreen(serverPlayer, provider,
+                        buffer -> PackagePatternTerminalMenu.writeBlockHost(buffer, pos));
                 return;
             }
             NetworkHooks.openScreen(serverPlayer, provider, pos);
@@ -214,6 +251,11 @@ public final class ClientSmokeRunner {
         return basePos.offset(index, 0, 0);
     }
 
+    @SuppressWarnings("unchecked")
+    private static IPartItem<PackagePatternTerminalPart> packagePatternTerminalPartItem() {
+        return (IPartItem<PackagePatternTerminalPart>) APItems.PACKAGE_PATTERN_TERMINAL.get();
+    }
+
     private enum State {
         WAITING_FOR_WORLD,
         WAITING_FOR_SCREEN,
@@ -221,7 +263,22 @@ public final class ClientSmokeRunner {
         DONE
     }
 
-    private record SmokeStep(String id, Supplier<? extends Block> blockSupplier, Class<? extends Screen> screenClass) {
+    private record SmokeStep(
+            String id,
+            Supplier<? extends Block> blockSupplier,
+            Class<? extends Screen> screenClass,
+            boolean isPart) {
+        private static SmokeStep block(
+                String id,
+                Supplier<? extends Block> blockSupplier,
+                Class<? extends Screen> screenClass) {
+            return new SmokeStep(id, blockSupplier, screenClass, false);
+        }
+
+        private static SmokeStep part(String id, Class<? extends Screen> screenClass) {
+            return new SmokeStep(id, null, screenClass, true);
+        }
+
         private Block block() {
             return blockSupplier.get();
         }

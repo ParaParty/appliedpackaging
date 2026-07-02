@@ -2,6 +2,7 @@ package com.warmthdawn.appliedpackaging;
 
 import com.mojang.logging.LogUtils;
 import com.warmthdawn.appliedpackaging.client.AppliedPackagingClient;
+import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APCreativeTabs;
@@ -22,6 +23,8 @@ public class AppliedPackaging {
 
     public AppliedPackaging() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        PackagePatternTerminalPart.registerModels();
 
         APBlocks.register(modEventBus);
         APItems.register(modEventBus);

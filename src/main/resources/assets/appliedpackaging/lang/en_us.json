@@ -6,6 +6,7 @@
   "block.appliedpackaging.package_export_bus": "Package Export Bus",
   "block.appliedpackaging.package_unpacking_bus": "Package Unpacking Bus",
   "block.appliedpackaging.package_pattern_terminal": "Package Pattern Terminal",
+  "item.appliedpackaging.package_pattern_terminal": "Package Pattern Terminal",
   "item.appliedpackaging.package_pattern": "Package Pattern",
   "item.appliedpackaging.packaged_processing_pattern": "Packaged Processing Pattern",
   "item.appliedpackaging.fluix_package": "Fluix Package",

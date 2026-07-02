@@ -1002,3 +1002,22 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 .\gradlew.bat runClientSmoke 成功，生成 6 张真实菜单截图并正常退出客户端
 验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
 ```
+
+最新进展：
+
+```text
+补齐 Package Pattern Terminal 的 AE2 cable part 形态：
+  package_pattern_terminal 物品 id 从 BlockItem 改为 AE2 PartItem，不新增重复终端物品
+  新增 PackagePatternTerminalPart，可贴到 AE2 cable bus 侧面并打开同一 PackagePatternTerminalScreen
+  PackagePatternTerminalMenu 通过 host 类型标记支持 block host 与 part host 两种定位
+  PackagePatternTerminalBlockEntity 继续保留兼容方块路径，并提供内容掉落/清空 API 供 part 拆除使用
+  PackagePatternTerminalPart 保存/读取终端库存、selectedColor、输入槽颜色、处理输出 ghost 和 Split pending queue
+  runClientSmoke 已改为放置真实 Package Pattern Terminal AE2 part，而不是旧终端方块
+新增 2 个 GameTest：
+  packagePatternTerminalItemPlacesAe2Part
+  packagePatternTerminalPartPersistsContents
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张真实菜单截图并正常退出客户端，其中 Package Pattern Terminal 截图来自真实 AE2 part 菜单
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable to load model、missing texture、Timed out 或 timeout
+```

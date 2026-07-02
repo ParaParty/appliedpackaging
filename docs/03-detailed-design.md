@@ -582,8 +582,9 @@ PackagePatternDataStorage 在 ItemStack NBT 中写入 version、color 与嵌套 
 读取已编码样板时会按样板颜色复验嵌套 PackageData canonical hash。
 PackagedProcessingPatternDataStorage 在 ItemStack NBT 中写入 version、color、packages[] 与可选 outputs[]。
 读取封装处理样板时会逐个复验嵌套 PackageData canonical hash，并兼容旧的单包裹 PackagePatternDataStorage 写法。
-package_pattern_terminal 已注册为水平朝向方块、方块物品、方块实体、菜单和客户端 screen。
-终端基础外形已调整为 AE2 风格薄面板/part-like block model，而不是完整机器方块；当前仍以普通方块承载方块实体、菜单和 screen，真正 AE2 cable part 形态后置。
+package_pattern_terminal 物品 id 已改为 AE2 cable part item，可贴到 AE2 cable bus 侧面；兼容用 package_pattern_terminal 方块、方块实体、菜单和客户端 screen 仍保留给旧存档/测试路径。
+终端菜单逻辑已抽象为 PackagePatternTerminalHost，普通方块实体与 AE2 part 共用同一套菜单、编码、Split、ghost output 与保存逻辑；客户端菜单打开包会显式携带 block host 或 part host 定位。
+终端基础外形已调整为 AE2 风格薄面板；玩家合成与创造栏入口不再是普通方块物品，而是 AE2 part 物品。
 终端 GUI 当前提供 9 格预览输入、1 格样板槽、1 格输出、容量槽、marker 槽、3 个处理输出 ghost slots、17 色 swatch、9 个输入槽色标按钮，以及 Encode/Split 按钮。
 样板槽接受未编码 package_pattern、未编码 packaged_processing_pattern、AE2 原版 blank_pattern、AE2 encoded processing pattern，或已编码 packaged_processing_pattern 作为 Split 来源。
 输出尽量保留输入样板语义；AE2 blank_pattern 的单包裹无输出场景会输出为带 package_pattern NBT 的 AE2 blank_pattern，多包裹且无处理输出时会输出为带 packaged_processing_pattern NBT 的 AE2 blank_pattern，有处理输出时会输出为 AE2 encoded processing pattern 并附带 packaged_processing_pattern NBT；AE2 processing pattern 会复制 1 个输出并写入 colored processing metadata。
@@ -599,7 +600,7 @@ marker 槽写入 packaged_processing_pattern 时会应用到拆出的每个包�
 Split 会把已编码 packaged_processing_pattern 拆回多个普通 package_pattern；输出槽逐张吐出，剩余拆分结果保存在终端 pending queue，保存/读取后可继续输出。
 输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 或 packaged_processing_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前已支持 AE2 原版 blank_pattern 作为 package_pattern 与无输出 packaged_processing_pattern 数据载体；也已支持 item/fluid-container packaged_processing_pattern 通过 AE2 encoded processing pattern 暴露 processing outputs 给 Pattern Provider/Planner。玩家配方入口已收敛到 AE2 原版 blank_pattern；本地 package_pattern / packaged_processing_pattern 只保留旧存档/测试兼容。仍不含任意 AEKey 处理输出 ghost editor 和真正 AE2 cable part 形态。
+当前已支持 AE2 原版 blank_pattern 作为 package_pattern 与无输出 packaged_processing_pattern 数据载体；也已支持 item/fluid-container packaged_processing_pattern 通过 AE2 encoded processing pattern 暴露 processing outputs 给 Pattern Provider/Planner。玩家配方入口已收敛到 AE2 原版 blank_pattern；本地 package_pattern / packaged_processing_pattern 只保留旧存档/测试兼容。仍不含任意 AEKey 处理输出 ghost editor。
 ```
 
 ## 10. 包裹总线

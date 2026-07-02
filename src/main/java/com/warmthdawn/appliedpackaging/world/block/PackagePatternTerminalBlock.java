@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.world.block;
 
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -44,7 +45,7 @@ public class PackagePatternTerminalBlock extends AbstractHorizontalMachineBlock 
         }
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity instanceof PackagePatternTerminalBlockEntity terminal && player instanceof ServerPlayer serverPlayer) {
-            NetworkHooks.openScreen(serverPlayer, terminal, pos);
+            NetworkHooks.openScreen(serverPlayer, terminal, buffer -> PackagePatternTerminalMenu.writeBlockHost(buffer, pos));
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;

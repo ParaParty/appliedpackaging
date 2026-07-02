@@ -1,14 +1,16 @@
 package com.warmthdawn.appliedpackaging.registry;
 
+import appeng.items.parts.PartItem;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
+import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -50,7 +52,10 @@ public final class APItems {
 
     public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
             "package_pattern_terminal",
-            () -> new BlockItem(APBlocks.PACKAGE_PATTERN_TERMINAL.get(), new Item.Properties()));
+            () -> new PartItem<>(
+                    new Item.Properties(),
+                    PackagePatternTerminalPart.class,
+                    PackagePatternTerminalPart::new));
 
     static {
         for (PackageColor color : PackageColor.values()) {
