@@ -114,6 +114,34 @@ function Get-TextureValues {
     return $values
 }
 
+function Get-ReleaseDiagnosticLogLines {
+    param([string] $Path)
+
+    $filtered = [System.Collections.Generic.List[string]]::new()
+    $skippingYggdrasilKeyFailure = $false
+    $script:ignoredYggdrasilKeyFailures = 0
+
+    foreach ($line in Get-Content $Path) {
+        if ($line -match "Yggdrasil Key Fetcher/ERROR.*Failed to request yggdrasil public key") {
+            $skippingYggdrasilKeyFailure = $true
+            $script:ignoredYggdrasilKeyFailures += 1
+            continue
+        }
+
+        if ($skippingYggdrasilKeyFailure) {
+            if ($line -match "^\[") {
+                $skippingYggdrasilKeyFailure = $false
+            } else {
+                continue
+            }
+        }
+
+        $filtered.Add($line) | Out-Null
+    }
+
+    return $filtered
+}
+
 function Get-ZipEntryText {
     param(
         [System.IO.Compression.ZipArchive] $Zip,
@@ -419,7 +447,11 @@ if ($null -eq $resolvedLog) {
 } else {
     Add-Pass "Log exists at $LogPath"
     $badLogPattern = "ERROR|FATAL|ClientSmokeRunner|NoClassDefFoundError|ClassNotFoundException|InvocationTargetException|IllegalStateException|Dist\.CLIENT|OnlyIn|Missing model|Unable to load model|missing texture|Exception|Crash|crash"
-    if (Select-String -Path $resolvedLog.Path -Pattern $badLogPattern -Quiet) {
+    $diagnosticLogText = (Get-ReleaseDiagnosticLogLines $resolvedLog.Path) -join "`n"
+    if ($ignoredYggdrasilKeyFailures -gt 0) {
+        Add-Warn "Ignored $ignoredYggdrasilKeyFailures external Yggdrasil public-key fetch failure(s)"
+    }
+    if ($diagnosticLogText -match $badLogPattern) {
         Add-Fail "Log contains release-blocking diagnostic keywords"
     } else {
         Add-Pass "Log contains no release-blocking diagnostic keywords"

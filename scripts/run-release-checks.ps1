@@ -14,6 +14,10 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
 
+if ($RequireServerWorldLoad -and -not $AuditOnly) {
+    throw "-RequireServerWorldLoad is only valid with -AuditOnly. Run full checks first, then run .\gradlew.bat runServer manually to refresh run/logs/latest.log, then run this script again with -AuditOnly -RequireServerWorldLoad."
+}
+
 function Invoke-Step {
     param(
         [string] $Name,

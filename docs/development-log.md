@@ -1173,3 +1173,23 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireServerWorldLoad 成功
 GameTest：已考虑。未新增或运行 GameTest，原因是本次只增加发布检查编排脚本和文档引用，不改变 mod 运行行为。
 ```
+
+最新进展：
+
+```text
+修正发布检查编排脚本的服务端日志审计模式：
+  执行 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -RunClientSmoke -RequireServerWorldLoad 时发现最后的机械审计失败
+  失败原因不是 mod 功能失败，而是 runClientSmoke 覆盖 run/logs/latest.log，导致 dedicated server world-load 审计读到客户端 smoke 日志
+  scripts/run-release-checks.ps1 现在提前拒绝非 -AuditOnly 的 -RequireServerWorldLoad 组合
+  scripts/verify-release.ps1 现在把 Mojang/Yggdrasil external public-key fetch failure 作为 WARN 忽略，其他 release-blocking 诊断关键字仍会失败
+  正确流程为先执行 scripts/run-release-checks.ps1 -RunClientSmoke，再手动执行 .\gradlew.bat runServer 刷新 latest.log，最后执行 scripts/run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad
+  更新 docs/06-verification-release.md、docs/08-change-intake.md、README.md、AGENTS.md
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -RunClientSmoke -RequireServerWorldLoad 早失败成功，错误信息要求改用 -AuditOnly -RequireServerWorldLoad；PlanOnly 同样执行该组合检查
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -RunClientSmoke 成功，完成 build、runData、runGameTestServer、runClientSmoke 和 verify-release.ps1 -RequireAssetContracts
+验证 .\gradlew.bat runServer --stacktrace 进入 dedicated server world-load，run/logs/latest.log 出现 Done (2.400s)! For help, type "help"
+验证 run/logs/latest.log 确认 Applied Packaging initialized、Starting minecraft server version 1.20.1、Preparing level "world"、Preparing start region for dimension minecraft:overworld、Enabled Gametest Namespaces: [appliedpackaging]
+本次 runServer 出现 1 条 Mojang/Yggdrasil external public-key fetch ERROR/WARN 栈；服务端仍进入 world-load，且该外部认证服务噪声不代表 Applied Packaging 失败
+验证 25565 未残留监听；Gradle/Minecraft 控制台未接收 stop 命令，本次通过 Ctrl+C 终止 run，因此 Gradle 返回码不是发布判定依据
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireServerWorldLoad 成功，输出 1 条 ignored external Yggdrasil public-key fetch WARN
+GameTest：已考虑。发现并运行现有 runGameTestServer；未新增或扩展 GameTest，原因是本次只修正发布验证脚本和文档，不改变 mod 运行行为。
+```
