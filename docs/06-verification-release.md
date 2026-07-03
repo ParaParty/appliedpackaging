@@ -239,23 +239,30 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -RunServerSmoke
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-server-smoke.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-manifest.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-manifest.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-bundle.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-bundle.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
 ```
 
-`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、文档审计、可选发布清单生成和可选发布清单审计。它支持 `-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireClientSmokeScreenshots`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、文档审计、可选发布清单生成/审计和可选发布附件包生成/审计。它支持 `-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireClientSmokeScreenshots`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle`、`-RequireReleaseBundle`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD。使用 `-WriteReleaseBundle` 时会生成 `build/release/appliedpackaging-<version>-release-bundle.zip`；使用 `-RequireReleaseBundle` 时会复验 zip 只包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且哈希与当前源文件一致。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
 
 `scripts/run-server-smoke.ps1` 检查 `run/eula.txt` 已明确 `eula=true`，启动 `.\gradlew.bat runServer --stacktrace`，等待 `run/logs/latest.log` 出现 Applied Packaging 初始化、`Preparing level "world"` 和 `Done (...)! For help, type "help"`，随后终止本脚本启动的 runServer 进程树，并确认 25565 不再监听。脚本产生的 stdout/stderr 记录写入 `build/server-smoke/`，不纳入发布资源。
 
 `scripts/write-release-manifest.ps1` 读取 `gradle.properties`、release jar 和 git 状态，输出 release manifest JSON。清单包含 mod id/name/version、Minecraft/Forge/AE2/GuideME 版本与版本范围、jar 路径、jar 大小、SHA-256、jar mtime、git branch、git commit 和 clean 状态。使用 `-RequireCleanGit` 时，如果工作树不干净会失败。
 
 `scripts/verify-release-manifest.ps1` 读取 release manifest、`gradle.properties`、release jar 和当前 git 状态，检查 schema、mod 元数据、Minecraft/Forge/AE2/GuideME 版本与版本范围、jar 路径、文件名、大小、mtime、SHA-256、git commit/shortCommit/branch/clean/statusPorcelain 和 manifest 路径。使用 `-RequireCleanGit` 时，如果当前 git 工作树不干净会失败。
+
+`scripts/write-release-bundle.ps1` 读取 release jar、release manifest、README.md、CHANGELOG.md 和 LICENSE.md，输出 `build/release/appliedpackaging-<version>-release-bundle.zip`。zip 内以 `appliedpackaging-<version>/` 为根目录，包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS。使用 `-RequireCleanGit` 时，如果工作树不干净会失败。
+
+`scripts/verify-release-bundle.ps1` 读取 release bundle 和当前源文件，检查 zip 条目集合、每个条目的 SHA-256、SHA256SUMS 内容，以及 bundle 内 manifest 的 artifact fileName/sha256 是否匹配 bundle 内 jar。使用 `-RequireCleanGit` 时，如果当前 git 工作树不干净会失败。
 
 `scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract 和资产报告是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，并扫描仓库 Markdown 中的本地 inline link 是否可解析。
 
@@ -284,6 +291,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest` 成功，确认机械发布审计、文档审计、发布清单生成和发布清单复验可串联通过。
 2026-07-04 新增 `guideme_version_range=[20.1.7,20.2.0)`、`mods.toml` 的 `guideme` mandatory dependency、release manifest 的 `guideMeVersionRange` 字段，以及 `verify-release.ps1` / `verify-release-manifest.ps1` 对 GuideME 范围的审计。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest` 成功，确认 `mods.toml GuideME dependency range matches gradle.properties`，并确认发布清单中的 `dependencies.guideMeVersionRange` 匹配 `gradle.properties`。
+2026-07-04 新增 `scripts/write-release-bundle.ps1`、`scripts/verify-release-bundle.ps1`、`run-release-checks.ps1 -WriteReleaseBundle` 和 `-RequireReleaseBundle`，用于生成并复验发布附件包。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认 bundle 包含 jar、release manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且 bundle 内 manifest 的 artifact sha256 匹配 bundle 内 jar。
 
 ## 5. 客户端验证
 
@@ -420,6 +429,7 @@ LICENSE.md：已补齐 All Rights Reserved 许可声明
 README.md：已补齐安装要求、玩法流程、功能清单、验证状态和已知限制
 release jar：已包含 README.md、CHANGELOG.md、LICENSE.md、META-INF/MANIFEST.MF 与 META-INF/mods.toml，mods.toml 声明 Minecraft/Forge/AE2/GuideME 发布依赖范围，且不包含 ClientSmokeRunner、gametest classes、reference sheets、build/tmp、docs/assets 或本机绝对路径
 release manifest：已生成到 build/release/，记录 jar SHA-256、版本范围和 git commit，并可由 verify-release-manifest.ps1 复验
+release bundle：可生成到 build/release/，包含 jar、release manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，并可由 verify-release-bundle.ps1 复验
 documentation audit：必需文档、文档入口和本地 Markdown 链接检查通过
 logo/icon：assets/appliedpackaging/logo.png、textures/gui/logo.png 和包裹/机器/总线图标已存在
 release notes：已写入 CHANGELOG.md

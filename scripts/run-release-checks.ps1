@@ -11,6 +11,8 @@ param(
     [switch] $RequireCleanGit,
     [switch] $WriteReleaseManifest,
     [switch] $RequireReleaseManifest,
+    [switch] $WriteReleaseBundle,
+    [switch] $RequireReleaseBundle,
     [switch] $SkipDocs,
     [switch] $SkipAssetContracts,
     [switch] $PlanOnly
@@ -182,6 +184,44 @@ if ($RequireReleaseManifest) {
     $steps.Add(@{
         Name = "Release manifest audit"
         Command = $verifyManifestCommand
+    }) | Out-Null
+}
+
+if ($WriteReleaseBundle) {
+    $bundleCommand = @(
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".\scripts\write-release-bundle.ps1"
+    )
+    if ($RequireCleanGit) {
+        $bundleCommand += "-RequireCleanGit"
+    }
+
+    $steps.Add(@{
+        Name = "Release bundle"
+        Command = $bundleCommand
+    }) | Out-Null
+}
+
+if ($RequireReleaseBundle) {
+    $verifyBundleCommand = @(
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".\scripts\verify-release-bundle.ps1"
+    )
+    if ($RequireCleanGit) {
+        $verifyBundleCommand += "-RequireCleanGit"
+    }
+
+    $steps.Add(@{
+        Name = "Release bundle audit"
+        Command = $verifyBundleCommand
     }) | Out-Null
 }
 

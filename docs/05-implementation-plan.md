@@ -359,8 +359,9 @@ runClientSmoke GUI screenshot smoke
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit
   发布清单可由 verify-release-manifest.ps1 复验，确认当前 jar、gradle.properties 和 git HEAD 与清单一致
+  发布附件包可由 write-release-bundle.ps1 生成到 build/release/ 并由 verify-release-bundle.ps1 复验 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS
   文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口和本地 Markdown 链接
-  最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest
+  最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle
 
 暂缓：
   0.1.0-dev 发布 tag 暂缓到用户补充需求和材质、范围冻结、实现并重新验证之后
@@ -372,6 +373,7 @@ runClientSmoke GUI screenshot smoke
 git 工作树干净，且最终冻结后可由 run-release-checks.ps1 -AuditOnly -RequireCleanGit 机械验证
 build/libs/appliedpackaging-<version>.jar 存在，且 META-INF/mods.toml 声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围
 build/release/appliedpackaging-<version>-release-manifest.json 可生成并复验，且记录 jar SHA-256 与 git commit
+build/release/appliedpackaging-<version>-release-bundle.zip 可生成并复验，且包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS
 run-release-checks.ps1 -RunClientSmoke 成功
 runServer 或 run-server-smoke.ps1 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功
 jar 可在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端进入游戏

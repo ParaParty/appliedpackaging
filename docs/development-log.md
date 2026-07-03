@@ -1319,3 +1319,20 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布清
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke 成功，确认显式 GuideME dependency metadata 不破坏 dedicated server world-load
 GameTest：已考虑。发现现有 runGameTestServer；本次只修改发布 metadata、发布审计脚本和文档，不改变包裹、机器、总线、菜单、网络或事务行为，因此未新增、扩展或运行 GameTest。由于 mod metadata 会影响 dedicated server 依赖加载，本次改用 build + release audit + server smoke 验证。
 ```
+
+最新进展：
+
+```text
+补齐发布附件包生成与复验：
+  新增 scripts/write-release-bundle.ps1
+  新增 scripts/verify-release-bundle.ps1
+  scripts/run-release-checks.ps1 新增 -WriteReleaseBundle 和 -RequireReleaseBundle
+  发布附件包输出到 build/release/appliedpackaging-<version>-release-bundle.zip
+  zip 内包含 appliedpackaging-<version>.jar、release manifest、README.md、CHANGELOG.md、LICENSE.md 和 SHA256SUMS.txt
+  bundle audit 会检查 zip 条目集合、每个条目的 SHA-256、SHA256SUMS 内容，以及 bundle 内 manifest 的 artifact sha256 是否匹配 bundle 内 jar
+  更新 README.md、CHANGELOG.md、AGENTS.md、docs/05-implementation-plan.md、docs/06-verification-release.md、docs/08-change-intake.md
+验证 PowerShell parser 解析 write-release-bundle.ps1、verify-release-bundle.ps1 和 run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认 release runner 顺序为机械审计、文档审计、发布清单、发布清单审计、发布附件包、发布附件包审计
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，生成并复验 release bundle
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布附件包脚本、发布编排和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```
