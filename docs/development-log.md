@@ -1447,3 +1447,37 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增加发布 re
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布脚本文档审计，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐 release candidate plan 自测：
+  新增 scripts/test-release-check-plan.ps1
+  自测调用 run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
+  检查完整候选发布步骤顺序：
+    Gradle build
+    Data generation
+    GameTest server
+    Client smoke screenshots
+    Dedicated server world-load smoke
+    Mechanical release audit
+    Documentation audit
+    Release readiness audit
+    Release manifest
+    Release manifest audit
+    Release bundle
+    Release bundle audit
+  检查关键命令参数包含 runGameTestServer、runClientSmoke、run-server-smoke.ps1、verify-release.ps1 的 asset/server/client/clean-git 审计、verify-release-readiness.ps1 -RequireReadyForTag、manifest/bundle clean-git 审计
+  检查 -ReleaseCandidate -SkipGameTest 和 -ReleaseCandidate -AuditOnly 均失败
+  scripts/verify-docs.ps1 将 scripts/test-release-check-plan.ps1 纳入必需路径
+  AGENTS.md、README.md、CHANGELOG.md 和 docs/06-verification-release.md 同步说明 release plan 自测
+验证 PowerShell parser 解析 test-release-check-plan.ps1、run-release-checks.ps1 和 verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-check-plan.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认新增 test-release-check-plan.ps1 已纳入必需发布脚本路径
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 成功，当前正式文档仍报告 4 个非致命 blocker
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag 按预期失败，当前正式文档仍阻止最终 tag
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增加 release runner plan 自测和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
