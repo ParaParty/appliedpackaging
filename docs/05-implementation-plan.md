@@ -348,7 +348,7 @@ runClientSmoke GUI screenshot smoke
   CHANGELOG.md、README.md、LICENSE.md 与 Forge/AE2/GuideME 版本声明已补齐
   mods.toml 已声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围
   build/libs/appliedpackaging-0.1.0-dev.jar 已生成
-  scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、玩家入口产品不变量、asset contract、语言 key、模型贴图引用、client smoke 截图、dedicated server latest.log 证据和可选 git clean 证据
+  scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、玩家入口产品不变量、asset contract、语言 key/占位符、模型贴图引用、client smoke 截图、dedicated server latest.log 证据和可选 git clean 证据
   scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke、可选 run-server-smoke、机械发布审计、文档审计、发布清单和发布附件包
   scripts/run-release-checks.ps1 -ReleaseCandidate 已作为最终候选发布预设，自动启用 client smoke、server smoke、manifest 和 bundle 审计
   scripts/verify-release-readiness.ps1 已作为 tag 就绪审计，-RequireReadyForTag 会阻止待输入/待判定 intake 状态下创建发布 tag，并在负面 blocker 清除后要求文档明确记录范围已冻结、最终服务端 world-load 已完成、发布 tag 可创建、目标可以标记完成和 tag 就绪门禁已通过
@@ -364,7 +364,7 @@ runClientSmoke GUI screenshot smoke
   资产资源审计自测可由 test-assets-audit.ps1 覆盖有效资产 fixture、错尺寸、坏 PNG header 和缺必需 PNG
   发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit
   发布清单可由 verify-release-manifest.ps1 复验，确认当前 jar、gradle.properties 和 git HEAD 与清单一致
-  机械发布审计自测可由 test-release-audit.ps1 覆盖有效 release audit fixture、jar 必需条目缺失、mods.toml 元数据篡改、本机路径泄漏、本地样板 recipe 输出、创造栏暴露本地样板和终端退回 BlockItem
+  机械发布审计自测可由 test-release-audit.ps1 覆盖有效 release audit fixture、jar 必需条目缺失、mods.toml 元数据篡改、本机路径泄漏、语言占位符不一致、本地样板 recipe 输出、创造栏暴露本地样板和终端退回 BlockItem
   发布清单自测可由 test-release-manifest.ps1 覆盖有效 manifest、mod id 篡改、artifact hash 篡改和 clean-git manifest 路径
   发布附件包可由 write-release-bundle.ps1 生成到 build/release/ 并由 verify-release-bundle.ps1 复验 jar、manifest、README、CHANGELOG、LICENSE、SHA256SUMS、bundle manifest mod/version、jar SHA-256 和 clean-git 元数据
   发布附件包自测可由 test-release-bundle.ps1 覆盖有效 bundle、manifest 篡改和 bundled README 篡改路径

@@ -262,6 +262,17 @@ function Get-RecipeResultItems {
     return $items
 }
 
+function Get-TranslationPlaceholders {
+    param([string] $Text)
+
+    $placeholders = [System.Collections.Generic.List[string]]::new()
+    foreach ($match in [regex]::Matches($Text, '(?<!%)%(?:(\d+)\$)?[bcdeEfgGaAhHsSxXo]')) {
+        $placeholders.Add($match.Value) | Out-Null
+    }
+
+    return $placeholders
+}
+
 function Test-ProductInvariants {
     $forbiddenLocalPatternItems = @(
         "appliedpackaging:package_pattern",
@@ -602,8 +613,10 @@ if ($contractFiles.Count -gt 0) {
 $enPath = "src/main/resources/assets/appliedpackaging/lang/en_us.json"
 $zhPath = "src/main/resources/assets/appliedpackaging/lang/zh_cn.json"
 if ((Test-Path $enPath) -and (Test-Path $zhPath)) {
-    $enKeys = @(((Get-Content $enPath -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $_.Name }) | Sort-Object)
-    $zhKeys = @(((Get-Content $zhPath -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $_.Name }) | Sort-Object)
+    $enLang = Get-Content $enPath -Raw | ConvertFrom-Json -AsHashtable
+    $zhLang = Get-Content $zhPath -Raw | ConvertFrom-Json -AsHashtable
+    $enKeys = @($enLang.Keys | Sort-Object)
+    $zhKeys = @($zhLang.Keys | Sort-Object)
     $missingZh = @($enKeys | Where-Object { $_ -notin $zhKeys })
     $missingEn = @($zhKeys | Where-Object { $_ -notin $enKeys })
     if ($missingZh.Count -eq 0 -and $missingEn.Count -eq 0) {
@@ -615,6 +628,31 @@ if ((Test-Path $enPath) -and (Test-Path $zhPath)) {
         if ($missingEn.Count -gt 0) {
             Add-Fail "en_us.json missing keys: $($missingEn -join ', ')"
         }
+    }
+
+    $placeholderMismatches = [System.Collections.Generic.List[string]]::new()
+    foreach ($key in $enKeys) {
+        if (-not $zhLang.Contains($key)) {
+            continue
+        }
+
+        $enValue = $enLang[$key]
+        $zhValue = $zhLang[$key]
+        if (-not ($enValue -is [string]) -or -not ($zhValue -is [string])) {
+            continue
+        }
+
+        $enPlaceholders = @(Get-TranslationPlaceholders $enValue)
+        $zhPlaceholders = @(Get-TranslationPlaceholders $zhValue)
+        if (($enPlaceholders -join "|") -ne ($zhPlaceholders -join "|")) {
+            $placeholderMismatches.Add("$key en=[$($enPlaceholders -join ',')] zh=[$($zhPlaceholders -join ',')]") | Out-Null
+        }
+    }
+
+    if ($placeholderMismatches.Count -eq 0) {
+        Add-Pass "English and Simplified Chinese language placeholders match"
+    } else {
+        Add-Fail "Language placeholder mismatches: $($placeholderMismatches -join '; ')"
     }
 } else {
     Add-Fail "Both en_us.json and zh_cn.json language files exist"

@@ -215,12 +215,14 @@ harness_assumptions:
 
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/en_us.json") -Text @"
 {
-  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture"
+  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture",
+  "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
 }
 "@
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/zh_cn.json") -Text @"
 {
-  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture"
+  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture",
+  "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
 }
 "@
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/models/item/release_audit_fixture.json") -Text @"
@@ -376,6 +378,20 @@ try {
         -JarPath $leakedPathFixture.JarPath `
         -ExpectedExitCode 1 `
         -ExpectedText "Jar text resources leak local/reference paths"
+
+    $langPlaceholderFixture = New-ReleaseAuditFixture "lang-placeholder"
+    Write-Utf8File -Path (Join-Path $langPlaceholderFixture.RootPath "src/main/resources/assets/appliedpackaging/lang/zh_cn.json") -Text @"
+{
+  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture",
+  "tooltip.appliedpackaging.release_audit_fixture": "Fixture"
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "language placeholder mismatch fixture" `
+        -RootPath $langPlaceholderFixture.RootPath `
+        -JarPath $langPlaceholderFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Language placeholder mismatches"
 
     $localPatternRecipeFixture = New-ReleaseAuditFixture "local-pattern-recipe"
     Write-Utf8File -Path (Join-Path $localPatternRecipeFixture.RootPath "src/main/resources/data/appliedpackaging/recipes/local_package_pattern.json") -Text @"

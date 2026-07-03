@@ -36,6 +36,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/verify-docs.ps1` now verifies required release scripts as part of documentation and release workflow consistency.
 - `scripts/verify-release-bundle.ps1` cross-checks bundled manifest mod/version, jar SHA-256, and clean-git metadata.
 - Mechanical release audit now checks product invariants for local pattern item exposure and Package Pattern Terminal `PartItem` registration.
+- Mechanical release audit now checks English/Simplified Chinese language placeholder parity in addition to language key parity.
 
 ### Changed
 
@@ -68,7 +69,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan still includes build, data, GameTest, client smoke, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order, rejects all skip flags, and protects server world-load audit usage.
 - `scripts/verify-assets.ps1` passed, confirming required PNG resources are present and match the expected asset dimensions.
 - `scripts/test-assets-audit.ps1` passed, confirming valid asset fixtures pass and bad dimensions, invalid PNG headers, or missing required PNGs fail.
-- `scripts/test-release-audit.ps1` passed, confirming valid release audit fixtures pass and missing jar README, tampered mod metadata, local path leaks, local pattern recipe outputs, creative-tab local patterns, or terminal `BlockItem` regressions fail.
+- `scripts/test-release-audit.ps1` passed, confirming valid release audit fixtures pass and missing jar README, tampered mod metadata, local path leaks, language placeholder mismatches, local pattern recipe outputs, creative-tab local patterns, or terminal `BlockItem` regressions fail.
 - `scripts/test-release-manifest.ps1` passed, confirming valid manifest fixtures pass and tampered mod metadata or jar hashes fail.
 - `scripts/test-release-bundle.ps1` passed, confirming valid bundle fixtures pass and tampered manifest metadata or bundled README contents fail.
 - `scripts/test-docs-audit.ps1` passed, confirming valid docs fixtures pass and missing required paths or broken local Markdown links fail.
