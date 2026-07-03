@@ -570,7 +570,7 @@ Packaged Processing Pattern:
   多个包裹样板、处理输出、空白样板、编码
 
 Split:
-  封装处理样板、空白样板若干、拆出包裹样板，可选普通处理样板副本
+  封装处理样板、空白样板若干、拆出由 AE2 blank_pattern 承载的包裹样板
 ```
 
 当前基础实现：
@@ -597,10 +597,10 @@ package_pattern_terminal 物品 id 已改为 AE2 cable part item，可贴到 AE2
 容量槽使用与 ME Packager 相同的 AE2 16k/64k/256k 容量元件映射。
 marker 槽写入 package_pattern 的 MarkerSpec，可作为 ME Packager 过滤或 override 回退模板。
 marker 槽写入 packaged_processing_pattern 时会应用到拆出的每个包裹计划。
-Split 会把已编码 packaged_processing_pattern 拆回多个普通 package_pattern；输出槽逐张吐出，剩余拆分结果保存在终端 pending queue，保存/读取后可继续输出。
+Split 会把已编码 packaged_processing_pattern 拆回多个由 AE2 原版 blank_pattern 承载的 package_pattern；输出槽逐张吐出，剩余拆分结果保存在终端 pending queue，保存/读取后可继续输出。本地 package_pattern 仍只作为旧存档/测试兼容载体，不再由正常 Split 玩家流程产出。
 输出槽非空时不消耗空白样板；空白槽中的已编码 package_pattern 或 packaged_processing_pattern 会被拒绝。
 默认初始选择为 Fluix。
-当前已支持 AE2 原版 blank_pattern 作为 package_pattern 与无输出 packaged_processing_pattern 数据载体；也已支持 item/fluid-container packaged_processing_pattern 通过 AE2 encoded processing pattern 暴露 processing outputs 给 Pattern Provider/Planner。玩家配方入口已收敛到 AE2 原版 blank_pattern；本地 package_pattern / packaged_processing_pattern 只保留旧存档/测试兼容。仍不含任意 AEKey 处理输出 ghost editor。
+当前已支持 AE2 原版 blank_pattern 作为 package_pattern 与无输出 packaged_processing_pattern 数据载体；也已支持 item/fluid-container packaged_processing_pattern 通过 AE2 encoded processing pattern 暴露 processing outputs 给 Pattern Provider/Planner。玩家配方入口与 Split 输出已收敛到 AE2 原版 blank_pattern；本地 package_pattern / packaged_processing_pattern 只保留旧存档/测试兼容。仍不含任意 AEKey 处理输出 ghost editor。
 ```
 
 ## 10. 包裹总线

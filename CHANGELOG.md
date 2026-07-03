@@ -40,6 +40,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 
 - Player-facing package pattern workflows now use AE2 `blank_pattern` as the main carrier.
 - Local `package_pattern` and `packaged_processing_pattern` items remain registered for compatibility and tests, but are not craftable and are not shown in the creative tab.
+- Package Pattern Terminal Split now emits package-pattern data on AE2 blank-pattern carriers instead of creating local `package_pattern` items in the normal player flow.
 - Package Pattern Terminal presentation was changed from a full machine cube to an AE2 cable part item with a compatible block path retained for old saves and tests.
 - Package Pattern Terminal part rendering now uses Applied Packaging-owned body, face, side, back, and overlay mask textures.
 

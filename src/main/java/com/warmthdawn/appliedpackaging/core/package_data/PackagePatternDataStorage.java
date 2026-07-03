@@ -7,7 +7,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 public final class PackagePatternDataStorage {
     public static final String PATTERN_TAG = "appliedpackaging.package_pattern";
@@ -31,6 +33,16 @@ public final class PackagePatternDataStorage {
         return !stack.isEmpty()
                 && AE2_BLANK_PATTERN_ID != null
                 && AE2_BLANK_PATTERN_ID.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+    }
+
+    public static ItemStack newBlankPatternCarrier() {
+        if (AE2_BLANK_PATTERN_ID != null) {
+            Item item = BuiltInRegistries.ITEM.get(AE2_BLANK_PATTERN_ID);
+            if (item != Items.AIR) {
+                return new ItemStack(item);
+            }
+        }
+        return new ItemStack(APItems.PACKAGE_PATTERN.get());
     }
 
     public static Optional<EncodedPackagePattern> read(ItemStack stack) {

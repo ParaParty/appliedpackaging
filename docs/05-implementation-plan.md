@@ -298,8 +298,8 @@ GameTest/服务器 smoke test
   package_pattern_terminal AE2 part 已使用 Applied Packaging 自有 body/front/back/sides/overlay mask 材质和 base part model，不再依赖 AE2 pattern terminal 纹理层
   Package Pattern Terminal 处理输出 ghost 槽支持滚轮调整已设置 key 的数量，流体每步 1000 mB
   Package Bus required content ghost 槽支持滚轮调整已设置 key 的数量，流体每步 1000 mB
-  package_pattern_terminal 可通过 Split 按钮把已编码 packaged_processing_pattern 拆回普通 package_pattern
-  package_pattern_terminal Split pending queue 会保存/读取，输出槽清空后可继续吐出后续 package_pattern
+  package_pattern_terminal 可通过 Split 按钮把已编码 packaged_processing_pattern 拆回 AE2 blank_pattern 承载的 package_pattern 数据
+  package_pattern_terminal Split pending queue 会保存/读取，输出槽清空后可继续吐出后续 AE2 blank_pattern carrier
   package_pattern_terminal 输入槽颜色支持右键清除
   package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
   装配室可读取 package_pattern_terminal 产出的已编码 package_pattern

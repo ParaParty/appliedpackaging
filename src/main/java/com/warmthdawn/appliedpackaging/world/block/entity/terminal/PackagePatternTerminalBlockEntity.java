@@ -435,7 +435,7 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity
             PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern) {
         List<ItemStack> splitPatterns = new ArrayList<>();
         for (PackageData data : pattern.packages()) {
-            ItemStack stack = new ItemStack(APItems.PACKAGE_PATTERN.get());
+            ItemStack stack = PackagePatternDataStorage.newBlankPatternCarrier();
             PackagePatternDataStorage.write(stack, pattern.color(), data);
             splitPatterns.add(stack);
         }

@@ -1686,3 +1686,19 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布机
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强资产验收脚本、发布检查编排、自测聚合入口和文档记录，不改变游戏行为、数据生成、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+收敛 Split 输出到 AE2 blank_pattern carrier：
+  PackagePatternDataStorage 新增 newBlankPatternCarrier，用于创建 AE2 原版 blank_pattern 数据载体
+  PackagePatternTerminalBlockEntity Split 输出改为 AE2 blank_pattern 承载 package_pattern 数据
+  本地 package_pattern / packaged_processing_pattern 继续保留注册和读取兼容，但正常 Split 玩家流程不再产出本地 package_pattern
+  PackageDataGameTests 更新 Split 和 pending queue 断言，确认输出是 AE2 blank_pattern carrier 且不是本地 package_pattern
+  更新 CHANGELOG.md、docs/design.md、docs/03-detailed-design.md、docs/05-implementation-plan.md 和 docs/06-verification-release.md
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，112 个必需 GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功，重新生成 build/libs/appliedpackaging-0.1.0-dev.jar
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计均通过；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次变更影响样板终端 Split 行为与玩家可获得样板载体，属于行为敏感变更。已扩展现有 Split 相关 GameTest 断言，并已执行 .\gradlew.bat runGameTestServer --stacktrace。
+```

@@ -2874,8 +2874,14 @@ public final class PackageDataGameTests {
                 "Terminal split should emit the first package pattern");
         helper.assertTrue(secondResult == PackagePatternTerminalBlockEntity.SplitResult.SPLIT,
                 "Terminal split should emit the queued package pattern");
-        helper.assertTrue(firstOutput.is(APItems.PACKAGE_PATTERN.get()),
-                "Split output should use normal package pattern items");
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(firstOutput),
+                "Split output should use AE2 blank pattern carriers");
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(secondOutput),
+                "Queued split output should use AE2 blank pattern carriers");
+        helper.assertFalse(firstOutput.is(APItems.PACKAGE_PATTERN.get()),
+                "Split output should not create local package_pattern items in the normal player flow");
+        helper.assertFalse(secondOutput.is(APItems.PACKAGE_PATTERN.get()),
+                "Queued split output should not create local package_pattern items in the normal player flow");
         helper.assertTrue(amountOf(firstPattern.data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
                 "First split package pattern should contain iron");
         helper.assertTrue(amountOf(secondPattern.data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
@@ -2916,6 +2922,10 @@ public final class PackageDataGameTests {
                 "Terminal split should start before save");
         helper.assertTrue(secondResult == PackagePatternTerminalBlockEntity.SplitResult.SPLIT,
                 "Loaded terminal should keep pending split package patterns");
+        helper.assertTrue(PackagePatternDataStorage.isAe2BlankPattern(secondOutput),
+                "Loaded split queue should keep AE2 blank pattern carriers");
+        helper.assertFalse(secondOutput.is(APItems.PACKAGE_PATTERN.get()),
+                "Loaded split queue should not emit local package_pattern items");
         helper.assertTrue(amountOf(secondPattern.data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
                 "Loaded split queue should emit the pending copper pattern");
         helper.succeed();
