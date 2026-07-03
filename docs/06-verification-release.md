@@ -231,6 +231,18 @@ jar 文件名包含 mod id 和版本
 发布 jar 审计通过：`jar tf` 未发现 `ClientSmokeRunner`、`gametest`、`build/tmp`、reference、preview、`docs/assets`、`run/` 等 dev/test 条目。
 发布 jar 文本资源审计通过：未发现 `E:\`、`C:\Users`、`build/reference`、`build/asset-reference`、`.codex` 或 `asset-reference` 等本机绝对路径和参考素材路径。
 
+机械发布审计脚本：
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
+```
+
+脚本检查 jar 必需条目、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、PNG 非空、英文/简体中文语言 key、Applied Packaging 模型贴图引用，以及可选 latest.log 服务端 world-load 关键证据。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
+
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1` 成功。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad` 成功，确认当前 latest.log 包含 Applied Packaging 初始化、world 准备和 dedicated server world-load。
+
 ## 5. 客户端验证
 
 必须验证：
@@ -342,6 +354,7 @@ git 工作树干净，发布 tag 可追溯
 .\gradlew.bat build 成功
 .\gradlew.bat runData 成功且生成资源已纳入 git
 .\gradlew.bat runGameTestServer 成功，或记录无法运行的明确阻塞
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 成功
 生成 build/libs/appliedpackaging-<version>.jar
 jar 在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端中可进入游戏
 核心玩法按 01-requirements.md 的 R1-R13 验收

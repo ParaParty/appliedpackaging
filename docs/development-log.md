@@ -1122,3 +1122,17 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 最终发布 tag 仍等待 2026-07-05 新增需求/材质冻结、实现并重新验证
 本次为 dedicated server smoke；GameTest 已按规则考虑，未新增行为测试，现有 GameTest 基线仍为 112 个必需 GameTest 全部通过
 ```
+
+最新进展：
+
+```text
+新增机械发布审计脚本：
+  新增 scripts/verify-release.ps1
+  脚本检查 release jar 必需条目、dev/test/reference/preview 条目、jar 文本中的本机绝对路径或参考素材路径、资源 JSON、PNG 非空、英文/简体中文语言 key、Applied Packaging 模型贴图引用
+  脚本支持 -RequireServerWorldLoad，要求 run/logs/latest.log 包含 Applied Packaging 初始化、world 准备和 Done (...) 服务端世界加载证据
+  更新 docs/06-verification-release.md、docs/08-change-intake.md、README.md、AGENTS.md，将脚本纳入发布机械审计流程
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad 成功
+脚本不替代 build、runData、runGameTestServer、runClientSmoke 或 runServer。
+本次为验证工具和文档变更；GameTest 已按规则考虑，未新增行为测试。
+```

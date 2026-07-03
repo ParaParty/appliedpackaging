@@ -148,9 +148,11 @@ preview image 或 renderer/screenshot 记录
 .\gradlew.bat runGameTestServer
 .\gradlew.bat runClient
 .\gradlew.bat runServer
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 ```
 
 如果项目阶段还没有对应任务，记录原因，不要把 build-only 当成行为验证。
+`scripts/verify-release.ps1` 只做机械发布审计，不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
 
 ## 7. 禁止事项
 
