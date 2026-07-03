@@ -32,7 +32,8 @@ function Invoke-ReadinessCase {
     param(
         [string] $Name,
         [hashtable] $Fixture,
-        [int] $ExpectedExitCode
+        [int] $ExpectedExitCode,
+        [string] $ExpectedText = ""
     )
 
     $output = & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath `
@@ -43,6 +44,12 @@ function Invoke-ReadinessCase {
 
     if ($exitCode -ne $ExpectedExitCode) {
         Write-Host "[FAIL] $Name expected exit $ExpectedExitCode but got $exitCode" -ForegroundColor Red
+        Write-Host $output
+        exit 1
+    }
+
+    if ($ExpectedText -ne "" -and -not $output.Contains($ExpectedText)) {
+        Write-Host "[FAIL] $Name missing expected text: $ExpectedText" -ForegroundColor Red
         Write-Host $output
         exit 1
     }
@@ -127,9 +134,42 @@ try {
 ````
 "@
 
+    $missingPositiveSignals = Write-Fixture `
+        -CaseName "missing-positive-signals" `
+        -ChangeIntake @"
+# 变更接收与范围冻结
+
+当前接收窗口：
+
+````text
+变更接收已处理。
+````
+
+## 5. 新增项暂存表
+
+| ID | 类型 | 标题 | 状态 | 迁移目标 | 验证要求 |
+| --- | --- | --- | --- | --- | --- |
+| IN-001 | 需求 | 已确认需求 | 已迁移 | docs/01-requirements.md | 通过 |
+| IN-002 | 材质 | 已确认材质 | 已迁移 | docs/04-asset-spec.md | 通过 |
+"@ `
+        -Verification @"
+# 验证与发布
+
+当前目标完成判定：
+
+````text
+所有条目均已核对。
+````
+"@
+
     Invoke-ReadinessCase -Name "ready fixture" -Fixture $ready -ExpectedExitCode 0
     Invoke-ReadinessCase -Name "blocked fixture" -Fixture $blocked -ExpectedExitCode 1
     Invoke-ReadinessCase -Name "structural failure fixture" -Fixture $structuralFailure -ExpectedExitCode 1
+    Invoke-ReadinessCase `
+        -Name "missing positive signals fixture" `
+        -Fixture $missingPositiveSignals `
+        -ExpectedExitCode 1 `
+        -ExpectedText "change intake does not explicitly mark the release scope frozen"
 
     Write-Host ""
     Write-Host "Release readiness self-test passed." -ForegroundColor Green

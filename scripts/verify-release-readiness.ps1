@@ -101,6 +101,62 @@ function Test-IntakeRows {
     }
 }
 
+function Test-ReadySignal {
+    param(
+        [string] $Text,
+        [string] $Pattern,
+        [string] $PassMessage,
+        [string] $BlockerMessage
+    )
+
+    if ($null -eq $Text) {
+        return
+    }
+
+    if ($Text -match $Pattern) {
+        Add-Pass $PassMessage
+    } else {
+        Add-Blocker $BlockerMessage
+    }
+}
+
+function Test-PositiveReadinessSignals {
+    param(
+        [string] $ChangeIntakeText,
+        [string] $VerificationText
+    )
+
+    Test-ReadySignal `
+        -Text $ChangeIntakeText `
+        -Pattern '(?m)^已冻结。$|^当前接收窗口：.*已冻结|^范围冻结：已完成。$' `
+        -PassMessage "change intake explicitly marks the release scope frozen" `
+        -BlockerMessage "change intake does not explicitly mark the release scope frozen"
+
+    Test-ReadySignal `
+        -Text $ChangeIntakeText `
+        -Pattern '(?m)^最终服务端 world-load：已完成。$|^.*final server world-load.*已完成.*$' `
+        -PassMessage "change intake explicitly marks final dedicated server world-load complete" `
+        -BlockerMessage "change intake does not explicitly mark final dedicated server world-load complete"
+
+    Test-ReadySignal `
+        -Text $ChangeIntakeText `
+        -Pattern '(?m)^发布 tag：可创建。$' `
+        -PassMessage "change intake explicitly allows creating the release tag" `
+        -BlockerMessage "change intake does not explicitly allow creating the release tag"
+
+    Test-ReadySignal `
+        -Text $VerificationText `
+        -Pattern '(?m)^可以标记完成。$' `
+        -PassMessage "verification document explicitly allows completing the goal" `
+        -BlockerMessage "verification document does not explicitly allow completing the goal"
+
+    Test-ReadySignal `
+        -Text $VerificationText `
+        -Pattern '(?m)^发布 tag 就绪门禁已通过。$' `
+        -PassMessage "verification document explicitly records tag readiness gate success" `
+        -BlockerMessage "verification document does not explicitly record tag readiness gate success"
+}
+
 Write-Host "Applied Packaging release readiness audit" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 
@@ -126,6 +182,10 @@ if ($null -ne $verificationText) {
     } else {
         Add-Pass "verification document does not mark the goal or release tag as incomplete"
     }
+}
+
+if ($blockers.Count -eq 0) {
+    Test-PositiveReadinessSignals -ChangeIntakeText $changeIntakeText -VerificationText $verificationText
 }
 
 if ($failures.Count -gt 0) {
