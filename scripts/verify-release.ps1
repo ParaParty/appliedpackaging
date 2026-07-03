@@ -214,6 +214,73 @@ function Get-ZipEntryText {
     }
 }
 
+function Get-ZipEntryBytes {
+    param(
+        [System.IO.Compression.ZipArchive] $Zip,
+        [string] $EntryName
+    )
+
+    $entry = $Zip.GetEntry($EntryName)
+    if ($null -eq $entry) {
+        Add-Fail "Jar contains $EntryName"
+        return $null
+    }
+
+    $stream = $entry.Open()
+    $memory = [System.IO.MemoryStream]::new()
+    try {
+        $stream.CopyTo($memory)
+        return $memory.ToArray()
+    } finally {
+        $memory.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Get-Sha256Hex {
+    param([byte[]] $Bytes)
+
+    if ($null -eq $Bytes) {
+        return ""
+    }
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return (($sha.ComputeHash($Bytes) | ForEach-Object { $_.ToString("x2") }) -join "")
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+function Assert-ZipEntryMatchesFile {
+    param(
+        [System.IO.Compression.ZipArchive] $Zip,
+        [string] $EntryName,
+        [string] $SourcePath,
+        [string] $Message
+    )
+
+    $source = Resolve-Path -LiteralPath $SourcePath -ErrorAction SilentlyContinue
+    if ($null -eq $source) {
+        Add-Fail "Repository source exists for ${EntryName}: $SourcePath"
+        return
+    }
+
+    $entryBytes = Get-ZipEntryBytes $Zip $EntryName
+    if ($null -eq $entryBytes) {
+        return
+    }
+
+    $sourceBytes = [System.IO.File]::ReadAllBytes($source.Path)
+    $entrySha = Get-Sha256Hex $entryBytes
+    $sourceSha = Get-Sha256Hex $sourceBytes
+    if ($entrySha -eq $sourceSha) {
+        Add-Pass $Message
+    } else {
+        Add-Fail "$Message (jar sha256 $entrySha, source sha256 $sourceSha)"
+    }
+}
+
 function Get-RepoRelativePath {
     param([string] $Path)
 
@@ -453,6 +520,41 @@ if ($null -eq $resolvedJar) {
 
         foreach ($entry in $requiredEntries) {
             Assert-True $entrySet.Contains($entry) "Jar contains $entry"
+        }
+
+        $sourceSyncedEntries = @(
+            @{
+                EntryName = "README.md"
+                SourcePath = "README.md"
+                Message = "Jar README.md matches repository README.md"
+            },
+            @{
+                EntryName = "CHANGELOG.md"
+                SourcePath = "CHANGELOG.md"
+                Message = "Jar CHANGELOG.md matches repository CHANGELOG.md"
+            },
+            @{
+                EntryName = "LICENSE.md"
+                SourcePath = "LICENSE.md"
+                Message = "Jar LICENSE.md matches repository LICENSE.md"
+            },
+            @{
+                EntryName = "assets/appliedpackaging/lang/en_us.json"
+                SourcePath = "src/main/resources/assets/appliedpackaging/lang/en_us.json"
+                Message = "Jar en_us.json matches source en_us.json"
+            },
+            @{
+                EntryName = "assets/appliedpackaging/lang/zh_cn.json"
+                SourcePath = "src/main/resources/assets/appliedpackaging/lang/zh_cn.json"
+                Message = "Jar zh_cn.json matches source zh_cn.json"
+            }
+        )
+        foreach ($sourceSyncedEntry in $sourceSyncedEntries) {
+            Assert-ZipEntryMatchesFile `
+                -Zip $zip `
+                -EntryName $sourceSyncedEntry.EntryName `
+                -SourcePath $sourceSyncedEntry.SourcePath `
+                -Message $sourceSyncedEntry.Message
         }
 
         $modsTomlText = Get-ZipEntryText $zip "META-INF/mods.toml"

@@ -31,7 +31,7 @@ function Write-Utf8File {
         New-Item -ItemType Directory -Force -Path $parent | Out-Null
     }
 
-    Set-Content -LiteralPath $Path -Value $Text -Encoding UTF8
+    [System.IO.File]::WriteAllText($Path, $Text, [System.Text.UTF8Encoding]::new($false))
 }
 
 function Add-ZipEntryText {
@@ -180,7 +180,26 @@ function New-ReleaseAuditFixture {
     $caseRoot = Join-Path $tempRoot $CaseName
     New-Item -ItemType Directory -Force -Path $caseRoot | Out-Null
 
+    $fixtureReadmeText = "Release audit fixture readme.`n"
+    $fixtureChangelogText = "Release audit fixture changelog.`n"
+    $fixtureLicenseText = "Release audit fixture license.`n"
+    $fixtureEnLangText = @"
+{
+  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture",
+  "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
+}
+"@
+    $fixtureZhLangText = @"
+{
+  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture",
+  "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
+}
+"@
+
     Write-Utf8File -Path (Join-Path $caseRoot "gradle.properties") -Text (Get-GradlePropertiesText)
+    Write-Utf8File -Path (Join-Path $caseRoot "README.md") -Text $fixtureReadmeText
+    Write-Utf8File -Path (Join-Path $caseRoot "CHANGELOG.md") -Text $fixtureChangelogText
+    Write-Utf8File -Path (Join-Path $caseRoot "LICENSE.md") -Text $fixtureLicenseText
     Write-Utf8File -Path (Join-Path $caseRoot "docs/assets/palette.md") -Text "release audit fixture palette`n"
     Write-Utf8File -Path (Join-Path $caseRoot "docs/assets/asset-briefs/ui-and-icons.md") -Text "release audit fixture brief`n"
     Write-Utf8File -Path (Join-Path $caseRoot "docs/assets/contracts/release_audit.yaml") -Text @"
@@ -212,19 +231,8 @@ harness_assumptions:
   logo_path: src/main/resources/assets/appliedpackaging/logo.png
   report_path: docs/assets/reports/release-audit.md
 "@
-
-    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/en_us.json") -Text @"
-{
-  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture",
-  "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
-}
-"@
-    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/zh_cn.json") -Text @"
-{
-  "item.appliedpackaging.release_audit_fixture": "Release Audit Fixture",
-  "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
-}
-"@
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/en_us.json") -Text $fixtureEnLangText
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/zh_cn.json") -Text $fixtureZhLangText
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/models/item/release_audit_fixture.json") -Text @"
 {
   "parent": "minecraft:item/generated",
@@ -300,10 +308,12 @@ public final class APItems {
     try {
         Add-ZipEntryText -Zip $zip -EntryName "META-INF/mods.toml" -Text (Get-ModsTomlText)
         Add-ZipEntryText -Zip $zip -EntryName "META-INF/MANIFEST.MF" -Text (Get-ManifestText)
-        Add-ZipEntryText -Zip $zip -EntryName "LICENSE.md" -Text "Release audit fixture license.`n"
-        Add-ZipEntryText -Zip $zip -EntryName "README.md" -Text "Release audit fixture readme.`n"
-        Add-ZipEntryText -Zip $zip -EntryName "CHANGELOG.md" -Text "Release audit fixture changelog.`n"
+        Add-ZipEntryText -Zip $zip -EntryName "LICENSE.md" -Text $fixtureLicenseText
+        Add-ZipEntryText -Zip $zip -EntryName "README.md" -Text $fixtureReadmeText
+        Add-ZipEntryText -Zip $zip -EntryName "CHANGELOG.md" -Text $fixtureChangelogText
         Add-ZipEntryBytes -Zip $zip -EntryName "assets/appliedpackaging/logo.png" -Bytes $pngBytes
+        Add-ZipEntryText -Zip $zip -EntryName "assets/appliedpackaging/lang/en_us.json" -Text $fixtureEnLangText
+        Add-ZipEntryText -Zip $zip -EntryName "assets/appliedpackaging/lang/zh_cn.json" -Text $fixtureZhLangText
     } finally {
         $zip.Dispose()
     }
@@ -360,6 +370,15 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "Jar contains README.md"
 
+    $staleReadmeFixture = New-ReleaseAuditFixture "stale-readme"
+    Update-ZipEntryText -ZipPath $staleReadmeFixture.JarPath -EntryName "README.md" -Text "Stale release audit fixture readme.`n"
+    Invoke-ReleaseAuditCase `
+        -Name "stale jar README fixture" `
+        -RootPath $staleReadmeFixture.RootPath `
+        -JarPath $staleReadmeFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Jar README.md matches repository README.md"
+
     $badMetadataFixture = New-ReleaseAuditFixture "bad-metadata"
     $badMetadataToml = [regex]::Replace((Get-ModsTomlText), 'modId="appliedpackaging"', 'modId="wrong_mod_id"', 1)
     Update-ZipEntryText -ZipPath $badMetadataFixture.JarPath -EntryName "META-INF/mods.toml" -Text $badMetadataToml
@@ -392,6 +411,20 @@ try {
         -JarPath $langPlaceholderFixture.JarPath `
         -ExpectedExitCode 1 `
         -ExpectedText "Language placeholder mismatches"
+
+    $staleLangFixture = New-ReleaseAuditFixture "stale-lang"
+    Update-ZipEntryText -ZipPath $staleLangFixture.JarPath -EntryName "assets/appliedpackaging/lang/en_us.json" -Text @"
+{
+  "item.appliedpackaging.release_audit_fixture": "Stale Release Audit Fixture",
+  "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "stale jar language fixture" `
+        -RootPath $staleLangFixture.RootPath `
+        -JarPath $staleLangFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Jar en_us.json matches source en_us.json"
 
     $localPatternRecipeFixture = New-ReleaseAuditFixture "local-pattern-recipe"
     Write-Utf8File -Path (Join-Path $localPatternRecipeFixture.RootPath "src/main/resources/data/appliedpackaging/recipes/local_package_pattern.json") -Text @"

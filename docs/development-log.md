@@ -1723,6 +1723,27 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 最新进展：
 
 ```text
+补齐 jar 源文件同步 release audit：
+  scripts/verify-release.ps1 新增 jar 内 README.md、CHANGELOG.md、LICENSE.md 与仓库源文件 SHA-256 同步审计
+  scripts/verify-release.ps1 新增 jar 内 en_us.json、zh_cn.json 与 src/main/resources 源文件 SHA-256 同步审计
+  scripts/test-release-audit.ps1 的临时 fixture 改为精确 UTF-8 写入，避免自测字节比对被 PowerShell 自动换行影响
+  scripts/test-release-audit.ps1 的有效 fixture 补齐仓库根 README/CHANGELOG/LICENSE 和 jar 内语言文件
+  scripts/test-release-audit.ps1 新增 jar 内 README 过期和 jar 内语言文件过期两个负例
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 scripts/verify-release.ps1 和 scripts/test-release-audit.ps1 成功
+验证 git diff --check 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-audit.ps1 成功，确认 valid fixture 退出 0，missing README、stale jar README、tampered metadata、local path leak、language placeholder mismatch、stale jar language、local pattern recipe output、creative local pattern 和 terminal block item fixture 均按预期失败
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts 成功，确认当前 jar 内 README/CHANGELOG/LICENSE 和 en_us/zh_cn 均与源文件同步
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1 成功，确认 docs audit、asset audit、release audit、readiness、release plan、manifest 和 bundle 自测均可由聚合入口串行通过；开发中工作区 dirty，manifest/bundle 子测试的 clean-git fixture 按预期跳过，提交后需重跑覆盖
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只增强机械发布审计脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
+
+最新进展：
+
+```text
 补齐语言占位符 release audit：
   scripts/verify-release.ps1 新增英文/简体中文语言占位符一致性审计
   保留既有语言 key 对齐检查，并在共同 key 上比较 %s/%d 等格式占位符序列
