@@ -346,6 +346,7 @@ runClientSmoke GUI screenshot smoke
 ```text
 已完成：
   CHANGELOG.md、README.md、LICENSE.md 与 Forge/AE2/GuideME 版本声明已补齐
+  mods.toml 已声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围
   build/libs/appliedpackaging-0.1.0-dev.jar 已生成
   scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、asset contract、语言 key、模型贴图引用、client smoke 截图、dedicated server latest.log 证据和可选 git clean 证据
   scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke 和机械发布审计
@@ -354,6 +355,7 @@ runClientSmoke GUI screenshot smoke
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
   当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
+  GuideME 发布依赖范围已进入 mods.toml，并通过 build、release audit、manifest audit 和 server smoke 验证
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit
   发布清单可由 verify-release-manifest.ps1 复验，确认当前 jar、gradle.properties 和 git HEAD 与清单一致
@@ -368,7 +370,7 @@ runClientSmoke GUI screenshot smoke
 
 ```text
 git 工作树干净，且最终冻结后可由 run-release-checks.ps1 -AuditOnly -RequireCleanGit 机械验证
-build/libs/appliedpackaging-<version>.jar 存在
+build/libs/appliedpackaging-<version>.jar 存在，且 META-INF/mods.toml 声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围
 build/release/appliedpackaging-<version>-release-manifest.json 可生成并复验，且记录 jar SHA-256 与 git commit
 run-release-checks.ps1 -RunClientSmoke 成功
 runServer 或 run-server-smoke.ps1 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功

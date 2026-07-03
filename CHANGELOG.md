@@ -19,6 +19,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - Package Bus configuration UI with ghost package template, color, marker, required-content filtering, and adjustable fluid required amounts.
 - English and Simplified Chinese language files.
 - Recipes, loot tables, models, item textures, block textures, GUI icons, and Forge mod metadata.
+- Forge mod metadata declares the required Minecraft, Forge, AE2, and GuideME version ranges.
 - GameTest coverage for package data, transactions, filters, capacity, package machines, package buses, AE2 carriers, AE2 Pattern Provider integration, and fluid transactions.
 - Automated `runClientSmoke` development run for opening key in-game menus, capturing screenshots, and exiting the client.
 
@@ -39,6 +40,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `.\gradlew.bat runClientSmoke` passed and captured the Package Assembler, ME Packager, Package Pattern Terminal, Package Storage Bus, Package Export Bus, and Package Unpacking Bus screens.
 - `.\gradlew.bat runServer --stacktrace` reached dedicated server world-load after local EULA acceptance; `latest.log` recorded `Done (2.724s)!` and no Applied Packaging client-class loading errors.
 - `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` passed, reached `Done (2.413s)!`, cleaned up port 25565, and audited the refreshed server world-load log.
+- `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` passed again after GuideME metadata was made explicit in `mods.toml`.
 - `scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` passed for the current baseline.
 - `scripts/write-release-manifest.ps1` generated the release manifest with jar SHA-256 and git commit metadata.
 - `scripts/verify-release-manifest.ps1` passed and confirmed the release manifest matches the current jar, `gradle.properties`, and git HEAD.

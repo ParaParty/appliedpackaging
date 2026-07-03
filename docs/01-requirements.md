@@ -76,7 +76,7 @@ R11. Tooltip 必须明确显示“每包内容”和“堆叠总计”。高级�
 
 R12. 所有玩家可见内容必须有英文与简体中文语言文件。
 
-R13. 必须提供可发布 jar、基础配方、loot table、模型、材质、logo/图标和 mods.toml 元数据。
+R13. 必须提供可发布 jar、基础配方、loot table、模型、材质、logo/图标和 mods.toml 元数据；mods.toml 必须声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围。
 
 ## 5. 非功能性需求
 

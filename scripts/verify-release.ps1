@@ -287,7 +287,8 @@ $requiredProjectProperties = @(
     "minecraft_version_range",
     "forge_version_range",
     "loader_version_range",
-    "ae2_version_range"
+    "ae2_version_range",
+    "guideme_version_range"
 )
 foreach ($propertyName in $requiredProjectProperties) {
     Assert-True $projectProperties.ContainsKey($propertyName) "gradle.properties defines $propertyName"
@@ -338,6 +339,7 @@ if ($null -eq $resolvedJar) {
             Assert-Matches $modsTomlText "modId=`"forge`"[\s\S]*?versionRange=`"$([regex]::Escape($projectProperties["forge_version_range"]))`"" "mods.toml Forge dependency range matches gradle.properties"
             Assert-Matches $modsTomlText "modId=`"minecraft`"[\s\S]*?versionRange=`"$([regex]::Escape($projectProperties["minecraft_version_range"]))`"" "mods.toml Minecraft dependency range matches gradle.properties"
             Assert-Matches $modsTomlText "modId=`"ae2`"[\s\S]*?versionRange=`"$([regex]::Escape($projectProperties["ae2_version_range"]))`"" "mods.toml AE2 dependency range matches gradle.properties"
+            Assert-Matches $modsTomlText "modId=`"guideme`"[\s\S]*?versionRange=`"$([regex]::Escape($projectProperties["guideme_version_range"]))`"" "mods.toml GuideME dependency range matches gradle.properties"
         }
         if ($manifestText.Length -gt 0) {
             Assert-Matches $manifestText "Specification-Title: $([regex]::Escape($projectProperties["mod_name"]))" "manifest specification title matches gradle.properties"

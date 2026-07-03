@@ -305,6 +305,7 @@ if ($failures.Count -eq 0) {
     Assert-ManifestText $manifest "dependencies.ae2Version" (Require-Property $properties "ae2_version")
     Assert-ManifestText $manifest "dependencies.ae2VersionRange" (Require-Property $properties "ae2_version_range")
     Assert-ManifestText $manifest "dependencies.guideMeVersion" (Require-Property $properties "guideme_version")
+    Assert-ManifestText $manifest "dependencies.guideMeVersionRange" (Require-Property $properties "guideme_version_range")
 
     Assert-ManifestText $manifest "artifact.path" $relativeJarPath
     Assert-ManifestText $manifest "artifact.fileName" $jarItem.Name

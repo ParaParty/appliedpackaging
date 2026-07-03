@@ -9,7 +9,7 @@
 工具链：ModDevGradle Legacy
 Forge 基线：47.4.10 recommended
 AE2 基线：Applied Energistics 2 15.4.10 Forge
-开发运行依赖：GuideME 20.1.7
+开发/运行依赖：GuideME 20.1.7，发布范围 [20.1.7,20.2.0)
 Mod ID：appliedpackaging
 Java 包名：com.warmthdawn.appliedpackaging
 Mod 名称：Applied Packaging / 应用封装

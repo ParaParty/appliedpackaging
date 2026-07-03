@@ -8,6 +8,7 @@ forge_version=47.4.10
 java=17
 ae2_version=15.4.10
 guideme_version=20.1.7
+guideme_version_range=[20.1.7,20.2.0)
 moddevgradle_legacyforge=2.0.91 或更新的兼容 2.x
 ```
 
@@ -28,9 +29,10 @@ version: 0.1.0-dev 起步，首个发布版本为 1.0.0
 Minecraft: [1.20.1, 1.21)
 Forge: [47.4.10,)
 AE2: [15.4.10,16)
+GuideME: [20.1.7,20.2.0)
 ```
 
-开发运行时还需显式加入 GuideME 20.1.7。AE2 15.4.10 的 mod metadata 要求 `guideme` 版本范围 `[20.1.7,20.2.0)`；当前 Gradle 使用的 AE2 Modrinth runtime 坐标不会自动带出这个传递依赖。
+开发运行时还需显式加入 GuideME 20.1.7。AE2 15.4.10 的 mod metadata 要求 `guideme` 版本范围 `[20.1.7,20.2.0)`；当前 Gradle 使用的 AE2 Modrinth runtime 坐标不会自动带出这个传递依赖。因此 Applied Packaging 的发布 metadata 也直接声明 `guideme` mandatory dependency，避免发布页或整合包解析时漏装 GuideME。
 
 ## 2. 核心架构
 

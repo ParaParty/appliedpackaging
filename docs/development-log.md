@@ -1301,3 +1301,21 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强文档审
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest 成功，确认机械发布审计、文档审计、发布清单和发布清单审计可串联通过
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布清单脚本、发布编排和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐 GuideME 发布依赖元数据：
+  gradle.properties 新增 guideme_version_range=[20.1.7,20.2.0)
+  build.gradle 的 generateModMetadata 替换表新增 guideme_version_range
+  src/main/templates/META-INF/mods.toml 新增 guideme mandatory dependency，ordering=AFTER，side=BOTH
+  scripts/verify-release.ps1 新增 guideme_version_range 必填属性和 mods.toml GuideME dependency range 审计
+  scripts/write-release-manifest.ps1 新增 dependencies.guideMeVersionRange
+  scripts/verify-release-manifest.ps1 新增 dependencies.guideMeVersionRange 审计
+  更新 README.md、CHANGELOG.md、AGENTS.md、docs/design.md、docs/01-requirements.md、docs/02-system-architecture.md、docs/05-implementation-plan.md、docs/06-verification-release.md、docs/07-references.md、docs/08-change-intake.md
+验证 PowerShell parser 解析 verify-release.ps1、write-release-manifest.ps1、verify-release-manifest.ps1 和 run-release-checks.ps1 成功
+验证 .\gradlew.bat build --stacktrace 成功，generateModMetadata 和 jar 重新执行，发布 jar 的 META-INF/mods.toml 包含 guideme [20.1.7,20.2.0) mandatory dependency
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest 成功，确认 mods.toml GuideME dependency range 与 gradle.properties 一致，发布清单中的 guideMeVersionRange 也匹配
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke 成功，确认显式 GuideME dependency metadata 不破坏 dedicated server world-load
+GameTest：已考虑。发现现有 runGameTestServer；本次只修改发布 metadata、发布审计脚本和文档，不改变包裹、机器、总线、菜单、网络或事务行为，因此未新增、扩展或运行 GameTest。由于 mod metadata 会影响 dedicated server 依赖加载，本次改用 build + release audit + server smoke 验证。
+```

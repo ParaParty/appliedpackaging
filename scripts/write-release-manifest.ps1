@@ -137,6 +137,7 @@ $manifest = [ordered]@{
         ae2Version = Require-Property $properties "ae2_version"
         ae2VersionRange = Require-Property $properties "ae2_version_range"
         guideMeVersion = Require-Property $properties "guideme_version"
+        guideMeVersionRange = Require-Property $properties "guideme_version_range"
     }
     artifact = [ordered]@{
         path = $relativeJarPath

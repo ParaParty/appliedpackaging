@@ -11,7 +11,7 @@ Mod version: 0.1.0-dev
 Minecraft:   1.20.1
 Forge:       47.4.10 or newer 47.x for 1.20.1
 AE2:         15.4.10 to before 16.0.0
-GuideME:     20.1.7
+GuideME:     20.1.7 to before 20.2.0
 Java:        17
 Loader:      Forge / javafml 47
 License:     All Rights Reserved
@@ -57,7 +57,7 @@ Install these mods together on Minecraft 1.20.1 Forge:
 ```text
 Applied Packaging
 Applied Energistics 2 15.4.10+
-GuideME 20.1.7
+GuideME 20.1.7 to before 20.2.0
 ```
 
 For multiplayer, install Applied Packaging on both client and dedicated server. The mod registers gameplay blocks, items, menus, and AE2 integrations, so client-only or server-only installation is not a supported gameplay configuration.
@@ -95,7 +95,7 @@ The project uses ModDevGradle Legacy with Java 17. GameTest structures are copie
 .\gradlew.bat runClientSmoke -Pappliedpackaging.clientSmoke.world="Your World Name"
 ```
 
-`scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, optional client smoke screenshot files, optional `latest.log` server world-load evidence, and optional clean git working-tree evidence. It does not replace the Gradle, GameTest, client smoke, or server smoke runs. Known external Yggdrasil public-key fetch failures are reported as warnings during log diagnostics; Applied Packaging, classloading, crash, missing texture, and other diagnostic keywords still fail the audit.
+`scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, optional client smoke screenshot files, optional `latest.log` server world-load evidence, and optional clean git working-tree evidence. It also verifies Forge, Minecraft, AE2, and GuideME dependency ranges in `mods.toml` against `gradle.properties`. It does not replace the Gradle, GameTest, client smoke, or server smoke runs. Known external Yggdrasil public-key fetch failures are reported as warnings during log diagnostics; Applied Packaging, classloading, crash, missing texture, and other diagnostic keywords still fail the audit.
 
 `scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, optional `run-server-smoke.ps1`, the mechanical release audit, documentation audit, optional release manifest generation, and optional release manifest audit. When `-RunClientSmoke` is used, the audit also requires all 6 smoke screenshots to exist as valid PNG files. When `-RunServerSmoke` is used, the server smoke runs after other Gradle runs, refreshes `run/logs/latest.log`, and the audit also requires dedicated server world-load evidence. Use `-RequireServerWorldLoad` only with `-AuditOnly` unless `-RunServerSmoke` is set. Use `-WriteReleaseManifest` to write `build/release/appliedpackaging-<version>-release-manifest.json` with jar size, SHA-256, version ranges, and git commit. Use `-RequireReleaseManifest` to verify that the manifest still matches the current jar, `gradle.properties`, and git HEAD. After all release changes are committed, add `-RequireCleanGit` before creating the release tag.
 
@@ -114,7 +114,7 @@ runClient smoke:   reached Minecraft client startup, Applied Packaging init, Sou
 runClientSmoke:    opened and captured package assembler, packager, pattern terminal, and all three package bus screens
 runServer smoke:   reached dedicated server world-load, Done (2.724s), without Applied Packaging client-class loading errors
 runServerSmoke:    passed via release runner, Done (2.413s), and port 25565 cleaned up
-release audit:     passed asset contracts, client smoke screenshots, and dedicated server world-load evidence
+release audit:     passed dependency metadata, asset contracts, client smoke screenshots, and dedicated server world-load evidence
 release manifest:  generated and audited with jar SHA-256 and git commit metadata
 docs audit:        passed required document and local Markdown link checks
 clean git audit:   passed for the current committed baseline
