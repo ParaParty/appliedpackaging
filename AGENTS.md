@@ -149,6 +149,7 @@ preview image 或 renderer/screenshot 记录
 .\gradlew.bat runClient
 .\gradlew.bat runServer
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
 
 如果项目阶段还没有对应任务，记录原因，不要把 build-only 当成行为验证。

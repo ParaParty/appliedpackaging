@@ -1,8 +1,10 @@
 param(
     [string] $JarPath = "build/libs/appliedpackaging-0.1.0-dev.jar",
     [string] $LogPath = "run/logs/latest.log",
+    [string] $AssetgenPath,
     [switch] $RequireLog,
-    [switch] $RequireServerWorldLoad
+    [switch] $RequireServerWorldLoad,
+    [switch] $RequireAssetContracts
 )
 
 $ErrorActionPreference = "Stop"
@@ -75,6 +77,67 @@ function Get-TextureValues {
     }
 
     return $values
+}
+
+function Resolve-Assetgen {
+    if (-not [string]::IsNullOrWhiteSpace($AssetgenPath)) {
+        $resolved = Resolve-Path $AssetgenPath -ErrorAction SilentlyContinue
+        if ($null -eq $resolved) {
+            Add-Fail "Assetgen path exists: $AssetgenPath"
+            return $null
+        }
+        return @{
+            Kind = "PythonScript"
+            Path = $resolved.Path
+        }
+    }
+
+    $command = Get-Command assetgen -ErrorAction SilentlyContinue
+    if ($null -ne $command) {
+        return @{
+            Kind = "Command"
+            Path = $command.Source
+        }
+    }
+
+    $skillAssetgen = Join-Path $HOME ".codex/skills/minecraft-mod-asset-generation/scripts/assetgen"
+    if (Test-Path $skillAssetgen) {
+        return @{
+            Kind = "PythonScript"
+            Path = (Resolve-Path $skillAssetgen).Path
+        }
+    }
+
+    return $null
+}
+
+function Invoke-AssetgenValidateContract {
+    param(
+        [hashtable] $Assetgen,
+        [string] $ContractPath
+    )
+
+    if ($Assetgen.Kind -eq "Command") {
+        $output = & $Assetgen.Path validate-contract $ContractPath 2>&1
+        return @{
+            ExitCode = $LASTEXITCODE
+            Output = $output
+        }
+    }
+
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if ($null -eq $python) {
+        return @{
+            ExitCode = 1
+            Output = "python command not found for assetgen script"
+        }
+    }
+
+    $output = & $python.Source $Assetgen.Path validate-contract $ContractPath 2>&1
+    return @{
+        ExitCode = $LASTEXITCODE
+        Output = $output
+    }
 }
 
 Write-Host "Applied Packaging release audit" -ForegroundColor Cyan
@@ -174,6 +237,32 @@ if ($emptyPng.Count -eq 0) {
     Add-Pass "$($pngFiles.Count) PNG resources are non-empty"
 } else {
     Add-Fail "Empty PNG resources: $($emptyPng.FullName -join ', ')"
+}
+
+$contractFiles = @(Get-ChildItem "docs/assets/contracts" -Filter "*.yaml" -File -ErrorAction SilentlyContinue)
+Assert-True ($contractFiles.Count -gt 0) "Asset contracts are present"
+if ($contractFiles.Count -gt 0) {
+    $assetgen = Resolve-Assetgen
+    if ($null -eq $assetgen) {
+        if ($RequireAssetContracts) {
+            Add-Fail "assetgen is available for required asset contract validation"
+        } else {
+            Add-Warn "assetgen not found; skipping asset contract validation"
+        }
+    } else {
+        $badContracts = [System.Collections.Generic.List[string]]::new()
+        foreach ($contract in $contractFiles) {
+            $result = Invoke-AssetgenValidateContract $assetgen $contract.FullName
+            if ($result.ExitCode -ne 0) {
+                $badContracts.Add("$($contract.FullName): $($result.Output -join ' ')") | Out-Null
+            }
+        }
+        if ($badContracts.Count -eq 0) {
+            Add-Pass "$($contractFiles.Count) asset contracts validate with assetgen"
+        } else {
+            Add-Fail "Asset contract validation failed: $($badContracts -join '; ')"
+        }
+    }
 }
 
 $enPath = "src/main/resources/assets/appliedpackaging/lang/en_us.json"
