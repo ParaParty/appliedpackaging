@@ -78,6 +78,7 @@ Useful commands:
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-server-smoke.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle
@@ -87,6 +88,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-manifest.
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-bundle.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-bundle.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
@@ -101,7 +104,7 @@ The project uses ModDevGradle Legacy with Java 17. GameTest structures are copie
 
 `scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, optional client smoke screenshot files, optional `latest.log` server world-load evidence, and optional clean git working-tree evidence. It also verifies Forge, Minecraft, AE2, and GuideME dependency ranges in `mods.toml` against `gradle.properties`. It does not replace the Gradle, GameTest, client smoke, or server smoke runs. Known external Yggdrasil public-key fetch failures are reported as warnings during log diagnostics; Applied Packaging, classloading, crash, missing texture, and other diagnostic keywords still fail the audit.
 
-`scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, optional `run-server-smoke.ps1`, the mechanical release audit, documentation audit, optional release manifest generation/audit, and optional release bundle generation/audit. Use `-ReleaseCandidate -RequireCleanGit` after all release changes are committed to run the full release-candidate gate: build, data generation, GameTest server, client smoke, server smoke, mechanical audit, docs audit, release manifest, and release bundle. `-ReleaseCandidate` rejects `-AuditOnly` and skip flags. When `-RunClientSmoke` is used, the audit also requires all 6 smoke screenshots to exist as valid PNG files. When `-RunServerSmoke` is used, the server smoke runs after other Gradle runs, refreshes `run/logs/latest.log`, and the audit also requires dedicated server world-load evidence. Use `-RequireServerWorldLoad` only with `-AuditOnly` unless `-RunServerSmoke` is set. Use `-WriteReleaseManifest` to write `build/release/appliedpackaging-<version>-release-manifest.json` with jar size, SHA-256, version ranges, and git commit. Use `-RequireReleaseManifest` to verify that the manifest still matches the current jar, `gradle.properties`, and git HEAD. Use `-WriteReleaseBundle` and `-RequireReleaseBundle` to create and verify `build/release/appliedpackaging-<version>-release-bundle.zip` containing the jar, manifest, README, CHANGELOG, LICENSE, and SHA256SUMS.
+`scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, optional `run-server-smoke.ps1`, the mechanical release audit, documentation audit, optional tag-readiness audit, optional release manifest generation/audit, and optional release bundle generation/audit. Use `-ReleaseCandidate -RequireCleanGit` to run the full technical release-candidate gate. Use `-ReleaseCandidate -RequireCleanGit -RequireReadyForTag` only after the requirement/asset intake is frozen and all release changes are committed; this also requires `scripts/verify-release-readiness.ps1 -RequireReadyForTag` to pass. `-ReleaseCandidate` rejects `-AuditOnly` and skip flags. When `-RunClientSmoke` is used, the audit also requires all 6 smoke screenshots to exist as valid PNG files. When `-RunServerSmoke` is used, the server smoke runs after other Gradle runs, refreshes `run/logs/latest.log`, and the audit also requires dedicated server world-load evidence. Use `-RequireServerWorldLoad` only with `-AuditOnly` unless `-RunServerSmoke` is set. Use `-WriteReleaseManifest` to write `build/release/appliedpackaging-<version>-release-manifest.json` with jar size, SHA-256, version ranges, and git commit. Use `-RequireReleaseManifest` to verify that the manifest still matches the current jar, `gradle.properties`, and git HEAD. Use `-WriteReleaseBundle` and `-RequireReleaseBundle` to create and verify `build/release/appliedpackaging-<version>-release-bundle.zip` containing the jar, manifest, README, CHANGELOG, LICENSE, and SHA256SUMS.
 
 `scripts/verify-docs.ps1` checks that the required design, release, asset-brief, asset-contract, and asset-report documents exist, that `docs/design.md` and `docs/00-document-index.md` still cover the document set, and that local inline Markdown links resolve.
 
@@ -122,6 +125,7 @@ release audit:     passed dependency metadata, asset contracts, client smoke scr
 release manifest:  generated and audited with jar SHA-256 and git commit metadata
 release bundle:    generated and audited with jar, manifest, docs, license, and SHA256SUMS
 release candidate: passed for the current committed baseline; final re-run pending intake freeze
+tag readiness:     blocked as expected while requirement/asset intake remains open
 docs audit:        passed required document and local Markdown link checks
 clean git audit:   passed for the current committed baseline
 ```

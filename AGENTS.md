@@ -151,6 +151,7 @@ preview image 或 renderer/screenshot 记录
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-server-smoke.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle
@@ -160,12 +161,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-manifest.
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-bundle.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-bundle.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
 
 如果项目阶段还没有对应任务，记录原因，不要把 build-only 当成行为验证。
-`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、文档审计、可选发布清单生成/审计和可选发布附件包生成/审计。使用 `-ReleaseCandidate` 时会禁止 `-AuditOnly` 和 skip flags，并自动启用 `-RunClientSmoke`、`-RunServerSmoke`、发布清单生成/审计和发布附件包生成/审计；最终发布 tag 前推荐在所有变更提交后执行 `-ReleaseCandidate -RequireCleanGit`。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后刷新 `run/logs/latest.log`，并自动要求 dedicated server world-load 证据。使用 `-WriteReleaseManifest` 时会在 `build/release/` 写入包含 jar SHA-256、版本范围和 git commit 的发布 JSON 清单。使用 `-RequireReleaseManifest` 时会执行 `scripts/verify-release-manifest.ps1`，确认清单仍匹配当前 jar、`gradle.properties` 和 git HEAD。使用 `-WriteReleaseBundle` / `-RequireReleaseBundle` 时会生成并复验包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS 的发布 zip。`scripts/verify-docs.ps1` 会检查必需文档、文档入口和本地 Markdown 链接。`-RequireServerWorldLoad` 只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。`-RequireCleanGit` 只用于最终冻结后强制检查 git 工作树干净。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、文档审计、可选 tag 就绪审计、可选发布清单生成/审计和可选发布附件包生成/审计。使用 `-ReleaseCandidate` 时会禁止 `-AuditOnly` 和 skip flags，并自动启用 `-RunClientSmoke`、`-RunServerSmoke`、发布清单生成/审计和发布附件包生成/审计；最终发布 tag 前推荐在所有变更提交后执行 `-ReleaseCandidate -RequireCleanGit -RequireReadyForTag`。使用 `-RequireReadyForTag` 时会执行 `scripts/verify-release-readiness.ps1 -RequireReadyForTag`，确认变更接收表没有待输入/待判定项，且验证文档不再标记发布 tag 未完成。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后刷新 `run/logs/latest.log`，并自动要求 dedicated server world-load 证据。使用 `-WriteReleaseManifest` 时会在 `build/release/` 写入包含 jar SHA-256、版本范围和 git commit 的发布 JSON 清单。使用 `-RequireReleaseManifest` 时会执行 `scripts/verify-release-manifest.ps1`，确认清单仍匹配当前 jar、`gradle.properties` 和 git HEAD。使用 `-WriteReleaseBundle` / `-RequireReleaseBundle` 时会生成并复验包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS 的发布 zip。`scripts/verify-docs.ps1` 会检查必需文档、文档入口和本地 Markdown 链接。`-RequireServerWorldLoad` 只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。`-RequireCleanGit` 只用于最终冻结后强制检查 git 工作树干净。
 `scripts/verify-release.ps1` 只做机械发布审计，不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`；`-RequireCleanGit` 只用于最终冻结后的发布门禁。
 
 ## 7. 禁止事项

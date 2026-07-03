@@ -10,6 +10,7 @@ param(
     [switch] $RequireClientSmokeScreenshots,
     [switch] $RequireServerWorldLoad,
     [switch] $RequireCleanGit,
+    [switch] $RequireReadyForTag,
     [switch] $WriteReleaseManifest,
     [switch] $RequireReleaseManifest,
     [switch] $WriteReleaseBundle,
@@ -169,6 +170,21 @@ if (-not $SkipDocs) {
             "Bypass",
             "-File",
             ".\scripts\verify-docs.ps1"
+        )
+    }) | Out-Null
+}
+
+if ($RequireReadyForTag) {
+    $steps.Add(@{
+        Name = "Release readiness audit"
+        Command = @(
+            "pwsh",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            ".\scripts\verify-release-readiness.ps1",
+            "-RequireReadyForTag"
         )
     }) | Out-Null
 }

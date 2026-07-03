@@ -1380,3 +1380,24 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布门
   当前完整候选门禁只证明 2026-07-04 提交基线；用户 2026-07-05 补充需求和材质后仍需重新执行。
 GameTest：已考虑并运行。发现现有 runGameTestServer；本次通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit 间接运行 .\gradlew.bat runGameTestServer，112 个必需 GameTest 全部通过。本次未新增或扩展 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐发布 tag 就绪门禁：
+  新增 scripts/verify-release-readiness.ps1
+  脚本读取 docs/08-change-intake.md 和 docs/06-verification-release.md
+  blocker 匹配限制为 intake 表行、发布 tag 状态行、最终服务端 world-load 状态行和当前目标完成判定行，避免说明文字误触发
+  默认模式会报告待输入/待判定 intake blocker 但退出 0，用于预冻结状态检查
+  -RequireReadyForTag 模式遇到待输入/待判定 intake、开放接收窗口或验证文档仍标记发布未完成时退出 1
+  scripts/run-release-checks.ps1 新增 -RequireReadyForTag，并在文档审计后执行 verify-release-readiness.ps1 -RequireReadyForTag
+  最终发布 tag 前推荐命令更新为 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
+验证 PowerShell parser 解析 verify-release-readiness.ps1 和 run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 成功，报告当前 4 个非致命 blocker：IN-001 待输入、IN-002 待输入、变更接收窗口仍开放、验证文档仍标记发布未完成
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag 按预期失败，确认 tag 就绪门禁会阻止当前未冻结范围发布
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit -RequireReadyForTag 成功，确认完整候选发布计划会在文档审计后、manifest/bundle 生成前执行 Release readiness audit
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 tag 就绪门禁和发布编排，不改变包裹、机器、总线、菜单、网络、事务或数据生成行为，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
