@@ -356,6 +356,7 @@ runClientSmoke GUI screenshot smoke
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
   当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
+  当前提交基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server Done (2.471s)、release audit、docs audit、manifest audit 和 bundle audit
   GuideME 发布依赖范围已进入 mods.toml，并通过 build、release audit、manifest audit 和 server smoke 验证
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit

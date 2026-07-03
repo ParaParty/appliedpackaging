@@ -121,12 +121,12 @@ runServerSmoke:    passed via release runner, Done (2.413s), and port 25565 clea
 release audit:     passed dependency metadata, asset contracts, client smoke screenshots, and dedicated server world-load evidence
 release manifest:  generated and audited with jar SHA-256 and git commit metadata
 release bundle:    generated and audited with jar, manifest, docs, license, and SHA256SUMS
-release candidate: plan validated for the full final gate; final execution pending intake freeze
+release candidate: passed for the current committed baseline; final re-run pending intake freeze
 docs audit:        passed required document and local Markdown link checks
 clean git audit:   passed for the current committed baseline
 ```
 
-The current baseline dedicated server smoke has passed after local EULA acceptance. Final release tagging is paused until the pre-release requirement and asset intake is frozen and revalidated.
+The current baseline full release-candidate gate has passed after local EULA acceptance. Final release tagging is paused until the pre-release requirement and asset intake is frozen and revalidated.
 
 ## Known Limitations
 

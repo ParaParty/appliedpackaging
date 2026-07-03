@@ -1354,3 +1354,29 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布附
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械审计、文档审计、manifest 生成/复验和 bundle 生成/复验仍可串联通过
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布门禁预设和文档，不改变包裹、机器、总线、菜单、网络、事务或数据生成行为，因此未新增、扩展或运行 GameTest。最终候选发布预设会在范围冻结后运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+验证完整候选发布门禁：
+  执行 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit 成功
+  build 成功
+  runData 成功
+  runGameTestServer 成功，112 个必需 GameTest 全部通过
+  runClientSmoke 成功，捕获 6 张截图：
+    appliedpackaging-client-smoke-package_assembler.png
+    appliedpackaging-client-smoke-me_packager.png
+    appliedpackaging-client-smoke-package_pattern_terminal.png
+    appliedpackaging-client-smoke-package_storage_bus.png
+    appliedpackaging-client-smoke-package_export_bus.png
+    appliedpackaging-client-smoke-package_unpacking_bus.png
+  run-server-smoke.ps1 成功，run/logs/latest.log 出现 Done (2.471s)!，25565 清理完成
+  verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad -RequireClientSmokeScreenshots -RequireCleanGit 成功
+  verify-docs.ps1 成功
+  write-release-manifest.ps1 -RequireCleanGit 成功，manifest 记录当时提交基线且 clean=true
+  verify-release-manifest.ps1 -RequireCleanGit 成功
+  write-release-bundle.ps1 -RequireCleanGit 成功
+  verify-release-bundle.ps1 -RequireCleanGit 成功
+  当前完整候选门禁只证明 2026-07-04 提交基线；用户 2026-07-05 补充需求和材质后仍需重新执行。
+GameTest：已考虑并运行。发现现有 runGameTestServer；本次通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit 间接运行 .\gradlew.bat runGameTestServer，112 个必需 GameTest 全部通过。本次未新增或扩展 GameTest。
+```

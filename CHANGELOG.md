@@ -47,6 +47,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/verify-release-manifest.ps1` passed and confirmed the release manifest matches the current jar, `gradle.properties`, and git HEAD.
 - `scripts/write-release-bundle.ps1` and `scripts/verify-release-bundle.ps1` generated and audited a zip containing the jar, release manifest, README, CHANGELOG, LICENSE, and SHA256SUMS.
 - `scripts/run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit` passed and confirmed the final release-candidate gate order.
+- `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` passed for the current baseline, including 112 GameTests, 6 client smoke screenshots, dedicated server world-load, clean-git release audit, docs audit, release manifest, and release bundle.
 - `scripts/verify-docs.ps1` passed required document, document index, and local Markdown link checks.
 - `scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` passed for the current committed baseline.
 

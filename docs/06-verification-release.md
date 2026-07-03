@@ -298,6 +298,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit` 成功，确认候选发布预设会传递 clean-git 门禁并按完整顺序展开。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -SkipGameTest` 和 `... -ReleaseCandidate -AuditOnly` 均按预期失败，确认候选发布预设不能跳过 GameTest 或降级为 audit-only。
 2026-07-04 在 README/CHANGELOG 更新后执行 `.\gradlew.bat build --stacktrace` 成功，并执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认候选发布预设相关文档变更不破坏现有 manifest/bundle 链路。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 成功，完成 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server world-load、机械发布审计、文档审计、发布清单生成/审计和发布附件包生成/审计；server smoke 刷新的 `run/logs/latest.log` 出现 `Done (2.471s)!`，release manifest 记录当时提交基线且 `clean=true`。
 
 ## 5. 客户端验证
 
@@ -465,11 +466,11 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 当前仍未完成的发布验收项：
 
 ```text
-最终 Dedicated server full world-load：未完成。
-原因：2026-07-04 当前基线已完成 dedicated server world-load smoke，且已提供并验证 `run-server-smoke.ps1` 自动流程；但用户将在 2026-07-05 补充需求和材质，最终 dedicated server world-load 等新增范围冻结后重新执行。
+新增范围后的 Dedicated server full world-load：未完成。
+原因：2026-07-04 当前基线已通过完整 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，并完成 dedicated server world-load smoke；但用户将在 2026-07-05 补充需求和材质，最终 dedicated server world-load 等新增范围冻结后重新执行。
 需要在新增需求和材质实现并验证后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 或等价命令，确认专用服务端进入世界加载并无客户端类误加载。
 最终 clean git 发布门禁：未完成。
-原因：当前提交基线已通过 `run-release-checks.ps1 -AuditOnly -RequireCleanGit`；但最终候选发布门禁应在新增需求和材质实现、全部文件提交之后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`。
+原因：当前提交基线已通过 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`；但最终候选发布门禁应在新增需求和材质实现、全部文件提交之后重新执行。
 ```
 
 当前记录的非阻塞发布后增强：
@@ -500,9 +501,9 @@ Git 初始化和文档管理：已完成。证据：仓库有连续提交记录�
 GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
 DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
-Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；随后 `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` 自动刷新 latest.log 并出现 Done (2.413s)!，25565 清理完成，`verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 通过；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
+Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；随后 `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` 自动刷新 latest.log 并出现 Done (2.413s)!，25565 清理完成，`verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 通过；最新 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 已再次刷新 dedicated server smoke，latest.log 出现 Done (2.471s)! 并通过完整 release audit；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
 发布 tag：未完成。原因：新增需求和材质尚待输入，最终 dedicated server full world-load 尚未验收；发布 tag 应在新增范围完成且服务端验收通过后创建。
-Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：提交 `10b59b2 build: add clean git release audit` 后，`scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` 通过；但新增需求和材质尚待输入，最终冻结并提交后必须重新执行 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，同时刷新并复验发布清单与发布附件包。
+Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：`scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 通过，release manifest 记录提交基线且 `clean=true`；但新增需求和材质尚待输入，最终冻结并提交后必须重新执行 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，同时刷新并复验发布清单与发布附件包。
 ```
 
 当前目标完成判定：
