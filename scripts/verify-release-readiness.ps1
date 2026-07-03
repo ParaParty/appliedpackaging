@@ -93,7 +93,8 @@ function Test-IntakeRows {
         $id = $columns[0]
         $status = $columns[3]
         $verification = $columns[5]
-        if (($status -match '待|未完成|等待') -or ($verification -match '待|未完成|等待')) {
+        $blockedStatePattern = '(?i)待|未完成|等待|阻塞|失败|未通过|不可|不能|blocked|fail(?:ed|ure)?|not\s+ready|not\s+passed'
+        if (($status -match $blockedStatePattern) -or ($verification -match $blockedStatePattern)) {
             Add-Blocker "$id is not ready for tag: status='$status', verification='$verification'"
         } else {
             Add-Pass "$id is ready for tag"
