@@ -195,6 +195,27 @@ function New-ReleaseAuditFixture {
   "tooltip.appliedpackaging.release_audit_fixture": "Fixture: %s"
 }
 "@
+    $fixtureModelText = @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "appliedpackaging:item/release_audit_fixture"
+  }
+}
+"@
+    $fixtureRecipeText = @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:pattern_encoding_terminal"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:package_pattern_terminal"
+  }
+}
+"@
 
     Write-Utf8File -Path (Join-Path $caseRoot "gradle.properties") -Text (Get-GradlePropertiesText)
     Write-Utf8File -Path (Join-Path $caseRoot "README.md") -Text $fixtureReadmeText
@@ -233,27 +254,8 @@ harness_assumptions:
 "@
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/en_us.json") -Text $fixtureEnLangText
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/zh_cn.json") -Text $fixtureZhLangText
-    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/models/item/release_audit_fixture.json") -Text @"
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "appliedpackaging:item/release_audit_fixture"
-  }
-}
-"@
-    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/data/appliedpackaging/recipes/package_pattern_terminal.json") -Text @"
-{
-  "type": "minecraft:crafting_shapeless",
-  "ingredients": [
-    {
-      "item": "ae2:pattern_encoding_terminal"
-    }
-  ],
-  "result": {
-    "item": "appliedpackaging:package_pattern_terminal"
-  }
-}
-"@
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/models/item/release_audit_fixture.json") -Text $fixtureModelText
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/data/appliedpackaging/recipes/package_pattern_terminal.json") -Text $fixtureRecipeText
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java") -Text @"
 package com.warmthdawn.appliedpackaging.registry;
 
@@ -314,6 +316,9 @@ public final class APItems {
         Add-ZipEntryBytes -Zip $zip -EntryName "assets/appliedpackaging/logo.png" -Bytes $pngBytes
         Add-ZipEntryText -Zip $zip -EntryName "assets/appliedpackaging/lang/en_us.json" -Text $fixtureEnLangText
         Add-ZipEntryText -Zip $zip -EntryName "assets/appliedpackaging/lang/zh_cn.json" -Text $fixtureZhLangText
+        Add-ZipEntryText -Zip $zip -EntryName "assets/appliedpackaging/models/item/release_audit_fixture.json" -Text $fixtureModelText
+        Add-ZipEntryBytes -Zip $zip -EntryName "assets/appliedpackaging/textures/item/release_audit_fixture.png" -Bytes $pngBytes
+        Add-ZipEntryText -Zip $zip -EntryName "data/appliedpackaging/recipes/package_pattern_terminal.json" -Text $fixtureRecipeText
     } finally {
         $zip.Dispose()
     }
@@ -425,6 +430,31 @@ try {
         -JarPath $staleLangFixture.JarPath `
         -ExpectedExitCode 1 `
         -ExpectedText "Jar en_us.json matches source en_us.json"
+
+    $missingResourceFixture = New-ReleaseAuditFixture "missing-resource"
+    Remove-ZipEntry -ZipPath $missingResourceFixture.JarPath -EntryName "assets/appliedpackaging/models/item/release_audit_fixture.json"
+    Invoke-ReleaseAuditCase `
+        -Name "missing jar release resource fixture" `
+        -RootPath $missingResourceFixture.RootPath `
+        -JarPath $missingResourceFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Missing jar release resources"
+
+    $staleResourceFixture = New-ReleaseAuditFixture "stale-resource"
+    Update-ZipEntryText -ZipPath $staleResourceFixture.JarPath -EntryName "assets/appliedpackaging/models/item/release_audit_fixture.json" -Text @"
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "appliedpackaging:item/stale_release_audit_fixture"
+  }
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "stale jar release resource fixture" `
+        -RootPath $staleResourceFixture.RootPath `
+        -JarPath $staleResourceFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Stale jar release resources"
 
     $localPatternRecipeFixture = New-ReleaseAuditFixture "local-pattern-recipe"
     Write-Utf8File -Path (Join-Path $localPatternRecipeFixture.RootPath "src/main/resources/data/appliedpackaging/recipes/local_package_pattern.json") -Text @"

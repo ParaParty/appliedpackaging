@@ -289,6 +289,98 @@ function Get-RepoRelativePath {
     return [System.IO.Path]::GetRelativePath($resolvedRoot, $resolvedPath).Replace("\", "/")
 }
 
+function Get-ReleaseResourceSourceFiles {
+    $sourceRoots = @(
+        "src/main/resources",
+        "src/generated/resources"
+    )
+
+    $sourceByEntry = @{}
+    $duplicateEntries = [System.Collections.Generic.List[string]]::new()
+    foreach ($sourceRoot in $sourceRoots) {
+        $resolvedRoot = Resolve-Path -LiteralPath $sourceRoot -ErrorAction SilentlyContinue
+        if ($null -eq $resolvedRoot) {
+            continue
+        }
+
+        $sourceFiles = @(Get-ChildItem -LiteralPath $resolvedRoot.Path -Recurse -File -ErrorAction SilentlyContinue)
+        foreach ($sourceFile in $sourceFiles) {
+            $entryName = [System.IO.Path]::GetRelativePath($resolvedRoot.Path, $sourceFile.FullName).Replace("\", "/")
+            if ($entryName -notmatch "^(assets|data)/appliedpackaging/") {
+                continue
+            }
+
+            if ($sourceByEntry.ContainsKey($entryName)) {
+                $duplicateEntries.Add("$entryName from $(Get-RepoRelativePath $sourceByEntry[$entryName]) and $(Get-RepoRelativePath $sourceFile.FullName)") | Out-Null
+                continue
+            }
+
+            $sourceByEntry[$entryName] = $sourceFile.FullName
+        }
+    }
+
+    return @{
+        SourceByEntry = $sourceByEntry
+        DuplicateEntries = $duplicateEntries
+    }
+}
+
+function Test-ReleaseResourceSync {
+    param([System.IO.Compression.ZipArchive] $Zip)
+
+    $resourceSources = Get-ReleaseResourceSourceFiles
+    $sourceByEntry = $resourceSources.SourceByEntry
+    $duplicateEntries = $resourceSources.DuplicateEntries
+
+    if ($duplicateEntries.Count -gt 0) {
+        Add-Fail "Duplicate release resource source paths: $($duplicateEntries -join '; ')"
+    }
+
+    Assert-True ($sourceByEntry.Count -gt 0) "Applied Packaging release resource source files are present"
+    if ($sourceByEntry.Count -eq 0) {
+        return
+    }
+
+    $missingEntries = [System.Collections.Generic.List[string]]::new()
+    $mismatchedEntries = [System.Collections.Generic.List[string]]::new()
+    foreach ($entryName in @($sourceByEntry.Keys | Sort-Object)) {
+        $sourcePath = $sourceByEntry[$entryName]
+        $entry = $Zip.GetEntry($entryName)
+        if ($null -eq $entry) {
+            $missingEntries.Add("$entryName <- $(Get-RepoRelativePath $sourcePath)") | Out-Null
+            continue
+        }
+
+        $stream = $entry.Open()
+        $memory = [System.IO.MemoryStream]::new()
+        try {
+            $stream.CopyTo($memory)
+            $entryBytes = $memory.ToArray()
+        } finally {
+            $memory.Dispose()
+            $stream.Dispose()
+        }
+
+        $sourceBytes = [System.IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $sourcePath).Path)
+        $entrySha = Get-Sha256Hex $entryBytes
+        $sourceSha = Get-Sha256Hex $sourceBytes
+        if ($entrySha -ne $sourceSha) {
+            $mismatchedEntries.Add("$entryName (jar sha256 $entrySha, source sha256 $sourceSha)") | Out-Null
+        }
+    }
+
+    if ($missingEntries.Count -eq 0 -and $mismatchedEntries.Count -eq 0) {
+        Add-Pass "$($sourceByEntry.Count) Applied Packaging release resources match jar entries"
+    } else {
+        if ($missingEntries.Count -gt 0) {
+            Add-Fail "Missing jar release resources: $($missingEntries -join '; ')"
+        }
+        if ($mismatchedEntries.Count -gt 0) {
+            Add-Fail "Stale jar release resources: $($mismatchedEntries -join '; ')"
+        }
+    }
+}
+
 function Get-RecipeResultItems {
     param([object] $Recipe)
 
@@ -556,6 +648,7 @@ if ($null -eq $resolvedJar) {
                 -SourcePath $sourceSyncedEntry.SourcePath `
                 -Message $sourceSyncedEntry.Message
         }
+        Test-ReleaseResourceSync $zip
 
         $modsTomlText = Get-ZipEntryText $zip "META-INF/mods.toml"
         $manifestText = Get-ZipEntryText $zip "META-INF/MANIFEST.MF"
