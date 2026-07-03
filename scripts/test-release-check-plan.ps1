@@ -104,13 +104,23 @@ Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\v
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\write-release-manifest.ps1 -RequireCleanGit"
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\verify-release-bundle.ps1 -RequireCleanGit"
 
-$skipGameTest = Invoke-Runner @(
-    "-PlanOnly",
-    "-ReleaseCandidate",
-    "-SkipGameTest"
+$forbiddenSkipFlags = @(
+    "-SkipBuild",
+    "-SkipData",
+    "-SkipGameTest",
+    "-SkipDocs",
+    "-SkipAssetContracts"
 )
-Assert-ExitCode "release candidate rejects SkipGameTest" $skipGameTest 1
-Assert-Contains "release candidate rejects SkipGameTest" $skipGameTest.Output "-ReleaseCandidate cannot be combined with skip flags: -SkipGameTest"
+
+foreach ($flag in $forbiddenSkipFlags) {
+    $skipResult = Invoke-Runner @(
+        "-PlanOnly",
+        "-ReleaseCandidate",
+        $flag
+    )
+    Assert-ExitCode "release candidate rejects $flag" $skipResult 1
+    Assert-Contains "release candidate rejects $flag" $skipResult.Output "-ReleaseCandidate cannot be combined with skip flags: $flag"
+}
 
 $auditOnly = Invoke-Runner @(
     "-PlanOnly",
@@ -119,6 +129,21 @@ $auditOnly = Invoke-Runner @(
 )
 Assert-ExitCode "release candidate rejects AuditOnly" $auditOnly 1
 Assert-Contains "release candidate rejects AuditOnly" $auditOnly.Output "-ReleaseCandidate cannot be combined with -AuditOnly"
+
+$serverSmokeAuditOnly = Invoke-Runner @(
+    "-PlanOnly",
+    "-AuditOnly",
+    "-RunServerSmoke"
+)
+Assert-ExitCode "audit-only rejects RunServerSmoke" $serverSmokeAuditOnly 1
+Assert-Contains "audit-only rejects RunServerSmoke" $serverSmokeAuditOnly.Output "-RunServerSmoke cannot be combined with -AuditOnly"
+
+$serverWorldLoadWithoutSource = Invoke-Runner @(
+    "-PlanOnly",
+    "-RequireServerWorldLoad"
+)
+Assert-ExitCode "active run rejects stale server world-load audit" $serverWorldLoadWithoutSource 1
+Assert-Contains "active run rejects stale server world-load audit" $serverWorldLoadWithoutSource.Output "-RequireServerWorldLoad is only valid with -AuditOnly unless -RunServerSmoke is also set"
 
 Write-Host ""
 Write-Host "Release check plan self-test passed." -ForegroundColor Green

@@ -25,7 +25,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/run-release-checks.ps1 -ReleaseCandidate` preset for the full final gate: build, data generation, GameTest server, client smoke, server smoke, release audit, docs audit, release manifest, and release bundle.
 - `scripts/verify-release-readiness.ps1` and `run-release-checks.ps1 -RequireReadyForTag` gate final tagging on a frozen intake table and a completed release status.
 - `scripts/test-release-readiness.ps1` self-tests the release-readiness gate against ready, blocked, and structural-failure fixtures.
-- `scripts/test-release-check-plan.ps1` self-tests the release-candidate plan order and rejected flag combinations without running Minecraft.
+- `scripts/test-release-check-plan.ps1` self-tests the release-candidate plan order, forbidden skip flags, and server world-load guardrails without running Minecraft.
 - `scripts/verify-docs.ps1` now verifies required release scripts as part of documentation and release workflow consistency.
 
 ### Changed
@@ -54,7 +54,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` passed for the current baseline, including 112 GameTests, 6 client smoke screenshots, dedicated server world-load, clean-git release audit, docs audit, release manifest, and release bundle.
 - `scripts/verify-release-readiness.ps1` reports the current pending requirement/asset intake, and `scripts/verify-release-readiness.ps1 -RequireReadyForTag` fails as expected until that intake is resolved.
 - `scripts/test-release-readiness.ps1` passed, confirming the readiness gate can pass ready fixtures and fail blocked or structurally invalid fixtures.
-- `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan still includes build, data, GameTest, client smoke, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order.
+- `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan still includes build, data, GameTest, client smoke, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order, rejects all skip flags, and protects server world-load audit usage.
 - `scripts/verify-docs.ps1` passed required document, release script, document index, and local Markdown link checks.
 - `scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` passed for the current committed baseline.
 

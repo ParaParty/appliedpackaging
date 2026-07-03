@@ -1481,3 +1481,27 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布脚
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增加 release runner plan 自测和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+增强 release candidate plan 自测覆盖：
+  scripts/test-release-check-plan.ps1 从只检查 -SkipGameTest 扩展为检查全部 release candidate 禁止的 skip flags：
+    -SkipBuild
+    -SkipData
+    -SkipGameTest
+    -SkipDocs
+    -SkipAssetContracts
+  新增检查 -AuditOnly -RunServerSmoke 必须失败
+  新增检查普通执行模式下 -RequireServerWorldLoad 不搭配 -RunServerSmoke 必须失败，避免使用陈旧 latest.log 误当主动服务端验证
+  AGENTS.md、README.md、CHANGELOG.md 和 docs/06-verification-release.md 同步说明 release plan 自测覆盖所有 skip flags 和 server world-load guardrails
+验证 PowerShell parser 解析 test-release-check-plan.ps1 和 run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-check-plan.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 成功，当前正式文档仍报告 4 个非致命 blocker
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag 按预期失败，当前正式文档仍阻止最终 tag
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强 release runner plan 自测和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
