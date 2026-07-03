@@ -1106,3 +1106,19 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
   最终 dedicated server full world-load 和发布 tag 暂缓到新增需求/材质冻结、实现并验证之后
 本次只改文档和验收状态记录；GameTest 已按规则考虑，未新增行为测试。
 ```
+
+最新进展：
+
+```text
+补齐当前基线 dedicated server full world-load smoke：
+  用户已明确同意 EULA，run/eula.txt 为 eula=true
+  执行 .\gradlew.bat runServer --stacktrace
+  服务端越过 EULA gate，加载 world，并在 run/logs/latest.log 记录 Done (2.724s)! For help, type "help"
+  日志确认 Applied Packaging initialized、Starting minecraft server version 1.20.1、Preparing level "world"、Preparing start region for dimension minecraft:overworld、Enabled Gametest Namespaces: [appliedpackaging]
+  run/logs/latest.log 未发现 ERROR、FATAL、ClientSmokeRunner、NoClassDefFoundError、ClassNotFoundException、InvocationTargetException、IllegalStateException、Dist.CLIENT、OnlyIn、Missing model、Unable to load model、missing texture、Exception、Crash 或 crash
+  25565 未残留监听
+  Gradle/Minecraft 控制台未接收 stop 命令，本次通过 Ctrl+C 终止 run，因此 Gradle 返回码不是发布判定依据；world-load 证据以 latest.log 为准
+更新 docs/06-verification-release.md、docs/08-change-intake.md、README.md、CHANGELOG.md，把 EULA 阻塞改为当前基线服务端 world-load 已通过
+最终发布 tag 仍等待 2026-07-05 新增需求/材质冻结、实现并重新验证
+本次为 dedicated server smoke；GameTest 已按规则考虑，未新增行为测试，现有 GameTest 基线仍为 112 个必需 GameTest 全部通过
+```

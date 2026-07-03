@@ -96,17 +96,17 @@ runData:           passed
 build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas
 runClientSmoke:    opened and captured package assembler, packager, pattern terminal, and all three package bus screens
-runServer smoke:   reached dedicated server EULA gate without Applied Packaging client-class loading errors
+runServer smoke:   reached dedicated server world-load, Done (2.724s), without Applied Packaging client-class loading errors
 ```
 
-The dedicated server smoke stops at Mojang's EULA prompt until the user explicitly accepts the EULA in the local run directory.
+The current baseline dedicated server smoke has passed after local EULA acceptance. Final release tagging is paused until the pre-release requirement and asset intake is frozen and revalidated.
 
 ## Known Limitations
 
 - The Package Pattern Terminal keeps a compatible block path for old saves and tests, but the player-facing item is now an AE2 cable part.
 - Manual filter editing supports item and Forge fluid-container required content ghosts. A direct arbitrary AEKey ghost editor is not yet provided.
 - Packaged-processing pattern output ghost slots support item stacks and Forge fluid containers. A direct arbitrary AEKey output editor is not yet provided.
-- Full dedicated-server world-load verification is pending explicit EULA acceptance.
+- Final release tagging is pending the pre-release requirement and asset intake, followed by a fresh full verification pass.
 
 ## Documentation
 

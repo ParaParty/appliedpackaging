@@ -327,7 +327,10 @@ run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load mod
 2026-07-03 新增 ClientSmokeRunner 后再次执行 .\gradlew.bat runServer，仍正常到达 EULA gate，未出现客户端 smoke 类误加载。
 2026-07-03 06:35 再次执行 .\gradlew.bat runServer，服务端仍正常到达 EULA gate；run/logs/latest.log 未发现 ERROR、FATAL、ClientSmokeRunner、NoClassDefFoundError、ClassNotFoundException 或客户端类误加载关键字。
 2026-07-03 06:42 在发布 jar 排除 ClientSmokeRunner 和 gametest classes 后再次执行 .\gradlew.bat runServer，服务端仍正常到达 EULA gate；run/logs/latest.log 未发现 ERROR、FATAL、ClientSmokeRunner、NoClassDefFoundError、ClassNotFoundException、InvocationTargetException、IllegalStateException、Dist.CLIENT 或 OnlyIn。
-验收专用服务端完整启动前，需要用户显式同意 EULA 后再重新运行；AI 不自动修改 eula.txt。
+2026-07-04 02:39 在用户明确同意 EULA 且 run/eula.txt 为 eula=true 后执行 .\gradlew.bat runServer --stacktrace，服务端进入 world 加载并出现 Done (2.724s)! For help, type "help"。
+本次 run/logs/latest.log 确认 Applied Packaging initialized、Starting minecraft server version 1.20.1、Preparing level "world"、Preparing start region for dimension minecraft:overworld、Enabled Gametest Namespaces: [appliedpackaging]。
+本次 run/logs/latest.log 未发现 ERROR、FATAL、ClientSmokeRunner、NoClassDefFoundError、ClassNotFoundException、InvocationTargetException、IllegalStateException、Dist.CLIENT、OnlyIn、Missing model、Unable to load model、missing texture、Exception、Crash 或 crash。
+因为 Gradle/Minecraft 控制台未接收 stop 命令，本次通过 Ctrl+C 终止 run；服务端 world-load 证据已落盘，25565 未残留监听。
 ```
 
 ## 7. 发布验收
@@ -383,8 +386,8 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 当前仍未完成的发布验收项：
 
 ```text
-Dedicated server full world-load：未完成。
-原因：用户已在 2026-07-04 明确同意 EULA，run/eula.txt 当前为 eula=true；但用户将在 2026-07-05 补充需求和材质，最终 dedicated server world-load 等新增范围冻结后执行。
+最终 Dedicated server full world-load：未完成。
+原因：2026-07-04 当前基线已完成 dedicated server world-load smoke；但用户将在 2026-07-05 补充需求和材质，最终 dedicated server world-load 等新增范围冻结后重新执行。
 需要在新增需求和材质实现并验证后重新执行 .\gradlew.bat runServer，确认专用服务端进入世界加载并无客户端类误加载。
 ```
 
@@ -416,7 +419,7 @@ Git 初始化和文档管理：已完成。证据：仓库有连续提交记录�
 GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
 DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
-Dedicated server full world-load：未完成。证据不足原因：用户已在 2026-07-04 明确同意 EULA，run/eula.txt 当前为 eula=true；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
+Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.724s)! 且未发现客户端类误加载和关键错误；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
 发布 tag：未完成。原因：新增需求和材质尚待输入，最终 dedicated server full world-load 尚未验收；发布 tag 应在新增范围完成且服务端验收通过后创建。
 ```
 

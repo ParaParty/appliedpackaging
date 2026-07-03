@@ -37,9 +37,10 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `.\gradlew.bat build` passed and generated `build/libs/appliedpackaging-0.1.0-dev.jar`.
 - `.\gradlew.bat runClient` smoke reached Applied Packaging initialization, SoundEngine startup, and block atlas creation with no recorded missing model or missing texture errors.
 - `.\gradlew.bat runClientSmoke` passed and captured the Package Assembler, ME Packager, Package Pattern Terminal, Package Storage Bus, Package Export Bus, and Package Unpacking Bus screens.
+- `.\gradlew.bat runServer --stacktrace` reached dedicated server world-load after local EULA acceptance; `latest.log` recorded `Done (2.724s)!` and no Applied Packaging client-class loading errors.
 
 ### Known Limitations
 
 - Manual filter ghost editing supports item and Forge fluid-container required content; arbitrary AEKey filter editing is not yet implemented.
 - Packaged-processing output ghost slots support item stacks and Forge fluid containers; arbitrary AEKey output editing is not yet implemented.
-- Full dedicated-server world-load smoke is pending explicit local EULA acceptance.
+- Final release tagging is paused until the pre-release requirement and asset intake is frozen and revalidated.

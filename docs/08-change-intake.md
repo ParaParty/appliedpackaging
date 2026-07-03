@@ -7,7 +7,7 @@
 ```text
 2026-07-05 用户将补充需求和材质。
 0.1.0-dev 最终发布 tag 暂停创建。
-Dedicated server full world-load 已具备 EULA 前提，但等待新增范围冻结后再作为最终验收执行。
+Dedicated server full world-load 当前基线已通过，但等待新增范围冻结后再作为最终验收重新执行。
 ```
 
 ## 1. 输入格式
@@ -107,10 +107,10 @@ GameTest 输出契约：
 
 ```text
 当前功能基线：docs/06-verification-release.md R1-R13 均记录为已满足。
-当前验证基线：build、runData、runGameTestServer、runClientSmoke 均已有通过记录。
+当前验证基线：build、runData、runGameTestServer、runClientSmoke 均已有通过记录；2026-07-04 当前基线 runServer 已进入 world 并出现 Done (2.724s)。
 当前发布 jar：build/libs/appliedpackaging-0.1.0-dev.jar 已存在并通过 dev/test 条目审计。
 EULA 状态：run/eula.txt 已为 eula=true。
-最终服务端 world-load：尚未在新增需求/材质冻结后执行。
+最终服务端 world-load：当前基线已通过；尚未在新增需求/材质冻结后重新执行。
 发布 tag：等待新增范围实现、验证和最终服务端 world-load 后创建。
 ```
 
@@ -120,4 +120,3 @@ EULA 状态：run/eula.txt 已为 eula=true。
 | --- | --- | --- | --- | --- | --- |
 | IN-001 | 需求 | 待用户 2026-07-05 补充 | 待输入 | 待判定 | 待判定 |
 | IN-002 | 材质 | 待用户 2026-07-05 补充 | 待输入 | 待判定 | 待判定 |
-
