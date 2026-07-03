@@ -1159,3 +1159,17 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad 成功
 本次为验证工具和文档变更；GameTest 已按规则考虑，未新增行为测试。
 ```
+
+最新进展：
+
+```text
+新增发布检查编排脚本：
+  新增 scripts/run-release-checks.ps1
+  默认编排 .\gradlew.bat build --stacktrace、.\gradlew.bat runData --stacktrace、.\gradlew.bat runGameTestServer --stacktrace、scripts/verify-release.ps1 -RequireAssetContracts
+  支持 -RunClientSmoke、-RequireServerWorldLoad、-AuditOnly、-PlanOnly、-SkipBuild、-SkipData、-SkipGameTest、-SkipAssetContracts
+  该脚本不会自动运行长期驻留的 runServer；最终发布前仍需要手动运行 runServer 刷新 latest.log，再用 -RequireServerWorldLoad 检查证据
+  更新 docs/06-verification-release.md、docs/08-change-intake.md、README.md、AGENTS.md
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -RunClientSmoke -RequireServerWorldLoad 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireServerWorldLoad 成功
+GameTest：已考虑。未新增或运行 GameTest，原因是本次只增加发布检查编排脚本和文档引用，不改变 mod 运行行为。
+```

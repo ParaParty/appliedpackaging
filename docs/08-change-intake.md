@@ -91,6 +91,7 @@ AI/agent 指令：
 改服务端公共加载、注册、网络、能力、数据包：运行 runGameTestServer 和 runServer。
 改发布包内容：运行 build，并执行 scripts/verify-release.ps1 审计 jar 条目和文本资源路径。
 改 asset contract：执行 scripts/verify-release.ps1 -RequireAssetContracts 或直接执行 assetgen validate-contract。
+最终范围冻结后：执行 scripts/run-release-checks.ps1，必要时带 -RunClientSmoke；服务端 world-load 仍需手动运行 runServer 刷新 latest.log 后再带 -RequireServerWorldLoad 审计。
 ```
 
 GameTest 输出契约：
@@ -111,6 +112,7 @@ GameTest 输出契约：
 当前验证基线：build、runData、runGameTestServer、runClientSmoke 均已有通过记录；2026-07-04 当前基线 runServer 已进入 world 并出现 Done (2.724s)。
 当前发布 jar：build/libs/appliedpackaging-0.1.0-dev.jar 已存在并通过 dev/test 条目审计。
 当前机械审计：scripts/verify-release.ps1 已加入；普通模式、-RequireAssetContracts、-RequireServerWorldLoad 和两者组合模式均已通过；最强模式已确认 jar 文件名、mods.toml、manifest 与 gradle.properties 版本元数据一致。
+当前发布检查编排：scripts/run-release-checks.ps1 已加入；等待新增需求和材质冻结后执行完整编排。
 EULA 状态：run/eula.txt 已为 eula=true。
 最终服务端 world-load：当前基线已通过；尚未在新增需求/材质冻结后重新执行。
 发布 tag：等待新增范围实现、验证和最终服务端 world-load 后创建。

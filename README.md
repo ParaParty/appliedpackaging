@@ -75,6 +75,7 @@ Useful commands:
 .\gradlew.bat build
 .\gradlew.bat runClient
 .\gradlew.bat runClientSmoke
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
@@ -88,6 +89,8 @@ The project uses ModDevGradle Legacy with Java 17. GameTest structures are copie
 ```
 
 `scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, and optional `latest.log` server world-load evidence. It does not replace the Gradle, GameTest, client smoke, or server smoke runs.
+
+`scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, and the mechanical release audit. It checks server world-load evidence from `run/logs/latest.log` only when requested; run `.\gradlew.bat runServer` manually after the final scope freeze to refresh that evidence.
 
 ## Verification Status
 

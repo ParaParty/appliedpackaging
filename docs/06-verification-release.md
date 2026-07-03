@@ -234,17 +234,21 @@ jar 文件名包含 mod id 和版本
 机械发布审计脚本：
 
 ```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
 ```
 
-脚本检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、PNG 非空、asset contract、英文/简体中文语言 key、Applied Packaging 模型贴图引用，以及可选 latest.log 服务端 world-load 关键证据。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke` 和机械发布审计。它支持 `-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RequireServerWorldLoad`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据；脚本不会自动运行长期驻留的 `runServer`。
+
+`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、PNG 非空、asset contract、英文/简体中文语言 key、Applied Packaging 模型贴图引用，以及可选 latest.log 服务端 world-load 关键证据。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
 
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1` 成功。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts` 成功，确认 5 个 asset contract 通过 `assetgen validate-contract`。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad` 成功，确认当前 latest.log 包含 Applied Packaging 初始化、world 准备和 dedicated server world-load。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 成功，确认 jar 文件名、mods.toml、manifest 与 `gradle.properties` 的 mod id、版本、名称、作者、license、loader/Forge/Minecraft/AE2 版本范围一致。
+2026-07-04 新增 `scripts/run-release-checks.ps1`，用于最终范围冻结后的发布检查编排。
 
 ## 5. 客户端验证
 
@@ -357,6 +361,7 @@ git 工作树干净，发布 tag 可追溯
 .\gradlew.bat build 成功
 .\gradlew.bat runData 成功且生成资源已纳入 git
 .\gradlew.bat runGameTestServer 成功，或记录无法运行的明确阻塞
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 成功，或逐项记录等价命令结果
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 成功
 生成 build/libs/appliedpackaging-<version>.jar
 jar 在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端中可进入游戏

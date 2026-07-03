@@ -148,11 +148,13 @@ preview image 或 renderer/screenshot 记录
 .\gradlew.bat runGameTestServer
 .\gradlew.bat runClient
 .\gradlew.bat runServer
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
 
 如果项目阶段还没有对应任务，记录原因，不要把 build-only 当成行为验证。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke` 和机械发布审计；它不会自动运行长期驻留的 `runServer`。
 `scripts/verify-release.ps1` 只做机械发布审计，不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
 
 ## 7. 禁止事项
