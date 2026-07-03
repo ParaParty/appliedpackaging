@@ -19,6 +19,8 @@ $tinyPngBytes = [byte[]]@(
     0, 0, 0, 0, 73, 69, 78, 68,
     174, 66, 96, 130
 )
+$transparent32PngBytes = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAGklEQVR42u3BAQEAAACCIP+vbkhAAQAAAO8GECAAAcm1w7EAAAAASUVORK5CYII=")
+$solid32PngBytes = [Convert]::FromBase64String("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAMElEQVR42u3OIQEAAAgDMAKQghT0LwYxbibmVz17SSUgICAgICAgICAgICAgIJAOPBSKlEzX+oz1AAAAAElFTkSuQmCC")
 
 function New-AssetsFixture {
     param([string] $CaseName)
@@ -79,6 +81,24 @@ try {
         -RootPath $badHeaderFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Invalid PNG headers"
+
+    $transparentFixture = New-AssetsFixture "transparent-png"
+    $transparentPath = Join-Path $transparentFixture "src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png"
+    [System.IO.File]::WriteAllBytes($transparentPath, $transparent32PngBytes)
+    Invoke-AssetsCase `
+        -Name "transparent PNG fixture" `
+        -RootPath $transparentFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "fully transparent"
+
+    $solidFixture = New-AssetsFixture "solid-png"
+    $solidPath = Join-Path $solidFixture "src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png"
+    [System.IO.File]::WriteAllBytes($solidPath, $solid32PngBytes)
+    Invoke-AssetsCase `
+        -Name "single-color PNG fixture" `
+        -RootPath $solidFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "single-color placeholder"
 
     $missingRequiredFixture = New-AssetsFixture "missing-required"
     Remove-Item -LiteralPath (Join-Path $missingRequiredFixture "src/main/resources/assets/appliedpackaging/logo.png") -Force

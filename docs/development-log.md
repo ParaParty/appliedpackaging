@@ -1723,6 +1723,26 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 最新进展：
 
 ```text
+补齐发布 PNG 像素内容门禁：
+  scripts/verify-assets.ps1 新增 RGBA PNG 像素解码
+  保留既有必需 PNG、路径归类、RGBA header 和尺寸检查
+  新增全透明 PNG 拒绝，避免无可见像素的资源进入发布候选
+  新增整张单一 RGBA 像素拒绝，避免纯色占位图进入发布候选
+  合法 AE2 part overlay mask 只要求存在透明像素与可见像素，不要求多色，避免误伤单色遮罩
+  scripts/test-assets-audit.ps1 新增 transparent PNG fixture 和 single-color PNG fixture
+  更新 README.md、CHANGELOG.md、docs/04-asset-spec.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 scripts/verify-assets.ps1 和 scripts/test-assets-audit.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，确认 60 个发布 PNG 均包含可见非占位像素内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功，确认 valid fixture 退出 0，bad dimension、bad PNG header、transparent PNG、single-color PNG 和 missing required PNG fixture 均按预期失败
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1 成功，确认 docs audit、asset audit、release audit、readiness、release plan、manifest 和 bundle 自测均可由聚合入口串行通过；开发中工作区 dirty，manifest/bundle 子测试的 clean-git fixture 按预期跳过
+验证 .\gradlew.bat build --stacktrace 成功，刷新 release jar
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只增强资产发布审计脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、资源文件、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
+
+最新进展：
+
+```text
 补齐正式设计文档占位清理门禁：
   docs/03-detailed-design.md 补齐普通 processing pattern 的 AE2 可见输出语义
   明确普通 processing pattern 下 AE2 Pattern Provider / Planner 仍等待原输出 X

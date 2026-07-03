@@ -360,8 +360,8 @@ runClientSmoke GUI screenshot smoke
   当前提交基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server Done (2.471s)、release audit、asset audit、docs audit、manifest audit 和 bundle audit
   GuideME 发布依赖范围已进入 mods.toml，并通过 build、release audit、manifest audit 和 server smoke 验证
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
-  资产资源审计可由 verify-assets.ps1 覆盖必需 PNG、路径归类、RGBA PNG header 和 item/block/gui/part/logo 尺寸
-  资产资源审计自测可由 test-assets-audit.ps1 覆盖有效资产 fixture、错尺寸、坏 PNG header 和缺必需 PNG
+  资产资源审计可由 verify-assets.ps1 覆盖必需 PNG、路径归类、RGBA PNG header、可见非占位像素内容和 item/block/gui/part/logo 尺寸
+  资产资源审计自测可由 test-assets-audit.ps1 覆盖有效资产 fixture、错尺寸、坏 PNG header、全透明 PNG、单色占位 PNG 和缺必需 PNG
   发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit
   发布清单可由 verify-release-manifest.ps1 复验，确认当前 jar、gradle.properties 和 git HEAD 与清单一致
   机械发布审计自测可由 test-release-audit.ps1 覆盖有效 release audit fixture、jar 必需条目缺失、jar 内 README/lang 过期、jar 内发布资源缺失或过期、mods.toml 元数据篡改、本机路径泄漏、语言占位符不一致、本地样板 recipe 输出、创造栏暴露本地样板和终端退回 BlockItem

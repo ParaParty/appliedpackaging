@@ -287,9 +287,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-docs-audit.ps1` 使用临时文档 fixture 调用 `verify-docs.ps1 -RootPath`，覆盖有效 fixture、缺少必需文档路径、正式文档未清理占位和本地 Markdown 断链四种路径。该脚本只写入系统临时目录，不修改正式设计文档。
 
-`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
+`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，像素内容不是全透明或整张单一 RGBA 占位图，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
 
-`scripts/test-assets-audit.ps1` 使用临时资源 fixture 调用 `verify-assets.ps1 -RootPath`，覆盖有效资产 fixture、item 贴图尺寸错误、PNG header 损坏和必需 PNG 缺失四种路径。该脚本只写入系统临时目录，不修改正式资源或发布产物。
+`scripts/test-assets-audit.ps1` 使用临时资源 fixture 调用 `verify-assets.ps1 -RootPath`，覆盖有效资产 fixture、item 贴图尺寸错误、PNG header 损坏、全透明 PNG、单一 RGBA 占位 PNG 和必需 PNG 缺失六种路径。该脚本只写入系统临时目录，不修改正式资源或发布产物。
 
 `scripts/test-release-audit.ps1` 使用临时 release fixture 调用 `verify-release.ps1 -RootPath`，覆盖有效 release audit fixture、缺少 jar 必需 README 条目、jar 内 README 过期、jar 内语言文件过期、jar 内发布资源缺失或过期、`mods.toml` mod id 被篡改、jar 文本资源泄漏本机/reference 路径、语言占位符不一致、本地样板被 recipe 产出、创造栏暴露本地样板，以及包裹样板终端退回 BlockItem。该脚本不运行 Gradle、客户端或服务端，也不修改正式资源或发布产物。
 
@@ -318,6 +318,11 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认机械发布审计、资产资源审计、文档审计、发布清单生成/审计和发布附件包生成/审计串联通过；开发中 manifest 记录 `clean=false` 属于预期状态。
 2026-07-04 提交后执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认 clean-git 下 manifest/bundle 可按当前 HEAD 生成并复验。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag` 仍按预期失败，阻止 IN-001/IN-002 待输入和未冻结状态下创建发布 tag。
+2026-07-04 增强 `scripts/verify-assets.ps1`，解码 RGBA PNG 像素并拒绝全透明或整张单一 RGBA 像素的占位图；`scripts/test-assets-audit.ps1` 新增 transparent PNG 和 single-color PNG 负例。
+2026-07-04 执行 PowerShell parser 检查 `verify-assets.ps1` 和 `test-assets-audit.ps1` 成功；执行 `scripts/verify-assets.ps1` 成功，确认 60 个发布 PNG 含可见非占位像素内容；执行 `scripts/test-assets-audit.ps1` 成功，确认 transparent PNG 和 single-color PNG fixture 均按预期失败。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1` 成功，确认新增 asset audit 透明/单色负例已纳入聚合自测；开发中工作区 dirty，manifest/bundle clean-git fixture 按预期跳过。
+2026-07-04 执行 `.\gradlew.bat build --stacktrace` 成功，刷新包含 README/CHANGELOG 的 release jar。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认机械发布审计、资产像素内容审计、文档审计、发布清单生成/审计和发布附件包生成/审计串联通过；开发中 manifest 记录 `clean=false` 属于预期状态。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts` 成功，确认 5 个 asset contract 通过 `assetgen validate-contract`。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad` 成功，确认当前 latest.log 包含 Applied Packaging 初始化、world 准备和 dedicated server world-load。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 成功，确认 jar 文件名、mods.toml、manifest 与 `gradle.properties` 的 mod id、版本、名称、作者、license、loader/Forge/Minecraft/AE2 版本范围一致。
@@ -515,6 +520,7 @@ release jar：已包含 README.md、CHANGELOG.md、LICENSE.md、META-INF/MANIFES
 release manifest：已生成到 build/release/，记录 jar SHA-256、版本范围和 git commit，并可由 verify-release-manifest.ps1 复验；manifest 自测覆盖有效清单、mod id 篡改、artifact hash 篡改和 clean-git 路径
 release bundle：可生成到 build/release/，包含 jar、release manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，并可由 verify-release-bundle.ps1 复验
 documentation audit：必需文档、文档入口、正式设计文档未清理占位和本地 Markdown 链接检查通过
+asset resource audit：必需 PNG、路径归类、RGBA PNG header、可见非占位像素内容和尺寸检查通过
 logo/icon：assets/appliedpackaging/logo.png、textures/gui/logo.png 和包裹/机器/总线图标已存在
 release notes：已写入 CHANGELOG.md
 known limitations：已写入 README.md 与 CHANGELOG.md

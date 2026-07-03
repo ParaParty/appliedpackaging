@@ -63,7 +63,9 @@ function Get-PngInfo {
             Valid = $false
             Width = 0
             Height = 0
+            BitDepth = -1
             ColorType = -1
+            Interlace = -1
         }
     }
 
@@ -71,7 +73,162 @@ function Get-PngInfo {
         Valid = $true
         Width = [System.Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($bytes, 16))
         Height = [System.Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($bytes, 20))
+        BitDepth = [int] $bytes[24]
         ColorType = [int] $bytes[25]
+        Interlace = [int] $bytes[28]
+    }
+}
+
+function Get-PaethPredictor {
+    param(
+        [int] $Left,
+        [int] $Up,
+        [int] $UpperLeft
+    )
+
+    $estimate = $Left + $Up - $UpperLeft
+    $leftDistance = [Math]::Abs($estimate - $Left)
+    $upDistance = [Math]::Abs($estimate - $Up)
+    $upperLeftDistance = [Math]::Abs($estimate - $UpperLeft)
+
+    if ($leftDistance -le $upDistance -and $leftDistance -le $upperLeftDistance) {
+        return $Left
+    }
+    if ($upDistance -le $upperLeftDistance) {
+        return $Up
+    }
+    return $UpperLeft
+}
+
+function Get-PngVisualStats {
+    param(
+        [string] $Path,
+        [hashtable] $Info
+    )
+
+    if ($Info.BitDepth -ne 8 -or $Info.ColorType -ne 6 -or $Info.Interlace -ne 0) {
+        return @{
+            Valid = $false
+            Error = "unsupported PNG pixel layout"
+            VisiblePixels = 0
+            UniquePixels = 0
+        }
+    }
+
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $idatBytes = [System.IO.MemoryStream]::new()
+    try {
+        $position = 8
+        while ($position + 8 -le $bytes.Length) {
+            $length = [System.Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($bytes, $position))
+            $chunkType = [System.Text.Encoding]::ASCII.GetString($bytes, $position + 4, 4)
+            $chunkStart = $position + 8
+            if ($chunkStart + $length + 4 -gt $bytes.Length) {
+                return @{
+                    Valid = $false
+                    Error = "truncated PNG chunk"
+                    VisiblePixels = 0
+                    UniquePixels = 0
+                }
+            }
+
+            if ($chunkType -eq "IDAT") {
+                $idatBytes.Write($bytes, $chunkStart, $length)
+            } elseif ($chunkType -eq "IEND") {
+                break
+            }
+
+            $position = $chunkStart + $length + 4
+        }
+
+        $compressed = [System.IO.MemoryStream]::new($idatBytes.ToArray())
+        $decompressed = [System.IO.MemoryStream]::new()
+        try {
+            $zlib = [System.IO.Compression.ZLibStream]::new($compressed, [System.IO.Compression.CompressionMode]::Decompress)
+            try {
+                $zlib.CopyTo($decompressed)
+            } finally {
+                $zlib.Dispose()
+            }
+        } catch {
+            return @{
+                Valid = $false
+                Error = "could not decompress PNG IDAT"
+                VisiblePixels = 0
+                UniquePixels = 0
+            }
+        } finally {
+            $compressed.Dispose()
+        }
+
+        $raw = $decompressed.ToArray()
+        $bytesPerPixel = 4
+        $stride = $Info.Width * $bytesPerPixel
+        $expectedLength = ($stride + 1) * $Info.Height
+        if ($raw.Length -ne $expectedLength) {
+            return @{
+                Valid = $false
+                Error = "unexpected PNG scanline length"
+                VisiblePixels = 0
+                UniquePixels = 0
+            }
+        }
+
+        $previous = [byte[]]::new($stride)
+        $uniquePixels = [System.Collections.Generic.HashSet[string]]::new()
+        $visiblePixels = 0
+        $offset = 0
+        for ($y = 0; $y -lt $Info.Height; $y++) {
+            $filter = [int] $raw[$offset]
+            $offset++
+            $scanline = [byte[]]::new($stride)
+            [Array]::Copy($raw, $offset, $scanline, 0, $stride)
+            $offset += $stride
+
+            for ($i = 0; $i -lt $stride; $i++) {
+                $left = if ($i -ge $bytesPerPixel) { [int] $scanline[$i - $bytesPerPixel] } else { 0 }
+                $up = [int] $previous[$i]
+                $upperLeft = if ($i -ge $bytesPerPixel) { [int] $previous[$i - $bytesPerPixel] } else { 0 }
+                $predictor = switch ($filter) {
+                    0 { 0 }
+                    1 { $left }
+                    2 { $up }
+                    3 { [Math]::Floor(($left + $up) / 2) }
+                    4 { Get-PaethPredictor -Left $left -Up $up -UpperLeft $upperLeft }
+                    default {
+                        return @{
+                            Valid = $false
+                            Error = "unsupported PNG filter $filter"
+                            VisiblePixels = 0
+                            UniquePixels = 0
+                        }
+                    }
+                }
+                $scanline[$i] = [byte] (([int] $scanline[$i] + [int] $predictor) -band 0xFF)
+            }
+
+            for ($i = 0; $i -lt $stride; $i += $bytesPerPixel) {
+                $red = [int] $scanline[$i]
+                $green = [int] $scanline[$i + 1]
+                $blue = [int] $scanline[$i + 2]
+                $alpha = [int] $scanline[$i + 3]
+                if ($alpha -ne 0) {
+                    $visiblePixels++
+                }
+                $uniquePixels.Add("$red,$green,$blue,$alpha") | Out-Null
+            }
+
+            $previous = $scanline
+        }
+
+        return @{
+            Valid = $true
+            Error = ""
+            VisiblePixels = $visiblePixels
+            UniquePixels = $uniquePixels.Count
+        }
+    } finally {
+        $idatBytes.Dispose()
     }
 }
 
@@ -188,6 +345,7 @@ Assert-True ($pngFiles.Count -gt 0) "PNG assets are present"
 $badPngs = [System.Collections.Generic.List[string]]::new()
 $badDimensions = [System.Collections.Generic.List[string]]::new()
 $badColorTypes = [System.Collections.Generic.List[string]]::new()
+$badVisualContent = [System.Collections.Generic.List[string]]::new()
 $unexpectedPngs = [System.Collections.Generic.List[string]]::new()
 
 foreach ($file in $pngFiles) {
@@ -200,6 +358,15 @@ foreach ($file in $pngFiles) {
 
     if ($info.ColorType -ne 6) {
         $badColorTypes.Add("$relativePath colorType=$($info.ColorType)") | Out-Null
+    }
+
+    $visualStats = Get-PngVisualStats -Path $file.FullName -Info $info
+    if (-not $visualStats.Valid) {
+        $badVisualContent.Add("$relativePath $($visualStats.Error)") | Out-Null
+    } elseif ($visualStats.VisiblePixels -eq 0) {
+        $badVisualContent.Add("$relativePath is fully transparent") | Out-Null
+    } elseif ($visualStats.UniquePixels -lt 2) {
+        $badVisualContent.Add("$relativePath is a single-color placeholder") | Out-Null
     }
 
     $expected = Get-ExpectedPngSize $relativePath
@@ -223,6 +390,12 @@ if ($badColorTypes.Count -eq 0) {
     Add-Pass "$($pngFiles.Count) PNG assets use RGBA color type"
 } else {
     Add-Fail "PNG assets must use RGBA color type 6: $($badColorTypes -join '; ')"
+}
+
+if ($badVisualContent.Count -eq 0) {
+    Add-Pass "PNG assets contain visible, non-placeholder pixel content"
+} else {
+    Add-Fail "PNG assets must not be fully transparent or single-color placeholders: $($badVisualContent -join '; ')"
 }
 
 if ($unexpectedPngs.Count -eq 0) {
