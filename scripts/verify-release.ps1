@@ -2,6 +2,7 @@ param(
     [string] $JarPath = "build/libs/appliedpackaging-0.1.0-dev.jar",
     [string] $LogPath = "run/logs/latest.log",
     [string] $AssetgenPath,
+    [string] $RootPath = "",
     [switch] $RequireLog,
     [switch] $RequireServerWorldLoad,
     [switch] $RequireAssetContracts,
@@ -11,7 +12,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$repoRoot = if ([string]::IsNullOrWhiteSpace($RootPath)) {
+    Resolve-Path (Join-Path $PSScriptRoot "..")
+} else {
+    Resolve-Path -LiteralPath $RootPath
+}
 Set-Location $repoRoot
 
 $failures = [System.Collections.Generic.List[string]]::new()
