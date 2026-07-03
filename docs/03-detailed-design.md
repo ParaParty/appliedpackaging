@@ -313,7 +313,9 @@ colored processing pending package queue 持久化保存
 ```text
 输入 A+B+C，输出 X
 装配室生成 1 个 Fluix/default 包裹，内容为 A+B+C
-AE2 自动合成仍然等待 X
+AE2 Pattern Provider / Planner 视角的可见输出仍是原 processing pattern 的 X
+装配室不会把包裹伪装成 X，也不会把包裹内容登记为 ME 散装库存
+生成的包裹只是中间物流单元，必须由后续拆包/机器处理真正产出 X 后，AE2 作业才会完成
 ```
 
 彩色处理样板：

@@ -107,6 +107,40 @@ function Test-MarkdownLinks {
     Add-Pass "Checked $checkedLinks local markdown link(s)"
 }
 
+function Test-FormalDocsHaveNoUnresolvedPlaceholders {
+    $formalDocPaths = @(
+        "docs/design.md",
+        "docs/00-document-index.md",
+        "docs/01-requirements.md",
+        "docs/02-system-architecture.md",
+        "docs/03-detailed-design.md",
+        "docs/04-asset-spec.md",
+        "docs/05-implementation-plan.md",
+        "docs/07-references.md"
+    )
+
+    $placeholderPattern = "(?i)\bTODO\b|\bFIXME\b|\bTBD\b|待定|待补充|等待\s+[A-Z]\b"
+    $placeholderMatches = [System.Collections.Generic.List[string]]::new()
+    foreach ($path in $formalDocPaths) {
+        if (-not (Test-Path -LiteralPath $path)) {
+            continue
+        }
+
+        $lines = Get-Content -LiteralPath $path
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            if ($lines[$index] -match $placeholderPattern) {
+                $placeholderMatches.Add("${path}:$($index + 1): $($lines[$index].Trim())") | Out-Null
+            }
+        }
+    }
+
+    if ($placeholderMatches.Count -eq 0) {
+        Add-Pass "Formal design docs contain no unresolved placeholders"
+    } else {
+        Add-Fail "Unresolved placeholder in formal docs: $($placeholderMatches -join '; ')"
+    }
+}
+
 Write-Host "Applied Packaging documentation audit" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 
@@ -193,6 +227,8 @@ Test-DocumentIndexMentions "docs/00-document-index.md" @(
     "chat-summary.md",
     "development-log.md"
 )
+
+Test-FormalDocsHaveNoUnresolvedPlaceholders
 
 if (-not $SkipMarkdownLinks) {
     Test-MarkdownLinks

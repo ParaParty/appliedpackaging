@@ -33,7 +33,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/test-release-bundle.ps1` self-tests release bundle generation and audit failure paths without running Minecraft.
 - `scripts/test-docs-audit.ps1` self-tests documentation audit success and failure paths without editing real docs.
 - `scripts/test-release-self-tests.ps1` runs the docs-audit, asset-audit, release-audit, release-readiness, release-plan, manifest, and bundle self-tests together without starting Minecraft.
-- `scripts/verify-docs.ps1` now verifies required release scripts as part of documentation and release workflow consistency.
+- `scripts/verify-docs.ps1` now verifies required release scripts and rejects unresolved placeholders in formal design docs as part of documentation and release workflow consistency.
 - `scripts/verify-release-bundle.ps1` cross-checks bundled manifest mod/version, jar SHA-256, and clean-git metadata.
 - Mechanical release audit now checks product invariants for local pattern item exposure and Package Pattern Terminal `PartItem` registration.
 - Mechanical release audit now checks English/Simplified Chinese language placeholder parity in addition to language key parity.
@@ -73,9 +73,9 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/test-release-audit.ps1` passed, confirming valid release audit fixtures pass and missing jar README, stale bundled docs/language files, missing or stale bundled release resources, tampered mod metadata, local path leaks, language placeholder mismatches, local pattern recipe outputs, creative-tab local patterns, or terminal `BlockItem` regressions fail.
 - `scripts/test-release-manifest.ps1` passed, confirming valid manifest fixtures pass and tampered mod metadata or jar hashes fail.
 - `scripts/test-release-bundle.ps1` passed, confirming valid bundle fixtures pass and tampered manifest metadata or bundled README contents fail.
-- `scripts/test-docs-audit.ps1` passed, confirming valid docs fixtures pass and missing required paths or broken local Markdown links fail.
+- `scripts/test-docs-audit.ps1` passed, confirming valid docs fixtures pass and missing required paths, unresolved formal-doc placeholders, or broken local Markdown links fail.
 - `scripts/test-release-self-tests.ps1` passed, confirming the release script self-test suite runs from one command.
-- `scripts/verify-docs.ps1` passed required document, release script, document index, and local Markdown link checks.
+- `scripts/verify-docs.ps1` passed required document, release script, document index, unresolved placeholder, and local Markdown link checks.
 - `scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` passed for the current committed baseline.
 
 ### Known Limitations

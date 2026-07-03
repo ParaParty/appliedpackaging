@@ -283,9 +283,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-release-bundle.ps1` 使用临时输出路径调用 release manifest/bundle writer，确认有效 bundle fixture 可通过 `verify-release-bundle.ps1`，并确认篡改 bundle 内 manifest mod id 或 README.md 内容会被 bundle audit 拒绝。脚本只写入系统临时目录，不运行 Gradle、客户端或服务端；工作区干净时还会额外运行 `verify-release-bundle.ps1 -RequireCleanGit` 覆盖 git 元数据校验路径。
 
-`scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract、资产报告和关键发布脚本是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，并扫描仓库 Markdown 中的本地 inline link 是否可解析。使用 `-RootPath` 时可对临时 fixture 执行同一套审计。
+`scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract、资产报告和关键发布脚本是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，检查正式设计文档中不含 `TODO` / `FIXME` / `TBD` / `待定` / `待补充` / `等待 X` 类未清理占位，并扫描仓库 Markdown 中的本地 inline link 是否可解析。使用 `-RootPath` 时可对临时 fixture 执行同一套审计。
 
-`scripts/test-docs-audit.ps1` 使用临时文档 fixture 调用 `verify-docs.ps1 -RootPath`，覆盖有效 fixture、缺少必需文档路径和本地 Markdown 断链三种路径。该脚本只写入系统临时目录，不修改正式设计文档。
+`scripts/test-docs-audit.ps1` 使用临时文档 fixture 调用 `verify-docs.ps1 -RootPath`，覆盖有效 fixture、缺少必需文档路径、正式文档未清理占位和本地 Markdown 断链四种路径。该脚本只写入系统临时目录，不修改正式设计文档。
 
 `scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
 
@@ -310,6 +310,14 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1` 成功，确认新增 release resource sync 负例已纳入聚合 release audit 自测；开发中工作区 dirty，manifest/bundle clean-git fixture 按预期跳过。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认机械发布审计、资产资源审计、文档审计、发布清单生成/审计和发布附件包生成/审计串联通过；开发中 manifest 记录 `clean=false` 属于预期状态。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag` 按预期失败，阻止 IN-001/IN-002 待输入和未冻结状态下创建发布 tag。
+2026-07-04 补齐 `docs/03-detailed-design.md` 中普通 processing pattern 语义，明确 AE2 可见输出仍是原 processing pattern 的 X，装配室输出包裹只是中间物流单元，不伪装为 X 或散装库存。
+2026-07-04 增强 `scripts/verify-docs.ps1`，新增正式设计文档未清理占位审计；`scripts/test-docs-audit.ps1` 新增 unresolved placeholder fixture。
+2026-07-04 执行 PowerShell parser 检查 `verify-docs.ps1` 和 `test-docs-audit.ps1` 成功；执行 `verify-docs.ps1` 成功，确认正式设计文档没有 unresolved placeholder；执行 `test-docs-audit.ps1` 成功，确认 unresolved placeholder fixture 按预期失败。
+2026-07-04 执行 `.\gradlew.bat build --stacktrace` 成功，刷新包含 README/CHANGELOG/LICENSE 和文档审计说明的 release jar。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1` 成功，确认新增 docs unresolved placeholder 负例已纳入聚合 docs audit 自测；开发中工作区 dirty，manifest/bundle clean-git fixture 按预期跳过。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认机械发布审计、资产资源审计、文档审计、发布清单生成/审计和发布附件包生成/审计串联通过；开发中 manifest 记录 `clean=false` 属于预期状态。
+2026-07-04 提交后执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认 clean-git 下 manifest/bundle 可按当前 HEAD 生成并复验。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag` 仍按预期失败，阻止 IN-001/IN-002 待输入和未冻结状态下创建发布 tag。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts` 成功，确认 5 个 asset contract 通过 `assetgen validate-contract`。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad` 成功，确认当前 latest.log 包含 Applied Packaging 初始化、world 准备和 dedicated server world-load。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 成功，确认 jar 文件名、mods.toml、manifest 与 `gradle.properties` 的 mod id、版本、名称、作者、license、loader/Forge/Minecraft/AE2 版本范围一致。
@@ -506,7 +514,7 @@ README.md：已补齐安装要求、玩法流程、功能清单、验证状态�
 release jar：已包含 README.md、CHANGELOG.md、LICENSE.md、META-INF/MANIFEST.MF 与 META-INF/mods.toml，README/CHANGELOG/LICENSE 和语言文件与当前仓库源文件同步，mods.toml 声明 Minecraft/Forge/AE2/GuideME 发布依赖范围，且不包含 ClientSmokeRunner、gametest classes、reference sheets、build/tmp、docs/assets 或本机绝对路径
 release manifest：已生成到 build/release/，记录 jar SHA-256、版本范围和 git commit，并可由 verify-release-manifest.ps1 复验；manifest 自测覆盖有效清单、mod id 篡改、artifact hash 篡改和 clean-git 路径
 release bundle：可生成到 build/release/，包含 jar、release manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，并可由 verify-release-bundle.ps1 复验
-documentation audit：必需文档、文档入口和本地 Markdown 链接检查通过
+documentation audit：必需文档、文档入口、正式设计文档未清理占位和本地 Markdown 链接检查通过
 logo/icon：assets/appliedpackaging/logo.png、textures/gui/logo.png 和包裹/机器/总线图标已存在
 release notes：已写入 CHANGELOG.md
 known limitations：已写入 README.md 与 CHANGELOG.md

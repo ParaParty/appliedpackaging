@@ -368,9 +368,9 @@ runClientSmoke GUI screenshot smoke
   发布清单自测可由 test-release-manifest.ps1 覆盖有效 manifest、mod id 篡改、artifact hash 篡改和 clean-git manifest 路径
   发布附件包可由 write-release-bundle.ps1 生成到 build/release/ 并由 verify-release-bundle.ps1 复验 jar、manifest、README、CHANGELOG、LICENSE、SHA256SUMS、bundle manifest mod/version、jar SHA-256 和 clean-git 元数据
   发布附件包自测可由 test-release-bundle.ps1 覆盖有效 bundle、manifest 篡改和 bundled README 篡改路径
-  文档审计自测可由 test-docs-audit.ps1 覆盖有效 fixture、缺必需文件和本地 Markdown 断链路径
+  文档审计自测可由 test-docs-audit.ps1 覆盖有效 fixture、缺必需文件、正式文档未清理占位和本地 Markdown 断链路径
   发布脚本自测套件可由 test-release-self-tests.ps1 聚合运行 docs audit、asset audit、release audit、readiness、release plan、manifest 和 bundle 自测
-  文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口和本地 Markdown 链接
+  文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口、正式设计文档未清理占位和本地 Markdown 链接
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
 
 暂缓：

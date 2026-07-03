@@ -158,6 +158,14 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "Broken local markdown link in README.md -> docs/missing.md"
 
+    $placeholderFixture = New-DocsFixture "placeholder"
+    Add-Content -LiteralPath (Join-Path $placeholderFixture "docs/03-detailed-design.md") -Value "AE2 自动合成仍然等待 X"
+    Invoke-DocsCase `
+        -Name "unresolved placeholder fixture" `
+        -RootPath $placeholderFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Unresolved placeholder in formal docs"
+
     Write-Host ""
     Write-Host "Documentation audit self-test passed." -ForegroundColor Green
 } finally {

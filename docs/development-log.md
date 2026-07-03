@@ -1723,6 +1723,29 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 最新进展：
 
 ```text
+补齐正式设计文档占位清理门禁：
+  docs/03-detailed-design.md 补齐普通 processing pattern 的 AE2 可见输出语义
+  明确普通 processing pattern 下 AE2 Pattern Provider / Planner 仍等待原输出 X
+  明确装配室输出的包裹只是中间物流单元，不伪装为 X，也不把包裹内容登记为 ME 散装库存
+  scripts/verify-docs.ps1 新增正式设计文档 unresolved placeholder 审计
+  审计正式分类文档中的 TODO、FIXME、TBD、待定、待补充、等待 X 等占位
+  docs/08-change-intake.md 和 docs/chat-summary.md 保留待输入/历史讨论语义，不纳入正式占位审计范围
+  scripts/test-docs-audit.ps1 新增 unresolved placeholder fixture
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 scripts/verify-docs.ps1 和 scripts/test-docs-audit.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认正式设计文档不含 unresolved placeholder
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-docs-audit.ps1 成功，确认 valid fixture 退出 0，missing required path、broken markdown link 和 unresolved placeholder fixture 均按预期失败
+验证 .\gradlew.bat build --stacktrace 成功，刷新 release jar
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1 成功，确认 docs audit、asset audit、release audit、readiness、release plan、manifest 和 bundle 自测均可由聚合入口串行通过；开发中工作区 dirty，manifest/bundle 子测试的 clean-git fixture 按预期跳过
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+验证提交后 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认 clean-git 下 release manifest 与 release bundle 可按当前 HEAD 生成并复验
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag 仍按预期失败，阻止 IN-001/IN-002 待输入和未冻结状态下创建发布 tag
+GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只补齐详细设计语义、文档审计脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
+
+最新进展：
+
+```text
 补齐发布资源源文件同步 release audit：
   scripts/verify-release.ps1 新增 Applied Packaging 发布资源同步审计
   审计范围为 src/main/resources 与 src/generated/resources 下的 assets/appliedpackaging/** 和 data/appliedpackaging/**
