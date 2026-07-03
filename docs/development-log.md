@@ -1206,3 +1206,13 @@ GameTest：已考虑。发现并运行现有 runGameTestServer；未新增或扩
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad 成功，确认 6 张 client smoke 截图存在且为有效 PNG
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布验证脚本和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+校准发布阶段实施计划与目标级验收证据：
+  更新 docs/05-implementation-plan.md 阶段 7，记录当前已完成的 release runner、mechanical audit、client smoke 截图审计、dedicated server two-step world-load 审计和发布 tag 暂缓状态
+  更新 docs/06-verification-release.md 目标级验收审计中的 dedicated server full world-load 证据，使用最新 Done (2.400s) 与 audit-only 验证结果
+  保留发布 tag 暂缓到新增需求/材质冻结、实现并重新验证之后
+GameTest：已考虑。发现现有 runGameTestServer；本次只修正文档状态，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```

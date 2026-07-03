@@ -449,7 +449,7 @@ Git 初始化和文档管理：已完成。证据：仓库有连续提交记录�
 GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
 DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
-Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.724s)! 且未发现客户端类误加载和关键错误；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
+Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
 发布 tag：未完成。原因：新增需求和材质尚待输入，最终 dedicated server full world-load 尚未验收；发布 tag 应在新增范围完成且服务端验收通过后创建。
 ```
 
