@@ -106,6 +106,91 @@ function Get-EntryText {
     }
 }
 
+function Get-JsonValue {
+    param(
+        [object] $Root,
+        [string] $Path
+    )
+
+    $current = $Root
+    foreach ($segment in $Path.Split(".")) {
+        if ($null -eq $current) {
+            Add-Fail "Bundle manifest contains $Path"
+            return $null
+        }
+
+        $property = $current.PSObject.Properties[$segment]
+        if ($null -eq $property) {
+            Add-Fail "Bundle manifest contains $Path"
+            return $null
+        }
+
+        $current = $property.Value
+    }
+
+    return $current
+}
+
+function Assert-BundleManifestText {
+    param(
+        [object] $Manifest,
+        [string] $Path,
+        [string] $Expected
+    )
+
+    $actual = Get-JsonValue $Manifest $Path
+    if ($null -eq $actual) {
+        return
+    }
+
+    if ([string]$actual -eq $Expected) {
+        Add-Pass "Bundle manifest $Path matches expected value"
+    } else {
+        Add-Fail "Bundle manifest $Path expected '$Expected' but was '$actual'"
+    }
+}
+
+function Assert-BundleManifestBool {
+    param(
+        [object] $Manifest,
+        [string] $Path,
+        [bool] $Expected
+    )
+
+    $actual = Get-JsonValue $Manifest $Path
+    if ($null -eq $actual) {
+        return
+    }
+
+    if ([bool]$actual -eq $Expected) {
+        Add-Pass "Bundle manifest $Path matches expected value"
+    } else {
+        Add-Fail "Bundle manifest $Path expected '$Expected' but was '$actual'"
+    }
+}
+
+function Assert-StringArraysEqual {
+    param(
+        [string[]] $Actual,
+        [string[]] $Expected,
+        [string] $Message
+    )
+
+    if ($Actual.Count -ne $Expected.Count) {
+        Add-Fail "$Message expected $($Expected.Count) line(s) but was $($Actual.Count)"
+        return
+    }
+
+    for ($index = 0; $index -lt $Actual.Count; $index += 1) {
+        if ($Actual[$index] -ne $Expected[$index]) {
+            Add-Fail "$Message differs at line $($index + 1): expected '$($Expected[$index])' but was '$($Actual[$index])'"
+            return
+        }
+    }
+
+    Add-Pass $Message
+}
+
 $properties = Read-PropertiesFile "gradle.properties"
 $modId = Require-Property $properties "mod_id"
 $modVersion = Require-Property $properties "mod_version"
@@ -127,12 +212,15 @@ Write-Host "Applied Packaging release bundle audit" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 Write-Host "Bundle: $BundlePath"
 
+$gitStatusLines = @()
+$gitIsClean = $null
 if ($RequireCleanGit) {
-    $statusLines = @((Invoke-Git @("status", "--porcelain=v1", "--untracked-files=all")) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    if ($statusLines.Count -eq 0) {
+    $gitStatusLines = @((Invoke-Git @("status", "--porcelain=v1", "--untracked-files=all")) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $gitIsClean = $gitStatusLines.Count -eq 0
+    if ($gitIsClean) {
         Add-Pass "Git working tree is clean"
     } else {
-        Add-Fail "Git working tree is clean: $($statusLines -join '; ')"
+        Add-Fail "Git working tree is clean: $($gitStatusLines -join '; ')"
     }
 }
 
@@ -227,8 +315,11 @@ if ($failures.Count -eq 0) {
         $jarEntry = $zip.GetEntry("$bundleRoot/$modId-$modVersion.jar")
         if ($null -ne $manifestEntry -and $null -ne $jarEntry) {
             $manifest = Get-EntryText $manifestEntry | ConvertFrom-Json -Depth 32
-            $artifactSha = $manifest.artifact.PSObject.Properties["sha256"].Value
-            $artifactFileName = $manifest.artifact.PSObject.Properties["fileName"].Value
+            Assert-BundleManifestText $manifest "mod.id" $modId
+            Assert-BundleManifestText $manifest "mod.version" $modVersion
+
+            $artifactSha = Get-JsonValue $manifest "artifact.sha256"
+            $artifactFileName = Get-JsonValue $manifest "artifact.fileName"
             $jarHash = Get-EntryHash $jarEntry
             if ($artifactFileName -eq "$modId-$modVersion.jar") {
                 Add-Pass "Bundle manifest artifact fileName matches expected jar"
@@ -239,6 +330,29 @@ if ($failures.Count -eq 0) {
                 Add-Pass "Bundle manifest artifact sha256 matches bundled jar"
             } else {
                 Add-Fail "Bundle manifest artifact sha256 expected '$jarHash' but was '$artifactSha'"
+            }
+
+            if ($RequireCleanGit) {
+                $commit = @(Invoke-Git @("rev-parse", "HEAD"))[0]
+                $shortCommit = @(Invoke-Git @("rev-parse", "--short", "HEAD"))[0]
+                $branch = @(Invoke-Git @("rev-parse", "--abbrev-ref", "HEAD"))[0]
+
+                Assert-BundleManifestText $manifest "git.commit" $commit
+                Assert-BundleManifestText $manifest "git.shortCommit" $shortCommit
+                Assert-BundleManifestText $manifest "git.branch" $branch
+                Assert-BundleManifestBool $manifest "git.clean" $gitIsClean
+
+                $gitProperty = $manifest.PSObject.Properties["git"]
+                if ($null -eq $gitProperty) {
+                    Add-Fail "Bundle manifest contains git"
+                } else {
+                    $statusProperty = $gitProperty.Value.PSObject.Properties["statusPorcelain"]
+                    if ($null -eq $statusProperty) {
+                        Add-Fail "Bundle manifest contains git.statusPorcelain"
+                    } else {
+                        Assert-StringArraysEqual @($statusProperty.Value | ForEach-Object { [string]$_ }) $gitStatusLines "Bundle manifest git.statusPorcelain matches current git status"
+                    }
+                }
             }
         }
     } finally {

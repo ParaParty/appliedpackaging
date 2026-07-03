@@ -1531,3 +1531,21 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强 release 
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 readiness 门禁、自测脚本和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+增强 release bundle manifest 交叉校验：
+  scripts/verify-release-bundle.ps1 新增 bundle manifest JSON 字段读取与断言 helper
+  bundle audit 现在检查 bundle 内 manifest 的 mod.id 和 mod.version 匹配 gradle.properties
+  bundle audit 继续检查 bundle 内 manifest artifact.fileName 和 artifact.sha256 匹配 bundle 内 jar
+  使用 -RequireCleanGit 时，bundle audit 还会检查 bundle 内 manifest 的 git.commit、git.shortCommit、git.branch、git.clean 和 git.statusPorcelain 匹配当前 checkout
+  这样单独复验发布 zip 时，不只验证 zip 条目和 SHA256SUMS，也能确认 bundle 内 manifest 仍指向当前提交
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 verify-release-bundle.ps1、write-release-bundle.ps1 和 run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-bundle.ps1 曾按预期失败，原因是旧 bundle 中 README.md / CHANGELOG.md 与本轮文档更新后的源文件哈希不一致
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，重新生成并复验 release manifest 和 release bundle；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 bundle 审计脚本和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```

@@ -27,6 +27,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/test-release-readiness.ps1` self-tests the release-readiness gate against ready, blocked, structural-failure, and missing-positive-signal fixtures.
 - `scripts/test-release-check-plan.ps1` self-tests the release-candidate plan order, forbidden skip flags, and server world-load guardrails without running Minecraft.
 - `scripts/verify-docs.ps1` now verifies required release scripts as part of documentation and release workflow consistency.
+- `scripts/verify-release-bundle.ps1` cross-checks bundled manifest mod/version, jar SHA-256, and clean-git metadata.
 
 ### Changed
 
@@ -50,6 +51,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/write-release-manifest.ps1` generated the release manifest with jar SHA-256 and git commit metadata.
 - `scripts/verify-release-manifest.ps1` passed and confirmed the release manifest matches the current jar, `gradle.properties`, and git HEAD.
 - `scripts/write-release-bundle.ps1` and `scripts/verify-release-bundle.ps1` generated and audited a zip containing the jar, release manifest, README, CHANGELOG, LICENSE, and SHA256SUMS.
+- `scripts/verify-release-bundle.ps1` passed with bundled manifest mod/version and jar SHA-256 checks; final clean-git runs also verify the bundled manifest commit, branch, clean flag, and status lines.
 - `scripts/run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit` passed and confirmed the final release-candidate gate order.
 - `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` passed for the current baseline, including 112 GameTests, 6 client smoke screenshots, dedicated server world-load, clean-git release audit, docs audit, release manifest, and release bundle.
 - `scripts/verify-release-readiness.ps1` reports the current pending requirement/asset intake, and `scripts/verify-release-readiness.ps1 -RequireReadyForTag` fails as expected until that intake is resolved.
