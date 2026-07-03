@@ -40,6 +40,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `.\gradlew.bat runServer --stacktrace` reached dedicated server world-load after local EULA acceptance; `latest.log` recorded `Done (2.724s)!` and no Applied Packaging client-class loading errors.
 - `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` passed, reached `Done (2.413s)!`, cleaned up port 25565, and audited the refreshed server world-load log.
 - `scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` passed for the current baseline.
+- `scripts/write-release-manifest.ps1` generated the release manifest with jar SHA-256 and git commit metadata.
 - `scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` passed for the current committed baseline.
 
 ### Known Limitations

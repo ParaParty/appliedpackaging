@@ -9,6 +9,7 @@ param(
     [switch] $RequireClientSmokeScreenshots,
     [switch] $RequireServerWorldLoad,
     [switch] $RequireCleanGit,
+    [switch] $WriteReleaseManifest,
     [switch] $SkipAssetContracts,
     [switch] $PlanOnly
 )
@@ -129,6 +130,25 @@ $steps.Add(@{
     Name = "Mechanical release audit"
     Command = $verifyCommand
 }) | Out-Null
+
+if ($WriteReleaseManifest) {
+    $manifestCommand = @(
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".\scripts\write-release-manifest.ps1"
+    )
+    if ($RequireCleanGit) {
+        $manifestCommand += "-RequireCleanGit"
+    }
+
+    $steps.Add(@{
+        Name = "Release manifest"
+        Command = $manifestCommand
+    }) | Out-Null
+}
 
 Write-Host "Applied Packaging release check plan" -ForegroundColor Cyan
 foreach ($step in $steps) {

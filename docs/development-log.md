@@ -1247,3 +1247,22 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布验
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke 成功，server smoke 进入 Done (2.413s)!，终止本次 runServer 进程树，确认 25565 未监听，并通过 verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad
 GameTest：已考虑。发现现有 runGameTestServer；本次增强 dedicated server smoke 编排，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐发布清单生成：
+  新增 scripts/write-release-manifest.ps1
+  发布清单输出到 build/release/appliedpackaging-<version>-release-manifest.json
+  清单记录 mod 版本、Minecraft/Forge/AE2/GuideME 版本范围、jar 路径、jar 大小、SHA-256、jar mtime、git branch、git commit 和 clean 状态
+  scripts/run-release-checks.ps1 新增 -WriteReleaseManifest，并在机械发布审计之后调用 write-release-manifest.ps1
+  如果同时使用 -RequireCleanGit，发布清单脚本也会要求 git 工作树干净
+  更新 docs/05-implementation-plan.md、docs/06-verification-release.md、docs/08-change-intake.md、README.md、AGENTS.md
+验证 PowerShell parser 解析 scripts/write-release-manifest.ps1、scripts/run-release-checks.ps1 和 scripts/verify-release.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -AuditOnly -WriteReleaseManifest 成功，确认机械审计后会执行发布清单生成
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-manifest.ps1 成功，生成 build/release/appliedpackaging-0.1.0-dev-release-manifest.json
+验证发布清单 JSON 可解析，artifact.sha256 与 build/libs/appliedpackaging-0.1.0-dev.jar 的 SHA-256 一致，git commit、branch 和 shortCommit 与当前仓库一致
+验证 git diff --check 成功
+最终发布 tag 前可执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest 验证 clean git + manifest 组合
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布清单脚本和发布编排，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```

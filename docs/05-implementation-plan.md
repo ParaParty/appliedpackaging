@@ -355,6 +355,7 @@ runClientSmoke GUI screenshot smoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
   当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
+  发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit
 
 暂缓：
@@ -366,6 +367,7 @@ runClientSmoke GUI screenshot smoke
 ```text
 git 工作树干净，且最终冻结后可由 run-release-checks.ps1 -AuditOnly -RequireCleanGit 机械验证
 build/libs/appliedpackaging-<version>.jar 存在
+build/release/appliedpackaging-<version>-release-manifest.json 可生成，且记录 jar SHA-256 与 git commit
 run-release-checks.ps1 -RunClientSmoke 成功
 runServer 或 run-server-smoke.ps1 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功
 jar 可在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端进入游戏

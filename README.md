@@ -77,7 +77,9 @@ Useful commands:
 .\gradlew.bat runClientSmoke
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-server-smoke.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-manifest.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
@@ -92,7 +94,7 @@ The project uses ModDevGradle Legacy with Java 17. GameTest structures are copie
 
 `scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, optional client smoke screenshot files, optional `latest.log` server world-load evidence, and optional clean git working-tree evidence. It does not replace the Gradle, GameTest, client smoke, or server smoke runs. Known external Yggdrasil public-key fetch failures are reported as warnings during log diagnostics; Applied Packaging, classloading, crash, missing texture, and other diagnostic keywords still fail the audit.
 
-`scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, optional `run-server-smoke.ps1`, and the mechanical release audit. When `-RunClientSmoke` is used, the audit also requires all 6 smoke screenshots to exist as valid PNG files. When `-RunServerSmoke` is used, the server smoke runs after other Gradle runs, refreshes `run/logs/latest.log`, and the audit also requires dedicated server world-load evidence. Use `-RequireServerWorldLoad` only with `-AuditOnly` unless `-RunServerSmoke` is set. After all release changes are committed, add `-RequireCleanGit` before creating the release tag.
+`scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, optional `run-server-smoke.ps1`, the mechanical release audit, and optional release manifest generation. When `-RunClientSmoke` is used, the audit also requires all 6 smoke screenshots to exist as valid PNG files. When `-RunServerSmoke` is used, the server smoke runs after other Gradle runs, refreshes `run/logs/latest.log`, and the audit also requires dedicated server world-load evidence. Use `-RequireServerWorldLoad` only with `-AuditOnly` unless `-RunServerSmoke` is set. Use `-WriteReleaseManifest` to write `build/release/appliedpackaging-<version>-release-manifest.json` with jar size, SHA-256, version ranges, and git commit. After all release changes are committed, add `-RequireCleanGit` before creating the release tag.
 
 ## Verification Status
 
@@ -108,6 +110,7 @@ runClientSmoke:    opened and captured package assembler, packager, pattern term
 runServer smoke:   reached dedicated server world-load, Done (2.724s), without Applied Packaging client-class loading errors
 runServerSmoke:    passed via release runner, Done (2.413s), and port 25565 cleaned up
 release audit:     passed asset contracts, client smoke screenshots, and dedicated server world-load evidence
+release manifest:  generated with jar SHA-256 and git commit metadata
 clean git audit:   passed for the current committed baseline
 ```
 
