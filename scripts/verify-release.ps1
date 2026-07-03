@@ -42,6 +42,41 @@ function Assert-True {
     }
 }
 
+function Assert-Matches {
+    param(
+        [string] $Text,
+        [string] $Pattern,
+        [string] $Message
+    )
+    Assert-True ($Text -match $Pattern) $Message
+}
+
+function Read-PropertiesFile {
+    param([string] $Path)
+
+    $properties = @{}
+    if (-not (Test-Path $Path)) {
+        Add-Fail "Properties file exists: $Path"
+        return $properties
+    }
+
+    foreach ($line in Get-Content $Path) {
+        $trimmed = $line.Trim()
+        if ($trimmed.Length -eq 0 -or $trimmed.StartsWith("#")) {
+            continue
+        }
+        $separator = $trimmed.IndexOf("=")
+        if ($separator -lt 0) {
+            continue
+        }
+        $key = $trimmed.Substring(0, $separator).Trim()
+        $value = $trimmed.Substring($separator + 1).Trim()
+        $properties[$key] = $value
+    }
+
+    return $properties
+}
+
 function Get-TextureValues {
     param([object] $Node)
 
@@ -77,6 +112,28 @@ function Get-TextureValues {
     }
 
     return $values
+}
+
+function Get-ZipEntryText {
+    param(
+        [System.IO.Compression.ZipArchive] $Zip,
+        [string] $EntryName
+    )
+
+    $entry = $Zip.GetEntry($EntryName)
+    if ($null -eq $entry) {
+        Add-Fail "Jar contains $EntryName"
+        return ""
+    }
+
+    $stream = $entry.Open()
+    $reader = [System.IO.StreamReader]::new($stream)
+    try {
+        return $reader.ReadToEnd()
+    } finally {
+        $reader.Dispose()
+        $stream.Dispose()
+    }
 }
 
 function Resolve-Assetgen {
@@ -143,11 +200,32 @@ function Invoke-AssetgenValidateContract {
 Write-Host "Applied Packaging release audit" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 
+$projectProperties = Read-PropertiesFile "gradle.properties"
+$requiredProjectProperties = @(
+    "mod_id",
+    "mod_name",
+    "mod_version",
+    "mod_authors",
+    "mod_license",
+    "minecraft_version_range",
+    "forge_version_range",
+    "loader_version_range",
+    "ae2_version_range"
+)
+foreach ($propertyName in $requiredProjectProperties) {
+    Assert-True $projectProperties.ContainsKey($propertyName) "gradle.properties defines $propertyName"
+}
+
 $resolvedJar = Resolve-Path $JarPath -ErrorAction SilentlyContinue
 if ($null -eq $resolvedJar) {
     Add-Fail "Release jar exists at $JarPath"
 } else {
     Add-Pass "Release jar exists at $JarPath"
+    if ($projectProperties.ContainsKey("mod_id") -and $projectProperties.ContainsKey("mod_version")) {
+        $expectedJarName = "$($projectProperties["mod_id"])-$($projectProperties["mod_version"]).jar"
+        $actualJarName = [System.IO.Path]::GetFileName($resolvedJar.Path)
+        Assert-True ($actualJarName -eq $expectedJarName) "Jar filename matches mod_id and mod_version ($expectedJarName)"
+    }
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [System.IO.Compression.ZipFile]::OpenRead($resolvedJar.Path)
@@ -169,6 +247,27 @@ if ($null -eq $resolvedJar) {
 
         foreach ($entry in $requiredEntries) {
             Assert-True $entrySet.Contains($entry) "Jar contains $entry"
+        }
+
+        $modsTomlText = Get-ZipEntryText $zip "META-INF/mods.toml"
+        $manifestText = Get-ZipEntryText $zip "META-INF/MANIFEST.MF"
+        if ($modsTomlText.Length -gt 0) {
+            Assert-Matches $modsTomlText "modId=`"$([regex]::Escape($projectProperties["mod_id"]))`"" "mods.toml modId matches gradle.properties"
+            Assert-Matches $modsTomlText "version=`"$([regex]::Escape($projectProperties["mod_version"]))`"" "mods.toml version matches gradle.properties"
+            Assert-Matches $modsTomlText "displayName=`"$([regex]::Escape($projectProperties["mod_name"]))`"" "mods.toml displayName matches gradle.properties"
+            Assert-Matches $modsTomlText "authors=`"$([regex]::Escape($projectProperties["mod_authors"]))`"" "mods.toml authors match gradle.properties"
+            Assert-Matches $modsTomlText "license=`"$([regex]::Escape($projectProperties["mod_license"]))`"" "mods.toml license matches gradle.properties"
+            Assert-Matches $modsTomlText "loaderVersion=`"$([regex]::Escape($projectProperties["loader_version_range"]))`"" "mods.toml loader version range matches gradle.properties"
+            Assert-Matches $modsTomlText "modId=`"forge`"[\s\S]*?versionRange=`"$([regex]::Escape($projectProperties["forge_version_range"]))`"" "mods.toml Forge dependency range matches gradle.properties"
+            Assert-Matches $modsTomlText "modId=`"minecraft`"[\s\S]*?versionRange=`"$([regex]::Escape($projectProperties["minecraft_version_range"]))`"" "mods.toml Minecraft dependency range matches gradle.properties"
+            Assert-Matches $modsTomlText "modId=`"ae2`"[\s\S]*?versionRange=`"$([regex]::Escape($projectProperties["ae2_version_range"]))`"" "mods.toml AE2 dependency range matches gradle.properties"
+        }
+        if ($manifestText.Length -gt 0) {
+            Assert-Matches $manifestText "Specification-Title: $([regex]::Escape($projectProperties["mod_name"]))" "manifest specification title matches gradle.properties"
+            Assert-Matches $manifestText "Specification-Version: $([regex]::Escape($projectProperties["mod_version"]))" "manifest specification version matches gradle.properties"
+            Assert-Matches $manifestText "Implementation-Title: $([regex]::Escape($projectProperties["mod_name"]))" "manifest implementation title matches gradle.properties"
+            Assert-Matches $manifestText "Implementation-Version: $([regex]::Escape($projectProperties["mod_version"]))" "manifest implementation version matches gradle.properties"
+            Assert-Matches $manifestText "Implementation-Vendor: $([regex]::Escape($projectProperties["mod_authors"]))" "manifest implementation vendor matches gradle.properties"
         }
 
         $forbiddenEntryPattern = "(?i)(^|/)(com/warmthdawn/appliedpackaging/client/ClientSmokeRunner|com/warmthdawn/appliedpackaging/gametest/|build/|tmp/|docs/assets/|run/)|reference|preview"

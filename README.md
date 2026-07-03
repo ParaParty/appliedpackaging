@@ -87,7 +87,7 @@ The project uses ModDevGradle Legacy with Java 17. GameTest structures are copie
 .\gradlew.bat runClientSmoke -Pappliedpackaging.clientSmoke.world="Your World Name"
 ```
 
-`scripts/verify-release.ps1` performs mechanical release checks for jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, and optional `latest.log` server world-load evidence. It does not replace the Gradle, GameTest, client smoke, or server smoke runs.
+`scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, and optional `latest.log` server world-load evidence. It does not replace the Gradle, GameTest, client smoke, or server smoke runs.
 
 ## Verification Status
 

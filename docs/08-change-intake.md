@@ -110,7 +110,7 @@ GameTest 输出契约：
 当前功能基线：docs/06-verification-release.md R1-R13 均记录为已满足。
 当前验证基线：build、runData、runGameTestServer、runClientSmoke 均已有通过记录；2026-07-04 当前基线 runServer 已进入 world 并出现 Done (2.724s)。
 当前发布 jar：build/libs/appliedpackaging-0.1.0-dev.jar 已存在并通过 dev/test 条目审计。
-当前机械审计：scripts/verify-release.ps1 已加入；普通模式、-RequireAssetContracts、-RequireServerWorldLoad 和两者组合模式均已通过。
+当前机械审计：scripts/verify-release.ps1 已加入；普通模式、-RequireAssetContracts、-RequireServerWorldLoad 和两者组合模式均已通过；最强模式已确认 jar 文件名、mods.toml、manifest 与 gradle.properties 版本元数据一致。
 EULA 状态：run/eula.txt 已为 eula=true。
 最终服务端 world-load：当前基线已通过；尚未在新增需求/材质冻结后重新执行。
 发布 tag：等待新增范围实现、验证和最终服务端 world-load 后创建。

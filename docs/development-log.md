@@ -1149,3 +1149,13 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad 成功
 本次为验证工具和文档变更；GameTest 已按规则考虑，未新增行为测试。
 ```
+
+最新进展：
+
+```text
+增强机械发布审计脚本：
+  scripts/verify-release.ps1 现在读取 gradle.properties，并检查 jar 文件名、META-INF/mods.toml、META-INF/MANIFEST.MF 是否与 mod_id、mod_version、mod_name、mod_authors、mod_license、loader_version_range、forge_version_range、minecraft_version_range、ae2_version_range 对齐
+  更新 docs/06-verification-release.md、docs/08-change-intake.md、README.md
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad 成功
+本次为验证工具和文档变更；GameTest 已按规则考虑，未新增行为测试。
+```
