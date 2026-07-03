@@ -72,6 +72,16 @@ function Get-RelativePath {
     return [System.IO.Path]::GetRelativePath($repoRoot, $Path).Replace("\", "/")
 }
 
+function Resolve-OutputPath {
+    param([string] $Path)
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return $Path
+    }
+
+    return (Join-Path (Get-Location) $Path)
+}
+
 $properties = Read-PropertiesFile "gradle.properties"
 $modId = Require-Property $properties "mod_id"
 $modVersion = Require-Property $properties "mod_version"
@@ -129,7 +139,7 @@ foreach ($entryName in $resolvedFiles.Keys) {
     $checksums.Add("$hash  $relativeName") | Out-Null
 }
 
-$resolvedBundlePath = Join-Path (Get-Location) $BundlePath
+$resolvedBundlePath = Resolve-OutputPath $BundlePath
 if (Test-Path $resolvedBundlePath) {
     Remove-Item -LiteralPath $resolvedBundlePath -Force
 }

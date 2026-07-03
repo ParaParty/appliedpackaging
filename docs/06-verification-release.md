@@ -253,6 +253,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-check-plan.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-bundle.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
@@ -269,6 +270,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 `scripts/write-release-bundle.ps1` 读取 release jar、release manifest、README.md、CHANGELOG.md 和 LICENSE.md，输出 `build/release/appliedpackaging-<version>-release-bundle.zip`。zip 内以 `appliedpackaging-<version>/` 为根目录，包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS。使用 `-RequireCleanGit` 时，如果工作树不干净会失败。
 
 `scripts/verify-release-bundle.ps1` 读取 release bundle 和当前源文件，检查 zip 条目集合、每个条目的 SHA-256、SHA256SUMS 内容，以及 bundle 内 manifest 的 mod id/version、artifact fileName/sha256 是否匹配 bundle 内 jar。使用 `-RequireCleanGit` 时，如果当前 git 工作树不干净会失败，并且会进一步确认 bundle 内 manifest 的 git commit、shortCommit、branch、clean 和 statusPorcelain 与当前 checkout 一致。
+
+`scripts/test-release-bundle.ps1` 使用临时输出路径调用 release manifest/bundle writer，确认有效 bundle fixture 可通过 `verify-release-bundle.ps1`，并确认篡改 bundle 内 manifest mod id 或 README.md 内容会被 bundle audit 拒绝。脚本只写入系统临时目录，不运行 Gradle、客户端或服务端；工作区干净时还会额外运行 `verify-release-bundle.ps1 -RequireCleanGit` 覆盖 git 元数据校验路径。
 
 `scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract、资产报告和关键发布脚本是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，并扫描仓库 Markdown 中的本地 inline link 是否可解析。
 
@@ -320,6 +323,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 2026-07-04 执行 PowerShell parser 检查 `verify-release-readiness.ps1`、`test-release-readiness.ps1` 和 `run-release-checks.ps1` 成功；执行 `test-release-readiness.ps1`、`verify-release-readiness.ps1`、`verify-release-readiness.ps1 -RequireReadyForTag`、`verify-docs.ps1`、`test-release-check-plan.ps1`、`.\gradlew.bat build --stacktrace` 和 `run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 均符合预期，其中严格 readiness 仍因 IN-001/IN-002 与未冻结发布状态失败。
 2026-07-04 增强 `scripts/verify-release-bundle.ps1`：bundle audit 现在会检查 bundle 内 manifest 的 mod id/version 和 artifact sha256，并在 `-RequireCleanGit` 下检查 bundle 内 manifest 的 git commit、shortCommit、branch、clean 和 statusPorcelain 是否匹配当前 checkout。
 2026-07-04 执行 PowerShell parser 检查 `verify-release-bundle.ps1`、`write-release-bundle.ps1` 和 `run-release-checks.ps1` 成功；直接执行 `verify-release-bundle.ps1` 曾按预期发现旧 bundle 内 README/CHANGELOG 哈希已因本轮文档更新过期；随后执行 `.\gradlew.bat build --stacktrace` 和 `run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，重新生成并复验发布 manifest/bundle。
+2026-07-04 新增 `scripts/test-release-bundle.ps1`，覆盖临时 manifest/bundle 生成、有效 bundle audit、bundle 内 manifest mod id 篡改失败、bundle 内 README 内容篡改失败，以及干净工作区下的 `verify-release-bundle.ps1 -RequireCleanGit` 路径。
+2026-07-04 执行 PowerShell parser 检查 `write-release-manifest.ps1`、`write-release-bundle.ps1`、`verify-release-bundle.ps1`、`test-release-bundle.ps1` 和 `verify-docs.ps1` 成功；执行 `test-release-bundle.ps1`、`verify-docs.ps1`、`.\gradlew.bat build --stacktrace` 和 `run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，其中开发中工作区 dirty，`test-release-bundle.ps1` 的 clean-git fixture 按预期跳过，提交后需重跑覆盖。
+2026-07-04 提交后执行 `scripts/test-release-bundle.ps1` 成功，clean-git bundle fixture 退出 0；执行 `run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，release manifest 记录当前提交且 `clean=true`。
 
 ## 5. 客户端验证
 

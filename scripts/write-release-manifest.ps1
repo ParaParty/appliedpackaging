@@ -66,6 +66,16 @@ function Invoke-Git {
     return @($output)
 }
 
+function Resolve-OutputPath {
+    param([string] $Path)
+
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return $Path
+    }
+
+    return (Join-Path (Get-Location) $Path)
+}
+
 $properties = Read-PropertiesFile "gradle.properties"
 $modId = Require-Property $properties "mod_id"
 $modName = Require-Property $properties "mod_name"
@@ -110,8 +120,9 @@ if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
     }
 }
 
+$resolvedManifestPath = Resolve-OutputPath $ManifestPath
 $relativeJarPath = [System.IO.Path]::GetRelativePath($repoRoot, $jarItem.FullName).Replace("\", "/")
-$relativeManifestPath = [System.IO.Path]::GetRelativePath($repoRoot, (Join-Path (Get-Location) $ManifestPath)).Replace("\", "/")
+$relativeManifestPath = [System.IO.Path]::GetRelativePath($repoRoot, $resolvedManifestPath).Replace("\", "/")
 
 $manifest = [ordered]@{
     schemaVersion = 1
@@ -160,7 +171,7 @@ $manifest = [ordered]@{
 }
 
 $json = $manifest | ConvertTo-Json -Depth 8
-Set-Content -LiteralPath $ManifestPath -Value $json -Encoding UTF8
+Set-Content -LiteralPath $resolvedManifestPath -Value $json -Encoding UTF8
 
 Write-Host "Release manifest written: $ManifestPath" -ForegroundColor Green
 Write-Host "Artifact: $relativeJarPath"

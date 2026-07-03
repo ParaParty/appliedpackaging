@@ -1549,3 +1549,26 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 re
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，重新生成并复验 release manifest 和 release bundle；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 bundle 审计脚本和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+补齐 release bundle 自测：
+  新增 scripts/test-release-bundle.ps1
+  自测使用系统临时目录生成 release manifest 和 release bundle fixture，不写入正式 build/release
+  覆盖有效 bundle 可通过 verify-release-bundle.ps1
+  覆盖 bundle 内 release manifest 的 mod.id 被篡改时 verify-release-bundle.ps1 失败
+  覆盖 bundle 内 README.md 内容被篡改时 verify-release-bundle.ps1 失败
+  工作区干净时额外覆盖 verify-release-bundle.ps1 -RequireCleanGit 的 git 元数据校验路径
+  修复 write-release-manifest.ps1 和 write-release-bundle.ps1 对绝对 ManifestPath / BundlePath 的输出路径处理，避免把绝对路径错误拼接到 repo 路径下
+  scripts/verify-docs.ps1 将 scripts/test-release-bundle.ps1 纳入必需发布脚本路径
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 write-release-manifest.ps1、write-release-bundle.ps1、verify-release-bundle.ps1 和 test-release-bundle.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-bundle.ps1 成功；开发中工作区 dirty，clean-git fixture 按预期跳过，提交后需重跑覆盖
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认 scripts/test-release-bundle.ps1 已纳入必需发布脚本路径
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认 manifest/bundle 正式路径仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+提交后验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-bundle.ps1 成功，clean-git bundle fixture 退出 0
+提交后验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，manifest 记录当前提交且 clean=true
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 bundle 自测、发布脚本绝对路径处理和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
