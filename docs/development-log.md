@@ -1266,3 +1266,20 @@ GameTest：已考虑。发现现有 runGameTestServer；本次增强 dedicated s
 最终发布 tag 前可执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest 验证 clean git + manifest 组合
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布清单脚本和发布编排，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐文档完整性发布审计：
+  新增 scripts/verify-docs.ps1
+  脚本检查 AGENTS.md、README.md、CHANGELOG.md、LICENSE.md、docs/design.md、00-08 分类文档、chat-summary、development-log、资产 brief、资产 contract 和资产报告是否存在
+  脚本检查 docs/design.md 和 docs/00-document-index.md 是否覆盖当前文档集合
+  脚本扫描仓库 Markdown 中的本地 inline link 是否可解析
+  scripts/run-release-checks.ps1 默认新增 Documentation audit 步骤，可用 -SkipDocs 跳过
+  更新 docs/05-implementation-plan.md、docs/06-verification-release.md、docs/08-change-intake.md、README.md、CHANGELOG.md、AGENTS.md
+验证 PowerShell parser 解析 scripts/verify-docs.ps1 和 scripts/run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认必需文档存在、design/index 覆盖文档集合、20 个本地 Markdown 链接可解析
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -AuditOnly -WriteReleaseManifest 成功，确认 release runner 顺序为机械审计、文档审计、发布清单
+验证 git diff --check 成功
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强文档审计脚本和发布编排，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```

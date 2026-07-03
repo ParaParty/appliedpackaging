@@ -356,6 +356,7 @@ runClientSmoke GUI screenshot smoke
   当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit
+  文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口和本地 Markdown 链接
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit
 
 暂缓：
@@ -372,6 +373,7 @@ run-release-checks.ps1 -RunClientSmoke 成功
 runServer 或 run-server-smoke.ps1 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功
 jar 可在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端进入游戏
 docs 与实现一致
+verify-docs.ps1 成功
 发布 tag 可追溯且只在最终范围冻结后创建
 ```
 

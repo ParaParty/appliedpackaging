@@ -10,6 +10,7 @@ param(
     [switch] $RequireServerWorldLoad,
     [switch] $RequireCleanGit,
     [switch] $WriteReleaseManifest,
+    [switch] $SkipDocs,
     [switch] $SkipAssetContracts,
     [switch] $PlanOnly
 )
@@ -130,6 +131,20 @@ $steps.Add(@{
     Name = "Mechanical release audit"
     Command = $verifyCommand
 }) | Out-Null
+
+if (-not $SkipDocs) {
+    $steps.Add(@{
+        Name = "Documentation audit"
+        Command = @(
+            "pwsh",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            ".\scripts\verify-docs.ps1"
+        )
+    }) | Out-Null
+}
 
 if ($WriteReleaseManifest) {
     $manifestCommand = @(

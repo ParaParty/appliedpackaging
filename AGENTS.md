@@ -153,12 +153,13 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-manifest.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
 
 如果项目阶段还没有对应任务，记录原因，不要把 build-only 当成行为验证。
-`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计和可选发布清单生成。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后刷新 `run/logs/latest.log`，并自动要求 dedicated server world-load 证据。使用 `-WriteReleaseManifest` 时会在 `build/release/` 写入包含 jar SHA-256、版本范围和 git commit 的发布 JSON 清单。`-RequireServerWorldLoad` 只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。最终发布 tag 前可在所有变更提交后使用 `-RequireCleanGit` 强制检查 git 工作树干净。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、文档审计和可选发布清单生成。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后刷新 `run/logs/latest.log`，并自动要求 dedicated server world-load 证据。使用 `-WriteReleaseManifest` 时会在 `build/release/` 写入包含 jar SHA-256、版本范围和 git commit 的发布 JSON 清单。`scripts/verify-docs.ps1` 会检查必需文档、文档入口和本地 Markdown 链接。`-RequireServerWorldLoad` 只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。最终发布 tag 前可在所有变更提交后使用 `-RequireCleanGit` 强制检查 git 工作树干净。
 `scripts/verify-release.ps1` 只做机械发布审计，不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`；`-RequireCleanGit` 只用于最终冻结后的发布门禁。
 
 ## 7. 禁止事项
