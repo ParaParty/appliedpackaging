@@ -1283,3 +1283,21 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布清
 验证 git diff --check 成功
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强文档审计脚本和发布编排，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐发布清单复验门禁：
+  新增 scripts/verify-release-manifest.ps1
+  脚本读取 release manifest、gradle.properties、release jar 和当前 git 状态
+  校验 schema、mod 元数据、Minecraft/Forge/AE2/GuideME 版本范围、jar 路径、文件名、大小、mtime、SHA-256、git commit/shortCommit/branch/clean/statusPorcelain 和 manifest 路径
+  scripts/write-release-manifest.ps1 默认 jar 路径改为根据 gradle.properties 的 mod_id/mod_version 推导，避免版本号调整后脚本默认值滞后
+  scripts/run-release-checks.ps1 新增 -RequireReleaseManifest，并在 -WriteReleaseManifest 后执行 release manifest audit
+  更新 docs/05-implementation-plan.md、docs/06-verification-release.md、docs/08-change-intake.md、README.md、CHANGELOG.md、AGENTS.md
+验证 PowerShell parser 解析 scripts/verify-release-manifest.ps1、scripts/write-release-manifest.ps1 和 scripts/run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -AuditOnly -WriteReleaseManifest -RequireReleaseManifest 成功，确认顺序为机械审计、文档审计、发布清单、发布清单审计
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\write-release-manifest.ps1 成功，生成的清单记录当前 a531d35、jar SHA-256 和开发中 dirty 状态
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-manifest.ps1 成功，确认清单匹配当前 jar、gradle.properties 和 git 状态
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest 成功，确认机械发布审计、文档审计、发布清单和发布清单审计可串联通过
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布清单脚本、发布编排和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```

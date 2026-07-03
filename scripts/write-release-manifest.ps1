@@ -1,5 +1,5 @@
 param(
-    [string] $JarPath = "build/libs/appliedpackaging-0.1.0-dev.jar",
+    [string] $JarPath,
     [string] $OutputDir = "build/release",
     [string] $ManifestPath,
     [switch] $RequireCleanGit
@@ -73,6 +73,10 @@ $modVersion = Require-Property $properties "mod_version"
 $modGroup = Require-Property $properties "mod_group_id"
 $modAuthors = Require-Property $properties "mod_authors"
 $modLicense = Require-Property $properties "mod_license"
+
+if ([string]::IsNullOrWhiteSpace($JarPath)) {
+    $JarPath = Join-Path "build/libs" "$modId-$modVersion.jar"
+}
 
 $resolvedJar = Resolve-Path $JarPath -ErrorAction SilentlyContinue
 if ($null -eq $resolvedJar) {

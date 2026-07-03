@@ -10,6 +10,7 @@ param(
     [switch] $RequireServerWorldLoad,
     [switch] $RequireCleanGit,
     [switch] $WriteReleaseManifest,
+    [switch] $RequireReleaseManifest,
     [switch] $SkipDocs,
     [switch] $SkipAssetContracts,
     [switch] $PlanOnly
@@ -162,6 +163,25 @@ if ($WriteReleaseManifest) {
     $steps.Add(@{
         Name = "Release manifest"
         Command = $manifestCommand
+    }) | Out-Null
+}
+
+if ($RequireReleaseManifest) {
+    $verifyManifestCommand = @(
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".\scripts\verify-release-manifest.ps1"
+    )
+    if ($RequireCleanGit) {
+        $verifyManifestCommand += "-RequireCleanGit"
+    }
+
+    $steps.Add(@{
+        Name = "Release manifest audit"
+        Command = $verifyManifestCommand
     }) | Out-Null
 }
 
