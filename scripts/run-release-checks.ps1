@@ -1,4 +1,5 @@
 param(
+    [switch] $ReleaseCandidate,
     [switch] $AuditOnly,
     [switch] $SkipBuild,
     [switch] $SkipData,
@@ -22,6 +23,29 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
+
+if ($ReleaseCandidate) {
+    if ($AuditOnly) {
+        throw "-ReleaseCandidate cannot be combined with -AuditOnly. Release candidate mode runs the full verification sequence."
+    }
+
+    $skipFlags = @()
+    if ($SkipBuild) { $skipFlags += "-SkipBuild" }
+    if ($SkipData) { $skipFlags += "-SkipData" }
+    if ($SkipGameTest) { $skipFlags += "-SkipGameTest" }
+    if ($SkipDocs) { $skipFlags += "-SkipDocs" }
+    if ($SkipAssetContracts) { $skipFlags += "-SkipAssetContracts" }
+    if ($skipFlags.Count -gt 0) {
+        throw "-ReleaseCandidate cannot be combined with skip flags: $($skipFlags -join ', ')"
+    }
+
+    $RunClientSmoke = $true
+    $RunServerSmoke = $true
+    $WriteReleaseManifest = $true
+    $RequireReleaseManifest = $true
+    $WriteReleaseBundle = $true
+    $RequireReleaseBundle = $true
+}
 
 if ($AuditOnly -and $RunServerSmoke) {
     throw "-RunServerSmoke cannot be combined with -AuditOnly. Use -RunServerSmoke during the active release check sequence, or run scripts\run-server-smoke.ps1 directly before an audit-only pass."
@@ -226,6 +250,9 @@ if ($RequireReleaseBundle) {
 }
 
 Write-Host "Applied Packaging release check plan" -ForegroundColor Cyan
+if ($ReleaseCandidate) {
+    Write-Host "Mode: release candidate" -ForegroundColor Cyan
+}
 foreach ($step in $steps) {
     Write-Host " - $($step.Name): $($step.Command -join ' ')"
 }

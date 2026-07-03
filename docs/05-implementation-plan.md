@@ -349,7 +349,8 @@ runClientSmoke GUI screenshot smoke
   mods.toml 已声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围
   build/libs/appliedpackaging-0.1.0-dev.jar 已生成
   scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、asset contract、语言 key、模型贴图引用、client smoke 截图、dedicated server latest.log 证据和可选 git clean 证据
-  scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke 和机械发布审计
+  scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke、可选 run-server-smoke、机械发布审计、文档审计、发布清单和发布附件包
+  scripts/run-release-checks.ps1 -ReleaseCandidate 已作为最终候选发布预设，自动启用 client smoke、server smoke、manifest 和 bundle 审计
   使用 -RunClientSmoke 时会自动审计 6 张 client smoke 截图存在、非空且为有效 PNG
   dedicated server world-load 已在当前基线通过；服务端 latest.log 审计可由 run-server-smoke.ps1 或 run-release-checks.ps1 -RunServerSmoke 刷新后执行
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
@@ -361,7 +362,7 @@ runClientSmoke GUI screenshot smoke
   发布清单可由 verify-release-manifest.ps1 复验，确认当前 jar、gradle.properties 和 git HEAD 与清单一致
   发布附件包可由 write-release-bundle.ps1 生成到 build/release/ 并由 verify-release-bundle.ps1 复验 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS
   文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口和本地 Markdown 链接
-  最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle
+  最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit
 
 暂缓：
   0.1.0-dev 发布 tag 暂缓到用户补充需求和材质、范围冻结、实现并重新验证之后
@@ -370,12 +371,11 @@ runClientSmoke GUI screenshot smoke
 验收：
 
 ```text
-git 工作树干净，且最终冻结后可由 run-release-checks.ps1 -AuditOnly -RequireCleanGit 机械验证
+git 工作树干净，且最终冻结后可由 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit 机械验证
 build/libs/appliedpackaging-<version>.jar 存在，且 META-INF/mods.toml 声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围
 build/release/appliedpackaging-<version>-release-manifest.json 可生成并复验，且记录 jar SHA-256 与 git commit
 build/release/appliedpackaging-<version>-release-bundle.zip 可生成并复验，且包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS
-run-release-checks.ps1 -RunClientSmoke 成功
-runServer 或 run-server-smoke.ps1 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功
+run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit 成功
 jar 可在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端进入游戏
 docs 与实现一致
 verify-docs.ps1 成功

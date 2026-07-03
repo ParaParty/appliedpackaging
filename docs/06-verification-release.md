@@ -236,6 +236,7 @@ jar 文件名包含 mod id 和版本
 
 ```powershell
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -RunServerSmoke
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest
@@ -252,7 +253,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
 ```
 
-`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、文档审计、可选发布清单生成/审计和可选发布附件包生成/审计。它支持 `-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireClientSmokeScreenshots`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle`、`-RequireReleaseBundle`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD。使用 `-WriteReleaseBundle` 时会生成 `build/release/appliedpackaging-<version>-release-bundle.zip`；使用 `-RequireReleaseBundle` 时会复验 zip 只包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且哈希与当前源文件一致。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、文档审计、可选发布清单生成/审计和可选发布附件包生成/审计。它支持 `-ReleaseCandidate`、`-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireClientSmokeScreenshots`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle`、`-RequireReleaseBundle`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-ReleaseCandidate` 时会禁止 `-AuditOnly` 与 skip flags，并自动启用 `-RunClientSmoke`、`-RunServerSmoke`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle` 和 `-RequireReleaseBundle`，用于最终范围冻结后的候选发布门禁；最终发布 tag 前推荐与 `-RequireCleanGit` 一起使用。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD。使用 `-WriteReleaseBundle` 时会生成 `build/release/appliedpackaging-<version>-release-bundle.zip`；使用 `-RequireReleaseBundle` 时会复验 zip 只包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且哈希与当前源文件一致。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
 
 `scripts/run-server-smoke.ps1` 检查 `run/eula.txt` 已明确 `eula=true`，启动 `.\gradlew.bat runServer --stacktrace`，等待 `run/logs/latest.log` 出现 Applied Packaging 初始化、`Preparing level "world"` 和 `Done (...)! For help, type "help"`，随后终止本脚本启动的 runServer 进程树，并确认 25565 不再监听。脚本产生的 stdout/stderr 记录写入 `build/server-smoke/`，不纳入发布资源。
 
@@ -293,6 +294,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest` 成功，确认 `mods.toml GuideME dependency range matches gradle.properties`，并确认发布清单中的 `dependencies.guideMeVersionRange` 匹配 `gradle.properties`。
 2026-07-04 新增 `scripts/write-release-bundle.ps1`、`scripts/verify-release-bundle.ps1`、`run-release-checks.ps1 -WriteReleaseBundle` 和 `-RequireReleaseBundle`，用于生成并复验发布附件包。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认 bundle 包含 jar、release manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且 bundle 内 manifest 的 artifact sha256 匹配 bundle 内 jar。
+2026-07-04 新增 `run-release-checks.ps1 -ReleaseCandidate`，作为最终候选发布预设；它会展开为 build、runData、runGameTestServer、runClientSmoke、run-server-smoke、机械发布审计、文档审计、发布清单生成/审计和发布附件包生成/审计。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit` 成功，确认候选发布预设会传递 clean-git 门禁并按完整顺序展开。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -SkipGameTest` 和 `... -ReleaseCandidate -AuditOnly` 均按预期失败，确认候选发布预设不能跳过 GameTest 或降级为 audit-only。
+2026-07-04 在 README/CHANGELOG 更新后执行 `.\gradlew.bat build --stacktrace` 成功，并执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle` 成功，确认候选发布预设相关文档变更不破坏现有 manifest/bundle 链路。
 
 ## 5. 客户端验证
 
@@ -407,11 +412,11 @@ run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load mod
 必须全部满足：
 
 ```text
-git 工作树干净，发布 tag 可追溯；最终冻结后可用 `run-release-checks.ps1 -AuditOnly -RequireCleanGit` 机械验证
+git 工作树干净，发布 tag 可追溯；最终冻结后可用 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 机械验证
 .\gradlew.bat build 成功
 .\gradlew.bat runData 成功且生成资源已纳入 git
 .\gradlew.bat runGameTestServer 成功，或记录无法运行的明确阻塞
-pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 成功，或逐项记录等价命令结果
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit 成功，或逐项记录等价命令结果
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 成功
 生成 build/libs/appliedpackaging-<version>.jar
 jar 在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端中可进入游戏
@@ -462,9 +467,9 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 ```text
 最终 Dedicated server full world-load：未完成。
 原因：2026-07-04 当前基线已完成 dedicated server world-load smoke，且已提供并验证 `run-server-smoke.ps1` 自动流程；但用户将在 2026-07-05 补充需求和材质，最终 dedicated server world-load 等新增范围冻结后重新执行。
-需要在新增需求和材质实现并验证后重新执行 `run-release-checks.ps1 -RunServerSmoke` 或等价命令，确认专用服务端进入世界加载并无客户端类误加载。
+需要在新增需求和材质实现并验证后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 或等价命令，确认专用服务端进入世界加载并无客户端类误加载。
 最终 clean git 发布门禁：未完成。
-原因：当前提交基线已通过 `run-release-checks.ps1 -AuditOnly -RequireCleanGit`；但该检查应在新增需求和材质实现、全部文件提交之后作为最终发布门禁重新执行。
+原因：当前提交基线已通过 `run-release-checks.ps1 -AuditOnly -RequireCleanGit`；但最终候选发布门禁应在新增需求和材质实现、全部文件提交之后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`。
 ```
 
 当前记录的非阻塞发布后增强：
@@ -497,7 +502,7 @@ DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出�
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
 Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；随后 `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` 自动刷新 latest.log 并出现 Done (2.413s)!，25565 清理完成，`verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 通过；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
 发布 tag：未完成。原因：新增需求和材质尚待输入，最终 dedicated server full world-load 尚未验收；发布 tag 应在新增范围完成且服务端验收通过后创建。
-Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：提交 `10b59b2 build: add clean git release audit` 后，`scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` 通过；但新增需求和材质尚待输入，最终冻结并提交后必须重新执行，并建议同时使用 `-WriteReleaseManifest -RequireReleaseManifest` 刷新并复验发布清单。
+Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：提交 `10b59b2 build: add clean git release audit` 后，`scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` 通过；但新增需求和材质尚待输入，最终冻结并提交后必须重新执行 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，同时刷新并复验发布清单与发布附件包。
 ```
 
 当前目标完成判定：

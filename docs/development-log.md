@@ -1336,3 +1336,21 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只修改发布 me
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，生成并复验 release bundle
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布附件包脚本、发布编排和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐候选发布一键门禁：
+  scripts/run-release-checks.ps1 新增 -ReleaseCandidate
+  -ReleaseCandidate 禁止与 -AuditOnly 或 skip flags 组合
+  -ReleaseCandidate 自动启用 -RunClientSmoke、-RunServerSmoke、-WriteReleaseManifest、-RequireReleaseManifest、-WriteReleaseBundle 和 -RequireReleaseBundle
+  最终发布 tag 前的推荐命令收敛为 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit
+  更新 README.md、CHANGELOG.md、AGENTS.md、docs/05-implementation-plan.md、docs/06-verification-release.md、docs/08-change-intake.md
+验证 PowerShell parser 解析 scripts/run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit 成功，确认完整顺序为 build、runData、runGameTestServer、runClientSmoke、run-server-smoke、mechanical release audit、documentation audit、release manifest、release manifest audit、release bundle、release bundle audit
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -SkipGameTest 按预期失败，错误为 -ReleaseCandidate cannot be combined with skip flags: -SkipGameTest
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -AuditOnly 按预期失败，错误为 -ReleaseCandidate cannot be combined with -AuditOnly
+验证 .\gradlew.bat build --stacktrace 成功，刷新包含 README.md 和 CHANGELOG.md 的发布 jar
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械审计、文档审计、manifest 生成/复验和 bundle 生成/复验仍可串联通过
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布门禁预设和文档，不改变包裹、机器、总线、菜单、网络、事务或数据生成行为，因此未新增、扩展或运行 GameTest。最终候选发布预设会在范围冻结后运行 runGameTestServer。
+```
