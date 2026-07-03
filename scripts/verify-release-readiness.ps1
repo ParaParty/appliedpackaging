@@ -92,10 +92,11 @@ function Test-IntakeRows {
 
         $id = $columns[0]
         $status = $columns[3]
+        $migrationTarget = $columns[4]
         $verification = $columns[5]
         $blockedStatePattern = '(?i)待|未完成|等待|阻塞|失败|未通过|不可|不能|blocked|fail(?:ed|ure)?|not\s+ready|not\s+passed'
-        if (($status -match $blockedStatePattern) -or ($verification -match $blockedStatePattern)) {
-            Add-Blocker "$id is not ready for tag: status='$status', verification='$verification'"
+        if (($status -match $blockedStatePattern) -or ($migrationTarget -match $blockedStatePattern) -or ($verification -match $blockedStatePattern)) {
+            Add-Blocker "$id is not ready for tag: status='$status', migrationTarget='$migrationTarget', verification='$verification'"
         } else {
             Add-Pass "$id is ready for tag"
         }

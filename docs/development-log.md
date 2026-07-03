@@ -1856,3 +1856,21 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只增强发布 tag readiness 脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、资源文件、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+补强 tag readiness intake 迁移目标门禁：
+  scripts/verify-release-readiness.ps1 现在同时检查 intake 表的状态、迁移目标和验证要求三列
+  迁移目标仍为待输入、待判定、等待、阻塞、失败、未通过、不可、不能、blocked、failed 等负面状态时会阻止 -RequireReadyForTag
+  scripts/test-release-readiness.ps1 新增 unresolved migration target fixture，确认未迁移到正式分类文档的 intake 项不能通过最终 tag 门禁
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md 中的 readiness 规则说明
+验证 PowerShell parser 解析 scripts/verify-release-readiness.ps1 和 scripts/test-release-readiness.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1 成功，确认 ready fixture 退出 0，blocked fixture、structural failure fixture、missing positive signals fixture、blocked intake state fixture 和 unresolved migration target fixture 均按预期退出
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 成功，当前正式文档仍报告 4 个非致命 blocker，且 IN-001/IN-002 输出中包含 migrationTarget='待判定'
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1 成功，确认 unresolved migration target fixture 已纳入聚合 readiness 自测；开发中工作区 dirty，manifest/bundle clean-git fixture 按预期跳过
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只增强发布 tag readiness 脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、资源文件、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
