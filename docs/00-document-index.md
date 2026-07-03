@@ -11,6 +11,7 @@
 5. [05-implementation-plan.md](05-implementation-plan.md)
 6. [06-verification-release.md](06-verification-release.md)
 7. [07-references.md](07-references.md)
+8. [08-change-intake.md](08-change-intake.md)
 
 `design.md` 只作为入口和当前定案摘要。`chat-summary.md` 是讨论记录，不应被当成最新实现规格。仓库级 agent 操作入口是根目录 `AGENTS.md`。
 
@@ -76,9 +77,18 @@
 哪些外部来源需要重新核实时更新
 ```
 
+变更接收回答：
+
+```text
+发布前新增需求和材质如何暂存
+新增项确认后迁移到哪些正式文档
+新范围冻结前哪些最终验收暂缓
+```
+
 ## 维护规则
 
 1. 不把开发过程流水账写进需求/架构/详细设计；这些内容写入 `development-log.md`。
 2. 不在 `chat-summary.md` 继续扩展正式规格；讨论结论应迁移到对应分类文档。
 3. 版本、依赖、工具链发生变化时，同时更新 `design.md` 摘要、`01-requirements.md`、`07-references.md` 和 `development-log.md`。
 4. 新增资产时更新 `04-asset-spec.md`；新增验证任务时更新 `06-verification-release.md`。
+5. 发布前临时新增需求或材质先进入 `08-change-intake.md`，确认后再迁移到对应分类文档。

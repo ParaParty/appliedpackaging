@@ -27,6 +27,7 @@ Mod 名称：Applied Packaging / 应用封装
 | [05-implementation-plan.md](05-implementation-plan.md) | 实施计划 | 阶段拆分、里程碑、交付顺序和风险 |
 | [06-verification-release.md](06-verification-release.md) | 验证与发布 | JVM 测试、GameTest、客户端/服务端验证和发布标准 |
 | [07-references.md](07-references.md) | 参考来源 | 外部版本、AE2 语义和工具链来源 |
+| [08-change-intake.md](08-change-intake.md) | 变更接收 | 发布前新增需求、材质替换和范围冻结暂存 |
 | [chat-summary.md](chat-summary.md) | 讨论记录 | 保留历史命名、美术和玩法讨论，不作为实现源文件 |
 | [development-log.md](development-log.md) | 开发日志 | 记录阶段性决策、命令、结果和下一步 |
 

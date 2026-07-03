@@ -384,8 +384,8 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 
 ```text
 Dedicated server full world-load：未完成。
-原因：run/eula.txt 当前为 eula=false，服务端按 Mojang EULA 在世界加载前停止。
-需要用户显式接受 EULA 后重新执行 .\gradlew.bat runServer，确认专用服务端进入世界加载并无客户端类误加载。
+原因：用户已在 2026-07-04 明确同意 EULA，run/eula.txt 当前为 eula=true；但用户将在 2026-07-05 补充需求和材质，最终 dedicated server world-load 等新增范围冻结后执行。
+需要在新增需求和材质实现并验证后重新执行 .\gradlew.bat runServer，确认专用服务端进入世界加载并无客户端类误加载。
 ```
 
 当前记录的非阻塞发布后增强：
@@ -416,14 +416,14 @@ Git 初始化和文档管理：已完成。证据：仓库有连续提交记录�
 GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
 DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
-Dedicated server full world-load：未完成。证据不足原因：run/eula.txt 当前为 eula=false，服务端在世界加载前按 Mojang EULA 停止。
-发布 tag：未完成。原因：最终 dedicated server full world-load 尚未验收；发布 tag 应在该验收通过后创建。
+Dedicated server full world-load：未完成。证据不足原因：用户已在 2026-07-04 明确同意 EULA，run/eula.txt 当前为 eula=true；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
+发布 tag：未完成。原因：新增需求和材质尚待输入，最终 dedicated server full world-load 尚未验收；发布 tag 应在新增范围完成且服务端验收通过后创建。
 ```
 
 当前目标完成判定：
 
 ```text
 不能标记完成。
-阻塞项不是玩法功能缺失，而是本地 dedicated server full world-load 需要用户显式接受 Mojang EULA 后才能继续验证。
-发布 tag 也应等待该最终验证通过后再创建。
+当前不再是 EULA 阻塞；用户将在 2026-07-05 补充需求和材质，最终发布范围尚未冻结。
+发布 tag 应等待新增范围完成、重新验证并通过 dedicated server full world-load 后再创建。
 ```

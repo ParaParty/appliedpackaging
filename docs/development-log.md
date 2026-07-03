@@ -1095,3 +1095,14 @@ smoke 在 atlas 创建完成后手动终止客户端；退出码来自人工终�
   明确发布 tag 应等待 dedicated server full world-load 通过后创建
 本次仅补齐验收证据文档；GameTest 已按规则考虑，未新增行为测试。
 ```
+
+最新进展：
+
+```text
+为 2026-07-05 新增需求和材质补充建立接收入口：
+  新增 docs/08-change-intake.md，用于暂存发布前新增需求、材质替换、影响判定和范围冻结状态
+  更新 docs/00-document-index.md 和 docs/design.md，把 08-change-intake 纳入文档体系
+  更新 docs/06-verification-release.md，将 EULA 状态从 eula=false 阻塞改为用户已同意且 run/eula.txt 为 eula=true
+  最终 dedicated server full world-load 和发布 tag 暂缓到新增需求/材质冻结、实现并验证之后
+本次只改文档和验收状态记录；GameTest 已按规则考虑，未新增行为测试。
+```

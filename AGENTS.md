@@ -16,6 +16,7 @@ docs/04-asset-spec.md
 docs/05-implementation-plan.md
 docs/06-verification-release.md
 docs/07-references.md
+docs/08-change-intake.md
 docs/development-log.md
 ```
 
@@ -48,7 +49,8 @@ Java: 17
 7. 阶段计划和风险写入 `docs/05-implementation-plan.md`。
 8. 测试、GameTest、构建、客户端/服务端验证和发布标准写入 `docs/06-verification-release.md`。
 9. 外部版本和语义来源写入 `docs/07-references.md`。
-10. 修改文档结构时同步更新 `docs/design.md` 与 `docs/00-document-index.md`。
+10. 发布前临时新增需求、材质替换和范围冻结状态写入 `docs/08-change-intake.md`，确认后再迁移到正式分类文档。
+11. 修改文档结构时同步更新 `docs/design.md` 与 `docs/00-document-index.md`。
 
 ## 4. 开发工作流
 

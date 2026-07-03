@@ -116,4 +116,5 @@ The dedicated server smoke stops at Mojang's EULA prompt until the user explicit
 - `docs/04-asset-spec.md` defines asset requirements and validation.
 - `docs/05-implementation-plan.md` tracks implementation phases.
 - `docs/06-verification-release.md` tracks tests, smoke checks, and release criteria.
+- `docs/08-change-intake.md` tracks pre-release requirement and asset additions before they are migrated into the formal specs.
 - `CHANGELOG.md` contains release notes.
