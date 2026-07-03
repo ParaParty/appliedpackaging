@@ -1702,3 +1702,20 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强资产验
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计均通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次变更影响样板终端 Split 行为与玩家可获得样板载体，属于行为敏感变更。已扩展现有 Split 相关 GameTest 断言，并已执行 .\gradlew.bat runGameTestServer --stacktrace。
 ```
+
+最新进展：
+
+```text
+补齐玩家入口产品不变量 release audit：
+  scripts/verify-release.ps1 新增产品不变量审计
+  检查本地 package_pattern / packaged_processing_pattern 不作为 recipe 输出
+  检查 Applied Packaging 创造栏不暴露本地 package_pattern / packaged_processing_pattern
+  检查 package_pattern_terminal 仍注册为 AE2 PartItem，且没有退回 BlockItem
+  scripts/test-release-audit.ps1 的临时 fixture 补齐最小 recipe/source 输入
+  scripts/test-release-audit.ps1 新增本地样板 recipe 输出、创造栏本地样板和终端 BlockItem 回退三个负例
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 scripts/verify-release.ps1 和 scripts/test-release-audit.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-audit.ps1 成功，确认 valid fixture 退出 0，missing README、tampered metadata、local path leak、local pattern recipe output、creative local pattern 和 terminal block item fixture 均按预期失败
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts 成功，确认当前项目满足新增产品不变量审计
+GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只增强机械发布审计脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```

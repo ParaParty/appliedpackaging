@@ -231,6 +231,57 @@ harness_assumptions:
   }
 }
 "@
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/data/appliedpackaging/recipes/package_pattern_terminal.json") -Text @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:pattern_encoding_terminal"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:package_pattern_terminal"
+  }
+}
+"@
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java") -Text @"
+package com.warmthdawn.appliedpackaging.registry;
+
+public final class APCreativeTabs {
+    private APCreativeTabs() {
+    }
+
+    public static void build(FixtureOutput output) {
+        output.accept(APItems.ME_PACKAGER.get());
+        output.accept(APItems.PACKAGE_ASSEMBLER.get());
+        output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
+    }
+}
+"@
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Text @"
+package com.warmthdawn.appliedpackaging.registry;
+
+import appeng.items.parts.PartItem;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+
+public final class APItems {
+    public static final RegistryObject<Item> PACKAGE_PATTERN = ITEMS.register(
+            "package_pattern",
+            () -> new Item(new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGED_PROCESSING_PATTERN = ITEMS.register(
+            "packaged_processing_pattern",
+            () -> new Item(new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
+            "package_pattern_terminal",
+            () -> new PartItem<>(
+                    new Item.Properties(),
+                    PackagePatternTerminalPart.class,
+                    PackagePatternTerminalPart::new));
+}
+"@
 
     $texturePath = Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/textures/item/release_audit_fixture.png"
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $texturePath) | Out-Null
@@ -325,6 +376,65 @@ try {
         -JarPath $leakedPathFixture.JarPath `
         -ExpectedExitCode 1 `
         -ExpectedText "Jar text resources leak local/reference paths"
+
+    $localPatternRecipeFixture = New-ReleaseAuditFixture "local-pattern-recipe"
+    Write-Utf8File -Path (Join-Path $localPatternRecipeFixture.RootPath "src/main/resources/data/appliedpackaging/recipes/local_package_pattern.json") -Text @"
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:blank_pattern"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:package_pattern"
+  }
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "local pattern recipe output fixture" `
+        -RootPath $localPatternRecipeFixture.RootPath `
+        -JarPath $localPatternRecipeFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Local pattern compatibility items are recipe outputs"
+
+    $creativeLocalPatternFixture = New-ReleaseAuditFixture "creative-local-pattern"
+    Write-Utf8File -Path (Join-Path $creativeLocalPatternFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java") -Text @"
+package com.warmthdawn.appliedpackaging.registry;
+
+public final class APCreativeTabs {
+    public static void build(FixtureOutput output) {
+        output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
+        output.accept(APItems.PACKAGE_PATTERN.get());
+    }
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "creative local pattern fixture" `
+        -RootPath $creativeLocalPatternFixture.RootPath `
+        -JarPath $creativeLocalPatternFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Creative tab exposes local pattern compatibility items"
+
+    $terminalBlockItemFixture = New-ReleaseAuditFixture "terminal-blockitem"
+    Write-Utf8File -Path (Join-Path $terminalBlockItemFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Text @"
+package com.warmthdawn.appliedpackaging.registry;
+
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+
+public final class APItems {
+    public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
+            "package_pattern_terminal",
+            () -> new BlockItem(APBlocks.PACKAGE_PATTERN_TERMINAL.get(), new Item.Properties()));
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "terminal block item fixture" `
+        -RootPath $terminalBlockItemFixture.RootPath `
+        -JarPath $terminalBlockItemFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package pattern terminal item registers as an AE2 PartItem"
 
     Write-Host ""
     Write-Host "Release audit self-test passed." -ForegroundColor Green

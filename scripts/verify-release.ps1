@@ -214,6 +214,118 @@ function Get-ZipEntryText {
     }
 }
 
+function Get-RepoRelativePath {
+    param([string] $Path)
+
+    $resolvedRoot = (Resolve-Path ".").Path
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    return [System.IO.Path]::GetRelativePath($resolvedRoot, $resolvedPath).Replace("\", "/")
+}
+
+function Get-RecipeResultItems {
+    param([object] $Recipe)
+
+    $items = [System.Collections.Generic.List[string]]::new()
+    if ($null -eq $Recipe -or -not ($Recipe -is [System.Collections.IDictionary]) -or -not $Recipe.Contains("result")) {
+        return $items
+    }
+
+    $result = $Recipe["result"]
+    if ($result -is [string]) {
+        $items.Add($result) | Out-Null
+        return $items
+    }
+
+    if ($result -is [System.Collections.IDictionary]) {
+        foreach ($key in @("item", "id")) {
+            if ($result.Contains($key) -and $result[$key] -is [string]) {
+                $items.Add($result[$key]) | Out-Null
+            }
+        }
+        return $items
+    }
+
+    if ($result -is [System.Collections.IEnumerable] -and -not ($result -is [string])) {
+        foreach ($entry in $result) {
+            if ($entry -is [System.Collections.IDictionary]) {
+                foreach ($key in @("item", "id")) {
+                    if ($entry.Contains($key) -and $entry[$key] -is [string]) {
+                        $items.Add($entry[$key]) | Out-Null
+                    }
+                }
+            } elseif ($entry -is [string]) {
+                $items.Add($entry) | Out-Null
+            }
+        }
+    }
+
+    return $items
+}
+
+function Test-ProductInvariants {
+    $forbiddenLocalPatternItems = @(
+        "appliedpackaging:package_pattern",
+        "appliedpackaging:packaged_processing_pattern"
+    )
+
+    $recipeFiles = @(Get-ChildItem "src/main/resources/data/appliedpackaging/recipes" -Filter "*.json" -File -ErrorAction SilentlyContinue)
+    $forbiddenRecipeOutputs = [System.Collections.Generic.List[string]]::new()
+    foreach ($recipeFile in $recipeFiles) {
+        try {
+            $recipe = Get-Content $recipeFile.FullName -Raw | ConvertFrom-Json -Depth 100 -AsHashtable
+        } catch {
+            continue
+        }
+
+        foreach ($resultItem in Get-RecipeResultItems $recipe) {
+            if ($resultItem -in $forbiddenLocalPatternItems) {
+                $forbiddenRecipeOutputs.Add("$(Get-RepoRelativePath $recipeFile.FullName) -> $resultItem") | Out-Null
+            }
+        }
+    }
+
+    if ($forbiddenRecipeOutputs.Count -eq 0) {
+        Add-Pass "Local pattern compatibility items are not recipe outputs"
+    } else {
+        Add-Fail "Local pattern compatibility items are recipe outputs: $($forbiddenRecipeOutputs -join ', ')"
+    }
+
+    $creativeTabPath = "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java"
+    if (Test-Path -LiteralPath $creativeTabPath) {
+        $creativeTabText = Get-Content -LiteralPath $creativeTabPath -Raw
+        $forbiddenCreativeItems = @(
+            [regex]::Matches(
+                $creativeTabText,
+                'output\.accept\s*\(\s*APItems\.(PACKAGE_PATTERN|PACKAGED_PROCESSING_PATTERN)\.get\s*\(\s*\)\s*\)')
+                | ForEach-Object { $_.Groups[1].Value }
+        )
+        if ($forbiddenCreativeItems.Count -eq 0) {
+            Add-Pass "Creative tab does not expose local pattern compatibility items"
+        } else {
+            Add-Fail "Creative tab exposes local pattern compatibility items: $($forbiddenCreativeItems -join ', ')"
+        }
+
+        Assert-True `
+            ($creativeTabText -match 'output\.accept\s*\(\s*APItems\.PACKAGE_PATTERN_TERMINAL\.get\s*\(\s*\)\s*\)') `
+            "Creative tab exposes package pattern terminal item"
+    } else {
+        Add-Fail "Creative tab source exists: $creativeTabPath"
+    }
+
+    $itemsPath = "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java"
+    if (Test-Path -LiteralPath $itemsPath) {
+        $itemsText = Get-Content -LiteralPath $itemsPath -Raw
+        Assert-True `
+            ($itemsText -match 'PACKAGE_PATTERN_TERMINAL\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+PartItem\s*<\s*>\s*\(') `
+            "Package pattern terminal item registers as an AE2 PartItem"
+        Assert-True `
+            ($itemsText -notmatch 'PACKAGE_PATTERN_TERMINAL\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+BlockItem\s*\(\s*APBlocks\.PACKAGE_PATTERN_TERMINAL') `
+            "Package pattern terminal item is not registered as a BlockItem"
+    } else {
+        Add-Fail "Item registry source exists: $itemsPath"
+    }
+}
+
 function Resolve-Assetgen {
     if (-not [string]::IsNullOrWhiteSpace($AssetgenPath)) {
         $resolved = Resolve-Path $AssetgenPath -ErrorAction SilentlyContinue
@@ -412,6 +524,8 @@ if ($badJson.Count -eq 0) {
 } else {
     Add-Fail "Invalid JSON files: $($badJson -join ', ')"
 }
+
+Test-ProductInvariants
 
 $pngFiles = @(Get-ChildItem "src/main/resources/assets/appliedpackaging" -Recurse -Filter "*.png" -File)
 Assert-True ($pngFiles.Count -gt 0) "PNG resources are present"
