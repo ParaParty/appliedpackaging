@@ -269,7 +269,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/verify-release-bundle.ps1` 读取 release bundle 和当前源文件，检查 zip 条目集合、每个条目的 SHA-256、SHA256SUMS 内容，以及 bundle 内 manifest 的 artifact fileName/sha256 是否匹配 bundle 内 jar。使用 `-RequireCleanGit` 时，如果当前 git 工作树不干净会失败。
 
-`scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract 和资产报告是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，并扫描仓库 Markdown 中的本地 inline link 是否可解析。
+`scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract、资产报告和关键发布脚本是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，并扫描仓库 Markdown 中的本地 inline link 是否可解析。
 
 `scripts/verify-release-readiness.ps1` 检查 `docs/08-change-intake.md` 的新增项暂存表，以及本文件的目标完成/发布 tag 判定。默认模式用于预冻结审计，发现 blocker 时输出 WARN 但退出 0；使用 `-RequireReadyForTag` 时，任何待输入/待判定 intake、开放接收窗口、发布 tag 未完成或目标不能标记完成都会导致失败。
 

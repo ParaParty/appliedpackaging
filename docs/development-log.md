@@ -1420,3 +1420,30 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 ta
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增加发布 readiness 脚本自测和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐文档审计中的发布脚本存在性检查：
+  scripts/verify-docs.ps1 的 required path 集合新增关键发布脚本：
+    scripts/run-release-checks.ps1
+    scripts/run-server-smoke.ps1
+    scripts/verify-release.ps1
+    scripts/verify-docs.ps1
+    scripts/verify-release-readiness.ps1
+    scripts/test-release-readiness.ps1
+    scripts/write-release-manifest.ps1
+    scripts/verify-release-manifest.ps1
+    scripts/write-release-bundle.ps1
+    scripts/verify-release-bundle.ps1
+  Assert-PathExists 输出从 Required document exists 调整为 Required path exists，以覆盖文档与脚本两类路径
+  AGENTS.md、README.md、CHANGELOG.md 和 docs/06-verification-release.md 同步说明 verify-docs 会检查关键发布脚本
+验证 PowerShell parser 解析 verify-docs.ps1、verify-release-readiness.ps1、test-release-readiness.ps1 和 run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认必需文档、资产文档、关键发布脚本、文档入口和本地 Markdown 链接均通过
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 成功，当前正式文档仍报告 4 个非致命 blocker
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag 按预期失败，当前正式文档仍阻止最终 tag
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布脚本文档审计，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。
+```

@@ -24,9 +24,9 @@ function Assert-PathExists {
     param([string] $Path)
 
     if (Test-Path -LiteralPath $Path) {
-        Add-Pass "Required document exists: $Path"
+        Add-Pass "Required path exists: $Path"
     } else {
-        Add-Fail "Required document exists: $Path"
+        Add-Fail "Required path exists: $Path"
     }
 }
 
@@ -136,7 +136,17 @@ $requiredPaths = @(
     "docs/assets/reports/packages.md",
     "docs/assets/reports/machines.md",
     "docs/assets/reports/terminal-and-buses.md",
-    "docs/assets/reports/ui-and-icons.md"
+    "docs/assets/reports/ui-and-icons.md",
+    "scripts/run-release-checks.ps1",
+    "scripts/run-server-smoke.ps1",
+    "scripts/verify-release.ps1",
+    "scripts/verify-docs.ps1",
+    "scripts/verify-release-readiness.ps1",
+    "scripts/test-release-readiness.ps1",
+    "scripts/write-release-manifest.ps1",
+    "scripts/verify-release-manifest.ps1",
+    "scripts/write-release-bundle.ps1",
+    "scripts/verify-release-bundle.ps1"
 )
 
 foreach ($path in $requiredPaths) {
