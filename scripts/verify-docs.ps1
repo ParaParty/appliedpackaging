@@ -142,6 +142,7 @@ $requiredPaths = @(
     "scripts/verify-release.ps1",
     "scripts/verify-docs.ps1",
     "scripts/verify-release-readiness.ps1",
+    "scripts/test-release-self-tests.ps1",
     "scripts/test-release-readiness.ps1",
     "scripts/test-release-check-plan.ps1",
     "scripts/test-release-manifest.ps1",

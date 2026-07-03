@@ -1592,3 +1592,23 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 bu
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认 manifest/bundle 正式路径仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 manifest 自测和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+补齐 release 自测聚合入口：
+  新增 scripts/test-release-self-tests.ps1
+  聚合运行 scripts/test-release-readiness.ps1
+  聚合运行 scripts/test-release-check-plan.ps1
+  聚合运行 scripts/test-release-manifest.ps1
+  聚合运行 scripts/test-release-bundle.ps1
+  该脚本不运行 Gradle、客户端或服务端，只验证发布脚本自测套件和负路径 guardrails
+  scripts/verify-docs.ps1 将 scripts/test-release-self-tests.ps1 纳入必需发布脚本路径
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 test-release-self-tests.ps1、test-release-readiness.ps1、test-release-check-plan.ps1、test-release-manifest.ps1、test-release-bundle.ps1 和 verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1 成功；开发中工作区 dirty，manifest/bundle 子测试的 clean-git fixture 按预期跳过，提交后需重跑覆盖
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认 scripts/test-release-self-tests.ps1 已纳入必需发布脚本路径
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认 manifest/bundle 正式路径仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增加发布脚本自测聚合入口和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```

@@ -28,6 +28,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/test-release-check-plan.ps1` self-tests the release-candidate plan order, forbidden skip flags, and server world-load guardrails without running Minecraft.
 - `scripts/test-release-manifest.ps1` self-tests release manifest generation and audit failure paths without running Minecraft.
 - `scripts/test-release-bundle.ps1` self-tests release bundle generation and audit failure paths without running Minecraft.
+- `scripts/test-release-self-tests.ps1` runs the release-readiness, release-plan, manifest, and bundle self-tests together without starting Minecraft.
 - `scripts/verify-docs.ps1` now verifies required release scripts as part of documentation and release workflow consistency.
 - `scripts/verify-release-bundle.ps1` cross-checks bundled manifest mod/version, jar SHA-256, and clean-git metadata.
 
@@ -61,6 +62,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan still includes build, data, GameTest, client smoke, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order, rejects all skip flags, and protects server world-load audit usage.
 - `scripts/test-release-manifest.ps1` passed, confirming valid manifest fixtures pass and tampered mod metadata or jar hashes fail.
 - `scripts/test-release-bundle.ps1` passed, confirming valid bundle fixtures pass and tampered manifest metadata or bundled README contents fail.
+- `scripts/test-release-self-tests.ps1` passed, confirming the release script self-test suite runs from one command.
 - `scripts/verify-docs.ps1` passed required document, release script, document index, and local Markdown link checks.
 - `scripts/run-release-checks.ps1 -AuditOnly -RequireCleanGit` passed for the current committed baseline.
 
