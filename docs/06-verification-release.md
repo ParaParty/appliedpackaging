@@ -283,6 +283,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-release-bundle.ps1` 使用临时输出路径调用 release manifest/bundle writer，确认有效 bundle fixture 可通过 `verify-release-bundle.ps1`，并确认篡改 bundle 内 manifest mod id 或 README.md 内容会被 bundle audit 拒绝。脚本只写入系统临时目录，不运行 Gradle、客户端或服务端；工作区干净时还会额外运行 `verify-release-bundle.ps1 -RequireCleanGit` 覆盖 git 元数据校验路径。
 
+当前资产资源审计规则中的发布 PNG 变更包括必需资源清单、路径归类、RGBA header、可见非占位像素内容和尺寸规则；修改这些规则时同步运行 `scripts/verify-assets.ps1` 与 `scripts/test-assets-audit.ps1`。
+
 `scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract、资产报告和关键发布脚本是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，检查正式设计文档中不含 `TODO` / `FIXME` / `TBD` / `待定` / `待补充` / `等待 X` 类未清理占位，并扫描仓库 Markdown 中的本地 inline link 是否可解析。使用 `-RootPath` 时可对临时 fixture 执行同一套审计。
 
 `scripts/test-docs-audit.ps1` 使用临时文档 fixture 调用 `verify-docs.ps1 -RootPath`，覆盖有效 fixture、缺少必需文档路径、正式文档未清理占位和本地 Markdown 断链四种路径。该脚本只写入系统临时目录，不修改正式设计文档。

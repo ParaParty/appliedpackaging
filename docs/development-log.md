@@ -1826,3 +1826,15 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只增强机械发布审计脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+补齐资产资源审计说明：
+  AGENTS.md 明确 scripts/verify-assets.ps1 当前审计范围包含必需 PNG、已知路径、RGBA PNG header、可见非占位像素内容和尺寸规则
+  docs/06-verification-release.md 明确发布 PNG 变更覆盖路径归类、RGBA header、可见非占位像素内容和尺寸规则
+  保持新增需求和材质输入等待 docs/08-change-intake.md 中的 IN-001/IN-002 后续补充
+验证 git diff --check 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只调整 agent 指令与发布验收文档说明，不改变游戏行为、数据生成、资源文件、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
