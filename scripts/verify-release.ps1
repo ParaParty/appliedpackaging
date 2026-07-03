@@ -5,7 +5,8 @@ param(
     [switch] $RequireLog,
     [switch] $RequireServerWorldLoad,
     [switch] $RequireAssetContracts,
-    [switch] $RequireClientSmokeScreenshots
+    [switch] $RequireClientSmokeScreenshots,
+    [switch] $RequireCleanGit
 )
 
 $ErrorActionPreference = "Stop"
@@ -165,6 +166,27 @@ function Test-PngSignature {
     }
 }
 
+function Test-CleanGitWorktree {
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($null -eq $git) {
+        Add-Fail "git is available for clean working tree check"
+        return
+    }
+
+    $statusOutput = & $git.Source status --porcelain=v1 --untracked-files=all 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Add-Fail "git status --porcelain succeeds: $($statusOutput -join ' ')"
+        return
+    }
+
+    $statusLines = @($statusOutput | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($statusLines.Count -eq 0) {
+        Add-Pass "Git working tree is clean"
+    } else {
+        Add-Fail "Git working tree is clean: $($statusLines -join '; ')"
+    }
+}
+
 function Get-ZipEntryText {
     param(
         [System.IO.Compression.ZipArchive] $Zip,
@@ -250,6 +272,10 @@ function Invoke-AssetgenValidateContract {
 
 Write-Host "Applied Packaging release audit" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
+
+if ($RequireCleanGit) {
+    Test-CleanGitWorktree
+}
 
 $projectProperties = Read-PropertiesFile "gradle.properties"
 $requiredProjectProperties = @(

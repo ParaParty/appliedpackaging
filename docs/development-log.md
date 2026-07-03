@@ -1216,3 +1216,17 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布验
   保留发布 tag 暂缓到新增需求/材质冻结、实现并重新验证之后
 GameTest：已考虑。发现现有 runGameTestServer；本次只修正文档状态，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐 clean git 发布门禁：
+  scripts/verify-release.ps1 新增 -RequireCleanGit，可选执行 git status --porcelain=v1 --untracked-files=all，并要求工作树无输出
+  scripts/run-release-checks.ps1 新增 -RequireCleanGit，并传递给机械发布审计
+  更新 docs/05-implementation-plan.md、docs/06-verification-release.md、docs/08-change-intake.md、README.md、AGENTS.md
+  该门禁只用于最终范围冻结、所有变更提交后、发布 tag 创建前；默认发布检查流程不因开发中的脏工作树失败
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -AuditOnly -RequireCleanGit 成功，计划中的机械审计包含 -RequireCleanGit
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad 成功，确认默认发布审计不受开发中脏工作树影响
+提交后执行 AuditOnly -RequireCleanGit 验证 clean 工作树通过
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布验证脚本和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```

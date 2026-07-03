@@ -347,12 +347,13 @@ runClientSmoke GUI screenshot smoke
 已完成：
   CHANGELOG.md、README.md、LICENSE.md 与 Forge/AE2/GuideME 版本声明已补齐
   build/libs/appliedpackaging-0.1.0-dev.jar 已生成
-  scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、asset contract、语言 key、模型贴图引用、client smoke 截图和 dedicated server latest.log 证据
+  scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、asset contract、语言 key、模型贴图引用、client smoke 截图、dedicated server latest.log 证据和可选 git clean 证据
   scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke 和机械发布审计
   使用 -RunClientSmoke 时会自动审计 6 张 client smoke 截图存在、非空且为有效 PNG
   dedicated server world-load 已在当前基线通过；服务端 latest.log 审计需在手动 runServer 刷新日志后用 -AuditOnly -RequireServerWorldLoad 执行
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
+  最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit
 
 暂缓：
   0.1.0-dev 发布 tag 暂缓到用户补充需求和材质、范围冻结、实现并重新验证之后
@@ -361,7 +362,7 @@ runClientSmoke GUI screenshot smoke
 验收：
 
 ```text
-git 工作树干净
+git 工作树干净，且最终冻结后可由 run-release-checks.ps1 -AuditOnly -RequireCleanGit 机械验证
 build/libs/appliedpackaging-<version>.jar 存在
 run-release-checks.ps1 -RunClientSmoke 成功
 runServer 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功

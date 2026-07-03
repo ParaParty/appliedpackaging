@@ -6,6 +6,7 @@ param(
     [switch] $RunClientSmoke,
     [switch] $RequireClientSmokeScreenshots,
     [switch] $RequireServerWorldLoad,
+    [switch] $RequireCleanGit,
     [switch] $SkipAssetContracts,
     [switch] $PlanOnly
 )
@@ -96,6 +97,10 @@ if ($RequireServerWorldLoad) {
 
 if ($RunClientSmoke -or $RequireClientSmokeScreenshots) {
     $verifyCommand += "-RequireClientSmokeScreenshots"
+}
+
+if ($RequireCleanGit) {
+    $verifyCommand += "-RequireCleanGit"
 }
 
 $steps.Add(@{

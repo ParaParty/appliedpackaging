@@ -76,6 +76,7 @@ Useful commands:
 .\gradlew.bat runClient
 .\gradlew.bat runClientSmoke
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 ```
@@ -88,9 +89,9 @@ The project uses ModDevGradle Legacy with Java 17. GameTest structures are copie
 .\gradlew.bat runClientSmoke -Pappliedpackaging.clientSmoke.world="Your World Name"
 ```
 
-`scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, optional client smoke screenshot files, and optional `latest.log` server world-load evidence. It does not replace the Gradle, GameTest, client smoke, or server smoke runs. Known external Yggdrasil public-key fetch failures are reported as warnings during log diagnostics; Applied Packaging, classloading, crash, missing texture, and other diagnostic keywords still fail the audit.
+`scripts/verify-release.ps1` performs mechanical release checks for version metadata, jar contents, local path leaks, resource JSON, PNGs, asset contracts, language keys, model texture references, optional client smoke screenshot files, optional `latest.log` server world-load evidence, and optional clean git working-tree evidence. It does not replace the Gradle, GameTest, client smoke, or server smoke runs. Known external Yggdrasil public-key fetch failures are reported as warnings during log diagnostics; Applied Packaging, classloading, crash, missing texture, and other diagnostic keywords still fail the audit.
 
-`scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, and the mechanical release audit. When `-RunClientSmoke` is used, the audit also requires all 6 smoke screenshots to exist as valid PNG files. Use `-RequireServerWorldLoad` only with `-AuditOnly`; `runData`, `runGameTestServer`, and `runClientSmoke` overwrite `run/logs/latest.log`. Run `.\gradlew.bat runServer` manually after the final scope freeze to refresh server world-load evidence, then run `scripts/run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad`.
+`scripts/run-release-checks.ps1` orchestrates the release check sequence: `build`, `runData`, `runGameTestServer`, optional `runClientSmoke`, and the mechanical release audit. When `-RunClientSmoke` is used, the audit also requires all 6 smoke screenshots to exist as valid PNG files. Use `-RequireServerWorldLoad` only with `-AuditOnly`; `runData`, `runGameTestServer`, and `runClientSmoke` overwrite `run/logs/latest.log`. Run `.\gradlew.bat runServer` manually after the final scope freeze to refresh server world-load evidence, then run `scripts/run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad`. After all release changes are committed, add `-RequireCleanGit` before creating the release tag.
 
 ## Verification Status
 
