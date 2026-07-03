@@ -357,9 +357,11 @@ runClientSmoke GUI screenshot smoke
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
   当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
-  当前提交基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server Done (2.471s)、release audit、docs audit、manifest audit 和 bundle audit
+  当前提交基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server Done (2.471s)、release audit、asset audit、docs audit、manifest audit 和 bundle audit
   GuideME 发布依赖范围已进入 mods.toml，并通过 build、release audit、manifest audit 和 server smoke 验证
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
+  资产资源审计可由 verify-assets.ps1 覆盖必需 PNG、路径归类、RGBA PNG header 和 item/block/gui/part/logo 尺寸
+  资产资源审计自测可由 test-assets-audit.ps1 覆盖有效资产 fixture、错尺寸、坏 PNG header 和缺必需 PNG
   发布清单已由 write-release-manifest.ps1 生成到 build/release/ 并核对 jar SHA-256 与 git commit
   发布清单可由 verify-release-manifest.ps1 复验，确认当前 jar、gradle.properties 和 git HEAD 与清单一致
   机械发布审计自测可由 test-release-audit.ps1 覆盖有效 release audit fixture、jar 必需条目缺失、mods.toml 元数据篡改和本机路径泄漏
@@ -367,7 +369,7 @@ runClientSmoke GUI screenshot smoke
   发布附件包可由 write-release-bundle.ps1 生成到 build/release/ 并由 verify-release-bundle.ps1 复验 jar、manifest、README、CHANGELOG、LICENSE、SHA256SUMS、bundle manifest mod/version、jar SHA-256 和 clean-git 元数据
   发布附件包自测可由 test-release-bundle.ps1 覆盖有效 bundle、manifest 篡改和 bundled README 篡改路径
   文档审计自测可由 test-docs-audit.ps1 覆盖有效 fixture、缺必需文件和本地 Markdown 断链路径
-  发布脚本自测套件可由 test-release-self-tests.ps1 聚合运行 docs audit、release audit、readiness、release plan、manifest 和 bundle 自测
+  发布脚本自测套件可由 test-release-self-tests.ps1 聚合运行 docs audit、asset audit、release audit、readiness、release plan、manifest 和 bundle 自测
   文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口和本地 Markdown 链接
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
 

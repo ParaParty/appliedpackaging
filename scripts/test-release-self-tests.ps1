@@ -11,6 +11,10 @@ $selfTests = @(
         Path = Join-Path $repoRoot "scripts/test-docs-audit.ps1"
     },
     @{
+        Name = "Asset audit self-test"
+        Path = Join-Path $repoRoot "scripts/test-assets-audit.ps1"
+    },
+    @{
         Name = "Release audit self-test"
         Path = Join-Path $repoRoot "scripts/test-release-audit.ps1"
     },

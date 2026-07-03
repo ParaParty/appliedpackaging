@@ -26,11 +26,13 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/verify-release-readiness.ps1` and `run-release-checks.ps1 -RequireReadyForTag` gate final tagging on a frozen intake table, completed release status, and explicit positive release-ready signals.
 - `scripts/test-release-readiness.ps1` self-tests the release-readiness gate against ready, blocked, structural-failure, and missing-positive-signal fixtures.
 - `scripts/test-release-check-plan.ps1` self-tests the release-candidate plan order, forbidden skip flags, and server world-load guardrails without running Minecraft.
+- `scripts/verify-assets.ps1` audits release PNG resources for required files, known paths, RGBA headers, and expected dimensions.
+- `scripts/test-assets-audit.ps1` self-tests asset audit success and failure paths without editing real assets.
 - `scripts/test-release-audit.ps1` self-tests mechanical release audit success and failure paths without running Minecraft.
 - `scripts/test-release-manifest.ps1` self-tests release manifest generation and audit failure paths without running Minecraft.
 - `scripts/test-release-bundle.ps1` self-tests release bundle generation and audit failure paths without running Minecraft.
 - `scripts/test-docs-audit.ps1` self-tests documentation audit success and failure paths without editing real docs.
-- `scripts/test-release-self-tests.ps1` runs the docs-audit, release-audit, release-readiness, release-plan, manifest, and bundle self-tests together without starting Minecraft.
+- `scripts/test-release-self-tests.ps1` runs the docs-audit, asset-audit, release-audit, release-readiness, release-plan, manifest, and bundle self-tests together without starting Minecraft.
 - `scripts/verify-docs.ps1` now verifies required release scripts as part of documentation and release workflow consistency.
 - `scripts/verify-release-bundle.ps1` cross-checks bundled manifest mod/version, jar SHA-256, and clean-git metadata.
 
@@ -62,6 +64,8 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/verify-release-readiness.ps1` reports the current pending requirement/asset intake, and `scripts/verify-release-readiness.ps1 -RequireReadyForTag` fails as expected until that intake is resolved.
 - `scripts/test-release-readiness.ps1` passed, confirming the readiness gate can pass ready fixtures and fail blocked, structurally invalid, or missing-positive-signal fixtures.
 - `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan still includes build, data, GameTest, client smoke, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order, rejects all skip flags, and protects server world-load audit usage.
+- `scripts/verify-assets.ps1` passed, confirming required PNG resources are present and match the expected asset dimensions.
+- `scripts/test-assets-audit.ps1` passed, confirming valid asset fixtures pass and bad dimensions, invalid PNG headers, or missing required PNGs fail.
 - `scripts/test-release-audit.ps1` passed, confirming valid release audit fixtures pass and missing jar README, tampered mod metadata, or local path leaks fail.
 - `scripts/test-release-manifest.ps1` passed, confirming valid manifest fixtures pass and tampered mod metadata or jar hashes fail.
 - `scripts/test-release-bundle.ps1` passed, confirming valid bundle fixtures pass and tampered manifest metadata or bundled README contents fail.

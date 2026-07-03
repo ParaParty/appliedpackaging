@@ -200,9 +200,12 @@ docs/assets/contracts/me_packager.yaml
 docs/assets/contracts/package_assembler.yaml
 docs/assets/contracts/terminal_and_buses.yaml
 docs/assets/contracts/ui_icons.yaml
+scripts/verify-assets.ps1
+scripts/test-assets-audit.ps1
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
+当前发布资源 PNG 尺寸门禁由 `scripts/verify-assets.ps1` 自动检查：item/block 资源为 32x32，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，并要求资源 PNG 使用 RGBA color type。
 
 ## 9. 当前资产交付状态
 
@@ -234,6 +237,7 @@ docs/assets/reports/*.md
 ```text
 5 个 asset contract 均 validate ok
 60 个 PNG 尺寸符合预期
+scripts/verify-assets.ps1 通过，确认必需 PNG 存在、路径归类正确、PNG header 有效、RGBA 类型和尺寸符合规格
 55 个 JSON 可解析
 block model 坐标保持在 0..16
 texture/model 引用存在

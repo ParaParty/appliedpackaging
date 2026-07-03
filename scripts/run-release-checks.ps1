@@ -160,6 +160,18 @@ $steps.Add(@{
     Command = $verifyCommand
 }) | Out-Null
 
+$steps.Add(@{
+    Name = "Asset resource audit"
+    Command = @(
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".\scripts\verify-assets.ps1"
+    )
+}) | Out-Null
+
 if (-not $SkipDocs) {
     $steps.Add(@{
         Name = "Documentation audit"

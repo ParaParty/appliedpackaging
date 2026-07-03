@@ -1657,3 +1657,32 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强文档审
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布机械审计脚本、自测聚合入口和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+补齐 asset resource audit：
+  新增 scripts/verify-assets.ps1
+  审计 src/main/resources/assets/appliedpackaging 下的发布 PNG 资源
+  检查必需 PNG 是否存在
+  检查 PNG header 有效且 color type 为 RGBA
+  检查 PNG 路径位于已知 release asset 目录
+  检查 item/block 为 32x32，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128
+  新增 scripts/test-assets-audit.ps1
+  自测使用系统临时目录复制当前资源 fixture，不修改正式资源
+  覆盖有效资源、错尺寸、坏 PNG header 和缺必需 PNG
+  scripts/run-release-checks.ps1 新增 Asset resource audit 步骤，位于 Mechanical release audit 之后、Documentation audit 之前
+  scripts/test-release-check-plan.ps1 已检查候选发布计划包含 Asset resource audit
+  scripts/verify-docs.ps1 将 verify-assets.ps1 和 test-assets-audit.ps1 纳入必需发布脚本路径
+  scripts/test-release-self-tests.ps1 已纳入 test-assets-audit.ps1
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/04-asset-spec.md、docs/assets/acceptance.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 verify-assets.ps1、test-assets-audit.ps1、run-release-checks.ps1、test-release-check-plan.ps1、verify-docs.ps1、test-docs-audit.ps1 和 test-release-self-tests.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，确认 60 个发布 PNG 的 header、RGBA 类型、路径归类和尺寸符合规格
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功，确认 valid fixture 退出 0，bad dimension、bad PNG header 和 missing required PNG fixture 均退出 1
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-check-plan.ps1 成功，确认 ReleaseCandidate 计划包含 Asset resource audit
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1 成功，确认 docs audit、asset audit、release audit、readiness、release plan、manifest 和 bundle 自测均可由聚合入口串行通过；开发中工作区 dirty，manifest/bundle 子测试的 clean-git fixture 按预期跳过，提交后需重跑覆盖
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认 verify-assets.ps1 和 test-assets-audit.ps1 已纳入必需发布脚本路径
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强资产验收脚本、发布检查编排、自测聚合入口和文档记录，不改变游戏行为、数据生成、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
