@@ -4,7 +4,8 @@ param(
     [string] $AssetgenPath,
     [switch] $RequireLog,
     [switch] $RequireServerWorldLoad,
-    [switch] $RequireAssetContracts
+    [switch] $RequireAssetContracts,
+    [switch] $RequireClientSmokeScreenshots
 )
 
 $ErrorActionPreference = "Stop"
@@ -140,6 +141,28 @@ function Get-ReleaseDiagnosticLogLines {
     }
 
     return $filtered
+}
+
+function Test-PngSignature {
+    param([string] $Path)
+
+    $expected = @(137, 80, 78, 71, 13, 10, 26, 10)
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        if ($stream.Length -lt $expected.Count) {
+            return $false
+        }
+
+        foreach ($byte in $expected) {
+            if ($stream.ReadByte() -ne $byte) {
+                return $false
+            }
+        }
+
+        return $true
+    } finally {
+        $stream.Dispose()
+    }
 }
 
 function Get-ZipEntryText {
@@ -364,6 +387,43 @@ if ($emptyPng.Count -eq 0) {
     Add-Pass "$($pngFiles.Count) PNG resources are non-empty"
 } else {
     Add-Fail "Empty PNG resources: $($emptyPng.FullName -join ', ')"
+}
+
+if ($RequireClientSmokeScreenshots) {
+    $expectedClientSmokeScreenshots = @(
+        "appliedpackaging-client-smoke-package_assembler.png",
+        "appliedpackaging-client-smoke-me_packager.png",
+        "appliedpackaging-client-smoke-package_pattern_terminal.png",
+        "appliedpackaging-client-smoke-package_storage_bus.png",
+        "appliedpackaging-client-smoke-package_export_bus.png",
+        "appliedpackaging-client-smoke-package_unpacking_bus.png"
+    )
+
+    $missingScreenshots = [System.Collections.Generic.List[string]]::new()
+    $invalidScreenshots = [System.Collections.Generic.List[string]]::new()
+    foreach ($screenshotName in $expectedClientSmokeScreenshots) {
+        $screenshotPath = Join-Path "run/screenshots" $screenshotName
+        $screenshot = Get-Item $screenshotPath -ErrorAction SilentlyContinue
+        if ($null -eq $screenshot) {
+            $missingScreenshots.Add($screenshotPath) | Out-Null
+            continue
+        }
+
+        if ($screenshot.Length -le 0 -or -not (Test-PngSignature $screenshot.FullName)) {
+            $invalidScreenshots.Add($screenshotPath) | Out-Null
+        }
+    }
+
+    if ($missingScreenshots.Count -eq 0 -and $invalidScreenshots.Count -eq 0) {
+        Add-Pass "$($expectedClientSmokeScreenshots.Count) client smoke screenshots are present and valid PNG files"
+    } else {
+        if ($missingScreenshots.Count -gt 0) {
+            Add-Fail "Missing client smoke screenshots: $($missingScreenshots -join ', ')"
+        }
+        if ($invalidScreenshots.Count -gt 0) {
+            Add-Fail "Invalid client smoke screenshots: $($invalidScreenshots -join ', ')"
+        }
+    }
 }
 
 $contractFiles = @(Get-ChildItem "docs/assets/contracts" -Filter "*.yaml" -File -ErrorAction SilentlyContinue)

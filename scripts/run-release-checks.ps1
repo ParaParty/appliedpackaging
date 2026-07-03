@@ -4,6 +4,7 @@ param(
     [switch] $SkipData,
     [switch] $SkipGameTest,
     [switch] $RunClientSmoke,
+    [switch] $RequireClientSmokeScreenshots,
     [switch] $RequireServerWorldLoad,
     [switch] $SkipAssetContracts,
     [switch] $PlanOnly
@@ -91,6 +92,10 @@ if (-not $SkipAssetContracts) {
 
 if ($RequireServerWorldLoad) {
     $verifyCommand += "-RequireServerWorldLoad"
+}
+
+if ($RunClientSmoke -or $RequireClientSmokeScreenshots) {
+    $verifyCommand += "-RequireClientSmokeScreenshots"
 }
 
 $steps.Add(@{

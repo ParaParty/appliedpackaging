@@ -1193,3 +1193,16 @@ GameTest：已考虑。未新增或运行 GameTest，原因是本次只增加发
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireServerWorldLoad 成功，输出 1 条 ignored external Yggdrasil public-key fetch WARN
 GameTest：已考虑。发现并运行现有 runGameTestServer；未新增或扩展 GameTest，原因是本次只修正发布验证脚本和文档，不改变 mod 运行行为。
 ```
+
+最新进展：
+
+```text
+补齐 client smoke 截图机械审计：
+  scripts/verify-release.ps1 新增 -RequireClientSmokeScreenshots
+  该审计要求 6 张 run/screenshots/appliedpackaging-client-smoke-*.png 均存在、非空且带 PNG 签名
+  scripts/run-release-checks.ps1 新增 -RequireClientSmokeScreenshots，并在使用 -RunClientSmoke 时自动传递该审计项
+  更新 docs/06-verification-release.md、docs/08-change-intake.md、README.md、AGENTS.md
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -RunClientSmoke 成功，计划中的机械审计包含 -RequireClientSmokeScreenshots
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad 成功，确认 6 张 client smoke 截图存在且为有效 PNG
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布验证脚本和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```

@@ -154,7 +154,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 ```
 
 如果项目阶段还没有对应任务，记录原因，不要把 build-only 当成行为验证。
-`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke` 和机械发布审计；它不会自动运行长期驻留的 `runServer`。`-RequireServerWorldLoad` 只能与 `-AuditOnly` 组合使用，避免 `runData`、`runGameTestServer` 或 `runClientSmoke` 覆盖 `run/logs/latest.log` 后误验服务端 world-load。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke` 和机械发布审计；它不会自动运行长期驻留的 `runServer`。使用 `-RunClientSmoke` 时会自动要求 6 张 client smoke 截图存在且为有效 PNG。`-RequireServerWorldLoad` 只能与 `-AuditOnly` 组合使用，避免 `runData`、`runGameTestServer` 或 `runClientSmoke` 覆盖 `run/logs/latest.log` 后误验服务端 world-load。
 `scripts/verify-release.ps1` 只做机械发布审计，不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
 
 ## 7. 禁止事项
