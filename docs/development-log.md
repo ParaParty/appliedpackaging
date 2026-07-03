@@ -1227,6 +1227,6 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只修正文档状
   该门禁只用于最终范围冻结、所有变更提交后、发布 tag 创建前；默认发布检查流程不因开发中的脏工作树失败
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -AuditOnly -RequireCleanGit 成功，计划中的机械审计包含 -RequireCleanGit
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad 成功，确认默认发布审计不受开发中脏工作树影响
-提交后执行 AuditOnly -RequireCleanGit 验证 clean 工作树通过
+验证提交 10b59b2 后执行 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit 成功，确认当前提交基线工作树干净
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布验证脚本和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```

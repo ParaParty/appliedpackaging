@@ -353,6 +353,7 @@ runClientSmoke GUI screenshot smoke
   dedicated server world-load 已在当前基线通过；服务端 latest.log 审计需在手动 runServer 刷新日志后用 -AuditOnly -RequireServerWorldLoad 执行
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
+  当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit
 
 暂缓：

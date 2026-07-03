@@ -105,6 +105,8 @@ build:             passed
 runClient smoke:   reached Minecraft client startup, Applied Packaging init, SoundEngine, and block atlas
 runClientSmoke:    opened and captured package assembler, packager, pattern terminal, and all three package bus screens
 runServer smoke:   reached dedicated server world-load, Done (2.724s), without Applied Packaging client-class loading errors
+release audit:     passed asset contracts, client smoke screenshots, and dedicated server world-load evidence
+clean git audit:   passed for the current committed baseline
 ```
 
 The current baseline dedicated server smoke has passed after local EULA acceptance. Final release tagging is paused until the pre-release requirement and asset intake is frozen and revalidated.
