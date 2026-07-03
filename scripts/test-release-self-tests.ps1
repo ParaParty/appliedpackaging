@@ -7,6 +7,10 @@ Set-Location $repoRoot
 
 $selfTests = @(
     @{
+        Name = "Documentation audit self-test"
+        Path = Join-Path $repoRoot "scripts/test-docs-audit.ps1"
+    },
+    @{
         Name = "Release readiness self-test"
         Path = Join-Path $repoRoot "scripts/test-release-readiness.ps1"
     },

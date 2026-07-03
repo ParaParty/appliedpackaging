@@ -1612,3 +1612,25 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 ma
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认 manifest/bundle 正式路径仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增加发布脚本自测聚合入口和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+补齐 documentation audit 自测：
+  scripts/verify-docs.ps1 新增 -RootPath 参数，可对临时 fixture 执行同一套文档审计
+  新增 scripts/test-docs-audit.ps1
+  自测使用系统临时目录生成最小文档 fixture，不修改正式 docs
+  覆盖有效 docs fixture 可通过 verify-docs.ps1 -RootPath
+  覆盖缺少 docs/04-asset-spec.md 时 verify-docs.ps1 失败
+  覆盖 README.md 本地 Markdown 链接指向不存在文件时 verify-docs.ps1 失败
+  scripts/verify-docs.ps1 将 scripts/test-docs-audit.ps1 纳入必需发布脚本路径
+  scripts/test-release-self-tests.ps1 已纳入 test-docs-audit.ps1
+  更新 AGENTS.md、README.md、CHANGELOG.md、docs/05-implementation-plan.md、docs/06-verification-release.md 和 docs/08-change-intake.md
+验证 PowerShell parser 解析 verify-docs.ps1、test-docs-audit.ps1 和 test-release-self-tests.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-docs-audit.ps1 成功，确认 valid fixture 退出 0，missing required path fixture 和 broken markdown link fixture 退出 1
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-self-tests.ps1 成功，确认 docs audit、readiness、release plan、manifest 和 bundle 自测均可由聚合入口串行通过；开发中工作区 dirty，manifest/bundle 子测试的 clean-git fixture 按预期跳过，提交后需重跑覆盖
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功，确认 scripts/test-docs-audit.ps1 已纳入必需发布脚本路径
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认 manifest/bundle 正式路径仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增强文档审计脚本、自测和发布脚本聚合入口，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```

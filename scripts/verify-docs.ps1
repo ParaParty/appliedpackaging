@@ -1,10 +1,15 @@
 param(
-    [switch] $SkipMarkdownLinks
+    [switch] $SkipMarkdownLinks,
+    [string] $RootPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+if ([string]::IsNullOrWhiteSpace($RootPath)) {
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+} else {
+    $repoRoot = (Resolve-Path -LiteralPath $RootPath).Path
+}
 Set-Location $repoRoot
 
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -142,6 +147,7 @@ $requiredPaths = @(
     "scripts/verify-release.ps1",
     "scripts/verify-docs.ps1",
     "scripts/verify-release-readiness.ps1",
+    "scripts/test-docs-audit.ps1",
     "scripts/test-release-self-tests.ps1",
     "scripts/test-release-readiness.ps1",
     "scripts/test-release-check-plan.ps1",
