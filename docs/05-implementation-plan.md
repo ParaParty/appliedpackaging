@@ -350,9 +350,10 @@ runClientSmoke GUI screenshot smoke
   scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、asset contract、语言 key、模型贴图引用、client smoke 截图、dedicated server latest.log 证据和可选 git clean 证据
   scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke 和机械发布审计
   使用 -RunClientSmoke 时会自动审计 6 张 client smoke 截图存在、非空且为有效 PNG
-  dedicated server world-load 已在当前基线通过；服务端 latest.log 审计需在手动 runServer 刷新日志后用 -AuditOnly -RequireServerWorldLoad 执行
+  dedicated server world-load 已在当前基线通过；服务端 latest.log 审计可由 run-server-smoke.ps1 或 run-release-checks.ps1 -RunServerSmoke 刷新后执行
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
+  当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -AuditOnly -RequireCleanGit
 
@@ -366,7 +367,7 @@ runClientSmoke GUI screenshot smoke
 git 工作树干净，且最终冻结后可由 run-release-checks.ps1 -AuditOnly -RequireCleanGit 机械验证
 build/libs/appliedpackaging-<version>.jar 存在
 run-release-checks.ps1 -RunClientSmoke 成功
-runServer 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功
+runServer 或 run-server-smoke.ps1 刷新 dedicated server world-load 日志后，run-release-checks.ps1 -AuditOnly -RequireServerWorldLoad 成功
 jar 可在 Minecraft 1.20.1 Forge + AE2 15.4.10 客户端进入游戏
 docs 与实现一致
 发布 tag 可追溯且只在最终范围冻结后创建

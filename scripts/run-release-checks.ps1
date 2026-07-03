@@ -4,6 +4,8 @@ param(
     [switch] $SkipData,
     [switch] $SkipGameTest,
     [switch] $RunClientSmoke,
+    [switch] $RunServerSmoke,
+    [int] $ServerSmokeTimeoutSeconds = 240,
     [switch] $RequireClientSmokeScreenshots,
     [switch] $RequireServerWorldLoad,
     [switch] $RequireCleanGit,
@@ -16,8 +18,12 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
 
-if ($RequireServerWorldLoad -and -not $AuditOnly) {
-    throw "-RequireServerWorldLoad is only valid with -AuditOnly. Run full checks first, then run .\gradlew.bat runServer manually to refresh run/logs/latest.log, then run this script again with -AuditOnly -RequireServerWorldLoad."
+if ($AuditOnly -and $RunServerSmoke) {
+    throw "-RunServerSmoke cannot be combined with -AuditOnly. Use -RunServerSmoke during the active release check sequence, or run scripts\run-server-smoke.ps1 directly before an audit-only pass."
+}
+
+if ($RequireServerWorldLoad -and -not $AuditOnly -and -not $RunServerSmoke) {
+    throw "-RequireServerWorldLoad is only valid with -AuditOnly unless -RunServerSmoke is also set. Use -RunServerSmoke to refresh run/logs/latest.log inside this release check sequence."
 }
 
 function Invoke-Step {
@@ -76,6 +82,22 @@ if (-not $AuditOnly) {
             Command = @(".\gradlew.bat", "runClientSmoke", "--stacktrace")
         }) | Out-Null
     }
+
+    if ($RunServerSmoke) {
+        $steps.Add(@{
+            Name = "Dedicated server world-load smoke"
+            Command = @(
+                "pwsh",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                ".\scripts\run-server-smoke.ps1",
+                "-TimeoutSeconds",
+                $ServerSmokeTimeoutSeconds.ToString()
+            )
+        }) | Out-Null
+    }
 }
 
 $verifyCommand = @(
@@ -91,7 +113,7 @@ if (-not $SkipAssetContracts) {
     $verifyCommand += "-RequireAssetContracts"
 }
 
-if ($RequireServerWorldLoad) {
+if ($RequireServerWorldLoad -or $RunServerSmoke) {
     $verifyCommand += "-RequireServerWorldLoad"
 }
 
@@ -113,9 +135,12 @@ foreach ($step in $steps) {
     Write-Host " - $($step.Name): $($step.Command -join ' ')"
 }
 
-if ($RequireServerWorldLoad) {
+if ($RequireServerWorldLoad -and -not $RunServerSmoke) {
     Write-Host ""
     Write-Host "Note: -RequireServerWorldLoad checks run/logs/latest.log only. Run .\gradlew.bat runServer manually after final scope freeze to refresh that log." -ForegroundColor Yellow
+} elseif ($RunServerSmoke) {
+    Write-Host ""
+    Write-Host "Note: -RunServerSmoke refreshes run/logs/latest.log before the release audit checks dedicated server world-load evidence." -ForegroundColor Yellow
 }
 
 foreach ($step in $steps) {

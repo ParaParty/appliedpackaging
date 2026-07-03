@@ -1230,3 +1230,20 @@ GameTest：已考虑。发现现有 runGameTestServer；本次只修正文档状
 验证提交 10b59b2 后执行 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -RequireCleanGit 成功，确认当前提交基线工作树干净
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布验证脚本和文档，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+补齐 dedicated server world-load 自动 smoke：
+  新增 scripts/run-server-smoke.ps1
+  脚本要求 run/eula.txt 中 eula=true，启动 .\gradlew.bat runServer --stacktrace，等待 latest.log 出现 Applied Packaging initialized、Preparing level "world" 和 Done (...) world-load 标记
+  world-load 成功后，脚本终止自己启动的 runServer 进程树，并检查 25565 未保持监听
+  scripts/run-release-checks.ps1 新增 -RunServerSmoke 和 -ServerSmokeTimeoutSeconds
+  使用 -RunServerSmoke 时，服务端 smoke 在 build/runData/runGameTestServer/runClientSmoke 之后执行，随后机械审计自动包含 -RequireServerWorldLoad
+  更新 docs/05-implementation-plan.md、docs/06-verification-release.md、docs/08-change-intake.md、README.md、AGENTS.md
+验证 PowerShell parser 解析 scripts/run-server-smoke.ps1、scripts/run-release-checks.ps1 和 scripts/verify-release.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -RunClientSmoke -RunServerSmoke 成功，确认执行顺序为 build、runData、runGameTestServer、runClientSmoke、server smoke、mechanical audit
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -RequireServerWorldLoad 按预期早失败，提示改用 -AuditOnly 或 -RunServerSmoke
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke 成功，server smoke 进入 Done (2.413s)!，终止本次 runServer 进程树，确认 25565 未监听，并通过 verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad
+GameTest：已考虑。发现现有 runGameTestServer；本次增强 dedicated server smoke 编排，不改变 mod 运行行为，因此未新增、扩展或运行 GameTest。
+```
