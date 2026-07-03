@@ -1401,3 +1401,22 @@ GameTest：已考虑并运行。发现现有 runGameTestServer；本次通过 ru
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer；本次只增强发布 tag 就绪门禁和发布编排，不改变包裹、机器、总线、菜单、网络、事务或数据生成行为，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
 ```
+
+最新进展：
+
+```text
+补齐发布 tag readiness 自测：
+  verify-release-readiness.ps1 新增 ChangeIntakePath 和 VerificationPath 参数，默认仍读取 docs/08-change-intake.md 与 docs/06-verification-release.md
+  新增 scripts/test-release-readiness.ps1，使用临时 Markdown fixture 覆盖 ready、blocked 和 structural failure 三种路径
+  ready fixture 使用已迁移 intake、已完成服务端 world-load 和可创建发布 tag 状态，-RequireReadyForTag 退出 0
+  blocked fixture 使用待输入 intake、发布 tag 等待和不能标记完成状态，-RequireReadyForTag 退出 1
+  structural failure fixture 缺少必需新增项暂存表标题，-RequireReadyForTag 退出 1
+验证 PowerShell parser 解析 verify-release-readiness.ps1、test-release-readiness.ps1 和 run-release-checks.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 成功，当前正式文档仍报告 4 个非致命 blocker
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag 按预期失败，当前正式文档仍阻止最终 tag
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG/LICENSE 等打包内容
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功；提交前 manifest 记录 clean=false 属于预期状态
+GameTest：已考虑。发现现有 runGameTestServer；本次只增加发布 readiness 脚本自测和文档记录，不改变游戏行为、数据生成、资源、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。
+```

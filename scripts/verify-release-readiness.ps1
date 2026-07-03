@@ -1,5 +1,7 @@
 param(
-    [switch] $RequireReadyForTag
+    [switch] $RequireReadyForTag,
+    [string] $ChangeIntakePath = "docs/08-change-intake.md",
+    [string] $VerificationPath = "docs/06-verification-release.md"
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,11 +104,11 @@ function Test-IntakeRows {
 Write-Host "Applied Packaging release readiness audit" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 
-$changeIntakeText = Get-RequiredText "docs/08-change-intake.md"
-$verificationText = Get-RequiredText "docs/06-verification-release.md"
+$changeIntakeText = Get-RequiredText $ChangeIntakePath
+$verificationText = Get-RequiredText $VerificationPath
 
-Test-Contains "docs/08-change-intake.md" $changeIntakeText "## 5. 新增项暂存表"
-Test-Contains "docs/06-verification-release.md" $verificationText "当前目标完成判定"
+Test-Contains $ChangeIntakePath $changeIntakeText "## 5. 新增项暂存表"
+Test-Contains $VerificationPath $verificationText "当前目标完成判定"
 
 Test-IntakeRows $changeIntakeText
 

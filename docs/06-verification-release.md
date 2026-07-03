@@ -251,6 +251,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-bundle.ps
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
@@ -271,6 +272,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 `scripts/verify-docs.ps1` 检查必需的设计文档、变更接收文档、开发日志、资产 brief、资产 contract 和资产报告是否存在，检查 `docs/design.md` 与 `docs/00-document-index.md` 是否覆盖文档集合，并扫描仓库 Markdown 中的本地 inline link 是否可解析。
 
 `scripts/verify-release-readiness.ps1` 检查 `docs/08-change-intake.md` 的新增项暂存表，以及本文件的目标完成/发布 tag 判定。默认模式用于预冻结审计，发现 blocker 时输出 WARN 但退出 0；使用 `-RequireReadyForTag` 时，任何待输入/待判定 intake、开放接收窗口、发布 tag 未完成或目标不能标记完成都会导致失败。
+
+`scripts/test-release-readiness.ps1` 使用临时 Markdown fixture 调用 `verify-release-readiness.ps1 -RequireReadyForTag`，覆盖 ready、blocked 和 structural failure 三种路径，确认 readiness 规则既能在范围冻结后放行，也能在待输入或结构缺失时失败。该脚本不修改正式设计文档。
 
 `scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、PNG 非空、asset contract、英文/简体中文语言 key、Applied Packaging 模型贴图引用、可选 client smoke 截图文件、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RequireClientSmokeScreenshots` 时会验证 6 张截图存在、非空且有 PNG 签名。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
 
@@ -308,6 +311,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1` 成功，报告当前 4 个非致命 blocker：IN-001 待输入、IN-002 待输入、变更接收窗口仍开放、验证文档仍标记发布未完成。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release-readiness.ps1 -RequireReadyForTag` 按预期失败，确认 tag 就绪门禁会阻止当前未冻结范围发布。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit -RequireReadyForTag` 成功，确认完整候选发布计划会在文档审计后、manifest/bundle 生成前执行 Release readiness audit。
+2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-readiness.ps1` 成功，确认 ready fixture 退出 0，blocked fixture 和 structural failure fixture 退出 1。
 
 ## 5. 客户端验证
 
