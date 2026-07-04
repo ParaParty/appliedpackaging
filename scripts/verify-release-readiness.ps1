@@ -100,6 +100,31 @@ function Test-MigrationTargetPaths {
     foreach ($path in $paths) {
         $normalizedPath = $path -replace '\\', '/'
         $targetPath = Join-Path $repoRoot $normalizedPath
+        if ($normalizedPath -match '(^|/)\.\.(/|$)') {
+            Add-Blocker "$Id migration target path contains parent traversal: $path"
+            $allPathsExist = $false
+            continue
+        }
+
+        try {
+            $repoFullPath = [System.IO.Path]::GetFullPath($repoRoot)
+            $separator = [System.IO.Path]::DirectorySeparatorChar.ToString()
+            if (-not $repoFullPath.EndsWith($separator, [System.StringComparison]::Ordinal)) {
+                $repoFullPath = "$repoFullPath$separator"
+            }
+
+            $targetFullPath = [System.IO.Path]::GetFullPath($targetPath)
+            if (-not $targetFullPath.StartsWith($repoFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+                Add-Blocker "$Id migration target path escapes repository: $path"
+                $allPathsExist = $false
+                continue
+            }
+        } catch {
+            Add-Blocker "$Id migration target path is invalid: $path"
+            $allPathsExist = $false
+            continue
+        }
+
         if (-not (Test-Path -LiteralPath $targetPath)) {
             Add-Blocker "$Id migration target path does not exist: $path"
             $allPathsExist = $false

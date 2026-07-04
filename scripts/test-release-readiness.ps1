@@ -252,6 +252,36 @@ try {
 ````
 "@
 
+    $traversalMigrationTargetPath = Write-Fixture `
+        -CaseName "traversal-migration-target-path" `
+        -ChangeIntake @"
+# 变更接收与范围冻结
+
+当前接收窗口：
+
+````text
+已冻结。
+最终服务端 world-load：已完成。
+发布 tag：可创建。
+````
+
+## 5. 新增项暂存表
+
+| ID | 类型 | 标题 | 状态 | 迁移目标 | 验证要求 |
+| --- | --- | --- | --- | --- | --- |
+| IN-001 | 需求 | 已确认但迁移目标使用父级遍历 | 已迁移 | docs/../docs/01-requirements.md | 通过 |
+"@ `
+        -Verification @"
+# 验证与发布
+
+当前目标完成判定：
+
+````text
+可以标记完成。
+发布 tag 就绪门禁已通过。
+````
+"@
+
     Invoke-ReadinessCase -Name "ready fixture" -Fixture $ready -ExpectedExitCode 0
     Invoke-ReadinessCase -Name "blocked fixture" -Fixture $blocked -ExpectedExitCode 1
     Invoke-ReadinessCase -Name "structural failure fixture" -Fixture $structuralFailure -ExpectedExitCode 1
@@ -275,6 +305,11 @@ try {
         -Fixture $missingMigrationTargetPath `
         -ExpectedExitCode 1 `
         -ExpectedText "IN-001 migration target path does not exist"
+    Invoke-ReadinessCase `
+        -Name "traversal migration target path fixture" `
+        -Fixture $traversalMigrationTargetPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "IN-001 migration target path contains parent traversal"
 
     Write-Host ""
     Write-Host "Release readiness self-test passed." -ForegroundColor Green
