@@ -64,6 +64,55 @@ function Test-Contains {
     }
 }
 
+function Get-MigrationTargetPaths {
+    param([string] $MigrationTarget)
+
+    $paths = [System.Collections.Generic.List[string]]::new()
+    if ([string]::IsNullOrWhiteSpace($MigrationTarget)) {
+        return @()
+    }
+
+    $targetPathPattern = '(?i)(AGENTS\.md|README\.md|CHANGELOG\.md|docs[\\/][^\s,;，；、<>]+|src[\\/]main[\\/]resources[\\/][^\s,;，；、<>]+)'
+    $trimChars = [char[]](" `t`r`n`"'()[]{}<>，；、,;。".ToCharArray())
+    foreach ($match in [regex]::Matches($MigrationTarget, $targetPathPattern)) {
+        $candidate = $match.Value.Trim($trimChars)
+        if ($candidate -ne "") {
+            $paths.Add($candidate) | Out-Null
+        }
+    }
+
+    return @($paths | Select-Object -Unique)
+}
+
+function Test-MigrationTargetPaths {
+    param(
+        [string] $Id,
+        [string] $MigrationTarget
+    )
+
+    $paths = @(Get-MigrationTargetPaths -MigrationTarget $MigrationTarget)
+    if ($paths.Count -eq 0) {
+        Add-Blocker "$Id has no resolvable migration target path: migrationTarget='$MigrationTarget'"
+        return $false
+    }
+
+    $allPathsExist = $true
+    foreach ($path in $paths) {
+        $normalizedPath = $path -replace '\\', '/'
+        $targetPath = Join-Path $repoRoot $normalizedPath
+        if (-not (Test-Path -LiteralPath $targetPath)) {
+            Add-Blocker "$Id migration target path does not exist: $path"
+            $allPathsExist = $false
+        }
+    }
+
+    if ($allPathsExist) {
+        Add-Pass "$Id migration target paths exist: $($paths -join ', ')"
+    }
+
+    return $allPathsExist
+}
+
 function Test-IntakeRows {
     param([string] $Text)
 
@@ -97,8 +146,10 @@ function Test-IntakeRows {
         $blockedStatePattern = '(?i)待|未完成|等待|阻塞|失败|未通过|不可|不能|blocked|fail(?:ed|ure)?|not\s+ready|not\s+passed'
         if (($status -match $blockedStatePattern) -or ($migrationTarget -match $blockedStatePattern) -or ($verification -match $blockedStatePattern)) {
             Add-Blocker "$id is not ready for tag: status='$status', migrationTarget='$migrationTarget', verification='$verification'"
-        } else {
+        } elseif (Test-MigrationTargetPaths -Id $id -MigrationTarget $migrationTarget) {
             Add-Pass "$id is ready for tag"
+        } else {
+            Add-Warn "$id is not ready for tag because one or more migration target paths could not be verified"
         }
     }
 }
