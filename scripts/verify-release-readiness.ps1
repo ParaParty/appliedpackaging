@@ -84,9 +84,82 @@ function Get-MigrationTargetPaths {
     return @($paths | Select-Object -Unique)
 }
 
+function Get-MigrationTargetFamilyRules {
+    param([string] $Type)
+
+    $rules = [System.Collections.Generic.List[object]]::new()
+    if ([string]::IsNullOrWhiteSpace($Type)) {
+        return @()
+    }
+
+    if ($Type -match '需求') {
+        $rules.Add(@{ Kind = "exact"; Value = "docs/01-requirements.md" }) | Out-Null
+        $rules.Add(@{ Kind = "exact"; Value = "docs/02-system-architecture.md" }) | Out-Null
+        $rules.Add(@{ Kind = "exact"; Value = "docs/03-detailed-design.md" }) | Out-Null
+        $rules.Add(@{ Kind = "exact"; Value = "docs/05-implementation-plan.md" }) | Out-Null
+        $rules.Add(@{ Kind = "exact"; Value = "docs/06-verification-release.md" }) | Out-Null
+        $rules.Add(@{ Kind = "exact"; Value = "docs/07-references.md" }) | Out-Null
+    }
+
+    if ($Type -match '材质') {
+        $rules.Add(@{ Kind = "exact"; Value = "docs/04-asset-spec.md" }) | Out-Null
+        $rules.Add(@{ Kind = "exact"; Value = "docs/assets/acceptance.md" }) | Out-Null
+        $rules.Add(@{ Kind = "exact"; Value = "docs/assets/palette.md" }) | Out-Null
+        $rules.Add(@{ Kind = "prefix"; Value = "docs/assets/asset-briefs/" }) | Out-Null
+        $rules.Add(@{ Kind = "prefix"; Value = "docs/assets/contracts/" }) | Out-Null
+        $rules.Add(@{ Kind = "prefix"; Value = "docs/assets/previews/" }) | Out-Null
+        $rules.Add(@{ Kind = "prefix"; Value = "docs/assets/reports/" }) | Out-Null
+        $rules.Add(@{ Kind = "prefix"; Value = "src/main/resources/assets/appliedpackaging/" }) | Out-Null
+    }
+
+    return @($rules)
+}
+
+function Test-MigrationTargetFamily {
+    param(
+        [string] $Id,
+        [string] $Type,
+        [string[]] $Paths
+    )
+
+    $rules = @(Get-MigrationTargetFamilyRules -Type $Type)
+    if ($rules.Count -eq 0) {
+        return $true
+    }
+
+    $allPathsMatch = $true
+    foreach ($path in $Paths) {
+        $normalizedPath = $path -replace '\\', '/'
+        $matched = $false
+        foreach ($rule in $rules) {
+            if ($rule.Kind -eq "exact" -and $normalizedPath.Equals($rule.Value, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $matched = $true
+                break
+            }
+
+            if ($rule.Kind -eq "prefix" -and $normalizedPath.StartsWith($rule.Value, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $matched = $true
+                break
+            }
+        }
+
+        if (-not $matched) {
+            Add-Blocker "$Id migration target does not match intake type '$Type': $path"
+            $allPathsMatch = $false
+        }
+    }
+
+    if ($allPathsMatch) {
+        Add-Pass "$Id migration target paths match intake type '$Type'"
+    }
+
+    return $allPathsMatch
+}
+
 function Test-MigrationTargetPaths {
     param(
         [string] $Id,
+        [string] $Type,
         [string] $MigrationTarget
     )
 
@@ -135,7 +208,12 @@ function Test-MigrationTargetPaths {
         Add-Pass "$Id migration target paths exist: $($paths -join ', ')"
     }
 
-    return $allPathsExist
+    $targetFamilyMatches = $true
+    if ($allPathsExist) {
+        $targetFamilyMatches = Test-MigrationTargetFamily -Id $Id -Type $Type -Paths $paths
+    }
+
+    return ($allPathsExist -and $targetFamilyMatches)
 }
 
 function Test-IntakeRows {
@@ -165,13 +243,14 @@ function Test-IntakeRows {
         }
 
         $id = $columns[0]
+        $type = $columns[1]
         $status = $columns[3]
         $migrationTarget = $columns[4]
         $verification = $columns[5]
         $blockedStatePattern = '(?i)待|未完成|等待|阻塞|失败|未通过|不可|不能|blocked|fail(?:ed|ure)?|not\s+ready|not\s+passed'
         if (($status -match $blockedStatePattern) -or ($migrationTarget -match $blockedStatePattern) -or ($verification -match $blockedStatePattern)) {
             Add-Blocker "$id is not ready for tag: status='$status', migrationTarget='$migrationTarget', verification='$verification'"
-        } elseif (Test-MigrationTargetPaths -Id $id -MigrationTarget $migrationTarget) {
+        } elseif (Test-MigrationTargetPaths -Id $id -Type $type -MigrationTarget $migrationTarget) {
             Add-Pass "$id is ready for tag"
         } else {
             Add-Warn "$id is not ready for tag because one or more migration target paths could not be verified"
