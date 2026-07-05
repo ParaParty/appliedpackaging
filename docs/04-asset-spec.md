@@ -50,31 +50,42 @@ Fluix 紫蓝光
 
 ## 3. 包裹资产
 
-物品图标：
+物品与实体模型：
 
 ```text
-尺寸：16x16 PNG
-主体：小型 AE2 封装盒
-外壳：浅灰石英
-边框：深灰金属
-中心：Fluix 菱形封印
-颜色：对应颜色束带
+包裹不再使用独立平面 item PNG。
+17 色包裹 item 与掉落实体共用 10x10x8 盒体模型。
+六面贴图来自 package_box_pixel_v7：
+  front/back/side: 10x8
+  top/bottom: 10x10
+颜色由对应变体束带决定。
+模型为单个 10x10x8 cuboid；每个 face 绑定独立的完整 face 贴图，JSON faces 必须使用 full-face uv [0,0,16,16]。
+10x8 与 10x10 只描述 PNG 像素尺寸，不用于裁切 JSON UV。
+不使用 atlas 裁切；不把基础箱体与束带拆成重叠模型层。
+包裹 item model 与实体渲染必须使用 cutout_mipped，避免透明像素被 solid 路径渲染成黑块。
+包裹存在物品 marker 时，静态模型仍渲染盒体，客户端 renderer 在前脸右下角、距外边框 1px 的 4x4 标记框内叠加 3x3 marker item；marker 中心必须与该 4x4 框中心对齐，保持 0.5px 内边距。
 ```
 
 世界模型：
 
 ```text
-10x10x10 或 12x12x12 盒体
-四角金属包边
+10x10x8 盒体
+微妙边框
 侧面颜色束带
-顶部小封签
+顶部居中束带
+掉落时使用 appliedpackaging:package 实体渲染同一 item model
 ```
 
 资源路径：
 
 ```text
-src/main/resources/assets/appliedpackaging/textures/item/<color>_package.png
 src/main/resources/assets/appliedpackaging/models/item/<color>_package.json
+src/main/resources/assets/appliedpackaging/models/item/package_box/<color>.json
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_front.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_back.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_side.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_top.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_bottom.png
 ```
 
 ## 4. 机器资产
@@ -93,12 +104,14 @@ ME 包裹装配室：
 ME 打包机：
 
 ```text
-AE2 化 Packager
-一面扫描相邻存储
-一面包裹投递口
-顶部红石灯
-容量元件小窗
-颜色灯条
+临时使用 Create Packager 同款模型和贴图语言。
+模型朝向由 me_packager facing 决定；AE 网络连接方向由 network_side 方块状态决定。
+当前临时 Create 风格资源只区分水平/竖直 linked 外观，不提供精确单面连接动画。
+正式 Applied Packaging 打包机模型等待后续替换。
+临时 Create 风格静态外壳使用 cutout_mipped 方块渲染层并保持 noOcclusion，避免透明 linked 贴图和内部光照被完整方块遮挡。
+动态 hatch 按 Create renderer 使用 solid，动态 tray 使用 cutout_mipped。
+普通不透明机器 block/part 模型不得声明 render_type，保持默认 solid；只有确实带透明遮罩的模型或 overlay 才使用 cutout_mipped。
+薄型 bus/terminal 方块必须保持 noOcclusion，避免按完整方块遮挡地面和光照。
 ```
 
 资源路径：
@@ -205,15 +218,17 @@ scripts/test-assets-audit.ps1
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
-当前发布资源 PNG 门禁由 `scripts/verify-assets.ps1` 自动检查：item/block 资源为 32x32，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图。
+当前发布资源 PNG 和 package_box 模型门禁由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，Create-style 临时打包机细节贴图可为 16x16，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；普通不透明 block/part 模型还会检查不得声明 render_type。
 
 ## 9. 当前资产交付状态
 
 已交付：
 
 ```text
-19 个当前注册 item 的 32x32 图标与 item model
-ME 包裹装配室与 ME 打包机 32x32 block textures/blockstate/block model/item model
+17 个包裹 item 已切换为 10x10x8 3D package_box 模型和 package_box_pixel_v7 的 85 张六面贴图；包裹掉落实体共用该 item model
+package_pattern 与 packaged_processing_pattern 仍使用 32x32 item 图标
+ME Packager 临时切换为 Create Packager 同款模型/贴图资源
+ME 包裹装配室仍使用 32x32 block textures/blockstate/block model/item model
 包裹样板终端、包裹存储总线、包裹输出总线、包裹拆包总线 32x32 textures/model
 Package Pattern Terminal 玩家入口使用 AE2 cable part item，并已交付自有 16x16 part body/front/back/sides/overlay mask 材质与 part model
 14 个 16x16 GUI 图标
@@ -238,7 +253,7 @@ docs/assets/reports/*.md
 5 个 asset contract 均 validate ok
 60 个 PNG 尺寸符合预期
 scripts/verify-assets.ps1 通过，确认必需 PNG 存在、路径归类正确、PNG header 有效、RGBA 类型、可见非占位像素内容和尺寸符合规格
-55 个 JSON 可解析
+70 个 JSON 可解析
 block model 坐标保持在 0..16
 texture/model 引用存在
 抽样视觉检查通过

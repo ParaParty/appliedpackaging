@@ -2,6 +2,7 @@ package com.warmthdawn.appliedpackaging.core.package_data;
 
 public enum PackageCapacityProfile {
     DEFAULT(9, 9),
+    STORAGE_1K(1024, 16),
     STORAGE_16K(16, 16),
     STORAGE_64K(64, 63),
     STORAGE_256K(256, 63);

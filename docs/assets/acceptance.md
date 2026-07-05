@@ -27,12 +27,17 @@ JSON 可解析
 不修改 Java、Gradle 或核心设计文档
 ```
 
-## 2. Item 图标
+## 2. Item 图标与包裹模型
 
 必须满足：
 
 ```text
-最终 PNG 为 16x16 或 32x32，优先 32x32 源图再 downsample/检查 16x16 可读性
+package_pattern 与 packaged_processing_pattern 最终 PNG 为 32x32
+17 色包裹不使用独立平面 item PNG，item model 直接引用 3D package_box 模型
+包裹 front/back/side 贴图为 10x8，top/bottom 贴图为 10x10
+每个 package_box face 使用独立完整贴图，模型 JSON 必须声明 full-face uv [0,0,16,16]
+不使用 atlas 裁切，不使用基础盒体与束带重叠层
+存在物品 marker 时，marker 在前脸右下角、距外边框 1px 的 4x4 框内以 3x3 居中叠加，四周保留 0.5px 内边距
 透明背景
 图标居中，有 1-2 像素安全边距
 17 色包裹只改变束带/封签色，不改变主体轮廓
@@ -42,8 +47,11 @@ package_pattern 与 packaged_processing_pattern 在小尺寸下可区分
 路径：
 
 ```text
-src/main/resources/assets/appliedpackaging/textures/item/<item_id>.png
 src/main/resources/assets/appliedpackaging/models/item/<item_id>.json
+src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png
+src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png
+src/main/resources/assets/appliedpackaging/models/item/package_box/<color>.json
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_<face>.png
 ```
 
 ## 3. 方块和机器
@@ -113,4 +121,4 @@ GUI 元素无错位
 日志无资源加载错误
 ```
 
-`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知资源路径、RGBA PNG header 和尺寸：item/block 为 32x32，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。
+`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知资源路径、RGBA PNG header 和尺寸：普通 item/block 为 32x32，包裹盒体 face 为 10x8 或 10x10，临时 Create-style packager detail 可为 16x16，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128；同时检查 17 色 package_box 模型仍为 v7 的 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override，且 faces 声明 full-face uv [0,0,16,16]；普通不透明 block/part 模型不得声明 render_type。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。

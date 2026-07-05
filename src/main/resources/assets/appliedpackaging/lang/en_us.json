@@ -6,6 +6,7 @@
   "block.appliedpackaging.package_export_bus": "Package Export Bus",
   "block.appliedpackaging.package_unpacking_bus": "Package Unpacking Bus",
   "block.appliedpackaging.package_pattern_terminal": "Package Pattern Terminal",
+  "entity.appliedpackaging.package": "Package",
   "item.appliedpackaging.package_pattern_terminal": "Package Pattern Terminal",
   "item.appliedpackaging.package_pattern": "Package Pattern",
   "item.appliedpackaging.packaged_processing_pattern": "Packaged Processing Pattern",
@@ -78,9 +79,10 @@
   "message.appliedpackaging.me_packager.inserted_package": "Package inserted",
   "message.appliedpackaging.me_packager.input_blocked": "Input slot blocked",
   "message.appliedpackaging.me_packager.output_taken": "Package output taken",
+  "message.appliedpackaging.me_packager.network_side_set": "ME network side set to %s",
   "message.appliedpackaging.me_packager.packed": "Package created",
   "message.appliedpackaging.me_packager.unpacked": "Package unpacked",
-  "message.appliedpackaging.me_packager.no_target": "No adjacent item inventory behind the machine",
+  "message.appliedpackaging.me_packager.no_target": "No adjacent AE network on the selected ME side",
   "message.appliedpackaging.me_packager.no_contents": "No packable contents found",
   "message.appliedpackaging.me_packager.output_blocked": "Output slot blocked",
   "message.appliedpackaging.me_packager.target_blocked": "Target inventory cannot accept the full package",
@@ -95,5 +97,11 @@
   "message.appliedpackaging.package_pattern_terminal.output_blocked": "Output slot blocked",
   "message.appliedpackaging.package_bus.filter_set": "Package bus filter set",
   "message.appliedpackaging.package_bus.filter_invalid": "Cursor item is not a package filter template",
-  "message.appliedpackaging.package_bus.filter_cleared": "Package bus filter cleared"
+  "message.appliedpackaging.package_bus.filter_cleared": "Package bus filter cleared",
+  "direction.appliedpackaging.down": "bottom",
+  "direction.appliedpackaging.up": "top",
+  "direction.appliedpackaging.north": "north",
+  "direction.appliedpackaging.south": "south",
+  "direction.appliedpackaging.west": "west",
+  "direction.appliedpackaging.east": "east"
 }

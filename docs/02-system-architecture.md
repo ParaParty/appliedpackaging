@@ -43,7 +43,7 @@ ME Package Assembler / ME 包裹装配室：
 
 ME Packager / ME 打包机：
   类 Create Packager。
-  只贴着相邻存储端点工作，在相邻存储内容和包裹之间做事务转换。
+  只通过一个可切换连接面贴着相邻 AE 网络工作，在 MEStorage 内容和包裹之间做事务转换。
 
 Package Buses / 包裹总线家族：
   只路由合法包裹，或把合法包裹事务拆入目标端点。
@@ -128,7 +128,7 @@ gametest
 2. `PackageDataStorage` 是 1.20.1 NBT 与未来 Data Component 的唯一读写入口。
 3. 所有会改变世界或库存的行为先生成 `PackagePlan`，再做模拟，最后提交。
 4. 打包和拆包以单个包裹为最小事务单位。
-5. ME 打包机只扫描相邻端点，不扫描自身所在任意 ME 网络。
+5. ME 打包机只扫描所选连接面的相邻 AE MEStorage，不扫描自身所在任意 ME 网络，也不回落到 Forge item/fluid handler。
 6. 装配室只处理样板语义，不处理相邻存储打包和拆包。
 7. 总线家族只路由包裹，不暴露包裹内部散装资源。
 8. 客户端类必须隔离，dedicated server 不得加载 screen/render/client event 类。
@@ -151,7 +151,7 @@ ME 打包机打包：
 
 ```text
 redstone/button trigger
--> detect adjacent endpoint
+-> detect AE2 MEStorage on selected network side
 -> enumerate endpoint contents
 -> unpack source packages into virtual entries
 -> apply content filter

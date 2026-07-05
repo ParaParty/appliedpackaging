@@ -135,6 +135,11 @@ item handler 打包计划在显式 clear 模式移除 marker
 item handler 打包计划可使用 64k 容量档
 过滤系统可从已编码 package_pattern 读取过滤模板
 ME Packager 可识别 AE2 64k storage component 为 64k 包裹容量档
+包裹物品丢出后替换为 appliedpackaging:package 实体并保留包裹数据
+ME Packager 基础容量固定为 1k/16 类型
+ME Packager 非 network_side 面暴露包裹输入/输出 capability，network_side 不暴露普通 item capability
+ME Packager 可从可切换顶面 network_side 的真实 AE2 Interface 网络打包
+ME Packager 不会回落到相邻 Forge item handler 或 Forge fluid handler
 ME Packager 菜单可切换红石模式
 ME Packager 红石上升沿只执行一次
 ME Packager 周期红石模式在持续供电时重复执行
@@ -146,8 +151,8 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
-真实世界相邻 Forge fluid handler smoke 可由 ME Packager 打包并整包拆回流体槽
-当前最新执行：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
+真实世界相邻 Forge fluid handler smoke 反例确认 ME Packager 无 MEStorage 时不回落、不消耗流体槽
+当前最新执行：.\gradlew.bat runGameTestServer --stacktrace 成功，118 个必需 GameTest 全部通过。
 2026-07-03 06:15 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:27 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:40 在发布 jar 排除 dev verification classes 后再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。

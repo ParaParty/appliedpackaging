@@ -6,10 +6,13 @@ import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APCreativeTabs;
+import com.warmthdawn.appliedpackaging.registry.APEntityTypes;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
+import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -28,11 +31,13 @@ public class AppliedPackaging {
 
         APBlocks.register(modEventBus);
         APItems.register(modEventBus);
+        APEntityTypes.register(modEventBus);
         APBlockEntities.register(modEventBus);
         APMenus.register(modEventBus);
         APCreativeTabs.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::registerEntityAttributes);
         if (FMLEnvironment.dist == Dist.CLIENT) {
             AppliedPackagingClient.register(modEventBus);
         }
@@ -40,5 +45,9 @@ public class AppliedPackaging {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("Applied Packaging initialized.");
+    }
+
+    private void registerEntityAttributes(final EntityAttributeCreationEvent event) {
+        event.put(APEntityTypes.PACKAGE.get(), PackageEntity.createPackageAttributes().build());
     }
 }

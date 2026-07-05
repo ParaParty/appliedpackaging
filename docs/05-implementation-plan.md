@@ -138,30 +138,30 @@ GameTest
 ```text
 已实现：
   me_packager 方块/方块物品/方块实体注册
-  水平朝向 blockstate
+  水平朝向 blockstate 与可切换 network_side blockstate
   方块掉落表
-  内部输入/输出 item handler
-  非潜行右键打开 GUI/Menu
+  内部输入/输出 item handler；非 network_side 面暴露包裹输入/输出 capability
+  GUI/Menu 类保留；当前右键交互按 Create 式直接操作
   GUI 输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮、marker 策略图标按钮和红石模式图标按钮
-  潜行右键放入包裹、取出输出、触发一次操作
+  非潜行右键放入包裹、取出输出、触发一次操作
+  潜行右键切换 network_side 到被点击面
   红石上升沿触发一次操作
   红石模式可在忽略/上升沿/周期之间切换，默认上升沿以兼容旧行为
   周期红石模式在持续供电时每 20 tick 尝试一次 pack/unpack
-  背面 Forge item handler 打包/拆包事务
-  容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
+  ME Packager 固定基础 1k 容量与 16 类型上限；容量升级后续再做
   selectedColor 控制无过滤模板时的输出包裹颜色
   过滤槽接受已编码 package_pattern、packaged_processing_pattern 或合法包裹
   过滤模板用于打包输出颜色、requiredContents 打包过滤和拆包包裹过滤
   marker retain/override/clear 策略由 GUI 独立配置，override 可使用 marker 槽物品或过滤模板 marker 作为兼容回退
-  背面优先识别 AE2 MEStorage capability，可接入相邻 ME Interface 暴露的子网存储
+  所选 network_side 只识别 AE2 MEStorage capability，可接入相邻 ME Interface 暴露的子网存储
   AE2 MEStorage 打包/拆包事务，支持 GenericStack/AEKey 和源包裹展开
-  Forge fluid handler 打包/拆包事务，支持 AEFluidKey/FluidStack 和相邻流体槽
   item-only GameTest，覆盖显式 marker retain/override/clear
   MEStorage endpoint GameTest
-  fluid handler endpoint GameTest
+  底层 fluid handler transaction GameTest 保留；ME Packager 不以 Forge fluid handler 作为目标
   ME Packager 红石模式菜单、红石上升沿和周期红石 GameTest
   真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager 世界内打包/拆包 GameTest smoke
-  真实世界相邻 Forge fluid handler + ME Packager 打包/拆包 GameTest smoke
+  真实 AE2 顶面 network_side 世界内打包 GameTest smoke
+  真实世界相邻 Forge item/fluid handler + ME Packager 反例 GameTest smoke，确认无 MEStorage 时不回落、不消耗
 
 待实现：
   无
@@ -413,5 +413,5 @@ GenericStack 范围风险：
 ```text
 1.0 垂直切片优先验证物品。
 数据模型完整支持 AEKey；对未知 key 保守拒绝拆包，避免吞资源。
-流体 adapter 已在 Packager Forge fluid handler endpoint 接入，并已通过真实世界相邻 fluid handler smoke 覆盖基础打包/拆包。
+流体 adapter 保留在底层 transaction 与装配室/样板路径中；ME Packager 当前只接入 AE2 MEStorage，不再把 Forge fluid handler 作为世界端点。
 ```

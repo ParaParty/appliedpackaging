@@ -6,6 +6,7 @@
   "block.appliedpackaging.package_export_bus": "包裹输出总线",
   "block.appliedpackaging.package_unpacking_bus": "包裹拆包总线",
   "block.appliedpackaging.package_pattern_terminal": "包裹样板终端",
+  "entity.appliedpackaging.package": "包裹",
   "item.appliedpackaging.package_pattern_terminal": "包裹样板终端",
   "item.appliedpackaging.package_pattern": "包裹样板",
   "item.appliedpackaging.packaged_processing_pattern": "封装处理样板",
@@ -78,9 +79,10 @@
   "message.appliedpackaging.me_packager.inserted_package": "已放入包裹",
   "message.appliedpackaging.me_packager.input_blocked": "输入槽被占用",
   "message.appliedpackaging.me_packager.output_taken": "已取出输出包裹",
+  "message.appliedpackaging.me_packager.network_side_set": "ME 网络连接面已切换为%s",
   "message.appliedpackaging.me_packager.packed": "已生成包裹",
   "message.appliedpackaging.me_packager.unpacked": "已拆包",
-  "message.appliedpackaging.me_packager.no_target": "机器背面没有相邻物品库存",
+  "message.appliedpackaging.me_packager.no_target": "当前 ME 连接面没有相邻 AE 网络",
   "message.appliedpackaging.me_packager.no_contents": "没有可打包内容",
   "message.appliedpackaging.me_packager.output_blocked": "输出槽被占用",
   "message.appliedpackaging.me_packager.target_blocked": "目标库存无法接收完整包裹",
@@ -95,5 +97,11 @@
   "message.appliedpackaging.package_pattern_terminal.output_blocked": "输出槽被占用",
   "message.appliedpackaging.package_bus.filter_set": "已设置包裹总线过滤",
   "message.appliedpackaging.package_bus.filter_invalid": "光标物品不是包裹过滤模板",
-  "message.appliedpackaging.package_bus.filter_cleared": "已清除包裹总线过滤"
+  "message.appliedpackaging.package_bus.filter_cleared": "已清除包裹总线过滤",
+  "direction.appliedpackaging.down": "底面",
+  "direction.appliedpackaging.up": "顶面",
+  "direction.appliedpackaging.north": "北面",
+  "direction.appliedpackaging.south": "南面",
+  "direction.appliedpackaging.west": "西面",
+  "direction.appliedpackaging.east": "东面"
 }

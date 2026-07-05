@@ -1,6 +1,11 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "appliedpackaging:item/purple_package"
-  }
+  "parent": "appliedpackaging:item/package_box/purple",
+  "overrides": [
+    {
+      "predicate": {
+        "appliedpackaging:has_marker": 1.0
+      },
+      "model": "appliedpackaging:item/package_box/marked"
+    }
+  ]
 }

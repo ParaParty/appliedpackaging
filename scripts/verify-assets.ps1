@@ -247,6 +247,29 @@ function Get-ExpectedPngSize {
         return @{ Width = 32; Height = 32; Label = "item texture" }
     }
 
+    if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/block/package_box/", [System.StringComparison]::Ordinal)) {
+        $leaf = Split-Path -Leaf $RelativePath
+        if ($leaf -in @("package_box_front.png", "package_box_back.png", "package_box_side.png")) {
+            return @{ Width = 10; Height = 8; Label = "package box vertical face texture" }
+        }
+        if ($leaf -in @("package_box_top.png", "package_box_bottom.png")) {
+            return @{ Width = 10; Height = 10; Label = "package box horizontal face texture" }
+        }
+    }
+
+    if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/block/me_packager_create/", [System.StringComparison]::Ordinal)) {
+        $leaf = Split-Path -Leaf $RelativePath
+        if ($leaf -in @(
+                "factory_panel_packager_mode.png",
+                "packager_iris_closed.png",
+                "packager_iris_open.png",
+                "packager_particle.png",
+                "vault_front_small.png")) {
+            return @{ Width = 16; Height = 16; Label = "Create-style temporary packager detail texture" }
+        }
+        return @{ Width = 32; Height = 32; Label = "Create-style temporary packager texture" }
+    }
+
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/block/", [System.StringComparison]::Ordinal)) {
         return @{ Width = 32; Height = 32; Label = "block texture" }
     }
@@ -264,6 +287,17 @@ function Get-ExpectedPngSize {
     }
 
     return $null
+}
+
+function Get-JsonFile {
+    param([string] $Path)
+
+    try {
+        return Get-Content -Raw -LiteralPath $Path | ConvertFrom-Json
+    } catch {
+        Add-Fail "JSON asset should parse: $Path ($($_.Exception.Message))"
+        return $null
+    }
 }
 
 Write-Host "Applied Packaging asset resource audit" -ForegroundColor Cyan
@@ -289,25 +323,8 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/status_error.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/status_ready.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/unpack_filter.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/black_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/blue_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/brown_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/cyan_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/gray_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/green_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/light_blue_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/light_gray_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/lime_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/magenta_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/orange_package.png",
     "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png",
     "src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/pink_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/purple_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/red_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/white_package.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/yellow_package.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_back.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_bright.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_colored.png",
@@ -335,8 +352,137 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/block/package_unpacking_bus_side.png"
 )
 
+$packageColors = @(
+    "fluix",
+    "white",
+    "orange",
+    "magenta",
+    "light_blue",
+    "yellow",
+    "lime",
+    "pink",
+    "gray",
+    "light_gray",
+    "cyan",
+    "purple",
+    "blue",
+    "brown",
+    "green",
+    "red",
+    "black"
+)
+$packageFaces = @("front", "back", "side", "top", "bottom")
+foreach ($color in $packageColors) {
+    foreach ($face in $packageFaces) {
+        $requiredPngPaths += "src/main/resources/assets/appliedpackaging/textures/block/package_box/$color/package_box_$face.png"
+    }
+}
+
 foreach ($requiredPath in $requiredPngPaths) {
     Assert-True (Test-Path -LiteralPath $requiredPath) "Required PNG exists: $requiredPath"
+}
+
+foreach ($color in $packageColors) {
+    $packageBoxModelPath = "src/main/resources/assets/appliedpackaging/models/item/package_box/$color.json"
+    $packageItemModelPath = "src/main/resources/assets/appliedpackaging/models/item/$($color)_package.json"
+
+    Assert-True (Test-Path -LiteralPath $packageBoxModelPath) "Package box model exists: $packageBoxModelPath"
+    Assert-True (Test-Path -LiteralPath $packageItemModelPath) "Package item model exists: $packageItemModelPath"
+
+    if (Test-Path -LiteralPath $packageItemModelPath) {
+        $itemModel = Get-JsonFile $packageItemModelPath
+        if ($null -ne $itemModel) {
+            Assert-True `
+                ($itemModel.parent -eq "appliedpackaging:item/package_box/$color") `
+                "Package item model $color references its 3D package_box parent"
+            $markerOverride = @($itemModel.overrides) | Where-Object {
+                $null -ne $_.predicate -and
+                $_.predicate."appliedpackaging:has_marker" -eq 1.0 -and
+                $_.model -eq "appliedpackaging:item/package_box/marked"
+            }
+            Assert-True `
+                ($markerOverride.Count -eq 1) `
+                "Package item model $color declares the marker custom-render override"
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $packageBoxModelPath)) {
+        continue
+    }
+
+    $model = Get-JsonFile $packageBoxModelPath
+    if ($null -eq $model) {
+        continue
+    }
+
+    Assert-True `
+        ($model.parent -eq "appliedpackaging:item/package_box/_transforms") `
+        "Package box model $color inherits only the shared display transforms"
+    Assert-True `
+        ($model.render_type -eq "minecraft:cutout_mipped") `
+        "Package box model $color uses cutout_mipped render type"
+
+    $elements = @($model.elements)
+    Assert-True ($elements.Count -eq 1) "Package box model $color has one cuboid element"
+    if ($elements.Count -ne 1) {
+        continue
+    }
+
+    $element = $elements[0]
+    Assert-True `
+        ((@($element.from) -join ",") -eq "3,1,3" -and (@($element.to) -join ",") -eq "13,9,13") `
+        "Package box model $color keeps the v7 10x10x8 cuboid bounds"
+
+    $expectedFaceTextures = @{
+        north = "#front"
+        south = "#back"
+        west = "#side"
+        east = "#side"
+        up = "#top"
+        down = "#bottom"
+    }
+    foreach ($faceName in $expectedFaceTextures.Keys) {
+        $face = $element.faces.$faceName
+        Assert-True ($null -ne $face) "Package box model $color declares $faceName face"
+        if ($null -eq $face) {
+            continue
+        }
+
+        Assert-True `
+            ($face.texture -eq $expectedFaceTextures[$faceName]) `
+            "Package box model $color $faceName face uses $($expectedFaceTextures[$faceName])"
+        Assert-True `
+            ($face.PSObject.Properties.Name -contains "uv") `
+            "Package box model $color $faceName face declares full-face uv"
+        Assert-True `
+            ((@($face.uv) -join ",") -eq "0,0,16,16") `
+            "Package box model $color $faceName face uses full-face uv [0,0,16,16]"
+    }
+}
+
+$opaqueSolidModelPaths = @(
+    "src/main/resources/assets/appliedpackaging/models/block/package_assembler.json",
+    "src/main/resources/assets/appliedpackaging/models/block/package_export_bus.json",
+    "src/main/resources/assets/appliedpackaging/models/block/package_pattern_terminal.json",
+    "src/main/resources/assets/appliedpackaging/models/block/package_storage_bus.json",
+    "src/main/resources/assets/appliedpackaging/models/block/package_unpacking_bus.json",
+    "src/main/resources/assets/appliedpackaging/models/part/package_pattern_terminal_base.json"
+)
+
+foreach ($opaqueModelPath in $opaqueSolidModelPaths) {
+    Assert-True (Test-Path -LiteralPath $opaqueModelPath) "Opaque solid model exists: $opaqueModelPath"
+    if (-not (Test-Path -LiteralPath $opaqueModelPath)) {
+        continue
+    }
+
+    $opaqueModel = Get-JsonFile $opaqueModelPath
+    if ($null -eq $opaqueModel) {
+        continue
+    }
+
+    Assert-True `
+        (-not ($opaqueModel.PSObject.Properties.Name -contains "render_type")) `
+        "Opaque block/part model must use the default solid render type: $opaqueModelPath"
 }
 
 $pngFiles = @(Get-ChildItem -LiteralPath $assetRoot -Recurse -Filter "*.png" -File -ErrorAction SilentlyContinue)

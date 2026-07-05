@@ -1,5 +1,42 @@
 # Packages 资产报告
 
+## 2026-07-05 package_box_pixel_v7 修复
+
+本次将 17 色包裹从独立平面 item PNG 切换为 3D package_box item/entity 共用模型，未修改 `package_pattern` 与 `packaged_processing_pattern` 图标。
+
+来源：
+
+```text
+C:\Users\warmt\Downloads\package_box_pixel_v7.zip
+package_box_pixel_v7/manifest.json
+package_box_pixel_v7/models/block/package_box_10x10x8_fluix.json
+package_box_pixel_v7/textures/variants/<color>/package_box_<face>.png
+```
+
+整合方式：
+
+```text
+删除旧的 src/main/resources/assets/appliedpackaging/textures/item/<color>_package.png 平面图标。
+为每个颜色生成 src/main/resources/assets/appliedpackaging/models/item/<color>_package.json。
+为每个颜色生成 src/main/resources/assets/appliedpackaging/models/item/package_box/<color>.json。
+复制每个颜色 front/back/side/top/bottom 五张 face 贴图到 textures/block/package_box/<color>/。
+包裹掉落实体 appliedpackaging:package 渲染同一 item model。
+package_box 模型使用单个 10x10x8 cuboid；每个 face 绑定独立完整 face 贴图并声明 full-face uv [0,0,16,16]。
+没有使用 atlas 裁切，也没有把基础盒体与束带拆成重叠模型层。
+存在物品 marker 时，顶层 item model 通过 has_marker override 切入客户端 renderer，在前脸右下角、距外边框 1px 的 4x4 框内叠加 3x3 marker item。
+```
+
+验收点：
+
+```text
+17 色包裹仍保留独立 item id 和独立名称。
+item 与实体不再使用独立平面包裹图标。
+front/back/side 为 10x8，top/bottom 为 10x10。
+模型使用 appliedpackaging namespace，不引用 create: 或外部 namespace。
+当前仓库内 17 色 x 5 面 PNG 与 package_box_pixel_v7.zip 内对应 PNG 逐字节一致。
+`scripts/verify-assets.ps1` 会检查 package_box 模型使用 full-face uv [0,0,16,16] 和 marker custom-render override，`scripts/test-assets-audit.ps1` 包含 cropped UV 与 missing marker override 负例。
+```
+
 ## 2026-07-02 AE2 参考二次修复
 
 本次只重绘 package 与 pattern item 纹理，未修改 Java、Gradle、block texture、GUI icon、model 或其他设计文档。

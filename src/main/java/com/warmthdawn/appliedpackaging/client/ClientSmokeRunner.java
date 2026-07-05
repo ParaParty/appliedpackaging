@@ -1,5 +1,7 @@
 package com.warmthdawn.appliedpackaging.client;
 
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
@@ -7,12 +9,22 @@ import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
+import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
+import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
+import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
@@ -23,9 +35,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.network.NetworkHooks;
@@ -35,9 +52,27 @@ public final class ClientSmokeRunner {
     private static final String QUIT_PROPERTY = "appliedpackaging.clientSmoke.quit";
     private static final String WORLD_PROPERTY = "appliedpackaging.clientSmoke.world";
     private static final int WORLD_READY_TICKS = 40;
+    private static final int WORLD_SCREENSHOT_READY_TICKS = 20;
     private static final int SCREEN_READY_TICKS = 8;
     private static final int SCREEN_TIMEOUT_TICKS = 200;
     private static final int QUIT_DELAY_TICKS = 20;
+    private static final int ME_PACKAGER_SMOKE_ANIMATION_TICKS = 8;
+    private static final String WORLD_PACKAGER_SCREENSHOT_NAME = "appliedpackaging-client-smoke-world-me_packager.png";
+    private static final String WORLD_ALL_MACHINES_SCREENSHOT_NAME =
+            "appliedpackaging-client-smoke-world-all_machines.png";
+    private static final Field ME_PACKAGER_ANIMATION_TICKS =
+            mePackagerField("animationTicks");
+    private static final Field ME_PACKAGER_ANIMATION_INWARD =
+            mePackagerField("animationInward");
+    private static final Field ME_PACKAGER_RENDERED_BOX =
+            mePackagerField("renderedBox");
+    private static final PackageColor[] WORLD_SMOKE_PACKAGE_COLORS = {
+            PackageColor.FLUIX,
+            PackageColor.BLUE,
+            PackageColor.RED,
+            PackageColor.GREEN,
+            PackageColor.YELLOW
+    };
     private static final SmokeStep[] STEPS = {
             SmokeStep.block("package_assembler", APBlocks.PACKAGE_ASSEMBLER, PackageAssemblerScreen.class),
             SmokeStep.block("me_packager", APBlocks.ME_PACKAGER, MePackagerScreen.class),
@@ -54,10 +89,13 @@ public final class ClientSmokeRunner {
     private int ticksInWorld;
     private int currentStep = -1;
     private int screenTicks;
+    private int worldScreenshotTicks;
     private int finishTicks;
     private boolean setupRequested;
     private volatile boolean setupComplete;
     private volatile RuntimeException setupFailure;
+    private boolean packagerWorldScreenshotCaptured;
+    private boolean allMachinesCameraRequested;
     private BlockPos basePos;
     private State state = State.WAITING_FOR_WORLD;
 
@@ -109,7 +147,11 @@ public final class ClientSmokeRunner {
         if (!setupComplete) {
             return;
         }
-        if (state == State.WAITING_FOR_WORLD || state == State.WAITING_BETWEEN_SCREENS) {
+        if (state == State.WAITING_FOR_WORLD) {
+            tickWorldScreenshot(minecraft);
+            return;
+        }
+        if (state == State.WAITING_BETWEEN_SCREENS) {
             openNextScreen(minecraft);
             return;
         }
@@ -130,6 +172,10 @@ public final class ClientSmokeRunner {
         server.execute(() -> {
             try {
                 ServerLevel level = serverPlayer.serverLevel();
+                level.setDayTime(1000L);
+                level.setWeatherParameters(0, 0, false, false);
+                serverPlayer.getInventory().clearContent();
+                prepareSmokeArea(level);
                 for (int index = 0; index < STEPS.length; index++) {
                     SmokeStep step = STEPS[index];
                     BlockPos pos = posForStep(index);
@@ -144,20 +190,160 @@ public final class ClientSmokeRunner {
                             throw new IllegalStateException("Could not place package pattern terminal part at " + pos);
                         }
                     } else {
-                        level.setBlock(pos, step.block().defaultBlockState()
-                                .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH), 3);
+                        var state = step.block().defaultBlockState()
+                                .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH);
+                        if (step.id().equals("me_packager")) {
+                            state = state.setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST);
+                        }
+                        level.setBlock(pos, state, 3);
+                        if (step.id().equals("me_packager")
+                                && level.getBlockEntity(pos) instanceof MePackagerBlockEntity packager) {
+                            ItemStack packageStack = smokePackage(PackageColor.FLUIX, true);
+                            primeMePackagerSmokeAnimation(packager, packageStack);
+                        }
                     }
+                }
+                for (int index = 0; index < WORLD_SMOKE_PACKAGE_COLORS.length; index++) {
+                    PackageColor color = WORLD_SMOKE_PACKAGE_COLORS[index];
+                    ItemStack droppedPackage = smokePackage(color, index == 0);
+                    BlockPos packagePos = posForStep(1)
+                            .relative(Direction.SOUTH, 2)
+                            .relative(Direction.WEST, 2 - index);
+                    PackageEntity packageEntity = new PackageEntity(
+                            level,
+                            packagePos.getX() + 0.5D,
+                            packagePos.getY(),
+                            packagePos.getZ() + 0.5D,
+                            droppedPackage);
+                    packageEntity.setYRot(index == 0 ? 180.0F : 35.0F + index * 25.0F);
+                    level.addFreshEntity(packageEntity);
                 }
                 setupComplete = true;
                 AppliedPackaging.LOGGER.info(
-                        "Applied Packaging client smoke placed {} test targets near {} in '{}'",
+                        "Applied Packaging client smoke placed {} test targets and {} package entities near {} in '{}'",
                         STEPS.length,
+                        WORLD_SMOKE_PACKAGE_COLORS.length,
                         basePos,
                         worldName);
             } catch (RuntimeException exception) {
                 setupFailure = exception;
             }
         });
+    }
+
+    private void prepareSmokeArea(ServerLevel level) {
+        BlockPos origin = basePos.offset(-3, -1, -8);
+        BlockPos end = basePos.offset(STEPS.length + 3, 4, 5);
+        level.getEntitiesOfClass(PackageEntity.class, new AABB(origin, end)).forEach(PackageEntity::discard);
+        for (int x = -3; x <= STEPS.length + 3; x++) {
+            for (int z = -8; z <= 5; z++) {
+                level.setBlock(basePos.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                for (int y = 0; y <= 4; y++) {
+                    level.setBlock(basePos.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+    }
+
+    private void requestAllMachinesCamera(Minecraft minecraft) {
+        if (allMachinesCameraRequested || minecraft.player == null || basePos == null) {
+            return;
+        }
+        MinecraftServer server = minecraft.getSingleplayerServer();
+        ServerPlayer serverPlayer = server.getPlayerList().getPlayer(minecraft.player.getUUID());
+        if (serverPlayer == null) {
+            return;
+        }
+        allMachinesCameraRequested = true;
+        double cameraX = basePos.getX() + (STEPS.length - 1) / 2.0D + 0.5D;
+        double cameraY = basePos.getY();
+        double cameraZ = basePos.getZ() - 6.5D;
+        server.execute(() -> serverPlayer.teleportTo(
+                serverPlayer.serverLevel(),
+                cameraX,
+                cameraY,
+                cameraZ,
+                serverPlayer.getYRot(),
+                serverPlayer.getXRot()));
+    }
+
+    private void tickWorldScreenshot(Minecraft minecraft) {
+        minecraft.options.pauseOnLostFocus = false;
+        if (minecraft.screen != null) {
+            minecraft.setScreen(null);
+            worldScreenshotTicks = 0;
+            return;
+        }
+        minecraft.options.hideGui = true;
+        String screenshotName;
+        if (packagerWorldScreenshotCaptured) {
+            orientPlayerToAllMachines(minecraft);
+            screenshotName = WORLD_ALL_MACHINES_SCREENSHOT_NAME;
+        } else {
+            orientPlayerToMePackager(minecraft);
+            screenshotName = WORLD_PACKAGER_SCREENSHOT_NAME;
+        }
+        primeClientMePackagerSmokeAnimation(minecraft);
+        worldScreenshotTicks++;
+        if (worldScreenshotTicks < WORLD_SCREENSHOT_READY_TICKS) {
+            return;
+        }
+        Screenshot.grab(minecraft.gameDirectory, screenshotName, minecraft.getMainRenderTarget(), message ->
+                AppliedPackaging.LOGGER.info(
+                        "Applied Packaging client smoke captured {}: {}",
+                        screenshotName,
+                        message.getString()));
+        if (!packagerWorldScreenshotCaptured) {
+            packagerWorldScreenshotCaptured = true;
+            worldScreenshotTicks = 0;
+            requestAllMachinesCamera(minecraft);
+            return;
+        }
+        minecraft.options.hideGui = false;
+        state = State.WAITING_BETWEEN_SCREENS;
+    }
+
+    private void primeClientMePackagerSmokeAnimation(Minecraft minecraft) {
+        if (minecraft.level == null || basePos == null) {
+            return;
+        }
+        BlockEntity blockEntity = minecraft.level.getBlockEntity(posForStep(1));
+        if (!(blockEntity instanceof MePackagerBlockEntity packager)) {
+            return;
+        }
+        ItemStack packageStack = new ItemStack(APItems.packageItems().get(PackageColor.FLUIX).get());
+        primeMePackagerSmokeAnimation(packager, packageStack);
+    }
+
+    private void orientPlayerToMePackager(Minecraft minecraft) {
+        if (minecraft.player == null || basePos == null) {
+            return;
+        }
+        BlockPos target = posForStep(1);
+        orientPlayerTo(minecraft, target.getX() + 0.5D, target.getY() + 0.55D, target.getZ() + 0.5D);
+    }
+
+    private void orientPlayerToAllMachines(Minecraft minecraft) {
+        if (minecraft.player == null || basePos == null) {
+            return;
+        }
+        double targetX = basePos.getX() + (STEPS.length - 1) / 2.0D + 0.5D;
+        double targetY = basePos.getY() + 0.75D;
+        double targetZ = basePos.getZ() + 0.5D;
+        orientPlayerTo(minecraft, targetX, targetY, targetZ);
+    }
+
+    private void orientPlayerTo(Minecraft minecraft, double targetX, double targetY, double targetZ) {
+        double dx = targetX - minecraft.player.getX();
+        double dy = targetY - minecraft.player.getEyeY();
+        double dz = targetZ - minecraft.player.getZ();
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
+        float pitch = (float) -(Mth.atan2(dy, horizontal) * Mth.RAD_TO_DEG);
+        minecraft.player.setYRot(yaw);
+        minecraft.player.setXRot(pitch);
+        minecraft.player.yRotO = yaw;
+        minecraft.player.xRotO = pitch;
     }
 
     private void openNextScreen(Minecraft minecraft) {
@@ -244,6 +430,42 @@ public final class ClientSmokeRunner {
         if (quitWhenDone) {
             AppliedPackaging.LOGGER.info("Applied Packaging client smoke stopping client");
             minecraft.stop();
+        }
+    }
+
+    private static void primeMePackagerSmokeAnimation(MePackagerBlockEntity packager, ItemStack packageStack) {
+        ItemStack renderedBox = packageStack.copy();
+        renderedBox.setCount(1);
+        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, renderedBox.copy());
+        try {
+            ME_PACKAGER_ANIMATION_TICKS.setInt(packager, ME_PACKAGER_SMOKE_ANIMATION_TICKS);
+            ME_PACKAGER_ANIMATION_INWARD.setBoolean(packager, false);
+            ME_PACKAGER_RENDERED_BOX.set(packager, renderedBox);
+        } catch (IllegalAccessException exception) {
+            throw new IllegalStateException("Could not prime ME Packager smoke animation", exception);
+        }
+    }
+
+    private static ItemStack smokePackage(PackageColor color, boolean marked) {
+        ItemStack stack = new ItemStack(APItems.packageItems().get(color).get());
+        Optional<MarkerSpec> marker = marked
+                ? Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)))
+                : Optional.empty();
+        PackageDataStorage.write(stack, PackageData.create(
+                color,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
+                marker,
+                0));
+        return stack;
+    }
+
+    private static Field mePackagerField(String name) {
+        try {
+            Field field = MePackagerBlockEntity.class.getDeclaredField(name);
+            field.setAccessible(true);
+            return field;
+        } catch (NoSuchFieldException exception) {
+            throw new IllegalStateException("ME Packager smoke animation field is missing: " + name, exception);
         }
     }
 

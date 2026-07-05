@@ -20,7 +20,7 @@ public final class APBlocks {
 
     public static final RegistryObject<Block> ME_PACKAGER = BLOCKS.register(
             "me_packager",
-            () -> new MePackagerBlock(machineProperties()));
+            () -> new MePackagerBlock(cutoutMachineProperties()));
 
     public static final RegistryObject<Block> PACKAGE_ASSEMBLER = BLOCKS.register(
             "package_assembler",
@@ -28,19 +28,19 @@ public final class APBlocks {
 
     public static final RegistryObject<Block> PACKAGE_STORAGE_BUS = BLOCKS.register(
             "package_storage_bus",
-            () -> new PackageBusBlock(machineProperties(), PackageBusBlock.BusKind.STORAGE));
+            () -> new PackageBusBlock(partialMachineProperties(), PackageBusBlock.BusKind.STORAGE));
 
     public static final RegistryObject<Block> PACKAGE_EXPORT_BUS = BLOCKS.register(
             "package_export_bus",
-            () -> new PackageBusBlock(machineProperties(), PackageBusBlock.BusKind.EXPORT));
+            () -> new PackageBusBlock(partialMachineProperties(), PackageBusBlock.BusKind.EXPORT));
 
     public static final RegistryObject<Block> PACKAGE_UNPACKING_BUS = BLOCKS.register(
             "package_unpacking_bus",
-            () -> new PackageBusBlock(machineProperties(), PackageBusBlock.BusKind.UNPACKING));
+            () -> new PackageBusBlock(partialMachineProperties(), PackageBusBlock.BusKind.UNPACKING));
 
     public static final RegistryObject<Block> PACKAGE_PATTERN_TERMINAL = BLOCKS.register(
             "package_pattern_terminal",
-            () -> new PackagePatternTerminalBlock(machineProperties()));
+            () -> new PackagePatternTerminalBlock(partialMachineProperties()));
 
     private APBlocks() {
     }
@@ -55,5 +55,17 @@ public final class APBlocks {
                 .strength(3.0F, 6.0F)
                 .sound(SoundType.METAL)
                 .requiresCorrectToolForDrops();
+    }
+
+    private static BlockBehaviour.Properties cutoutMachineProperties() {
+        return machineProperties()
+                .noOcclusion()
+                .isRedstoneConductor((state, level, pos) -> false);
+    }
+
+    private static BlockBehaviour.Properties partialMachineProperties() {
+        return machineProperties()
+                .noOcclusion()
+                .isRedstoneConductor((state, level, pos) -> false);
     }
 }

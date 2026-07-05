@@ -1,0 +1,7 @@
+{
+  "parent": "appliedpackaging:block/me_packager_create/hatch_closed",
+  "textures": {
+    "3": "appliedpackaging:block/me_packager_create/packager_iris_open"
+  },
+  "render_type": "minecraft:cutout_mipped"
+}

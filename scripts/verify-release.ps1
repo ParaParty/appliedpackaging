@@ -744,6 +744,7 @@ if ($emptyPng.Count -eq 0) {
 
 if ($RequireClientSmokeScreenshots) {
     $expectedClientSmokeScreenshots = @(
+        "appliedpackaging-client-smoke-world-me_packager.png",
         "appliedpackaging-client-smoke-package_assembler.png",
         "appliedpackaging-client-smoke-me_packager.png",
         "appliedpackaging-client-smoke-package_pattern_terminal.png",

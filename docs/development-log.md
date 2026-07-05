@@ -1860,6 +1860,158 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 最新进展：
 
 ```text
+补齐包裹手动拆包与受伤拆包：
+  新增 PackageUnpacker，统一把合法包裹内容展开为普通 ItemStack
+  PackageItem 蹲下右键时拆开手中整叠同款包裹，优先把内容放入玩家背包，溢出按 Forge 玩家发物品逻辑掉落
+  PackageEntity 受到伤害时按实体 ItemStack count 展开全部同款包裹内容并掉落到世界
+  手动/受伤拆包仅在内容全部为 AEItemKey 时执行；包含 fluid 或未知 AEKey 时不消耗/销毁包裹，避免资源丢失
+  marker item 渲染中心从 package front 外角 4x4 调整为距外边框 1px 的 4x4 标记框中心，保持 3x3 item 和 0.5px margin
+  更新 docs/01-requirements.md、docs/03-detailed-design.md、docs/04-asset-spec.md、docs/assets/acceptance.md、docs/assets/asset-briefs/packages.md、docs/assets/contracts/package_items.yaml 和 docs/assets/reports/packages.md
+新增 GameTest：
+  shiftRightClickPackageUnpacksAllPackagesToPlayer
+  damagedPackageEntityUnpacksContentsToWorld
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，124 个必需 GameTest 全部通过
+尝试验证 .\gradlew.bat runClientSmoke --stacktrace；失败原因是当前已有 IntelliJ 启动的 appliedpackaging dev client 占用 run/New World 世界锁，quickPlay 无法进入世界，未能产出本轮可用截图。未终止用户的 IDE 客户端。
+GameTest：已考虑并执行。本次修改涉及玩家 item use、实体受伤、掉落物生成和包裹内容提交语义，属于行为敏感变更；已新增并运行 GameTest 覆盖。
+```
+
+最新进展：
+
+```text
+修正 package_box face UV 与 marker 渲染方案：
+  确认 package_box_pixel_v7 已提供 base_faces、band_masks 和 variants/<color>/package_box_<face>.png；当前发布资源继续使用 variants 中已合成的独立 face 贴图，不修改 PNG、不合并 atlas、不拆基础盒体与束带重叠层
+  17 色 package_box/<color>.json 保持单个 10x10x8 cuboid，并为 north/south/east/west/up/down 每面声明 full-face uv [0,0,16,16]，让 10x8 或 10x10 独立贴图完整铺满对应 face
+  顶层 <color>_package.json 增加 appliedpackaging:has_marker override；只有存在物品 marker 的包裹切入共享 builtin/entity renderer
+  新增 PackageItemRenderer 和 PackageMarkerRenderer；renderer 根据 PackageItem 颜色渲染原 package_box 模型，并将 AEItemKey marker 以 3x3 尺寸居中叠加到前脸右下角 4x4 框内
+  非物品 marker 暂不渲染贴片；包裹本体仍是 MC 常规模型 JSON，动态 marker 属于运行时 ItemStack 渲染，不能由静态 JSON 表达
+  包裹 GUI display 调整为 rotation [30,225,0]、scale [0.5,0.5,0.5]，让物品栏视角更接近常规方块物品且正面朝左前
+  scripts/verify-assets.ps1 改为检查 full-face uv 和 marker custom-render override；scripts/test-assets-audit.ps1 增加 cropped UV 与 missing marker override 负例
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，确认 17 色 package_box 模型均使用 full-face uv [0,0,16,16]，且顶层包裹 item 均声明 marker custom-render override
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功，cropped UV 与 missing marker override 负例均按预期失败
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，最新截图 appliedpackaging-client-smoke-world-me_packager.png 确认包裹贴图不再错位，marked package 不再显示缺失模型，marker 贴片位于前脸右下角
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
+GameTest：已考虑并执行。本次最终工作区包含包裹实体、完整打包流程和客户端模型/渲染相关改动；验证 .\gradlew.bat runGameTestServer --stacktrace 成功，122 个必需 GameTest 全部通过。
+```
+
+最新进展：
+
+```text
+修正 ME 打包机与普通机器渲染路径：
+  ME 打包机方块属性改为 noOcclusion 且不作为 redstone conductor，避免 Create 风格透明外壳按完整实心方块遮挡内部光照
+  客户端只给 ME 打包机注册 cutout_mipped 方块渲染层；动态 hatch 改回 Create renderer 的 solid，动态 tray 继续 cutout_mipped
+  package_assembler、package buses、package_pattern_terminal block 和 package_pattern_terminal_base part 移除错误 render_type，普通不透明模型回到默认 solid
+  package buses 与 package_pattern_terminal 方块使用 noOcclusion，避免薄模型按完整方块遮挡地面造成蓝色缺面
+  ClientSmokeRunner 新增 appliedpackaging-client-smoke-world-all_machines.png，并在第二张世界截图前移动到机器排正前方，覆盖普通机器渲染检查
+  scripts/verify-assets.ps1 新增普通不透明 block/part 模型不得声明 render_type 的门禁；scripts/test-assets-audit.ps1 新增 bad opaque model render_type 负例
+  docs/04-asset-spec.md 与 docs/assets/acceptance.md 同步记录 Create 风格 packager 的静态/动态 render type 分界和普通模型 solid 规则
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，确认新增 opaque model render_type 门禁通过
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功，确认 bad opaque model render_type fixture 按预期失败
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，生成 appliedpackaging-client-smoke-world-me_packager.png 与 appliedpackaging-client-smoke-world-all_machines.png；人工查看确认打包机正面不再是整块黑洞，薄 bus/terminal 下方地面不再发蓝缺面
+验证 run/logs/latest.log 中未发现 ERROR、Exception、Missing texture、missing model、Unable to load model、Could not load 或 ModelBakery 相关资源加载错误
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，只有既有 LF/CRLF 工作区提示
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，122 个必需 GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功
+```
+
+最新进展：
+
+```text
+修复包裹材质、包裹实体和 ME Packager smoke 验证：
+  确认最新截图中的包裹贴图错误来自模型层手写 face uv；17 色 package_box 模型已恢复为 package_box_pixel_v7 源模型语义，不再在 faces 中声明 uv
+  逐字节比对 C:\Users\warmt\Downloads\package_box_pixel_v7.zip 与仓库内 17 色 x 5 面 PNG，确认当前 PNG 本体未被改色、重采样或污染
+  scripts/verify-assets.ps1 新增 17 色 package_box 模型门禁：检查 3D parent、cutout_mipped、10x10x8 bounds、face texture 绑定和不得声明显式 uv
+  scripts/test-assets-audit.ps1 新增 explicit UV 负例，确认坏 package_box JSON 会被资产审计拒绝
+  PackageEntity 改为 Create-style 独立 LivingEntity，注册实体属性，fromDroppedItem 沿用 Create 初速放大策略，实体保存 PackageItem NBT 并共用 item model 渲染
+  PackageEntity 落地后无条件清零 Y 速度，避免包裹落地后继续慢速漂浮/弹动；实体尺寸固定为 10px x 8px，并允许准星选中和空手右键拿取
+  PackageEntityRenderer 渲染 PackageEntity 自身的 PackageItem model，保持模型底部贴合实体底部
+  ClientSmokeRunner 的世界截图场景现在放置 5 个不同颜色包裹实体并贴地排开，避免只靠半遮挡单包裹判断贴图和落地高度
+验证 python 比对 package_box_pixel_v7.zip 与仓库 PNG 成功，85 张 face PNG 均逐字节一致
+验证 rg -n '"uv"' src\main\resources\assets\appliedpackaging\models\item\package_box 无输出，17 色 package_box 模型均不再声明显式 uv
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，141 个 PNG 和 17 色 package_box 模型门禁均通过
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功，explicit UV 负例按预期失败
+验证 .\gradlew.bat runGameTestServer --stacktrace 首次失败，暴露 PackageEntity 落地后仍有垂直速度残留
+修复落地 Y 速度后验证 .\gradlew.bat runGameTestServer --stacktrace 成功，122 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，生成世界图和 6 张 GUI smoke 截图；世界图确认包裹实体可见、未埋入地面且无附魔闪光，日志未检出缺模型、缺贴图、parent loop、ERROR、FATAL、ClassCastException 或 crash
+GameTest：已考虑并执行。本次改变 PackageEntity 继承、掉落物理、实体尺寸、右键交互和保存/同步语义，属于行为敏感变更；已运行 runGameTestServer 覆盖包裹实体和完整打包流程。
+```
+
+最新进展：
+
+```text
+修复 2026-07-05 客户端渲染与包裹实体物理回归：
+  PackageEntity 改为继承 ItemEntity，沿用原版掉落实体重力、阻力、拾取延迟和生命周期；fromDroppedItem 不再放大初速，并在落地后清零极小垂直反弹速度，避免包裹慢慢飞或漂浮
+  PackageEntity 兼容读取旧版 Package NBT，避免旧世界残留实体变成 Air 后被立刻清理
+  PackageEntityRenderer 改回 ItemRenderer 的真实 item model 获取路径，并用 +7px Y 预位移抵消 ItemRenderer 内部 -0.5 变换，使 10x10x8 包裹模型底部贴合实体底部，不再埋进地面
+  ME Packager 动态 hatch 和 Create 临时 block/item 模型改用 cutout_mipped；Create packager linked/iris 贴图有透明像素，solid 渲染会把透明区显示成黑洞
+  17 色 package_box 模型 UV 恢复为整张贴图域 [0,0,16,16]；10x8/10x10 只作为 PNG 尺寸和资产审计规则，不作为 JSON UV 坐标
+  修正错误的中间状态：之前把 PNG 像素尺寸误写进 JSON UV，导致包裹贴图被裁切错位；随后批量重写还误把 _transforms.json 当成颜色模型，形成 package_box parent loop
+  _transforms.json 现在只保留 item display transforms，不再声明 parent、textures 或 elements；17 色 package_box/<color>.json 继续继承该 display 模板并各自声明真实贴图
+  PackageEntityRenderer 改成 T extends ItemEntity 的泛型渲染器，只读取 entity.getItem()；避免拾取粒子路径用 appliedpackaging:package renderer 渲染 ItemEntity 语义对象时触发 PackageEntity 强转崩溃
+  package_assembler、package buses 和 package_pattern_terminal block/part 模型补 render_type=cutout_mipped，避免透明像素或遮罩渲染异常
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，All 122 required tests passed
+验证 .\gradlew.bat runClientSmoke --stacktrace 首次失败，暴露 package_box parent loop 与 PackageEntityRenderer 拾取粒子强转崩溃；修复后再次运行成功，run/logs/latest.log 未检出 parent loop、missing model、missing texture、ERROR、FATAL 或加载异常；截图 appliedpackaging-client-smoke-world-me_packager.png 确认 ME Packager 中心不再发黑，包裹掉落实体不再埋入地面、裁错贴图或显示为缺失模型
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，141 个 PNG 通过资源审计
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 assets/appliedpackaging/models 下 JSON 全量解析成功
+验证 .\gradlew.bat build --stacktrace 成功
+验证 git diff --check 成功；仅输出工作区 LF 将被 Git 转为 CRLF 的提示
+GameTest：已考虑并运行。本次改变 PackageEntity 物理继承、掉落速度、落地状态和旧 NBT 迁移，属于行为敏感变更；修复前 GameTest 捕获到落地后仍有垂直反弹速度，修复后 runGameTestServer 全部通过。
+```
+
+最新进展：
+
+```text
+修复 2026-07-05 ME Packager Create 渲染与包裹实体表现：
+  将 ME Packager 机器贴图和模型恢复为 build/reference/create 中的 Create Packager 原始资源，仅做 appliedpackaging namespace/path 重映射；不再对机器材质做自定义改色或亮度处理
+  MePackagerRenderer 对齐 Create PackagerRenderer 的渲染策略：hatch 使用 solid，tray 使用 cutoutMipped，tray/package 位移、旋转和缩放沿用 Create 数值，动态渲染方向直接使用 network_side
+  me_packager blockstate 改用 Create linked 模型，按 network_side 反推静态模型旋转，使世界方块外观与 AE 连接面一致
+  ClientSmokeRunner 新增世界截图阶段，并在开发截图中临时 prime ME Packager 输出动画，便于验证 hatch/tray/package 的方向；该 runner 仍被 jar 排除
+  包裹材质替换为 C:\Users\warmt\Downloads\package_box_pixel_v7.zip 版本；包裹 GUI transform 保持缩小并让正面朝左前
+  PackageEntityRenderer 将模型 Y 偏移改为 -1px，使 y=1..9px 的包裹模型视觉上贴合 0..8px 实体碰撞箱
+  packageEntitySettlesOnGroundWithoutHovering 改为第 40 tick 检查最终状态，不再因实体第 26 tick 提前落地而误判失败
+  AE2 CPU -> Package Assembler GameTest 保留“CPU 已提交 + 装配室收到输入并产出包裹”的本 mod 流程断言，不再依赖 AE2 getRequestedAmount 的瞬时内部状态
+  scripts/verify-assets.ps1 将 Create vault_front_small.png 归入 16x16 detail texture；packager_particle.png 与 vault_front_small.png 转为 RGBA PNG，视觉内容不重绘
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，122 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获世界图和 6 张 GUI smoke 截图
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，141 个 PNG 均通过 RGBA、尺寸和可见内容审计
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功
+GameTest：已考虑并执行。本次修复涉及渲染状态、包裹实体视觉/碰撞对应和 AE2 CPU 推送流程断言；已运行 runGameTestServer 覆盖完整行为流程。
+```
+
+最新进展：
+
+```text
+接入 2026-07-05 包裹材质和 ME Packager 行为变更：
+  使用 C:\Users\warmt\Downloads\package_box_pixel_v6.zip 替换 17 色包裹资源，包裹物品模型改为 10x10x8 package_box 三维模型，物品和丢出实体共用该模型渲染
+  新增 appliedpackaging:package 实体类型、实体渲染器和 PackageItem 自定义掉落实体路径，参考 Create package entity 策略保留包裹 ItemStack/NBT
+  ME Packager 临时切换到 Create Packager 风格 block/item 模型和贴图；packager_particle.png 已重存为 RGBA 以满足资产审计
+  ME Packager 基础容量改为 1k/16 类型；容量升级后续再做
+  ME Packager 新增 network_side 方块状态，放置时默认 facing 反向，潜行右键被点击面可切换连接面
+  ME Packager 只通过 network_side 查询 AE2 MEStorage；无 MEStorage 时返回 NO_TARGET，不回落 Forge item handler / fluid handler
+  非 network_side 面只暴露 2 槽普通 item capability：slot 0 输入合法包裹，slot 1 输出包裹
+  输入槽有包裹时 server tick 自动尝试拆入所选 AE 网络；红石 pulse/cyclic 均在所选 AE 网络上执行
+  新增/扩展 GameTest 覆盖包裹实体掉落、1k/16 容量、network_side capability 隔离、顶面 AE 网络打包、自动拆包、Forge item/fluid handler 反例，以及 ME 红石在 AE 网络上的完整流程
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 ResourceLocation/FMLJavaModLoadingContext deprecation warning
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，140 个 PNG 均通过 RGBA、尺寸和可见内容审计
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功
+验证 asset JSON parse 成功，70 个 assets JSON 可解析
+验证 .\gradlew.bat runData --stacktrace 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 首次失败，原因是新 AE2 helper 未向 Drive 放入 storage cell，导致网络容量为 0
+修复后验证 .\gradlew.bat runGameTestServer --stacktrace 成功，118 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 6 张客户端 smoke 截图；日志未出现缺模型/缺贴图错误，仅出现 package_box 10x10 贴图限制 mip level 的普通警告
+GameTest：已考虑并执行。本次行为涉及实体、能力暴露、MEStorage 目标选择、红石和自动拆包；已新增/扩展 PackageDataGameTests，并运行 runGameTestServer 覆盖完整打包流程。
+```
+
+最新进展：
+
+```text
 补强 tag readiness 类型目标族门禁：
   scripts/verify-release-readiness.ps1 现在读取 intake 表的 类型 列，并在迁移目标路径存在且不越界后执行类型目标族校验
   需求类 intake 迁移目标必须落在 docs/01-requirements.md、docs/02-system-architecture.md、docs/03-detailed-design.md、docs/05-implementation-plan.md、docs/06-verification-release.md 或 docs/07-references.md
@@ -1936,4 +2088,21 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 验证 .\gradlew.bat build --stacktrace 成功，刷新发布 jar 内 README/CHANGELOG
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-release-checks.ps1 -AuditOnly -WriteReleaseManifest -RequireReleaseManifest -WriteReleaseBundle -RequireReleaseBundle 成功，确认机械发布审计、Asset resource audit、文档审计、manifest 生成/审计和 bundle 生成/审计仍可串联通过；提交前 manifest 记录 clean=false 属于预期状态
 GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests；本次只增强发布 tag readiness 脚本、自测 fixture 和文档记录，不改变游戏行为、数据生成、资源文件、菜单、网络、事务或服务端加载，因此未新增、扩展或运行 GameTest。最终候选发布预设仍会运行 runGameTestServer。
+```
+
+最新进展：
+
+```text
+调整玩家手动拆包为整叠拆包：
+  PackageUnpacker.unpackStackToPlayer 按手中 ItemStack count 展开每包内容，成功时消耗整叠同款包裹
+  PackageItem.use 成功后返回玩家当前手中物品，避免 Forge 发物品逻辑把输出放回原手槽后又被旧空包裹栈覆盖
+  手动拆包仍只接受全部内容可转换为普通 ItemStack 的包裹；包含 fluid 或未知 AEKey 时不消耗包裹
+  更新 R14 与详细设计中的手动拆包语义，明确蹲下右键拆开手中的整叠同款包裹
+  扩展 GameTest shiftRightClickPackageUnpacksAllPackagesToPlayer，覆盖 count=2 的包裹栈并断言输出总量翻倍
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，124 个必需 GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
+GameTest：已考虑并执行。本次改变玩家 item use 的提交语义与整叠内容展开数量，属于行为敏感变更；已扩展并运行 PackageDataGameTests。
 ```

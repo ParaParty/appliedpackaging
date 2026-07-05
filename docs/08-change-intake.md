@@ -5,7 +5,8 @@
 当前接收窗口：
 
 ```text
-2026-07-05 用户将补充需求和材质。
+2026-07-05 用户已补充包裹材质、包裹实体/模型渲染、ME-only 可切换连接面打包机需求。
+2026-07-06 左右用户将补充正式打包机模型/动画资产；当前打包机模型临时使用 Create 同款风格资源。
 0.1.0-dev 最终发布 tag 暂停创建。
 Dedicated server full world-load 当前基线已通过，但等待新增范围冻结后再作为最终验收重新执行。
 ```
@@ -125,5 +126,6 @@ EULA 状态：run/eula.txt 已为 eula=true。
 
 | ID | 类型 | 标题 | 状态 | 迁移目标 | 验证要求 |
 | --- | --- | --- | --- | --- | --- |
-| IN-001 | 需求 | 待用户 2026-07-05 补充 | 待输入 | 待判定 | 待判定 |
-| IN-002 | 材质 | 待用户 2026-07-05 补充 | 待输入 | 待判定 | 待判定 |
+| IN-001 | 需求 | 包裹物品/实体同模型渲染、ME Packager 只连接 AE2 MEStorage、network_side 可切换、1k/16 基础容量和完整打包流程 | 已迁移并通过当前验证 | docs/01-requirements.md; docs/02-system-architecture.md; docs/03-detailed-design.md; docs/05-implementation-plan.md; docs/06-verification-release.md | 已运行 compileJava、runData、runGameTestServer、runClientSmoke、verify-assets；当前 GameTest 122 个必需测试通过 |
+| IN-002 | 材质 | package_box_pixel_v7 17 色包裹材质替换；ME Packager 临时 Create 同款模型/贴图 | 已迁移并通过当前验证 | docs/04-asset-spec.md; docs/assets/acceptance.md; docs/assets/asset-briefs/packages.md; docs/assets/contracts/package_items.yaml; docs/assets/reports/packages.md; docs/assets/reports/machines.md; src/main/resources/assets/appliedpackaging/ | 已运行 asset JSON parse、verify-assets、test-assets-audit、runData、runClientSmoke；package_box 模型当前要求 full-face uv [0,0,16,16] 与 marker custom-render override；后续正式打包机模型到位后需重新跑资源审计和客户端 smoke |
+| IN-003 | 材质 | 正式 ME Packager 模型/动画替换 | 待输入 | 待判定 | 待判定 |

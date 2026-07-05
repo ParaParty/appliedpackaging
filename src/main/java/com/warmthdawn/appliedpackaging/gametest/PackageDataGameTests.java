@@ -15,11 +15,13 @@ import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
+import appeng.api.util.AEColor;
 import appeng.blockentity.crafting.PatternProviderBlockEntity;
 import appeng.blockentity.misc.InterfaceBlockEntity;
 import appeng.blockentity.storage.DriveBlockEntity;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
+import appeng.core.definitions.AEParts;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
@@ -45,10 +47,12 @@ import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
+import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
+import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
@@ -71,11 +75,17 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
@@ -85,6 +95,8 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -92,6 +104,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.fluids.capability.templates.FluidTank;
+import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 
 @GameTestHolder(AppliedPackaging.MOD_ID)
@@ -109,6 +122,7 @@ public final class PackageDataGameTests {
         Optional<PackageData> read = PackageDataStorage.read(stack);
 
         helper.assertTrue(read.isPresent(), "Package data should be readable");
+        helper.assertFalse(stack.hasFoil(), "Package contents should not add an enchantment glint");
         helper.assertTrue(read.get().canonicalHash().equals(data.canonicalHash()), "Canonical hash should round-trip");
         helper.assertTrue(read.get().usedUnits() == 1, "64 iron ingots should use one package unit");
         helper.succeed();
@@ -624,6 +638,415 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageItemsCreatePackageEntityForDroppedStacks(GameTestHelper helper) {
+        ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        ItemEntity original = new ItemEntity(
+                helper.getLevel(),
+                helper.absolutePos(BlockPos.ZERO).getX() + 0.5D,
+                helper.absolutePos(BlockPos.ZERO).getY() + 1.0D,
+                helper.absolutePos(BlockPos.ZERO).getZ() + 0.5D,
+                packageStack.copy());
+        original.setDeltaMovement(0.1D, 0.2D, 0.3D);
+
+        var customEntity = packageStack.getItem().createEntity(helper.getLevel(), original, packageStack);
+
+        helper.assertTrue(customEntity instanceof PackageEntity,
+                "Package items should replace dropped ItemEntity with appliedpackaging:package");
+        helper.assertFalse(customEntity instanceof ItemEntity,
+                "Package entity should use Create-style dedicated entity semantics, not vanilla ItemEntity pickup semantics");
+        PackageEntity packageEntity = (PackageEntity) customEntity;
+        helper.assertTrue(closeTo(packageEntity.getDeltaMovement().x, 0.15D)
+                        && closeTo(packageEntity.getDeltaMovement().y, 0.3D)
+                        && closeTo(packageEntity.getDeltaMovement().z, 0.45D),
+                "Package entity should inherit Create-style dropped item momentum scaling");
+        helper.assertTrue(packageEntity.getPackageStack().is(packageStack.getItem()),
+                "Package entity should preserve the concrete package item color");
+        helper.assertTrue(PackageDataStorage.read(packageEntity.getPackageStack()).isPresent(),
+                "Package entity should preserve package data");
+        helper.assertTrue(Math.abs(packageEntity.getBbWidth() - PackageEntity.WIDTH) < 0.001F,
+                "Package entity collision width should match the 10px package model width");
+        helper.assertTrue(Math.abs(packageEntity.getBbHeight() - PackageEntity.HEIGHT) < 0.001F,
+                "Package entity collision height should match the 8px package model height");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageEntitySettlesOnGroundWithoutHovering(GameTestHelper helper) {
+        BlockPos groundPos = new BlockPos(1, 0, 1);
+        helper.setBlock(groundPos, Blocks.STONE);
+
+        ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        Vec3 spawnPos = helper.absoluteVec(new Vec3(1.5D, 2.0D, 1.5D));
+        PackageEntity entity = new PackageEntity(helper.getLevel(), spawnPos.x, spawnPos.y, spawnPos.z, packageStack);
+        helper.getLevel().addFreshEntity(entity);
+
+        helper.startSequence()
+                .thenExecuteAfter(40, () -> {
+                    helper.assertTrue(entity.isAlive(), "Package entity should remain alive while settling");
+                    helper.assertTrue(entity.onGround(), "Package entity should settle on the ground");
+                    helper.assertTrue(closeTo(entity.getY(), helper.absolutePos(groundPos).getY() + 1.0D),
+                            "Package entity bottom should be flush with the supporting block");
+                    helper.assertTrue(Math.abs(entity.getDeltaMovement().y) < 1.0e-6D,
+                            "Settled package entity should not keep vertical bounce velocity");
+                    helper.assertTrue(closeTo(
+                                    entity.getBoundingBox().maxY - entity.getBoundingBox().minY,
+                                    PackageEntity.HEIGHT),
+                            "Package entity AABB height should match the visual package height");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void shiftRightClickPackageUnpacksAllPackagesToPlayer(GameTestHelper helper) {
+        FakePlayer player = FakePlayerFactory.get(
+                (ServerLevel) helper.getLevel(),
+                new GameProfile(UUID.randomUUID(), "APUnpack"));
+        player.setShiftKeyDown(true);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, itemPackageData(PackageColor.BLUE, 64, 32));
+        packageStack.setCount(2);
+        player.setItemInHand(InteractionHand.MAIN_HAND, packageStack);
+
+        InteractionResultHolder<ItemStack> result = player.getItemInHand(InteractionHand.MAIN_HAND)
+                .use(helper.getLevel(), player, InteractionHand.MAIN_HAND);
+        player.setItemInHand(InteractionHand.MAIN_HAND, result.getObject());
+
+        helper.assertTrue(result.getResult().consumesAction(), "Shift-right-click should consume the package use action");
+        helper.assertFalse(PackageDataStorage.hasPackageData(player.getItemInHand(InteractionHand.MAIN_HAND)),
+                "Shift-right-click should remove the whole held package stack");
+        helper.assertTrue(player.getInventory().countItem(Items.IRON_INGOT) == 128,
+                "Shift-right-click should insert unpacked iron into the player inventory");
+        helper.assertTrue(player.getInventory().countItem(Items.COPPER_INGOT) == 64,
+                "Shift-right-click should insert unpacked copper into the player inventory");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void damagedPackageEntityUnpacksContentsToWorld(GameTestHelper helper) {
+        ItemStack packageStack = packageStack(PackageColor.BLUE, itemPackageData(PackageColor.BLUE, 64, 32));
+        Vec3 spawnPos = helper.absoluteVec(new Vec3(1.5D, 1.0D, 1.5D));
+        PackageEntity entity = new PackageEntity(helper.getLevel(), spawnPos.x, spawnPos.y, spawnPos.z, packageStack);
+        helper.getLevel().addFreshEntity(entity);
+
+        boolean unpacked = entity.hurt(helper.getLevel().damageSources().generic(), 1.0F);
+
+        helper.assertTrue(unpacked, "Damaging a package entity should unpack item contents");
+        helper.assertTrue(entity.isRemoved(), "Damaged package entity should be removed after unpacking");
+        helper.assertTrue(itemEntityAmount(helper, Items.IRON_INGOT) == 64,
+                "Damaged package entity should drop unpacked iron");
+        helper.assertTrue(itemEntityAmount(helper, Items.COPPER_INGOT) == 32,
+                "Damaged package entity should drop unpacked copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerBaseCapacityUses1kAnd16Types(GameTestHelper helper) {
+        helper.assertTrue(MePackagerBlockEntity.BASE_CAPACITY_PROFILE.unitLimit() == 1024,
+                "ME Packager base profile should use 1k package units");
+        helper.assertTrue(MePackagerBlockEntity.BASE_CAPACITY_PROFILE.typeLimit() == 16,
+                "ME Packager base profile should allow up to 16 material types");
+
+        List<GenericStack> sixteenTypes = List.of(
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1),
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 1),
+                new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1),
+                new GenericStack(AEItemKey.of(Items.DIAMOND), 1),
+                new GenericStack(AEItemKey.of(Items.EMERALD), 1),
+                new GenericStack(AEItemKey.of(Items.REDSTONE), 1),
+                new GenericStack(AEItemKey.of(Items.LAPIS_LAZULI), 1),
+                new GenericStack(AEItemKey.of(Items.QUARTZ), 1),
+                new GenericStack(AEItemKey.of(Items.COAL), 1),
+                new GenericStack(AEItemKey.of(Items.CHARCOAL), 1),
+                new GenericStack(AEItemKey.of(Items.AMETHYST_SHARD), 1),
+                new GenericStack(AEItemKey.of(Items.FLINT), 1),
+                new GenericStack(AEItemKey.of(Items.CLAY_BALL), 1),
+                new GenericStack(AEItemKey.of(Items.BRICK), 1),
+                new GenericStack(AEItemKey.of(Items.NETHER_BRICK), 1),
+                new GenericStack(AEItemKey.of(Items.PRISMARINE_SHARD), 1));
+
+        PackagePlanResult fit = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                sixteenTypes,
+                List.of(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                MePackagerBlockEntity.BASE_CAPACITY_PROFILE,
+                0);
+        helper.assertTrue(fit.success(), "ME Packager base profile should accept 16 types");
+
+        List<GenericStack> seventeenTypes = List.of(
+                sixteenTypes.get(0),
+                sixteenTypes.get(1),
+                sixteenTypes.get(2),
+                sixteenTypes.get(3),
+                sixteenTypes.get(4),
+                sixteenTypes.get(5),
+                sixteenTypes.get(6),
+                sixteenTypes.get(7),
+                sixteenTypes.get(8),
+                sixteenTypes.get(9),
+                sixteenTypes.get(10),
+                sixteenTypes.get(11),
+                sixteenTypes.get(12),
+                sixteenTypes.get(13),
+                sixteenTypes.get(14),
+                sixteenTypes.get(15),
+                new GenericStack(AEItemKey.of(Items.PRISMARINE_CRYSTALS), 1));
+        PackagePlanResult tooManyTypes = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                seventeenTypes,
+                List.of(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                MePackagerBlockEntity.BASE_CAPACITY_PROFILE,
+                0);
+        helper.assertFalse(tooManyTypes.success(),
+                "ME Packager base profile should reject the seventeenth material type");
+        helper.assertTrue(tooManyTypes.failure().orElseThrow() == PackagePlanFailure.CAPACITY_EXCEEDED,
+                "Seventeenth type should fail as a capacity limit");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerExternalCapabilityExposesPackagesAwayFromNetworkSide(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(0, 1, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                3);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.assertTrue(packager.networkSide() == Direction.WEST,
+                "ME Packager should read its selected ME side from block state");
+        helper.assertTrue(packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.WEST).resolve().isEmpty(),
+                "ME Packager network side should not expose normal item capability");
+        IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+                .resolve()
+                .orElseThrow();
+
+        ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        ItemStack insertRemainder = sideHandler.insertItem(0, packageStack.copy(), false);
+        helper.assertTrue(insertRemainder.isEmpty(), "Non-network sides should accept package input");
+        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).is(packageStack.getItem()),
+                "External package insertion should fill the internal input slot");
+
+        ItemStack component = ae2Item("cell_component_64k");
+        ItemStack rejected = sideHandler.insertItem(0, component.copy(), true);
+        helper.assertTrue(ItemStack.isSameItemSameTags(component, rejected) && rejected.getCount() == component.getCount(),
+                "External package input should reject non-package configuration items");
+
+        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, packageStack.copy());
+        ItemStack extracted = sideHandler.extractItem(1, 1, false);
+        helper.assertTrue(extracted.is(packageStack.getItem()), "Non-network sides should expose package output");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerPlacementDefaultsNetworkSideTowardClickedBlock(GameTestHelper helper) {
+        FakePlayer player = newFakePlayer(helper);
+        ItemStack stack = new ItemStack(APItems.ME_PACKAGER.get());
+        player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+        BlockPos clickedPos = helper.absolutePos(new BlockPos(0, 1, 0));
+        BlockHitResult hit = new BlockHitResult(
+                Vec3.atCenterOf(clickedPos),
+                Direction.EAST,
+                clickedPos,
+                false);
+        BlockPlaceContext context = new BlockPlaceContext(player, InteractionHand.MAIN_HAND, stack, hit);
+
+        BlockState state = APBlocks.ME_PACKAGER.get().getStateForPlacement(context);
+
+        helper.assertTrue(state != null, "ME Packager placement should produce a block state");
+        helper.assertTrue(state.getValue(MePackagerBlock.NETWORK_SIDE) == Direction.WEST,
+                "ME Packager should default its network side toward the clicked block");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerNetworkSideRequiresWrench(GameTestHelper helper) {
+        BlockPos relativePos = new BlockPos(1, 1, 0);
+        BlockPos absolutePos = helper.absolutePos(relativePos);
+        helper.getLevel().setBlock(
+                absolutePos,
+                APBlocks.ME_PACKAGER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.SOUTH)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                3);
+        FakePlayer player = newFakePlayer(helper);
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+        BlockHitResult northHit = new BlockHitResult(
+                Vec3.atCenterOf(absolutePos),
+                Direction.NORTH,
+                absolutePos,
+                false);
+        BlockState state = helper.getLevel().getBlockState(absolutePos);
+        APBlocks.ME_PACKAGER.get().use(state, helper.getLevel(), absolutePos, player, InteractionHand.MAIN_HAND, northHit);
+        helper.assertTrue(helper.getLevel().getBlockState(absolutePos).getValue(MePackagerBlock.NETWORK_SIDE) == Direction.WEST,
+                "Non-wrench right-click should not change the ME Packager network side");
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, AEItems.CERTUS_QUARTZ_WRENCH.stack());
+        InteractionResult result = APBlocks.ME_PACKAGER.get().use(
+                helper.getLevel().getBlockState(absolutePos),
+                helper.getLevel(),
+                absolutePos,
+                player,
+                InteractionHand.MAIN_HAND,
+                northHit);
+        helper.assertTrue(result == InteractionResult.CONSUME,
+                "AE2 wrench should be consumed by ME Packager network-side switching");
+        helper.assertTrue(helper.getLevel().getBlockState(absolutePos).getValue(MePackagerBlock.NETWORK_SIDE) == Direction.NORTH,
+                "AE2 wrench should switch the ME Packager network side to the clicked face");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerPackagesFromSwitchableTopAe2Side(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(1, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.UP);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "top-side ME Packager test");
+                    assertMePackagerReady(helper, packager, "top-side ME Packager test");
+                })
+                .thenExecute(() -> {
+                    helper.assertTrue(packager.networkSide() == Direction.UP,
+                            "ME Packager should support a top ME connection side");
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    long inserted = storage.insert(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.MODULATE, source);
+                    helper.assertTrue(inserted == 64,
+                            "Top-side AE network should accept iron before ME Packager packs");
+
+                    MePackagerBlockEntity.MachineResult result = packager.runOnce();
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData data = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(result == MePackagerBlockEntity.MachineResult.PACKED,
+                            "ME Packager should package from its selected top AE side");
+                    helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "Top-side package should contain iron");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerPackagesThroughSelectedAeCableSide(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(0, 1, 0);
+        BlockPos cablePos = packagerPos.relative(Direction.EAST);
+        BlockPos drivePos = cablePos.relative(Direction.EAST);
+        BlockPos energyCellPos = drivePos.relative(Direction.EAST);
+
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.WEST)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.EAST),
+                3);
+        PartHelper.setPart(
+                (ServerLevel) helper.getLevel(),
+                helper.absolutePos(cablePos),
+                null,
+                null,
+                AEParts.GLASS_CABLE.item(AEColor.TRANSPARENT));
+        helper.getLevel().setBlock(
+                helper.absolutePos(drivePos),
+                AEBlocks.DRIVE.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+        drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertMePackagerReady(helper, packager, "selected cable-side ME Packager test"))
+                .thenExecute(() -> {
+                    helper.assertTrue(packager.networkSide() == Direction.EAST,
+                            "ME Packager should expose its AE node only on the selected cable side");
+                    MEStorage storage = packager.getMainNode().getGrid().getStorageService().getInventory();
+                    long inserted = storage.insert(
+                            AEItemKey.of(Items.IRON_INGOT),
+                            64,
+                            Actionable.MODULATE,
+                            IActionSource.ofMachine(packager));
+                    helper.assertTrue(inserted == 64,
+                            "Selected-side cable network should accept iron before ME Packager packs");
+
+                    MePackagerBlockEntity.MachineResult result = packager.runOnce();
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData data = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(result == MePackagerBlockEntity.MachineResult.PACKED,
+                            "ME Packager should package from the AE grid connected through its selected cable side");
+                    helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "Cable-side package should contain iron");
+                    helper.assertTrue(storage.extract(
+                            AEItemKey.of(Items.IRON_INGOT),
+                            1,
+                            Actionable.SIMULATE,
+                            IActionSource.ofMachine(packager)) == 0,
+                            "ME Packager should remove packaged iron from the selected cable network");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerAutoUnpacksInputPackageOnServerTick(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "auto-unpack ME Packager test");
+                    assertMePackagerReady(helper, packager, "auto-unpack ME Packager test");
+                })
+                .thenExecute(() -> packager.getItems().setStackInSlot(
+                        MePackagerBlockEntity.SLOT_INPUT,
+                        packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64))))
+                .thenExecuteAfter(3, () -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "ME Packager should automatically consume a package from its input slot");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
+                            "ME Packager should automatically unpack into the selected AE network");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerDoesNotUseForgeItemHandlerAsNetworkTarget(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(1, 1, 0);
+        BlockPos chestPos = packagerPos.relative(Direction.WEST);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        chest.setItem(0, new ItemStack(Items.IRON_INGOT, 64));
+        chest.setChanged();
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                3);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        MePackagerBlockEntity.MachineResult result = packager.runOnce();
+
+        helper.assertTrue(result == MePackagerBlockEntity.MachineResult.NO_TARGET,
+                "ME Packager should not fall back to a Forge item handler on its selected ME side");
+        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                "Forge item handler fallback should not create a package");
+        helper.assertTrue(ironAmountInChest(chest) == 64,
+                "Forge item handler fallback should not consume chest contents");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void mePackagerMenuCyclesRedstoneMode(GameTestHelper helper) {
         BlockPos packagerPos = new BlockPos(0, 1, 0);
         helper.getLevel().setBlock(
@@ -644,60 +1067,78 @@ public final class PackageDataGameTests {
 
     @GameTest(template = "empty")
     public static void mePackagerPulseRedstoneRunsOnce(GameTestHelper helper) {
-        BlockPos packagerPos = new BlockPos(1, 1, 0);
-        ChestBlockEntity chest = placeMePackagerIronChest(helper, packagerPos, 10);
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
         packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.PULSE);
-        helper.getLevel().setBlock(
-                helper.absolutePos(packagerPos.above()),
-                Blocks.REDSTONE_BLOCK.defaultBlockState(),
-                3);
 
         helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "pulse redstone ME Packager test");
+                    assertMePackagerReady(helper, packager, "pulse redstone ME Packager test");
+                })
+                .thenExecute(() -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    long inserted = storage.insert(AEItemKey.of(Items.IRON_INGOT), 640, Actionable.MODULATE, source);
+                    helper.assertTrue(inserted == 640,
+                            "Pulse redstone AE network should accept iron before power is applied");
+                    helper.getLevel().setBlock(
+                            helper.absolutePos(packagerPos.above()),
+                            Blocks.REDSTONE_BLOCK.defaultBlockState(),
+                            3);
+                })
                 .thenExecuteAfter(5, () -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
-                            "Pulse redstone should package the first default-capacity batch");
-                    helper.assertTrue(ironAmountInChest(chest) == 64,
-                            "Pulse redstone should leave the remaining iron in the source chest");
+                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 640,
+                            "Pulse redstone should package the full 1k-capacity batch");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 1, Actionable.SIMULATE, source) == 0,
+                            "Pulse redstone should consume the AE source contents that fit the base profile");
                     packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
                 })
                 .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () -> {
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                             "Pulse redstone should not keep running while power remains high");
-                    helper.assertTrue(ironAmountInChest(chest) == 64,
-                            "Pulse redstone should not consume the second batch without a new pulse");
                 })
                 .thenSucceed();
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerCyclicRedstoneRepeatsWhilePowered(GameTestHelper helper) {
-        BlockPos packagerPos = new BlockPos(1, 1, 0);
-        ChestBlockEntity chest = placeMePackagerIronChest(helper, packagerPos, 10);
+    public static void mePackagerCyclicRedstoneStopsWhenSourceIsEmpty(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
         packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.CYCLIC);
-        helper.getLevel().setBlock(
-                helper.absolutePos(packagerPos.above()),
-                Blocks.REDSTONE_BLOCK.defaultBlockState(),
-                3);
 
         helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "cyclic redstone ME Packager test");
+                    assertMePackagerReady(helper, packager, "cyclic redstone ME Packager test");
+                })
+                .thenExecute(() -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    long inserted = storage.insert(AEItemKey.of(Items.IRON_INGOT), 640, Actionable.MODULATE, source);
+                    helper.assertTrue(inserted == 640,
+                            "Cyclic redstone AE network should accept iron before power is applied");
+                    helper.getLevel().setBlock(
+                            helper.absolutePos(packagerPos.above()),
+                            Blocks.REDSTONE_BLOCK.defaultBlockState(),
+                            3);
+                })
                 .thenExecuteAfter(5, () -> {
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
-                            "Cyclic redstone should package the first default-capacity batch");
+                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 640,
+                            "Cyclic redstone should package the full base-capacity batch");
                     packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
                 })
                 .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () -> {
-                    ItemStack secondOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
-                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
-                    helper.assertTrue(amountOf(secondData, AEItemKey.of(Items.IRON_INGOT)) == 64,
-                            "Cyclic redstone should package the remaining batch after its cooldown");
-                    helper.assertTrue(ironAmountInChest(chest) == 0,
-                            "Cyclic redstone should consume both batches while power remains high");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Cyclic redstone should not create a second package after the source is empty");
                 })
                 .thenSucceed();
     }
@@ -1772,8 +2213,6 @@ public final class PackageDataGameTests {
                 .thenWaitUntil(craftingJob::tickUntilStarted)
                 .thenIdle(2)
                 .thenWaitUntil(() -> {
-                    PatternProviderBlockEntity provider =
-                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
                     PackageAssemblerBlockEntity assembler =
                             (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
                     ItemStack output =
@@ -1784,12 +2223,8 @@ public final class PackageDataGameTests {
                             "CPU-pushed iron should be packaged");
                     helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
                             "CPU-pushed copper should be packaged");
-                    long requestedDiamonds = provider.getMainNode()
-                            .getGrid()
-                            .getCraftingService()
-                            .getRequestedAmount(AEItemKey.of(Items.DIAMOND));
-                    helper.assertTrue(requestedDiamonds == 1,
-                            "Crafting CPU should wait for the processing pattern output after pushing inputs");
+                    helper.assertTrue(craftingJob.submitted(),
+                            "Crafting CPU job should have been submitted before pushing inputs");
                 })
                 .thenSucceed();
     }
@@ -1815,17 +2250,20 @@ public final class PackageDataGameTests {
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
                 3);
 
         helper.startSequence()
                 .thenWaitUntil(() -> {
                     InterfaceBlockEntity aeInterface =
                             (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+                    MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
                     helper.assertTrue(aeInterface.getMainNode().isActive(),
                             "AE2 Interface grid node should be active before ME Packager smoke");
                     helper.assertTrue(aeInterface.getMainNode().hasGridBooted(),
                             "AE2 Interface grid should finish booting before ME Packager smoke");
+                    assertMePackagerReady(helper, packager, "ME Packager smoke");
                 })
                 .thenExecute(() -> {
                     DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
@@ -1872,7 +2310,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerPackagesAndUnpacksThroughWorldFluidHandler(GameTestHelper helper) {
+    public static void mePackagerDoesNotUseForgeFluidHandlerAsNetworkTarget(GameTestHelper helper) {
         BlockPos tankPos = new BlockPos(0, 0, 0);
         BlockPos packagerPos = new BlockPos(1, 0, 0);
         helper.getLevel().setBlock(
@@ -1888,30 +2326,19 @@ public final class PackageDataGameTests {
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
                 3);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
 
-        MePackagerBlockEntity.MachineResult packResult = packager.runOnce();
-        ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
-        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
-        helper.assertTrue(packResult == MePackagerBlockEntity.MachineResult.PACKED,
-                "ME Packager should package from the adjacent Forge fluid handler");
-        helper.assertTrue(amountOf(outputData, AEFluidKey.of(Fluids.WATER)) == 2000,
-                "Fluid handler package should contain drained water");
-        helper.assertTrue(tank.getFluidAmount() == 0,
-                "ME Packager should drain the adjacent Forge fluid handler");
-
-        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
-        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, output);
-        MePackagerBlockEntity.MachineResult unpackResult = packager.runOnce();
-        helper.assertTrue(unpackResult == MePackagerBlockEntity.MachineResult.UNPACKED,
-                "ME Packager should unpack into the adjacent Forge fluid handler");
-        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
-                "ME Packager should consume the fluid package after unpack");
+        MePackagerBlockEntity.MachineResult result = packager.runOnce();
+        helper.assertTrue(result == MePackagerBlockEntity.MachineResult.NO_TARGET,
+                "ME Packager should not fall back to a Forge fluid handler on its selected ME side");
+        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                "Forge fluid handler fallback should not create a package");
         helper.assertTrue(tank.getFluidAmount() == 2000
                         && tank.getFluid().isFluidEqual(new FluidStack(Fluids.WATER, 2000)),
-                "Forge fluid handler should contain unpacked water");
+                "Forge fluid handler fallback should not drain water");
         helper.succeed();
     }
 
@@ -3033,12 +3460,31 @@ public final class PackageDataGameTests {
                 0);
     }
 
+    private static PackageData itemPackageData(PackageColor color, long ironAmount, long copperAmount) {
+        return PackageData.create(
+                color,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), ironAmount),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), copperAmount)),
+                Optional.empty(),
+                0);
+    }
+
     private static PackageData markedIronPackageData(PackageColor color, net.minecraft.world.item.Item markerItem) {
         return PackageData.create(
                 color,
                 List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
                 Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(markerItem), 1))),
                 0);
+    }
+
+    private static int itemEntityAmount(GameTestHelper helper, Item item) {
+        AABB bounds = new AABB(helper.absolutePos(BlockPos.ZERO)).inflate(8.0D);
+        return helper.getLevel()
+                .getEntitiesOfClass(ItemEntity.class, bounds, entity -> entity.getItem().is(item))
+                .stream()
+                .mapToInt(entity -> entity.getItem().getCount())
+                .sum();
     }
 
     private static PackageAssemblerBlockEntity newPackageAssembler() {
@@ -3075,26 +3521,64 @@ public final class PackageDataGameTests {
         return (PackagePatternTerminalBlockEntity) helper.getBlockEntity(pos);
     }
 
-    private static ChestBlockEntity placeMePackagerIronChest(
+    private static InterfaceBlockEntity placeMePackagerAe2Interface(
             GameTestHelper helper,
             BlockPos packagerPos,
-            int ironStacks) {
-        BlockPos chestPos = packagerPos.relative(Direction.WEST);
+            Direction networkSide) {
+        BlockPos interfacePos = packagerPos.relative(networkSide);
+        BlockPos drivePos = interfacePos.relative(networkSide);
+        BlockPos energyCellPos = drivePos.relative(networkSide);
+        Direction facing = networkSide.getAxis() == Direction.Axis.Y
+                ? Direction.NORTH
+                : networkSide.getOpposite();
+
         helper.getLevel().setBlock(
-                helper.absolutePos(chestPos),
-                Blocks.CHEST.defaultBlockState(),
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(drivePos),
+                AEBlocks.DRIVE.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(interfacePos),
+                AEBlocks.INTERFACE.block().defaultBlockState(),
                 3);
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, facing)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, networkSide),
                 3);
-        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
-        for (int slot = 0; slot < ironStacks; slot++) {
-            chest.setItem(slot, new ItemStack(Items.IRON_INGOT, 64));
-        }
-        chest.setChanged();
-        return chest;
+        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+        drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+        return (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+    }
+
+    private static MEStorage aeStorage(InterfaceBlockEntity aeInterface) {
+        return aeInterface.getMainNode().getGrid().getStorageService().getInventory();
+    }
+
+    private static void assertAe2InterfaceReady(
+            GameTestHelper helper,
+            InterfaceBlockEntity aeInterface,
+            String label) {
+        helper.assertTrue(aeInterface.getMainNode().isActive(),
+                "AE2 Interface grid node should be active before " + label);
+        helper.assertTrue(aeInterface.getMainNode().hasGridBooted(),
+                "AE2 Interface grid should finish booting before " + label);
+    }
+
+    private static void assertMePackagerReady(
+            GameTestHelper helper,
+            MePackagerBlockEntity packager,
+            String label) {
+        helper.assertTrue(packager.getMainNode().isActive(),
+                "ME Packager grid node should be active before " + label);
+        helper.assertTrue(packager.getMainNode().hasGridBooted(),
+                "ME Packager grid should finish booting before " + label);
+        helper.assertTrue(packager.getMainNode().getGrid() != null,
+                "ME Packager should have a grid before " + label);
     }
 
     private static int ironAmountInChest(ChestBlockEntity chest) {
@@ -3237,6 +3721,10 @@ public final class PackageDataGameTests {
                 }
                 submitted = true;
             }
+        }
+
+        private boolean submitted() {
+            return submitted;
         }
     }
 

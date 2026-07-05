@@ -7,40 +7,28 @@
 输出文件：
 
 ```text
-src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png
-src/main/resources/assets/appliedpackaging/textures/item/white_package.png
-src/main/resources/assets/appliedpackaging/textures/item/orange_package.png
-src/main/resources/assets/appliedpackaging/textures/item/magenta_package.png
-src/main/resources/assets/appliedpackaging/textures/item/light_blue_package.png
-src/main/resources/assets/appliedpackaging/textures/item/yellow_package.png
-src/main/resources/assets/appliedpackaging/textures/item/lime_package.png
-src/main/resources/assets/appliedpackaging/textures/item/pink_package.png
-src/main/resources/assets/appliedpackaging/textures/item/gray_package.png
-src/main/resources/assets/appliedpackaging/textures/item/light_gray_package.png
-src/main/resources/assets/appliedpackaging/textures/item/cyan_package.png
-src/main/resources/assets/appliedpackaging/textures/item/purple_package.png
-src/main/resources/assets/appliedpackaging/textures/item/blue_package.png
-src/main/resources/assets/appliedpackaging/textures/item/brown_package.png
-src/main/resources/assets/appliedpackaging/textures/item/green_package.png
-src/main/resources/assets/appliedpackaging/textures/item/red_package.png
-src/main/resources/assets/appliedpackaging/textures/item/black_package.png
+src/main/resources/assets/appliedpackaging/models/item/<color>_package.json
+src/main/resources/assets/appliedpackaging/models/item/package_box/<color>.json
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_front.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_back.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_side.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_top.png
+src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_bottom.png
 src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png
 src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png
-src/main/resources/assets/appliedpackaging/models/item/*.json
 docs/assets/reports/packages.md
 ```
 
 ## 视觉
 
-包裹不是纸箱。它是 AE2 风格的封装数据盒：
+当前 17 色包裹使用用户提供的 package_box_pixel_v7 盒体版本。它是可作为 item 和掉落实体渲染的 10x10x8 包裹模型：
 
 ```text
-浅灰石英盒体
-深灰金属角扣
-中心 Fluix 菱形封印
-一条明显的颜色束带
-小型封签或数据槽
-透明背景
+front/back/side 为 10x8
+top/bottom 为 10x10
+同一盒体轮廓
+颜色由对应束带变体决定
+item 不再有独立平面 PNG，直接渲染模型
 ```
 
 17 色包裹应共享同一轮廓，只替换束带/封签颜色。`fluix_package` 使用 Fluix 紫蓝束带，不使用纯白或纸箱棕色。
@@ -58,7 +46,10 @@ packaged_processing_pattern:
 ## 约束
 
 ```text
-生成/绘制时可使用 32x32 源图，但最终 Minecraft item texture 需可在 16x16 读清
+包裹模型贴图必须保持 package_box_pixel_v7 的 face 尺寸，不要重新生成平面 item 图标
+package_box 模型使用单个 10x10x8 cuboid；每个 face 绑定独立完整 face 贴图并声明 full-face uv [0,0,16,16]
+不要合并 atlas 裁切，不要把基础盒体与束带拆成重叠模型层
+存在物品 marker 时，由客户端 renderer 在前脸右下角、距外边框 1px 的 4x4 框内叠加 3x3 marker item
 不要添加文字、数字、水印或箭头
 不要改变 17 色包裹主体形状
 不要创建玩家可获得的空纸箱图标心智
@@ -67,7 +58,8 @@ packaged_processing_pattern:
 ## 验收
 
 ```text
-所有 19 个当前注册物品都有 PNG 和 item model JSON
+17 色包裹都有 item model JSON、package_box model JSON 和五面贴图
+package_pattern 与 packaged_processing_pattern 有 PNG 和 item model JSON
 17 色包裹在小尺寸下仍能区分
 两个 pattern 物品与包裹明显不同
 docs/assets/reports/packages.md 记录生成提示、修改说明和预览路径

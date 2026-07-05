@@ -1,8 +1,31 @@
 {
   "variants": {
-    "facing=north": { "model": "appliedpackaging:block/me_packager" },
-    "facing=east": { "model": "appliedpackaging:block/me_packager", "y": 90 },
-    "facing=south": { "model": "appliedpackaging:block/me_packager", "y": 180 },
-    "facing=west": { "model": "appliedpackaging:block/me_packager", "y": 270 }
+    "facing=north,network_side=down": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=north,network_side=up": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=north,network_side=north": { "model": "appliedpackaging:block/me_packager_create/block_linked" },
+    "facing=north,network_side=south": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 180 },
+    "facing=north,network_side=west": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 270 },
+    "facing=north,network_side=east": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 90 },
+
+    "facing=east,network_side=down": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=east,network_side=up": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=east,network_side=north": { "model": "appliedpackaging:block/me_packager_create/block_linked" },
+    "facing=east,network_side=south": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 180 },
+    "facing=east,network_side=west": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 270 },
+    "facing=east,network_side=east": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 90 },
+
+    "facing=south,network_side=down": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=south,network_side=up": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=south,network_side=north": { "model": "appliedpackaging:block/me_packager_create/block_linked" },
+    "facing=south,network_side=south": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 180 },
+    "facing=south,network_side=west": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 270 },
+    "facing=south,network_side=east": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 90 },
+
+    "facing=west,network_side=down": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=west,network_side=up": { "model": "appliedpackaging:block/me_packager_create/block_vertical_linked" },
+    "facing=west,network_side=north": { "model": "appliedpackaging:block/me_packager_create/block_linked" },
+    "facing=west,network_side=south": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 180 },
+    "facing=west,network_side=west": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 270 },
+    "facing=west,network_side=east": { "model": "appliedpackaging:block/me_packager_create/block_linked", "y": 90 }
   }
 }

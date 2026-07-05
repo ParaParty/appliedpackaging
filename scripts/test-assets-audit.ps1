@@ -65,7 +65,7 @@ try {
     Invoke-AssetsCase -Name "valid assets fixture" -RootPath $validFixture -ExpectedExitCode 0
 
     $badDimensionFixture = New-AssetsFixture "bad-dimension"
-    $badDimensionPath = Join-Path $badDimensionFixture "src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png"
+    $badDimensionPath = Join-Path $badDimensionFixture "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png"
     [System.IO.File]::WriteAllBytes($badDimensionPath, $tinyPngBytes)
     Invoke-AssetsCase `
         -Name "bad item dimension fixture" `
@@ -83,7 +83,7 @@ try {
         -ExpectedText "Invalid PNG headers"
 
     $transparentFixture = New-AssetsFixture "transparent-png"
-    $transparentPath = Join-Path $transparentFixture "src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png"
+    $transparentPath = Join-Path $transparentFixture "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png"
     [System.IO.File]::WriteAllBytes($transparentPath, $transparent32PngBytes)
     Invoke-AssetsCase `
         -Name "transparent PNG fixture" `
@@ -92,7 +92,7 @@ try {
         -ExpectedText "fully transparent"
 
     $solidFixture = New-AssetsFixture "solid-png"
-    $solidPath = Join-Path $solidFixture "src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png"
+    $solidPath = Join-Path $solidFixture "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png"
     [System.IO.File]::WriteAllBytes($solidPath, $solid32PngBytes)
     Invoke-AssetsCase `
         -Name "single-color PNG fixture" `
@@ -107,6 +107,39 @@ try {
         -RootPath $missingRequiredFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Required PNG exists: src/main/resources/assets/appliedpackaging/logo.png"
+
+    $badPackageModelFixture = New-AssetsFixture "bad-package-box-cropped-uv"
+    $badPackageModelPath = Join-Path $badPackageModelFixture "src/main/resources/assets/appliedpackaging/models/item/package_box/fluix.json"
+    $badPackageModel = Get-Content -Raw -LiteralPath $badPackageModelPath | ConvertFrom-Json
+    $badPackageModel.elements[0].faces.north.uv = @(3, 1, 13, 9)
+    $badPackageModel | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badPackageModelPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad package_box cropped UV fixture" `
+        -RootPath $badPackageModelFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "uses full-face uv"
+
+    $missingMarkerOverrideFixture = New-AssetsFixture "missing-package-marker-override"
+    $missingMarkerOverridePath = Join-Path $missingMarkerOverrideFixture "src/main/resources/assets/appliedpackaging/models/item/fluix_package.json"
+    $missingMarkerOverride = Get-Content -Raw -LiteralPath $missingMarkerOverridePath | ConvertFrom-Json
+    $missingMarkerOverride.PSObject.Properties.Remove("overrides")
+    $missingMarkerOverride | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $missingMarkerOverridePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "missing package marker override fixture" `
+        -RootPath $missingMarkerOverrideFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "declares the marker custom-render override"
+
+    $badOpaqueModelFixture = New-AssetsFixture "bad-opaque-model-render-type"
+    $badOpaqueModelPath = Join-Path $badOpaqueModelFixture "src/main/resources/assets/appliedpackaging/models/block/package_assembler.json"
+    $badOpaqueModel = Get-Content -Raw -LiteralPath $badOpaqueModelPath | ConvertFrom-Json
+    $badOpaqueModel | Add-Member -NotePropertyName "render_type" -NotePropertyValue "minecraft:cutout_mipped"
+    $badOpaqueModel | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badOpaqueModelPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad opaque model render_type fixture" `
+        -RootPath $badOpaqueModelFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Opaque block/part model must use the default solid render type"
 
     Write-Host ""
     Write-Host "Asset audit self-test passed." -ForegroundColor Green

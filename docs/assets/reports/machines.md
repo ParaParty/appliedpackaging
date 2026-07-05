@@ -1,5 +1,38 @@
 # Machines Asset Report
 
+## 2026-07-05 ME Packager 临时 Create 同款替换
+
+本次按用户要求将 `me_packager` 临时切换为 Create Packager 同款模型/贴图资源，等待后续正式打包机模型替换。
+
+参考来源：
+
+```text
+build/reference/create
+Create mc1.20.1/dev
+assets/create/models/block/packager/*.json
+assets/create/textures/block/packager_*.png
+assets/create/textures/block/factory_panel_packager_mode.png
+```
+
+整合方式：
+
+```text
+将 packager 模型与贴图复制到 appliedpackaging namespace 下：
+  src/main/resources/assets/appliedpackaging/models/block/me_packager_create/
+  src/main/resources/assets/appliedpackaging/textures/block/me_packager_create/
+models/block/me_packager.json parent 指向 me_packager_create/block_linked。
+models/item/me_packager.json parent 指向 me_packager_create/item。
+blockstates/me_packager.json 已包含 facing 与 network_side 组合；network_side=up/down 使用 vertical linked 临时模型，其它方向使用 horizontal linked 临时模型。
+```
+
+验收点：
+
+```text
+不再引用 create: namespace。
+保留 Create-style linked 外观作为临时连接方向提示；当前资源只能区分水平/竖直连接，不表达精确单面动画。
+旧 Applied Packaging me_packager_* PNG 暂留在资源树中，等待正式模型替换时清理或复用。
+```
+
 ## Scope
 
 Production texture pass for machine block faces only:

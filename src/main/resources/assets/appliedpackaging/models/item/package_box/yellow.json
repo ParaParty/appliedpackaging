@@ -1,0 +1,83 @@
+{
+  "parent": "appliedpackaging:item/package_box/_transforms",
+  "render_type": "minecraft:cutout_mipped",
+  "textures": {
+    "top": "appliedpackaging:block/package_box/yellow/package_box_top",
+    "bottom": "appliedpackaging:block/package_box/yellow/package_box_bottom",
+    "front": "appliedpackaging:block/package_box/yellow/package_box_front",
+    "back": "appliedpackaging:block/package_box/yellow/package_box_back",
+    "side": "appliedpackaging:block/package_box/yellow/package_box_side",
+    "particle": "appliedpackaging:block/package_box/yellow/package_box_front"
+  },
+  "elements": [
+    {
+      "name": "package_box",
+      "from": [
+        3,
+        1,
+        3
+      ],
+      "to": [
+        13,
+        9,
+        13
+      ],
+      "faces": {
+        "north": {
+          "texture": "#front",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "south": {
+          "texture": "#back",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "west": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "east": {
+          "texture": "#side",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "up": {
+          "texture": "#top",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "down": {
+          "texture": "#bottom",
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    }
+  ]
+}

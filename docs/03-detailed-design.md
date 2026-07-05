@@ -137,6 +137,22 @@ PackageData.contents = 每一个包裹的内容
 
 拆包一组包裹时必须按 count 重复单包事务，不允许把一个包裹的数据乘 count 后作为一个大事务提交。
 
+玩家手持包裹并蹲下右键时执行手动拆包：
+
+```text
+每次消耗手中 stack 的整叠同款包裹
+内容全部为 AEItemKey 时，按 stack count 展开全部内容并拆成普通 ItemStack，优先进入玩家背包，溢出由 Forge 玩家发物品逻辑掉落
+内容包含非物品 AEKey 时不执行，不消耗包裹，避免 fluid/未知 key 丢失
+```
+
+掉落实体包裹受到伤害时执行世界拆包：
+
+```text
+实体 ItemStack count 表示多个相同包裹
+受伤拆包会按 count 展开全部包裹内容并掉落到世界
+只有内容全部可转换为普通 ItemStack 时才移除包裹实体
+```
+
 ## 5. 容量模型
 
 容量单位：
@@ -379,12 +395,12 @@ packaged_processing_pattern 不会被消耗；输出被取走后可继续生成�
 职责：
 
 ```text
-识别相邻存储端点
+识别所选连接面相邻 AE2 MEStorage
 识别相邻 ME Interface 背后的存储子网
 从端点生成包裹
 把输入包裹拆入端点
 包裹展开再封装
-容量、过滤、marker、颜色策略
+基础 1k 容量、16 类型上限、过滤、marker、颜色策略
 红石/按钮触发
 ```
 
@@ -394,6 +410,7 @@ packaged_processing_pattern 不会被消耗；输出被取走后可继续生成�
 读取 Pattern Provider
 读取/执行任何样板
 扫描自己所在任意 AE 网络
+回落到 Forge item handler 或 Forge fluid handler 作为打包/拆包端点
 充当 AE 网络设备提供库存
 ```
 
@@ -402,8 +419,8 @@ packaged_processing_pattern 不会被消耗；输出被取走后可继续生成�
 ```text
 inputSlot: 只允许合法包裹
 outputSlot: 只允许合法包裹
-capacitySlot
-targetSide: Direction
+capacitySlot: 预留升级容量；当前 ME Packager 不读取
+networkSide: Direction
 packageColor
 markerMode
 overrideMarker
@@ -432,10 +449,9 @@ interface GenericStorageEndpoint {
 端点类型：
 
 ```text
-Forge item handler
-Forge fluid handler
+AE2 MEStorage capability
 AE2 ME Interface adjacent subnet
-未来扩展：其他 AEKey endpoint
+未来扩展：AE 线缆或其它 AE 设备的 MEStorage endpoint
 ```
 
 打包触发：
@@ -476,20 +492,24 @@ while stack.count > 0:
 
 ```text
 me_packager 已注册为方块、方块实体和方块物品。
-非潜行右键打开 ME Packager GUI。
-GUI 提供输入槽、输出槽、容量槽、过滤槽、marker 槽、玩家背包、17 色 swatch、Pack Once 图标按钮、marker 策略图标按钮和红石模式图标按钮。
-潜行右键保留快速交互：
+方块状态包含水平朝向 facing 与可切换连接面 network_side。
+放置时 network_side 默认设为 facing 的反向；潜行右键任意方块面会把 network_side 切换到被点击面。
+GUI 类和菜单仍保留；当前交互优先采用 Create 式直接右键，暂不把 GUI 作为主入口。
+非潜行右键执行快速交互：
   手持合法包裹时放入输入槽。
   空手或非包裹物品时先尝试取出输出槽。
   输出槽为空时触发一次 pack/unpack。
+其它非 network_side 面暴露 2 槽普通 item capability：slot 0 只接收合法包裹输入，slot 1 只导出输出包裹；network_side 不暴露普通 item capability。
 红石模式可在 ignored/pulse/cyclic 三档切换。
 pulse 为默认兼容模式，红石上升沿触发一次 pack/unpack。
 cyclic 在持续供电时每 20 tick 尝试一次 pack/unpack；输出槽堵塞或端点不可用时不会改变源库存。
-机器背面优先识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；若无 AE2 storage，则回落到 Forge item handler / fluid handler。
+所选 network_side 只识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；无 AE2 storage 时返回 NO_TARGET，不回落 Forge item handler / fluid handler。
 真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager GameTest 覆盖从相邻 Interface 网络打包、抽走网络内容、再整包拆回网络。
+真实 AE2 顶面 network_side GameTest 覆盖连接面可切换到非背面方向。
+真实世界相邻 Forge item handler / fluid handler 反例 GameTest 覆盖无 MEStorage 时不打包、不拆包、不消耗相邻 Forge 端点。
 输入槽存在合法包裹时执行整包拆包。
-输入槽为空时从背面库存或流体槽选择当前容量档可承载的内容生成包裹。
-容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell。
+输入槽为空时从所选 AE 网络选择基础 1k 容量、16 类型上限可承载的内容生成包裹。
+容量升级后续再做；当前 ME Packager 固定使用基础 1k 容量和 16 类型上限。
 过滤槽接受已编码 package_pattern、packaged_processing_pattern 或带 PackageData 的包裹。
 过滤模板会提供颜色、marker 与 requiredContents：
   打包时颜色优先使用过滤模板颜色，否则使用 GUI swatch selectedColor。
@@ -500,7 +520,6 @@ cyclic 在持续供电时每 20 tick 尝试一次 pack/unpack；输出槽堵塞�
   clear 会生成无 marker 的输出包裹。
   拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
 AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
-Forge fluid handler 端点处理 AEFluidKey/FluidStack，支持相邻流体槽打包和整包拆入流体槽；真实世界相邻 Forge fluid handler GameTest 覆盖水流体打包、源槽抽空、整包拆回；没有 MEStorage 时，混合物品+流体包裹不会拆入单一 Forge 端点。
 周期红石模式已有菜单按钮、服务端 ticker、NBT 持久化和 GameTest 覆盖。
 ```
 
