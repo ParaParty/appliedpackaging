@@ -5,6 +5,7 @@
     "0": "appliedpackaging:block/me_packager_create/packager_frame",
     "1": "appliedpackaging:block/me_packager_create/packager_details",
     "2": "appliedpackaging:block/me_packager_create/packager_horizontal_unpowered",
+    "3": "appliedpackaging:block/me_packager_create/vault_front_small",
     "particle": "appliedpackaging:block/me_packager_create/packager_particle"
   },
   "elements": [
@@ -74,6 +75,39 @@
             8
           ],
           "texture": "#0"
+        }
+      }
+    },
+    {
+      "name": "network_side_cover",
+      "from": [
+        2,
+        2,
+        0.08
+      ],
+      "to": [
+        14,
+        14,
+        0.1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "#3"
+        },
+        "south": {
+          "uv": [
+            2,
+            2,
+            14,
+            14
+          ],
+          "texture": "#3"
         }
       }
     },

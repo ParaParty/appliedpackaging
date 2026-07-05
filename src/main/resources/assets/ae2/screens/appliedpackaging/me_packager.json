@@ -1,0 +1,75 @@
+{
+  "$schema": "../schema.json",
+  "includes": ["../common/common.json"],
+  "background": {
+    "texture": "appliedpackaging:textures/gui/mepackager.png",
+    "srcRect": [0, 0, 176, 253]
+  },
+  "slots": {
+    "CONFIG": {
+      "left": 8,
+      "top": 65,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PLAYER_INVENTORY": {
+      "left": 8,
+      "top": 169,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PLAYER_HOTBAR": {
+      "left": 8,
+      "top": 227,
+      "grid": "HORIZONTAL"
+    },
+    "MACHINE_OUTPUT": {
+      "left": 141,
+      "top": 39
+    },
+    "STORAGE_CELL": {
+      "left": 151,
+      "top": 8
+    },
+    "BLANK_PATTERN": {
+      "left": 85,
+      "top": 42
+    }
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "block.appliedpackaging.me_packager"
+      },
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    },
+    "filter_config_title": {
+      "text": {
+        "translate": "gui.appliedpackaging.me_packager.filter_config"
+      },
+      "position": {
+        "left": 8,
+        "top": 54
+      }
+    },
+    "player_inventory_title": {
+      "text": {
+        "translate": "container.inventory"
+      },
+      "position": {
+        "left": 8,
+        "top": 157
+      },
+      "scale": 1
+    }
+  },
+  "widgets": {
+    "packageName": {
+      "left": 11,
+      "top": 23,
+      "width": 89,
+      "height": 12
+    }
+  }
+}

@@ -2106,3 +2106,285 @@ GameTest：已考虑。发现现有 runGameTestServer 与 PackageDataGameTests�
 验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
 GameTest：已考虑并执行。本次改变玩家 item use 的提交语义与整叠内容展开数量，属于行为敏感变更；已扩展并运行 PackageDataGameTests。
 ```
+
+最新进展：
+
+```text
+调整 ME Packager 动画裁切方案：
+  撤回上一版顶点裁剪后，改为动画 active 期间使用单独 immediate render pass
+  客户端初始化阶段预先为主 RenderTarget 启用 stencil，避免世界渲染中途重建 framebuffer
+  MePackagerRenderer 在动画期间先写入 1x1x1 方块体积的不可见 stencil mask，再在 stencil test 下立即 flush 动态 hatch、tray 和包裹
+  动态模型仍使用原 Create partial 几何、RenderType.solid / cutout_mipped 和原 item renderer，不再修改顶点或模型 UV
+  stencil mask 写入时关闭 color/depth write，仅使用当前世界 depth test；动态 pass 恢复正常 color/depth write，完成后清理 stencil 并恢复 depth/cull 状态
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Crash、missing texture、Missing model、Unable to load model、GL_INVALID 或 framebuffer/stencil 关键错误
+人工查看 run/screenshots/appliedpackaging-client-smoke-world-me_packager.png 与 world-all_machines.png，确认 ME Packager 无中间黑块，动画 pass 未出现完全不渲染回归
+GameTest：已考虑。本次只调整客户端渲染 pass、stencil 状态和资产规格记录，不改变服务端事务、红石、MEStorage、实体物理或数据结构，因此未新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 裁切范围与静止包裹显示：
+  动画裁切 pass 缩小为 tray 与包裹，hatch/iris/链接口继续走普通 block entity render pass，避免边缘链接器被 stencil mask 意外隐藏
+  ME Packager 静止时 getRenderedBox 不再套用动画半程隐藏规则
+  静止显示栈改为输入槽合法包裹优先、输出槽包裹其次、renderedBox 缓存兜底
+  输入槽或输出槽在无动画时变化会刷新 renderedBox 并同步 block update
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图
+人工查看 run/screenshots/appliedpackaging-client-smoke-world-me_packager.png 与 world-all_machines.png，确认边缘链接器未被裁切隐藏，ME Packager 内当前包裹可见
+验证 run/logs/latest.log 未发现 FATAL、Exception、Crash、missing texture、Missing model、Unable to load model、Failed to read Screen JSON、Failed to find Screen JSON、GL_INVALID、framebuffer 或 stencil 关键错误；runClientSmoke 开头出现旧 latest/debug log 文件被占用无法删除的 logger ERROR，但客户端仍完整启动、截图并正常退出
+GameTest：已考虑。本次改变客户端展示栈选择与 block entity 同步，不改变打包/拆包事务结果，因此未新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+基于 AE2 Screen 重做 ME Packager GUI：
+  调研 AE2 1.20.1 / 1.21.1 / latest 后，采用 AE2 `UpgradeableScreen`、`UpgradeableMenu`、`ScreenStyle` 和 `UpgradesPanel`，不再手绘完整 Screen
+  ME Packager 菜单改为 AE2 upgradeable menu，右侧 6 格升级槽支持红石卡、容量卡和加速卡
+  新增 45 格 AE2 GenericStack contentFilter，GUI 默认启用 2 行，最多 3 张容量卡各解锁 1 行，未启用行由 AE2 OptionalFakeSlot 控制渲染/交互
+  新增包裹名称、marker 槽、颜色弹窗、过滤应用模式、激活模式和阻挡模式；marker 槽物品优先作为输出 marker
+  红石卡未安装时有效逻辑固定为有红石信号时激活；安装红石卡后可切换高信号、低信号、总是、脉冲和关闭；加速卡降低持续激活间隔
+  容量元件槽只接受 AE2 16k/64k/256k storage component，容量卡只解锁过滤行
+  非潜行右键保留快速放入包裹/取出输出；无快速动作时通过 NetworkHooks 打开 GUI
+  新增 AE2 style JSON `assets/ae2/screens/appliedpackaging/me_packager.json`，背景贴图使用 `assets/appliedpackaging/textures/gui/mepackager.png`
+  更新 GameTest 覆盖红石卡门槛、激活模式循环、容量卡过滤行解锁和默认高信号自动拆包语义
+  更新资产审计规则，允许并要求 256x256 ME Packager GUI atlas
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，125 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图
+人工查看 run/screenshots/appliedpackaging-client-smoke-me_packager.png，确认 AE 左工具栏、右升级面板、5 行过滤区、默认 2 行启用状态和玩家背包可见
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Crash、missing texture、Missing model、Unable to load model、Failed to read Screen JSON、Failed to find Screen JSON、GL_INVALID、framebuffer 或 stencil 关键错误
+GameTest：已考虑并执行。本次改变 ME Packager 菜单、升级卡、红石激活、过滤行、自动拆包和拆包阻挡语义，属于行为敏感变更；已扩展并运行 PackageDataGameTests。
+```
+
+最新进展：
+
+```text
+修正 ME Packager AE2 GUI 对齐与红石语义：
+  按 mepackager.png 贴图框重排 ScreenStyle 槽位：容量元件过滤器移到容器区上方框，包裹输入/输出口移到下方容器框，marker 物品槽移到包裹配置区右侧框
+  颜色选择器改为包裹配置区左侧小按钮，不再使用 16x16 工具栏按钮覆盖 marker/slot 区域
+  打包激活按钮文案改为打包语义；红石卡/红石模式只控制自动打包
+  输入槽存在合法包裹时自动拆包不受红石模式限制，仍受拆包过滤、阻挡模式、目标容量和目标在线状态约束
+  新增 GameTest mePackagerRedstoneNeverOnlyStopsPacking，覆盖关闭打包时仍可拆包且不会随后自动重新打包
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，126 个必需 GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图
+人工查看 run/screenshots/appliedpackaging-client-smoke-me_packager.png，确认颜色小按钮、marker 槽、容量元件过滤器和包裹输入/输出口已对齐到贴图目标框
+GameTest：已考虑并执行。本次改变自动 tick 红石 gate 与拆包行为，属于行为敏感变更；已扩展并运行 PackageDataGameTests。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 动画期间链接面短暂发黑：
+  动画 stencil mask 仍只约束 tray 与包裹，不裁剪 hatch/iris/链接口等固定视觉
+  mask 根据当前链接方向在链接面内收 1px，避免动态 tray/包裹 pass 覆盖透明链接器背后的静态视觉
+  其余五个方向仍保留原 1x1x1 方块体积裁剪边界，继续隐藏方块外裸露动画
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图；world 截图前会 prime ME Packager 动画状态
+人工查看 run/screenshots/appliedpackaging-client-smoke-world-me_packager.png 与 world-all_machines.png，确认 ME Packager 链接面和内部包裹可见，未复现链接背后短暂黑块
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Crash、missing texture、Missing model、Unable to load model、Failed to read Screen JSON、Failed to find Screen JSON、GL_INVALID、framebuffer 或 stencil 关键错误；runClientSmoke 开头出现旧 latest/debug log 文件被占用无法删除的 logger ERROR，但客户端仍完整启动、截图并正常退出
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
+GameTest：已考虑。本次只调整客户端渲染裁剪体积和资产规格记录，不改变服务端事务、红石、MEStorage、实体物理或数据结构，因此未新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 动画期间链接口黑面残留：
+  确认 hatch_closed/open 的 iris 贴图存在透明像素，模型 JSON 也声明 cutout_mipped
+  MePackagerRenderer 的 hatch/iris 渲染层从 solid 改为 cutout_mipped，避免透明像素在动画期间被 solid 路径写成黑面
+  tray/package 继续使用单独 stencil immediate pass；hatch/iris/链接口仍不进入裁剪 pass
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图；world 截图前会 prime ME Packager 动画状态
+人工查看 run/screenshots/appliedpackaging-client-smoke-world-me_packager.png 与 world-all_machines.png，确认动画期间链接口和内部包裹正常可见，未复现黑面
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Crash、missing texture、Missing model、Unable to load model、Failed to read Screen JSON、Failed to find Screen JSON、GL_INVALID、framebuffer 或 stencil 关键错误
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
+GameTest：已考虑。本次只调整客户端渲染层和资产规格记录，不改变服务端事务、红石、MEStorage、实体物理或数据结构，因此未新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 入包动画后半段链接口仍发黑：
+  根因不是 hatch/iris 透明像素，而是 getRenderedBox 在动画半程返回空栈；拆包/入包动画后半段包裹被隐藏，链接口只剩 tray/内部黑面
+  getRenderedBox 改为动画 active 期间始终返回 renderedBox，动画结束后由现有 inward 清理逻辑清空显示栈
+  ClientSmokeRunner 的 ME Packager 世界截图改为 prime 入包动画后半段，覆盖此前绕过的黑面时机；runner 仍被 jar 排除
+验证：待执行 compileJava、runClientSmoke、日志扫描、文档审计和 diff 空白检查
+GameTest：已考虑。本次只调整客户端视觉显示栈和开发截图覆盖，不改变服务端事务、红石、MEStorage、实体物理或数据结构，计划不新增 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager GUI 对齐与容量行视觉：
+  按 mepackager.png 贴图重新对齐 ScreenStyle 槽位和标题：过滤区、玩家物品栏、hotbar、包裹名称输入框均贴合背景框
+  移除 Package 与 Container 区域标题，只保留 ME Packager、Filter 和 Inventory 文本
+  颜色选择器改为只在左侧小按钮中心绘制 6x6 色块，marker 槽为空时不再绘制占位图标
+  容量卡解锁的可选过滤行不再沿用 AE2 1.20.1 OptionalFakeSlot 旧底图；改为按 AE2 高版本 slot background 颜色手动绘制，并使用新版 disabled alpha 0.2
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图
+人工查看 run/screenshots/appliedpackaging-client-smoke-me_packager.png，确认过滤区、玩家物品栏、hotbar、包裹名称输入框、6x6 色块和容量行新式淡化效果均已对齐
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Crash、missing texture、Missing model、Unable to load model、Failed to read Screen JSON、Failed to find Screen JSON、GL_INVALID、framebuffer 或 stencil 关键错误
+GameTest：已考虑。本次只调整客户端 GUI 布局和 slot 背景绘制，不改变服务端事务、红石、MEStorage、过滤判定或物品移动语义，因此未新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+微调 ME Packager 包裹名称输入框与颜色选择弹层：
+  包裹名称输入框从 x=10,width=93 调整为 x=11,width=89，使其在名称区域内左右留白一致，保持 12px 高度和上下边距
+  颜色选择不再把每个色块注册成普通 renderable widget，改为 Screen 最后绘制的前景弹层，避免被 AE2/Vanilla tooltip 覆盖
+  颜色弹层打开时优先拦截鼠标点击、拖拽、滚轮、字符输入和按键；点击色块会选择颜色，点击按钮或外部会关闭弹层且不把事件透传到底层 slot
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-all_machines 和 6 张 GUI 截图
+人工查看 run/screenshots/appliedpackaging-client-smoke-me_packager.png，确认包裹名称输入框短于上一版且基础 GUI 布局未回退
+验证 run/logs/latest.log 未发现 ERROR、FATAL、Exception、Crash、missing texture、Missing model、Unable to load model、Failed to read Screen JSON、Failed to find Screen JSON、GL_INVALID、framebuffer 或 stencil 关键错误；runClientSmoke 开头出现旧 latest/debug log 文件被占用无法删除的 logger ERROR，但客户端仍完整启动、截图并正常退出
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功
+GameTest：已考虑。本次只调整客户端 GUI 布局、前景绘制顺序和输入事件拦截，不改变服务端事务、红石、MEStorage、过滤判定或物品移动语义，因此不新增 GameTest；用客户端截图烟测验证。
+```
+
+最新进展：
+
+```text
+收敛 ME Packager 输入、输出与过滤状态机语义：
+  红石模式只影响打包；拆包输入改为 external capability / 快速右键提交时立即验证并拆包，不再把包裹暂存到输入槽
+  ME Packager 增加 idle / working 状态，working 区分 packing 与 unpacking；工作期间拒绝新输入，打包触发会排队到工作结束后再尝试
+  打包先从 MEStorage 抽取并写入 workingStack，动画结束后无空闲间隙写入唯一输出槽；拆包先提交目标 MEStorage 插入，再播放拆包动画
+  拆包输入同时检查包裹内容过滤、filter mode、当前颜色、marker、输出槽为空、目标可完整接收和阻挡模式；不满足则 capability 直接拒绝插入
+  内容过滤改为 AEKey allowlist / denylist 语义，ghost amount 不限制普通打包数量；反转卡只反转内容过滤，不反转颜色或 marker 门禁
+  保留 exact package / encoded pattern 路径的旧数量匹配能力，避免影响样板精确解码
+  注册 ME Packager 反转卡升级，并补充 working 状态提示语言 key
+  扩展 GameTest 覆盖 capability 直接拆包、颜色/marker/内容过滤组合、反转卡、工作中拒绝输入、打包动画结束后才进入输出槽，以及真实 AE2 Interface 往返流程
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，129 个必需 GameTest 全部通过
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
+GameTest：已考虑并执行。本次改变 ME Packager 输入 capability、MEStorage 事务提交顺序、过滤语义、升级卡语义、红石触发和工作状态机，属于行为敏感变更；已扩展并运行 PackageDataGameTests。
+```
+
+最新进展：
+
+```text
+修正 ME Packager GUI shift-click 输入和工作进度显示：
+  GUI 隐藏 inputSlot 改为不接受菜单放入或取出，只保留旧存档/内部兼容用途
+  玩家背包内包裹 shift-click 改为调用与外部 capability 相同的直接拆包入口，每次最多消耗 1 个包裹，工作态期间直接拒绝且不写入 inputSlot
+  菜单同步 workingOperation 和剩余动画 tick，ME Packager GUI 在工作期间于 marker 与输出槽之间绘制进度条
+  新增 GameTest mePackagerMenuShiftClickUnpacksOnePackageAndRejectsWhileWorking，覆盖 2 个包裹 shift-click 只拆 1 个、inputSlot 保持为空、working 期间第二次 shift-click 被拒绝
+  ClientSmokeRunner 中 ME Packager 连接面截图用的 AE2 cable 从 west 改到 south，避免覆盖 Package Assembler smoke 目标
+验证 .\gradlew.bat compileJava --stacktrace --rerun-tasks 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，130 个必需 GameTest 全部通过
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
+验证 .\gradlew.bat runClientSmoke --stacktrace 首次失败，原因是开发截图用 AE2 cable 覆盖了 Package Assembler smoke 目标
+修复 smoke 连接面后验证 .\gradlew.bat compileJava --stacktrace 成功
+复跑 .\gradlew.bat runClientSmoke --stacktrace 成功，进入 quick-play 单人世界并捕获 world-me_packager、world-me_packager_link、world-all_machines 和 6 张 GUI 截图
+GameTest：已考虑并执行。本次改变 ME Packager 菜单 shift-click 物品移动、隐藏 inputSlot 输入门禁、工作态拒绝输入和菜单工作状态同步，属于行为敏感变更；已新增并运行 PackageDataGameTests。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 链接口动画黑面排查方向：
+  对照 build/reference/create 的 PackagerRenderer，确认 Create 动态 hatch 使用 solid，动态 tray 使用 cutout_mipped
+  MePackagerRenderer 恢复 hatch solid pass，避免继续偏离 Create 原始动态渲染策略
+  移除 stencil mask 在 network_side 方向额外向内收 1px 的裁剪；该裁剪会让链接口后方露出静态内部暗面，属于过度裁剪
+  docs/04-asset-spec.md 同步记录：动态裁剪 mask 覆盖完整方块体积，不得再对 network_side 做内缩
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+未运行 runClientSmoke：本轮按反馈停止使用无意义客户端 smoke，从渲染代码和 Create 对照实现修正。
+GameTest：已考虑。本次只调整客户端 BlockEntityRenderer 渲染 pass、stencil mask 范围和资产规格记录，不改变服务端事务、MEStorage、红石、菜单或物品移动语义，因此不新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 链接口黑面根因：
+  对照 Create packager blockstate 与 renderer，确认原版静态外壳朝向和动态 hatch/tray/package 朝向必须配对；本项目此前用 network_side 旋转整个静态 Create 外壳，会让 AE 连接面成为 Create 开口，但动态 partial 不一定渲在该面，表现为链接面只剩透明开口和内部暗面。
+  me_packager blockstate 改为所有 network_side 变体都按 facing 旋转 Create linked 外壳；network_side 只保留为 AE 连接方向，正式单面连接视觉等待后续独立 overlay 或新模型。
+  MePackagerRenderer 的包裹动画口继续按 facing 反方向派生，与静态 Create 外壳开口保持一致。
+  MePackagerBlockEntity 调整包裹显示半程：打包外送只在动画前半段显示包裹，拆包入内只在动画后半段显示包裹，避免打包表现成包裹缩进机器。
+  docs/04-asset-spec.md 同步记录：不得用 network_side 旋转整个临时 Create 外壳，否则会复现链接面缺少动态补面导致的发黑。
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 me_packager blockstate JSON 可解析
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 git diff --check 成功，仅报告仓库当前 LF/CRLF 提示
+未运行 runClientSmoke：本轮按反馈从渲染代码和 Create 对照路径定位，不使用客户端 smoke 作为判断依据。
+GameTest：已考虑。本次调整 blockstate 资源、客户端渲染方向、包裹显示半程和资产规格记录，不改变服务端 MEStorage 事务、红石触发、菜单或物品移动语义，因此不新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正上一轮 ME Packager 渲染方向误判：
+  恢复 me_packager blockstate 按 network_side 旋转 Create linked 外壳，使背面方向继续与 AE 线缆连接方向一致。
+  MePackagerRenderer 将 network_side 视为背面，包裹动画口改为 network_side.getOpposite()，正面负责显示 hatch/tray/package 动画。
+  背面无论是否播放动画都额外 immediate 渲染 closed hatch cover，并在动画前写入深度，使从背面看时内部 tray/package 和正面开口效果被背面遮挡。
+  getRenderedBox 恢复 Create 半程语义：拆包入内前半段显示输入包裹，打包外送后半段显示输出包裹，撤回上一轮反向半程判断。
+  docs/04-asset-spec.md 同步更正临时 Create 模型约束：network_side 决定背面/AE 连接面，正面动画在反面，背面必须补 cover。
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 me_packager blockstate JSON 可解析
+未运行 runClientSmoke：本轮继续按反馈从渲染代码和模型职责定位，不使用客户端 smoke 作为判断依据。
+GameTest：已考虑。本次只调整客户端渲染、blockstate 资源和资产规格记录，不改变服务端 MEStorage 事务、红石触发、菜单或物品移动语义，因此不新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 水平静态外壳开口方向：
+  确认 appliedpackaging:block/me_packager_create/block_linked 未旋转时 Create 外壳开口朝 north；上一轮 blockstate 把开口直接对齐到 network_side，导致背面/线缆面和正面动画口仍有半圈反向。
+  调整 me_packager blockstate 的水平 network_side 映射，使静态外壳开口朝 network_side.getOpposite()，背面仍与 AE 线缆连接方向一致。
+  docs/04-asset-spec.md 同步记录：network_side 决定背面，静态开口和包裹动画口都必须朝 network_side.getOpposite()。
+验证 .\gradlew.bat compileJava --stacktrace 成功，任务均 up-to-date
+验证 me_packager blockstate JSON 可解析
+未运行 runClientSmoke：本轮继续按反馈从 blockstate/model 坐标关系定位。
+GameTest：已考虑。本次只调整客户端资源 blockstate 与资产规格记录，不改变服务端 MEStorage 事务、红石触发、菜单或物品移动语义，因此不新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager 双背面与动画朝向：
+  用户截图确认上一轮仍把静态开口和动画放在 network_side.getOpposite()，导致对侧看起来像第二个背面，动画也朝向错误对侧。
+  新增 me_packager_create/back_cover.json，使用 Create vault_front_small 灰色面板作为专用背板；背板不再复用 hatch_closed，避免背面出现第二个 hatch/工作口。
+  MePackagerRenderer 改为：包裹动画口使用 network_side；对侧 network_side.getOpposite() 始终渲染 back_cover 并写入深度，用于从背侧遮挡内部动画。
+  me_packager blockstate 水平映射恢复为静态 Create 开口朝 network_side，使静态开口、hatch/tray/package 动画和 AE 连接方向一致。
+  docs/04-asset-spec.md 同步改为：network_side 是链接/工作侧，背板在对侧，back_cover 不得复用 hatch/iris 模型。
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 me_packager blockstate JSON 与 back_cover model JSON 可解析
+未运行 runClientSmoke：本轮继续按反馈从 blockstate/model/renderer 关系定位。
+GameTest：已考虑。本次只调整客户端渲染、资源 JSON 和资产规格记录，不改变服务端 MEStorage 事务、红石触发、菜单或物品移动语义，因此不新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+修正 ME Packager back_cover 位置和 missing model：
+  根据用户反馈，back_cover 应当在 network_side 连接面位置无条件渲染，用于挡住动画期间会变黑的输入口；上一轮误放在 network_side.getOpposite()。
+  MePackagerRenderer 将 back_cover 渲染面改回 network_side，包裹动画口仍使用 network_side。
+  AppliedPackagingClient 在 ModelEvent.RegisterAdditional 中注册 BACK_COVER_MODEL，修复动态 renderer 获取未 bake 模型导致的紫黑 missing model 方块。
+  docs/04-asset-spec.md 同步记录：back_cover 必须注册为 additional model，并且在 network_side 连接面渲染。
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 me_packager blockstate JSON 与 back_cover model JSON 可解析
+未运行 runClientSmoke：本轮继续按反馈从动态模型注册和 renderer 面位置定位。
+GameTest：已考虑。本次只调整客户端渲染、additional model 注册、资源 JSON 和资产规格记录，不改变服务端 MEStorage 事务、红石触发、菜单或物品移动语义，因此不新增或运行 GameTest。
+```
+
+最新进展：
+
+```text
+将 ME Packager 连接面遮挡改为静态模型补面：
+  根据用户反馈，连接面遮挡不是靠 BE renderer 额外 draw partial 能稳定解决；应当从模型层在该面补一块背板，并把原透明工作面后的遮挡面略微内缩。
+  在 me_packager_create/block.json 中新增 network_side_cover 元素，位于默认 north 工作口后方 z=0.08..0.1；blockstate 旋转后该元素跟随静态开口落到当前 network_side，用于挡住动画期间会变黑的输入口。
+  移除 MePackagerRenderer 中动态 back_cover 渲染、BACK_COVER_MODEL 常量和 AppliedPackagingClient additional model 注册；删除 me_packager_create/back_cover.json，避免再次出现紫黑 missing model 或动态遮挡面缺失。
+  docs/04-asset-spec.md 同步记录：network_side_cover 属于静态 block 模型，必须内缩于原透明面之后，不作为 dynamic partial。
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 me_packager blockstate、block 和 block_linked JSON 可解析
+未运行 runClientSmoke：本轮按反馈从静态模型结构修正，不使用客户端 smoke 作为判断依据。
+GameTest：已考虑。本次只调整客户端静态模型资源、移除动态 partial 注册和资产规格记录，不改变服务端 MEStorage 事务、红石触发、菜单或物品移动语义，因此不新增或运行 GameTest。
+```

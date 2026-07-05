@@ -13,6 +13,9 @@ out
 *.iml
 .idea
 
+# vscode
+.vscode
+
 # gradle
 build
 .gradle
@@ -25,3 +28,23 @@ run-data
 
 repo
 .codex_tmp/
+
+# os/editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*.tmp
+*.bak
+
+# logs/crash dumps
+*.log
+hs_err_pid*
+replay_pid*
+*.hprof
+
+# local env
+.env
+.env.*
+!.env.example

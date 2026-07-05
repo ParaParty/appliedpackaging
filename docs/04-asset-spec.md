@@ -105,11 +105,13 @@ ME 打包机：
 
 ```text
 临时使用 Create Packager 同款模型和贴图语言。
-模型朝向由 me_packager facing 决定；AE 网络连接方向由 network_side 方块状态决定。
-当前临时 Create 风格资源只区分水平/竖直 linked 外观，不提供精确单面连接动画。
+ME 网络连接方向由 network_side 方块状态决定；me_packager facing 保留为水平交互朝向，不驱动临时 Create 外壳旋转。
+当前临时 Create 风格外壳按 network_side 选择水平/竖直 linked 外观，使链接/工作侧与 AE 连接方向一致，静态开口必须朝向 network_side；正式单面 AE 连接 overlay 等待后续新模型。
 正式 Applied Packaging 打包机模型等待后续替换。
 临时 Create 风格静态外壳使用 cutout_mipped 方块渲染层并保持 noOcclusion，避免透明 linked 贴图和内部光照被完整方块遮挡。
-动态 hatch 按 Create renderer 使用 solid，动态 tray 使用 cutout_mipped。
+动态 hatch/iris 按 Create 原始 renderer 使用 solid pass；动态 tray 使用 cutout_mipped。
+动画期间动态 tray 与包裹使用单独 immediate pass，并通过主 framebuffer stencil mask 限定在打包机方块体积内；mask 必须覆盖完整方块体积，不得在 network_side 方向额外向内收缩，避免链接口后方露出静态内部暗面；hatch/iris/链接口等边缘固定视觉仍走普通 pass，不得通过裁剪模型顶点实现。
+network_side 为链接/工作侧和 AE 连接面；包裹动画口使用 `network_side`。network_side 连接面无论是否播放动画都必须在静态 block 模型中提供 `network_side_cover` 背板，用于挡住动画期间会变黑的输入口；该背板必须内缩于原透明面之后，不得作为未注册的 dynamic partial，也不得复用 hatch/iris 模型，避免 missing model 或第二个工作口。包裹显示栈按 Create 半程语义渲染：拆包入内时前半段显示输入包裹，打包外送时后半段显示输出包裹。
 普通不透明机器 block/part 模型不得声明 render_type，保持默认 solid；只有确实带透明遮罩的模型或 overlay 才使用 cutout_mipped。
 薄型 bus/terminal 方块必须保持 noOcclusion，避免按完整方块遮挡地面和光照。
 ```
@@ -170,6 +172,8 @@ UI 风格：
 Fluix 紫蓝高亮
 清晰 ghost slot
 彩色小灯表示包裹颜色
+ME Packager GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 assets/ae2/screens/appliedpackaging/me_packager.json，背景贴图放在 assets/appliedpackaging/textures/gui/mepackager.png。
+ME Packager 过滤区背景只绘制基础启用行；容量卡解锁的可选行按 AE2 高版本 slot background 效果由代码渲染，禁用状态使用新版 0.2 alpha，不把全部 slot 烘进背景图。
 ```
 
 ## 7. 资源验收
@@ -218,7 +222,7 @@ scripts/test-assets-audit.ps1
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
-当前发布资源 PNG 和 package_box 模型门禁由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，Create-style 临时打包机细节贴图可为 16x16，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；普通不透明 block/part 模型还会检查不得声明 render_type。
+当前发布资源 PNG 和 package_box 模型门禁由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，Create-style 临时打包机细节贴图可为 16x16，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；普通不透明 block/part 模型还会检查不得声明 render_type。
 
 ## 9. 当前资产交付状态
 

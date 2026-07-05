@@ -401,7 +401,7 @@ packaged_processing_pattern 不会被消耗；输出被取走后可继续生成�
 把输入包裹拆入端点
 包裹展开再封装
 基础 1k 容量、16 类型上限、过滤、marker、颜色策略
-红石/按钮触发
+GUI、快速交互和红石触发
 ```
 
 不做：
@@ -419,16 +419,20 @@ packaged_processing_pattern 不会被消耗；输出被取走后可继续生成�
 ```text
 inputSlot: 只允许合法包裹
 outputSlot: 只允许合法包裹
-capacitySlot: 预留升级容量；当前 ME Packager 不读取
+capacitySlot: 只允许 AE2 16k/64k/256k storage component；为空时使用基础 1k/16 类型
+contentFilter: 45 格 AE2 GenericStack 配置，基础 2 行，最多 3 张容量卡各解锁 1 行
+upgradeSlots: 6 格 AE2 upgrade inventory，当前支持 redstone/capacity/speed/inverter card
 networkSide: Direction
-packageColor
-markerMode
-overrideMarker
-contentFilter
-packageFilter
+packageName
+selectedColor
+markerItem
+legacyPackageFilterSlot
+filterApplicationMode: both / pack_only / unpack_only
+blockingMode: ignore_network_contents / block_unpack_when_network_has_items
 redstoneMode
-sortMode
-strictWholeEndpointMode
+workingOperation: none / packing / unpacking
+workingStack: 工作动画中的 1 个包裹；packing 时是已抽取但尚未进入 outputSlot 的待输出包裹，unpacking 时仅作视觉记录
+pendingPackTrigger: 工作态期间收到的单次打包触发
 lastEndpointInfo
 lastFailure
 ```
@@ -457,33 +461,50 @@ AE2 ME Interface adjacent subnet
 打包触发：
 
 ```text
-GUI Pack Once 按钮
-红石脉冲 Pack Once
-红石持续周期 Pack，默认关闭
+服务端 tick 根据有效激活模式自动尝试
+红石脉冲模式在上升沿执行一次
+快速右键可放入输入包裹或取出输出包裹；无快速动作时打开 GUI
 ```
 
 打包事务提交前必须全部模拟：
 
 ```text
 1. 端点抽取所有源内容可行
-2. 源包裹作为输入可被完整消耗
-3. 输出槽可接收生成包裹
+2. 输出槽为空且可接收生成包裹
+3. 机器不在 workingOperation
 4. marker 策略无冲突
 5. 容量与类型数未超限
 ```
 
-任何一步失败都不得改变端点、输入槽或输出槽。
+提交顺序：
+
+```text
+模拟全部通过
+从端点抽取源内容
+写入 workingOperation=packing 与 workingStack
+播放打包动画
+动画结束同 tick 把 workingStack 放入 outputSlot
+清空工作态
+```
+
+任何一步失败都不得改变端点、输入槽或输出槽。打包已抽取但动画尚未结束时，workingStack 属于机器状态；保存/读取后继续完成，破坏方块时作为待输出包裹掉落。
 
 拆包事务：
 
 ```text
-accepted = 0
-while stack.count > 0:
-  if filter fails: break
-  if target cannot accept every entry: break
-  commit target insert for one package
-  stack.shrink(1)
-  accepted++
+外部 capability insert 每次最多接受 1 个包裹
+允许输入前必须满足：
+  机器不在 workingOperation
+  outputSlot 为空
+  filterApplicationMode 不是 pack_only
+  如果 selectedColor 不是 fluix，包裹 item 颜色必须等于 selectedColor
+  如果 markerItem 存在，包裹 PackageData.marker 必须等于 markerItem
+  包裹内容满足内容过滤；反转卡存在时反转内容过滤
+  阻挡模式允许拆包
+  目标 MEStorage 可一次性接收包裹全部内容
+提交时先把包裹内容完整插入目标 MEStorage
+再写入 workingOperation=unpacking 与 workingStack
+播放拆包动画；动画结束只清空工作态，不产生 outputSlot
 ```
 
 单个包裹永远不能拆一半。
@@ -494,33 +515,47 @@ while stack.count > 0:
 me_packager 已注册为方块、方块实体和方块物品。
 方块状态包含水平朝向 facing 与可切换连接面 network_side。
 放置时 network_side 默认设为 facing 的反向；潜行右键任意方块面会把 network_side 切换到被点击面。
-GUI 类和菜单仍保留；当前交互优先采用 Create 式直接右键，暂不把 GUI 作为主入口。
+GUI 作为主入口，客户端使用 AE2 `UpgradeableScreen` + `ScreenStyle`，菜单继承 AE2 `UpgradeableMenu`。
+样式文件位于 `assets/ae2/screens/appliedpackaging/me_packager.json`，背景贴图位于 `assets/appliedpackaging/textures/gui/mepackager.png`。
+右侧升级面板使用 AE2 `UpgradesPanel`；升级兼容性通过 `Upgrades.add` 注册到 ME Packager 方块物品。
 非潜行右键执行快速交互：
-  手持合法包裹时放入输入槽。
+  手持合法包裹时走与外部 capability 相同的立即拆包输入规则。
   空手或非包裹物品时先尝试取出输出槽。
-  输出槽为空时触发一次 pack/unpack。
-其它非 network_side 面暴露 2 槽普通 item capability：slot 0 只接收合法包裹输入，slot 1 只导出输出包裹；network_side 不暴露普通 item capability。
-红石模式可在 ignored/pulse/cyclic 三档切换。
-pulse 为默认兼容模式，红石上升沿触发一次 pack/unpack。
-cyclic 在持续供电时每 20 tick 尝试一次 pack/unpack；输出槽堵塞或端点不可用时不会改变源库存。
+  输出槽为空且没有快速动作时打开 GUI。
+其它非 network_side 面暴露 2 槽普通 item capability：slot 0 只在包裹可立即完整拆包时接收 1 个合法包裹，接收后不暂存到 inputSlot；slot 1 只导出 outputSlot 中的输出包裹；network_side 不暴露普通 item capability。
+GUI 左侧按钮区包含帮助、清除配置、基于网络现存物品配置分区、过滤应用模式、打包激活模式和阻挡模式。
+过滤区为 5 行 9 列 ConfigInventory；默认启用 2 行，最多 3 张容量卡各启用 1 行，未启用行由 AE2 OptionalFakeSlot 控制渲染和交互。
+包裹配置区包含包裹名称输入、左侧小颜色选择按钮和右侧 marker 物品槽；marker 槽有物品时直接作为输出 marker 覆盖来源 marker。
+容器区上方为容量元件过滤器槽，下方为包裹输入/输出口；容量元件槽只接受 AE2 16k/64k/256k storage component。
+GUI shift-click 玩家背包内包裹时走与外部 capability 相同的直接拆包规则，每次最多接受 1 个包裹；机器处于 workingOperation 时拒绝该输入，不写入隐藏 inputSlot。
+GUI 工作态期间在包裹配置区与输出口之间显示进度条；进度来源为服务端同步的 workingOperation 与剩余动画 tick。
+红石卡未安装时，自动打包激活逻辑固定为 `HIGH_SIGNAL`：有红石信号时打包。
+红石卡安装后，GUI 打包激活模式可在 `HIGH_SIGNAL`、`LOW_SIGNAL`、`ALWAYS`、`PULSE`、`NEVER` 间切换。
+反转卡安装后只反转内容过滤，不反转 selectedColor 或 markerItem 门禁；内容过滤为空时仍表示不过滤。
+红石只控制自动打包；输入包裹拆包不受红石关闭影响，仍受拆包过滤、阻挡模式、目标容量和目标在线状态约束。
+工作态期间拒绝新的输入；持续打包触发等机器空闲后再重试，红石脉冲或手动单次打包触发在工作态期间记录为 pendingPackTrigger，空闲后尝试一次。
+持续打包和自动拆包按基础 20 tick 间隔重试；加速卡会降低间隔但不低于 2 tick。
 所选 network_side 只识别 AE2 `MEStorage` capability，可接入相邻 ME Interface 暴露的子网存储；无 AE2 storage 时返回 NO_TARGET，不回落 Forge item handler / fluid handler。
 真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager GameTest 覆盖从相邻 Interface 网络打包、抽走网络内容、再整包拆回网络。
 真实 AE2 顶面 network_side GameTest 覆盖连接面可切换到非背面方向。
 真实世界相邻 Forge item handler / fluid handler 反例 GameTest 覆盖无 MEStorage 时不打包、不拆包、不消耗相邻 Forge 端点。
-输入槽存在合法包裹时执行整包拆包。
-输入槽为空时从所选 AE 网络选择基础 1k 容量、16 类型上限可承载的内容生成包裹。
-容量升级后续再做；当前 ME Packager 固定使用基础 1k 容量和 16 类型上限。
-过滤槽接受已编码 package_pattern、packaged_processing_pattern 或带 PackageData 的包裹。
+隐藏 inputSlot 只用于旧存档或内部兼容；旧存档或内部 inputSlot 存在合法包裹时执行整包拆包。外部 capability 输入、快速右键输入和 GUI shift-click 输入都不再填充 inputSlot。
+输入侧为空且机器空闲时，从所选 AE 网络选择基础 1k 容量、16 类型上限可承载的内容生成包裹；生成包裹先进入 packing 工作态，动画结束后进入唯一 outputSlot。
+容量元件槽可把当前单包容量提升到 16k/64k/256k；容量卡只解锁过滤行，不改变包裹容量档。
+旧过滤槽保留为 NBT/旧存档兼容输入；新 GUI 主要使用 45 格 contentFilter。
+过滤模板接受已编码 package_pattern、packaged_processing_pattern 或带 PackageData 的包裹。
 过滤模板会提供颜色、marker 与 requiredContents：
   打包时颜色优先使用过滤模板颜色，否则使用 GUI swatch selectedColor。
-  打包内容过滤只选择 requiredContents 中仍缺少的 loose item，避免无关物品先占满容量。
-  marker 策略由 GUI 独立设置为 retain、override 或 clear。
+  打包内容过滤只选择 requiredContents 中出现的 AEKey，忽略 ghost amount 作为数量上限；反转卡存在时选择 requiredContents 之外的 AEKey。
+  marker 策略保留旧 NBT 兼容；新 GUI 中 marker 槽物品优先作为覆盖 marker。
   retain 会保留源包裹 marker；多个源包裹 marker 冲突时计划失败。
   override 优先使用 marker 槽物品作为输出 marker；marker 槽为空时兼容使用过滤模板 marker。
   clear 会生成无 marker 的输出包裹。
-  拆包时输入包裹必须匹配过滤模板，否则不消耗包裹。
+  过滤应用模式为 both 时打包和拆包都使用内容过滤；pack_only 只约束打包且外部包裹输入被拒绝；unpack_only 只约束拆包。
+  拆包过滤启用时，输入包裹的全部内容 AEKey 必须满足 allowlist 或反转后的 denylist；包裹 item 颜色和 markerItem 作为独立门禁同时满足。
+阻挡模式为 block_unpack_when_network_has_items 时，如果目标 ME 网络已有任意可见内容，则拒绝拆包且不消耗输入包裹。
 AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
-周期红石模式已有菜单按钮、服务端 ticker、NBT 持久化和 GameTest 覆盖。
+红石卡门槛、脉冲打包、持续高信号打包、红石关闭仍允许拆包、过滤行容量卡解锁和 client smoke GUI 截图已有验证覆盖。
 ```
 
 ## 9. 样板与终端
@@ -708,7 +743,10 @@ marker
 1.0 固定内容过滤语义：
 
 ```text
-requiredContents 中每个 AEKey 都必须在包裹内存在至少指定 amount。
-包裹可以包含额外内容。
-不提供 any/all/exact 模式切换。
+requiredContents 作为内容 AEKey allowlist 使用；ghost amount 只用于 UI/模板展示，不作为普通通过数量门槛。
+requiredContents 为空表示不过滤。
+非反转模式下，包裹内每个 AEKey 都必须存在于 requiredContents。
+反转模式下，包裹内每个 AEKey 都不得存在于 requiredContents。
+内容过滤只反转内容 AEKey，不反转颜色或 marker。
+精确样板封装等内部路径可使用 PackageFilter 的 required amount 匹配，但普通总线/打包机过滤不使用数量作为通过条件。
 ```

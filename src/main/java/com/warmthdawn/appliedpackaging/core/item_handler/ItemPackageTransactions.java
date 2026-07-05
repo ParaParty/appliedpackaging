@@ -52,6 +52,17 @@ public final class ItemPackageTransactions {
             PackageFilter filter,
             MarkerMergeMode markerMode,
             Optional<MarkerSpec> overrideMarker) {
+        return planPack(source, color, capacityProfile, filter, markerMode, overrideMarker, false);
+    }
+
+    private static Optional<ItemPackagePlan> planPack(
+            IItemHandler source,
+            PackageColor color,
+            PackageCapacityProfile capacityProfile,
+            PackageFilter filter,
+            MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
+            boolean limitFilterAmounts) {
         List<GenericStack> looseContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
         List<SlotExtraction> extractions = new ArrayList<>();
@@ -67,8 +78,9 @@ public final class ItemPackageTransactions {
 
             Optional<PackageData> packageData = PackageDataStorage.read(stack);
             if (packageData.isPresent()) {
-                if (!effectiveFilter.isAny()
-                        && !contributesToRequiredContents(effectiveFilter, looseContents, sourcePackages, packageData.get())) {
+                if (limitFilterAmounts
+                        ? !contributesToRequiredContents(effectiveFilter, looseContents, sourcePackages, packageData.get())
+                        : !effectiveFilter.matchesContents(packageData.get(), false)) {
                     continue;
                 }
                 if (tryPackageCandidate(
@@ -89,7 +101,13 @@ public final class ItemPackageTransactions {
             }
 
             AEItemKey key = AEItemKey.of(stack);
-            int maxAmount = filteredMaxAmount(effectiveFilter, looseContents, sourcePackages, key, stack.getCount());
+            int maxAmount = filteredMaxAmount(
+                    effectiveFilter,
+                    looseContents,
+                    sourcePackages,
+                    key,
+                    stack.getCount(),
+                    limitFilterAmounts);
             int amount = largestFittingAmount(
                     color,
                     capacityProfile,
@@ -120,7 +138,9 @@ public final class ItemPackageTransactions {
                 capacityProfile,
                 0);
         return result.data()
-                .filter(data -> effectiveFilter.matches(color, data))
+                .filter(data -> limitFilterAmounts
+                        ? effectiveFilter.matchesRequiredAmounts(color, data)
+                        : effectiveFilter.matches(color, data))
                 .map(data -> new ItemPackagePlan(data, extractions));
     }
 
@@ -169,7 +189,8 @@ public final class ItemPackageTransactions {
                         capacityProfile.get(),
                         filter,
                         markerMode,
-                        target.marker())
+                        target.marker(),
+                        true)
                 .filter(plan -> plan.data().canonicalHash().equals(target.canonicalHash()));
     }
 
@@ -242,8 +263,15 @@ public final class ItemPackageTransactions {
             List<GenericStack> looseContents,
             List<PackageData> sourcePackages,
             AEItemKey key,
-            int stackCount) {
+            int stackCount,
+            boolean limitFilterAmounts) {
         if (filter.requiredContents().isEmpty()) {
+            return stackCount;
+        }
+        if (!filter.allowsContent(key, false)) {
+            return 0;
+        }
+        if (!limitFilterAmounts) {
             return stackCount;
         }
         long required = 0;

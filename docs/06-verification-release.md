@@ -41,7 +41,7 @@ schema version 不支持时拒绝
 空过滤接受合法包裹
 颜色不匹配时过滤拒绝
 颜色/marker/内容同时匹配时过滤接受
-内容数量不足时过滤拒绝
+内容不在 allowlist 中时过滤拒绝
 包裹计划会展开源包裹内容
 retain marker 冲突时计划拒绝
 override marker 时计划使用覆盖 marker
@@ -125,9 +125,9 @@ package_bus 手工过滤器保存/读取后保留 color、marker 和 required co
 package_bus 配置 UI 可从 Forge 流体容器设置 required content ghost，编码时写入 AEFluidKey 过滤条件且不消耗光标容器
 package_bus 配置 UI 可调整流体 required content ghost 数量，且不会降到小于一桶
 package_bus 手工流体过滤器保存/读取后保留 color、required content key 和 amount
-PackageFilter 可匹配流体 required content
-item handler 打包计划可按内容过滤只选择 requiredContents
-item handler 打包计划在 requiredContents 缺失时拒绝
+PackageFilter 可按流体 key 匹配内容 allowlist
+item handler 打包计划可按内容过滤只选择 requiredContents 中出现的 AEKey，且 ghost amount 不限制打包数量
+item handler 打包计划在没有任何 allowlist key 可用时拒绝
 item handler 打包计划可从过滤模板 override marker
 item handler 打包计划在显式 retain 模式保留源 marker
 item handler 打包计划在显式 override 模式写入配置 marker
@@ -137,12 +137,19 @@ item handler 打包计划可使用 64k 容量档
 ME Packager 可识别 AE2 64k storage component 为 64k 包裹容量档
 包裹物品丢出后替换为 appliedpackaging:package 实体并保留包裹数据
 ME Packager 基础容量固定为 1k/16 类型
-ME Packager 非 network_side 面暴露包裹输入/输出 capability，network_side 不暴露普通 item capability
+ME Packager 非 network_side 面暴露包裹输入/输出 capability，network_side 不暴露普通 item capability；外部输入在无 AE 目标或不可完整拆包时拒绝
+ME Packager 外部 capability 接受包裹时直接提交拆包、保持 inputSlot 为空并进入 unpacking 工作态
+ME Packager 菜单 shift-click 玩家背包包裹时每次只直接拆包 1 个，保持 inputSlot 为空，并在 working 期间拒绝继续输入
+ME Packager 外部 capability 输入同时校验当前非默认颜色、marker 槽、内容 allowlist 和目标可接收性
+ME Packager 安装反转卡后反转内容过滤，但不反转颜色或 marker 门禁
 ME Packager 可从可切换顶面 network_side 的真实 AE2 Interface 网络打包
+ME Packager 打包先抽取源内容并进入 packing 工作态，动画结束后才把包裹放入 outputSlot
 ME Packager 不会回落到相邻 Forge item handler 或 Forge fluid handler
-ME Packager 菜单可切换红石模式
-ME Packager 红石上升沿只执行一次
-ME Packager 周期红石模式在持续供电时重复执行
+ME Packager 菜单可切换新版打包激活模式
+ME Packager 安装红石卡后红石上升沿只执行一次
+ME Packager 默认/高信号持续打包模式在供电时周期执行
+ME Packager 红石关闭模式只停止打包，不阻止输入包裹自动拆回 AE 网络
+ME Packager 容量卡按 2+3 行规则解锁过滤槽
 MEStorage 打包计划可从 AE2 storage 抽取 GenericStack 内容
 MEStorage 拆包可把包裹完整插入 AE2 storage
 MEStorage 打包计划会展开 storage 中已有源包裹再封装
@@ -152,7 +159,7 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 反例确认 ME Packager 无 MEStorage 时不回落、不消耗流体槽
-当前最新执行：.\gradlew.bat runGameTestServer --stacktrace 成功，118 个必需 GameTest 全部通过。
+当前最新执行：.\gradlew.bat runGameTestServer --stacktrace 成功，130 个必需 GameTest 全部通过。
 2026-07-03 06:15 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:27 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:40 在发布 jar 排除 dev verification classes 后再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
@@ -294,7 +301,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-docs-audit.ps1` 使用临时文档 fixture 调用 `verify-docs.ps1 -RootPath`，覆盖有效 fixture、缺少必需文档路径、正式文档未清理占位和本地 Markdown 断链四种路径。该脚本只写入系统临时目录，不修改正式设计文档。
 
-`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，像素内容不是全透明或整张单一 RGBA 占位图，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
+`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，像素内容不是全透明或整张单一 RGBA 占位图，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128、ME Packager GUI atlas 为 256x256。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
 
 `scripts/test-assets-audit.ps1` 使用临时资源 fixture 调用 `verify-assets.ps1 -RootPath`，覆盖有效资产 fixture、item 贴图尺寸错误、PNG header 损坏、全透明 PNG、单一 RGBA 占位 PNG 和必需 PNG 缺失六种路径。该脚本只写入系统临时目录，不修改正式资源或发布产物。
 
@@ -471,6 +478,9 @@ run/logs/latest.log 未发现 ERROR、FATAL、Exception、Missing model、Unable
 2026-07-03 06:41 在 ClientSmokeRunner 改为按 `appliedpackaging.clientSmoke.enabled=true` 反射加载且从 release jar 排除后，再次执行 .\gradlew.bat runClientSmoke 成功。
 本次 smoke 仍生成 Package Assembler、ME Packager、Package Pattern Terminal、Package Storage Bus、Package Export Bus、Package Unpacking Bus 共 6 张真实菜单截图并正常退出客户端。
 run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load model、missing texture、NoClassDefFoundError、ClassNotFoundException、InvocationTargetException、IllegalStateException、Timed out 或 timeout。
+
+2026-07-06 在 ME Packager GUI 工作进度条和菜单 shift-click 输入修正后，再次执行 .\gradlew.bat runClientSmoke --stacktrace 成功。
+本次 smoke 先发现 ME Packager 连接面世界截图用的 AE2 cable 覆盖了 Package Assembler smoke 目标，已将该开发截图连接面移动到不覆盖 6 个菜单目标的位置；复跑后生成 world-me_packager、world-me_packager_link、world-all_machines 和 6 张真实菜单截图并正常退出客户端。
 ```
 
 ## 6. Dedicated Server 验证

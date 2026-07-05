@@ -3,11 +3,17 @@ package com.warmthdawn.appliedpackaging.world.block.entity;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.orientation.BlockOrientation;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.IUpgradeableObject;
+import appeng.api.upgrades.UpgradeInventories;
 import appeng.api.util.AECableType;
 import appeng.blockentity.grid.AENetworkBlockEntity;
+import appeng.core.definitions.AEItems;
+import appeng.util.ConfigInventory;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
@@ -20,11 +26,14 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStora
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
+import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
@@ -50,24 +59,39 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
 
-public class MePackagerBlockEntity extends AENetworkBlockEntity implements InventoryDroppingBlockEntity, MenuProvider {
+public class MePackagerBlockEntity extends AENetworkBlockEntity
+        implements InventoryDroppingBlockEntity, MenuProvider, IUpgradeableObject {
     public static final PackageCapacityProfile BASE_CAPACITY_PROFILE = PackageCapacityProfile.STORAGE_1K;
     public static final int SLOT_INPUT = 0;
     public static final int SLOT_OUTPUT = 1;
     public static final int SLOT_CAPACITY = 2;
     public static final int SLOT_FILTER = 3;
     public static final int SLOT_MARKER = 4;
+    public static final int FILTER_COLUMNS = 9;
+    public static final int FILTER_ROWS = 5;
+    public static final int BASE_FILTER_ROWS = 2;
+    public static final int MAX_FILTER_CAPACITY_CARDS = 3;
+    public static final int FILTER_SLOT_COUNT = FILTER_COLUMNS * FILTER_ROWS;
+    public static final int UPGRADE_SLOT_COUNT = 6;
     public static final int CYCLIC_REDSTONE_INTERVAL_TICKS = 20;
     public static final int ANIMATION_CYCLE_TICKS = 20;
     private static final int SLOT_COUNT = 5;
     private static final String ITEMS_TAG = "items";
+    private static final String FILTER_TAG = "content_filter";
+    private static final String UPGRADES_TAG = "upgrades";
     private static final String POWERED_TAG = "powered";
     private static final String SELECTED_COLOR_TAG = "selected_color";
     private static final String MARKER_MODE_TAG = "marker_mode";
     private static final String REDSTONE_MODE_TAG = "redstone_mode";
+    private static final String FILTER_APPLICATION_MODE_TAG = "filter_application_mode";
+    private static final String BLOCKING_MODE_TAG = "blocking_mode";
+    private static final String PACKAGE_NAME_TAG = "package_name";
     private static final String ANIMATION_TICKS_TAG = "animation_ticks";
     private static final String ANIMATION_INWARD_TAG = "animation_inward";
     private static final String RENDERED_BOX_TAG = "rendered_box";
+    private static final String WORKING_OPERATION_TAG = "working_operation";
+    private static final String WORKING_STACK_TAG = "working_stack";
+    private static final String PENDING_PACK_TRIGGER_TAG = "pending_pack_trigger";
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -79,7 +103,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
                 return stack.getItem() instanceof PackageItem;
             }
             if (slot == SLOT_CAPACITY) {
-                return capacityProfileFromItem(stack).isPresent();
+                return componentCapacityProfileFromItem(stack).isPresent();
             }
             if (slot == SLOT_FILTER) {
                 return PackageFilter.fromTemplate(stack).isPresent();
@@ -104,6 +128,15 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
             setChanged();
         }
     };
+    private final ConfigInventory contentFilter = ConfigInventory.configStacks(
+            null,
+            FILTER_SLOT_COUNT,
+            this::onFilterChanged,
+            true);
+    private final IUpgradeInventory upgrades = UpgradeInventories.forMachine(
+            APBlocks.ME_PACKAGER.get(),
+            UPGRADE_SLOT_COUNT,
+            this::onUpgradesChanged);
     private final IItemHandler externalItems = new IItemHandler() {
         @Override
         public int getSlots() {
@@ -124,7 +157,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
             if (slot != 0) {
                 return stack;
             }
-            return items.insertItem(SLOT_INPUT, stack, simulate);
+            return insertPackageFromExternal(stack, simulate);
         }
 
         @Override
@@ -152,9 +185,15 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
     private int animationTicks;
     private boolean animationInward = true;
     private ItemStack renderedBox = ItemStack.EMPTY;
+    private ItemStack workingStack = ItemStack.EMPTY;
+    private WorkingOperation workingOperation = WorkingOperation.NONE;
     private PackageColor selectedColor = PackageColor.FLUIX;
     private MarkerMergeMode markerMode = MarkerMergeMode.RETAIN;
-    private RedstoneMode redstoneMode = RedstoneMode.PULSE;
+    private RedstoneMode redstoneMode = RedstoneMode.HIGH_SIGNAL;
+    private FilterApplicationMode filterApplicationMode = FilterApplicationMode.BOTH;
+    private BlockingMode blockingMode = BlockingMode.IGNORE_NETWORK_CONTENTS;
+    private String packageName = "";
+    private boolean pendingPackTrigger;
 
     public MePackagerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.ME_PACKAGER.get(), pos, blockState);
@@ -163,6 +202,15 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
 
     public ItemStackHandler getItems() {
         return items;
+    }
+
+    public ConfigInventory getContentFilter() {
+        return contentFilter;
+    }
+
+    @Override
+    public IUpgradeInventory getUpgrades() {
+        return upgrades;
     }
 
     public PackageColor selectedColor() {
@@ -193,14 +241,81 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
     }
 
     public void setRedstoneMode(RedstoneMode redstoneMode) {
-        this.redstoneMode = redstoneMode == null ? RedstoneMode.PULSE : redstoneMode;
+        this.redstoneMode = normalizeRedstoneMode(redstoneMode == null ? RedstoneMode.HIGH_SIGNAL : redstoneMode);
         this.redstoneCooldown = 0;
         setChanged();
     }
 
     public void cycleRedstoneMode() {
-        RedstoneMode[] values = RedstoneMode.values();
-        setRedstoneMode(values[(redstoneMode.ordinal() + 1) % values.length]);
+        RedstoneMode[] values = RedstoneMode.uiValues();
+        RedstoneMode current = normalizeRedstoneMode(redstoneMode);
+        int index = 0;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == current) {
+                index = i;
+                break;
+            }
+        }
+        setRedstoneMode(values[(index + 1) % values.length]);
+    }
+
+    public RedstoneMode effectiveRedstoneMode() {
+        return getUpgrades().isInstalled(AEItems.REDSTONE_CARD)
+                ? normalizeRedstoneMode(redstoneMode)
+                : RedstoneMode.HIGH_SIGNAL;
+    }
+
+    public FilterApplicationMode filterApplicationMode() {
+        return filterApplicationMode;
+    }
+
+    public void setFilterApplicationMode(FilterApplicationMode filterApplicationMode) {
+        this.filterApplicationMode = filterApplicationMode == null
+                ? FilterApplicationMode.BOTH
+                : filterApplicationMode;
+        setChanged();
+    }
+
+    public void cycleFilterApplicationMode() {
+        FilterApplicationMode[] values = FilterApplicationMode.values();
+        setFilterApplicationMode(values[(filterApplicationMode.ordinal() + 1) % values.length]);
+    }
+
+    public BlockingMode blockingMode() {
+        return blockingMode;
+    }
+
+    public void setBlockingMode(BlockingMode blockingMode) {
+        this.blockingMode = blockingMode == null ? BlockingMode.IGNORE_NETWORK_CONTENTS : blockingMode;
+        setChanged();
+    }
+
+    public void cycleBlockingMode() {
+        BlockingMode[] values = BlockingMode.values();
+        setBlockingMode(values[(blockingMode.ordinal() + 1) % values.length]);
+    }
+
+    public String packageName() {
+        return packageName;
+    }
+
+    public void setPackageName(String packageName) {
+        String value = packageName == null ? "" : packageName.strip();
+        if (value.length() > 50) {
+            value = value.substring(0, 50);
+        }
+        if (!this.packageName.equals(value)) {
+            this.packageName = value;
+            setChanged();
+        }
+    }
+
+    public int unlockedFilterRows() {
+        return BASE_FILTER_ROWS + Math.min(MAX_FILTER_CAPACITY_CARDS, installedCapacityCards());
+    }
+
+    public int installedCapacityCards() {
+        return getUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD);
     }
 
     @Override
@@ -217,7 +332,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         if (!held.isEmpty() && PackageDataStorage.read(held).isPresent()) {
             ItemStack one = held.copy();
             one.setCount(1);
-            ItemStack remainder = items.insertItem(SLOT_INPUT, one, false);
+            ItemStack remainder = insertPackageFromExternal(one, false);
             if (remainder.isEmpty()) {
                 if (!player.getAbilities().instabuild) {
                     held.shrink(1);
@@ -243,8 +358,13 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         if (!nowPowered) {
             redstoneCooldown = 0;
         }
-        if (redstoneMode == RedstoneMode.PULSE && nowPowered && !wasPowered) {
-            runOnce();
+        if (effectiveRedstoneMode() == RedstoneMode.PULSE && nowPowered && !wasPowered
+                && items.getStackInSlot(SLOT_INPUT).isEmpty()) {
+            if (isWorking()) {
+                pendingPackTrigger = true;
+            } else {
+                runPackOnce();
+            }
         }
         setChanged();
     }
@@ -254,29 +374,59 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
             tickAnimation();
             return;
         }
+        boolean wasWorking = isWorking();
         tickAnimation();
         boolean nowPowered = level.hasNeighborSignal(worldPosition);
         if (nowPowered != powered) {
             updatePowered(nowPowered);
         }
-        if (!items.getStackInSlot(SLOT_INPUT).isEmpty()) {
-            runOnce();
+        if (wasWorking || isWorking()) {
             return;
         }
-        if (redstoneMode != RedstoneMode.CYCLIC || !powered) {
+        if (pendingPackTrigger) {
+            pendingPackTrigger = false;
+            runPackOnce();
+            return;
+        }
+        if (!items.getStackInSlot(SLOT_INPUT).isEmpty()) {
+            tickAutomaticUnpack();
+            return;
+        }
+        tickAutomaticPack();
+    }
+
+    private void tickAutomaticUnpack() {
+        if (redstoneCooldown > 0) {
+            redstoneCooldown--;
+            return;
+        }
+        runUnpackOnce();
+        redstoneCooldown = redstoneIntervalTicks();
+    }
+
+    private void tickAutomaticPack() {
+        RedstoneMode effectiveMode = effectiveRedstoneMode();
+        if (effectiveMode == RedstoneMode.PULSE || effectiveMode == RedstoneMode.NEVER) {
+            return;
+        }
+        if (!effectiveMode.isActive(powered)) {
+            redstoneCooldown = 0;
             return;
         }
         if (redstoneCooldown > 0) {
             redstoneCooldown--;
             return;
         }
-        runOnce();
-        redstoneCooldown = CYCLIC_REDSTONE_INTERVAL_TICKS;
+        runPackOnce();
+        redstoneCooldown = redstoneIntervalTicks();
     }
 
     public MachineResult runOnce() {
         if (level == null || level.isClientSide) {
             return MachineResult.NO_TARGET;
+        }
+        if (isWorking()) {
+            return MachineResult.WORKING;
         }
         Optional<MEStorage> meStorage = findTargetMEStorage();
         if (meStorage.isEmpty()) {
@@ -290,8 +440,45 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         return packOne(meStorage.get());
     }
 
+    public MachineResult runPackOnce() {
+        if (level == null || level.isClientSide) {
+            return MachineResult.NO_TARGET;
+        }
+        if (isWorking()) {
+            pendingPackTrigger = true;
+            return MachineResult.WORKING;
+        }
+        Optional<MEStorage> meStorage = findTargetMEStorage();
+        if (meStorage.isEmpty()) {
+            return MachineResult.NO_TARGET;
+        }
+        return packOne(meStorage.get());
+    }
+
+    private MachineResult runUnpackOnce() {
+        if (level == null || level.isClientSide) {
+            return MachineResult.NO_TARGET;
+        }
+        if (isWorking()) {
+            return MachineResult.WORKING;
+        }
+        Optional<MEStorage> meStorage = findTargetMEStorage();
+        if (meStorage.isEmpty()) {
+            return MachineResult.NO_TARGET;
+        }
+        ItemStack input = items.getStackInSlot(SLOT_INPUT);
+        if (input.isEmpty()) {
+            return MachineResult.NO_CONTENTS;
+        }
+        return unpackOne(meStorage.get(), input);
+    }
+
     private MachineResult packOne(MEStorage source) {
-        PackageFilter filter = configuredFilter();
+        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+            return MachineResult.OUTPUT_BLOCKED;
+        }
+        PackageFilter configuredFilter = configuredFilter();
+        PackageFilter filter = filterApplicationMode.appliesToPack() ? configuredFilter : PackageFilter.any();
         PackageColor color = filter.color().orElse(selectedColor);
         PackageFilter packingFilter = configuredPackingFilter(filter);
         Optional<MEStoragePackagePlan> plan = MEStoragePackageTransactions.planPack(
@@ -300,7 +487,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
                 configuredCapacityProfile(),
                 packingFilter,
                 markerMode,
-                configuredOverrideMarker(filter));
+                configuredOverrideMarker(filter),
+                contentFilterInverted());
         if (plan.isEmpty()) {
             return MachineResult.NO_CONTENTS;
         }
@@ -310,19 +498,81 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
 
         ItemStack packageStack = new ItemStack(APItems.packageItems().get(color).get());
         PackageDataStorage.write(packageStack, plan.get().data());
+        if (!packageName.isBlank()) {
+            packageStack.setHoverName(Component.literal(packageName));
+        }
         ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
         if (!remainder.isEmpty()) {
             return MachineResult.OUTPUT_BLOCKED;
         }
 
         MEStoragePackageTransactions.commitExtract(source, plan.get());
-        items.insertItem(SLOT_OUTPUT, packageStack, false);
-        startAnimation(packageStack, false);
+        startWorkingOperation(WorkingOperation.PACKING, packageStack);
         setChanged();
         return MachineResult.PACKED;
     }
 
     private MachineResult unpackOne(MEStorage target, ItemStack input) {
+        MachineResult validation = validateUnpackInput(target, input);
+        if (validation != MachineResult.UNPACKED) {
+            return validation;
+        }
+        PackageData data = PackageDataStorage.read(input).orElseThrow();
+        if (!MEStoragePackageTransactions.insertPackageContents(data, target)) {
+            return MachineResult.TARGET_BLOCKED;
+        }
+        ItemStack renderedInput = input.copy();
+        renderedInput.setCount(1);
+        items.extractItem(SLOT_INPUT, 1, false);
+        startWorkingOperation(WorkingOperation.UNPACKING, renderedInput);
+        setChanged();
+        return MachineResult.UNPACKED;
+    }
+
+    private ItemStack insertPackageFromExternal(ItemStack stack, boolean simulate) {
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        if (isWorking()
+                || !items.getStackInSlot(SLOT_INPUT).isEmpty()
+                || !items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+            return stack;
+        }
+        Optional<MEStorage> meStorage = findTargetMEStorage();
+        if (meStorage.isEmpty()) {
+            return stack;
+        }
+
+        ItemStack one = stack.copy();
+        one.setCount(1);
+        MachineResult validation = validateUnpackInput(meStorage.get(), one);
+        if (validation != MachineResult.UNPACKED) {
+            return stack;
+        }
+
+        ItemStack remainder = stack.copy();
+        remainder.shrink(1);
+        if (!simulate) {
+            PackageData data = PackageDataStorage.read(one).orElseThrow();
+            if (!MEStoragePackageTransactions.insertPackageContents(data, meStorage.get())) {
+                return stack;
+            }
+            startWorkingOperation(WorkingOperation.UNPACKING, one);
+            setChanged();
+        }
+        return remainder.isEmpty() ? ItemStack.EMPTY : remainder;
+    }
+
+    private MachineResult validateUnpackInput(MEStorage target, ItemStack input) {
+        if (isWorking()) {
+            return MachineResult.WORKING;
+        }
+        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+            return MachineResult.OUTPUT_BLOCKED;
+        }
+        if (filterApplicationMode == FilterApplicationMode.PACK_ONLY) {
+            return MachineResult.FILTER_REJECTED;
+        }
         if (!(input.getItem() instanceof PackageItem packageItem)) {
             return MachineResult.INVALID_INPUT;
         }
@@ -330,30 +580,57 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         if (data.isEmpty()) {
             return MachineResult.INVALID_INPUT;
         }
-        if (!configuredFilter().matches(packageItem.color(), data.get())) {
+        if (!matchesCurrentPackageIdentity(packageItem.color(), data.get())) {
             return MachineResult.FILTER_REJECTED;
+        }
+        if (!configuredFilter().matchesContents(data.get(), contentFilterInverted())) {
+            return MachineResult.FILTER_REJECTED;
+        }
+        if (blockingMode == BlockingMode.BLOCK_UNPACK_WHEN_NETWORK_HAS_ITEMS && targetHasContents(target)) {
+            return MachineResult.TARGET_BLOCKED;
         }
         if (!MEStoragePackageTransactions.canInsertPackageContents(data.get(), target)) {
             return MachineResult.TARGET_BLOCKED;
         }
-        if (!MEStoragePackageTransactions.insertPackageContents(data.get(), target)) {
-            return MachineResult.TARGET_BLOCKED;
-        }
-        ItemStack renderedInput = input.copy();
-        renderedInput.setCount(1);
-        items.extractItem(SLOT_INPUT, 1, false);
-        startAnimation(renderedInput, true);
-        setChanged();
         return MachineResult.UNPACKED;
     }
 
+    private boolean matchesCurrentPackageIdentity(PackageColor packageColor, PackageData data) {
+        if (selectedColor != PackageColor.FLUIX && selectedColor != packageColor) {
+            return false;
+        }
+        Optional<MarkerSpec> marker = configuredMarkerItem();
+        return marker.isEmpty() || data.marker().map(actual -> actual.sameAs(marker.get())).orElse(false);
+    }
+
+    private Optional<MarkerSpec> configuredMarkerItem() {
+        ItemStack markerStack = items.getStackInSlot(SLOT_MARKER);
+        if (!isMarkerItem(markerStack)) {
+            return Optional.empty();
+        }
+        ItemStack keyStack = markerStack.copy();
+        keyStack.setCount(1);
+        return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
+    }
+
+    private boolean contentFilterInverted() {
+        return getUpgrades().isInstalled(AEItems.INVERTER_CARD);
+    }
+
     private PackageCapacityProfile configuredCapacityProfile() {
-        return BASE_CAPACITY_PROFILE;
+        return componentCapacityProfileFromItem(items.getStackInSlot(SLOT_CAPACITY))
+                .orElse(BASE_CAPACITY_PROFILE);
     }
 
     private PackageFilter configuredFilter() {
-        return PackageFilter.fromTemplate(items.getStackInSlot(SLOT_FILTER))
+        PackageFilter legacyFilter = PackageFilter.fromTemplate(items.getStackInSlot(SLOT_FILTER))
                 .orElse(PackageFilter.any());
+        List<GenericStack> requiredContents = new ArrayList<>(legacyFilter.requiredContents());
+        requiredContents.addAll(contentFilterStacks());
+        if (requiredContents.isEmpty() && legacyFilter.color().isEmpty() && legacyFilter.marker().isEmpty()) {
+            return PackageFilter.any();
+        }
+        return new PackageFilter(legacyFilter.color(), legacyFilter.marker(), requiredContents);
     }
 
     private PackageFilter configuredPackingFilter(PackageFilter filter) {
@@ -361,14 +638,12 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
     }
 
     private Optional<MarkerSpec> configuredOverrideMarker(PackageFilter filter) {
+        Optional<MarkerSpec> markerItem = configuredMarkerItem();
+        if (markerItem.isPresent()) {
+            return markerItem;
+        }
         if (markerMode != MarkerMergeMode.OVERRIDE) {
             return Optional.empty();
-        }
-        ItemStack markerStack = items.getStackInSlot(SLOT_MARKER);
-        if (isMarkerItem(markerStack)) {
-            ItemStack keyStack = markerStack.copy();
-            keyStack.setCount(1);
-            return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
         }
         return filter.marker();
     }
@@ -402,6 +677,62 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
                     "storage_cell_256k" -> Optional.of(PackageCapacityProfile.STORAGE_256K);
             default -> Optional.empty();
         };
+    }
+
+    public static Optional<PackageCapacityProfile> componentCapacityProfileFromItem(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return Optional.empty();
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (!"ae2".equals(id.getNamespace())) {
+            return Optional.empty();
+        }
+        return switch (id.getPath()) {
+            case "cell_component_16k" -> Optional.of(PackageCapacityProfile.STORAGE_16K);
+            case "cell_component_64k" -> Optional.of(PackageCapacityProfile.STORAGE_64K);
+            case "cell_component_256k" -> Optional.of(PackageCapacityProfile.STORAGE_256K);
+            default -> Optional.empty();
+        };
+    }
+
+    public void clearConfiguration() {
+        contentFilter.clear();
+        items.setStackInSlot(SLOT_FILTER, ItemStack.EMPTY);
+        items.setStackInSlot(SLOT_MARKER, ItemStack.EMPTY);
+        setPackageName("");
+        setSelectedColor(PackageColor.FLUIX);
+        setFilterApplicationMode(FilterApplicationMode.BOTH);
+        setBlockingMode(BlockingMode.IGNORE_NETWORK_CONTENTS);
+        setChanged();
+    }
+
+    public void partitionFilterFromNetwork() {
+        Optional<MEStorage> storage = findTargetMEStorage();
+        if (storage.isEmpty()) {
+            contentFilter.clear();
+            return;
+        }
+        KeyCounter available = new KeyCounter();
+        storage.get().getAvailableStacks(available);
+        contentFilter.beginBatch();
+        try {
+            for (int slot = 0; slot < contentFilter.size(); slot++) {
+                contentFilter.setStack(slot, null);
+            }
+            int slot = 0;
+            int enabledSlots = unlockedFilterRows() * FILTER_COLUMNS;
+            for (var entry : available) {
+                if (slot >= enabledSlots) {
+                    break;
+                }
+                if (entry.getLongValue() > 0) {
+                    contentFilter.setStack(slot++, new GenericStack(entry.getKey(), 1));
+                }
+            }
+        } finally {
+            contentFilter.endBatch();
+        }
+        setChanged();
     }
 
     private Optional<MEStorage> findTargetMEStorage() {
@@ -459,15 +790,27 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
     public void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
+        contentFilter.writeToChildTag(tag, FILTER_TAG);
+        upgrades.writeToNBT(tag, UPGRADES_TAG);
         tag.putBoolean(POWERED_TAG, powered);
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
         tag.putString(MARKER_MODE_TAG, markerMode.name());
         tag.putString(REDSTONE_MODE_TAG, redstoneMode.name());
+        tag.putString(FILTER_APPLICATION_MODE_TAG, filterApplicationMode.name());
+        tag.putString(BLOCKING_MODE_TAG, blockingMode.name());
+        if (!packageName.isBlank()) {
+            tag.putString(PACKAGE_NAME_TAG, packageName);
+        }
         tag.putInt(ANIMATION_TICKS_TAG, animationTicks);
         tag.putBoolean(ANIMATION_INWARD_TAG, animationInward);
         if (!renderedBox.isEmpty()) {
             tag.put(RENDERED_BOX_TAG, renderedBox.save(new CompoundTag()));
         }
+        tag.putString(WORKING_OPERATION_TAG, workingOperation.name());
+        if (!workingStack.isEmpty()) {
+            tag.put(WORKING_STACK_TAG, workingStack.save(new CompoundTag()));
+        }
+        tag.putBoolean(PENDING_PACK_TRIGGER_TAG, pendingPackTrigger);
     }
 
     @Override
@@ -476,15 +819,28 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             items.deserializeNBT(tag.getCompound(ITEMS_TAG));
         }
+        contentFilter.readFromChildTag(tag, FILTER_TAG);
+        upgrades.readFromNBT(tag, UPGRADES_TAG);
         powered = tag.getBoolean(POWERED_TAG);
         selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
         markerMode = markerModeByName(tag.getString(MARKER_MODE_TAG));
         redstoneMode = RedstoneMode.byName(tag.getString(REDSTONE_MODE_TAG));
+        filterApplicationMode = FilterApplicationMode.byName(tag.getString(FILTER_APPLICATION_MODE_TAG));
+        blockingMode = BlockingMode.byName(tag.getString(BLOCKING_MODE_TAG));
+        packageName = tag.getString(PACKAGE_NAME_TAG);
         animationTicks = tag.getInt(ANIMATION_TICKS_TAG);
         animationInward = !tag.contains(ANIMATION_INWARD_TAG) || tag.getBoolean(ANIMATION_INWARD_TAG);
         renderedBox = tag.contains(RENDERED_BOX_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? ItemStack.of(tag.getCompound(RENDERED_BOX_TAG))
-                : displayStack(items.getStackInSlot(SLOT_OUTPUT));
+                : currentInventoryBox();
+        workingOperation = WorkingOperation.byName(tag.getString(WORKING_OPERATION_TAG));
+        workingStack = tag.contains(WORKING_STACK_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
+                ? ItemStack.of(tag.getCompound(WORKING_STACK_TAG))
+                : ItemStack.EMPTY;
+        if (workingOperation == WorkingOperation.NONE) {
+            workingStack = ItemStack.EMPTY;
+        }
+        pendingPackTrigger = tag.getBoolean(PENDING_PACK_TRIGGER_TAG);
     }
 
     @Override
@@ -510,6 +866,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
                 Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
             }
         }
+        for (ItemStack stack : upgrades) {
+            if (!stack.isEmpty()) {
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
+            }
+        }
+        if (workingOperation == WorkingOperation.PACKING && !workingStack.isEmpty()) {
+            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), workingStack);
+        }
     }
 
     public enum MachineResult {
@@ -522,7 +886,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         TARGET_BLOCKED("message.appliedpackaging.me_packager.target_blocked"),
         INVALID_INPUT("message.appliedpackaging.me_packager.invalid_input"),
         FILTER_REJECTED("message.appliedpackaging.me_packager.filter_rejected"),
-        SOURCE_CHANGED("message.appliedpackaging.me_packager.source_changed");
+        SOURCE_CHANGED("message.appliedpackaging.me_packager.source_changed"),
+        WORKING("message.appliedpackaging.me_packager.working");
 
         private final String messageKey;
 
@@ -532,6 +897,23 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
 
         public String messageKey() {
             return messageKey;
+        }
+    }
+
+    public enum WorkingOperation {
+        NONE,
+        PACKING,
+        UNPACKING;
+
+        private static WorkingOperation byName(String name) {
+            if (name == null || name.isBlank()) {
+                return NONE;
+            }
+            try {
+                return WorkingOperation.valueOf(name);
+            } catch (IllegalArgumentException e) {
+                return NONE;
+            }
         }
     }
 
@@ -549,6 +931,18 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         return animationTicks;
     }
 
+    public boolean isWorking() {
+        return workingOperation != WorkingOperation.NONE;
+    }
+
+    public WorkingOperation workingOperation() {
+        return workingOperation;
+    }
+
+    public ItemStack insertPackageFromMenu(ItemStack stack, boolean simulate) {
+        return insertPackageFromExternal(stack, simulate);
+    }
+
     public boolean animationInward() {
         return animationInward;
     }
@@ -561,6 +955,9 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
     }
 
     public ItemStack getRenderedBox() {
+        if (animationTicks <= 0) {
+            return idleRenderedBox();
+        }
         if (animationInward) {
             return animationTicks <= ANIMATION_CYCLE_TICKS / 2 ? ItemStack.EMPTY : renderedBox;
         }
@@ -583,22 +980,97 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
     }
 
     public enum RedstoneMode {
-        DISABLED,
+        HIGH_SIGNAL,
+        LOW_SIGNAL,
+        ALWAYS,
         PULSE,
+        NEVER,
+        DISABLED,
         CYCLIC;
 
         public String id() {
             return name().toLowerCase(java.util.Locale.ROOT);
         }
 
+        public boolean isActive(boolean powered) {
+            return switch (normalizeRedstoneMode(this)) {
+                case HIGH_SIGNAL -> powered;
+                case LOW_SIGNAL -> !powered;
+                case ALWAYS -> true;
+                case PULSE, NEVER -> false;
+                case DISABLED, CYCLIC -> false;
+            };
+        }
+
+        public static RedstoneMode[] uiValues() {
+            return new RedstoneMode[] { HIGH_SIGNAL, LOW_SIGNAL, ALWAYS, PULSE, NEVER };
+        }
+
         private static RedstoneMode byName(String name) {
             if (name == null || name.isBlank()) {
-                return PULSE;
+                return HIGH_SIGNAL;
             }
             try {
-                return RedstoneMode.valueOf(name);
+                return normalizeRedstoneMode(RedstoneMode.valueOf(name));
             } catch (IllegalArgumentException e) {
-                return PULSE;
+                return HIGH_SIGNAL;
+            }
+        }
+    }
+
+    public enum FilterApplicationMode {
+        BOTH(true, true),
+        PACK_ONLY(true, false),
+        UNPACK_ONLY(false, true);
+
+        private final boolean appliesToPack;
+        private final boolean appliesToUnpack;
+
+        FilterApplicationMode(boolean appliesToPack, boolean appliesToUnpack) {
+            this.appliesToPack = appliesToPack;
+            this.appliesToUnpack = appliesToUnpack;
+        }
+
+        public boolean appliesToPack() {
+            return appliesToPack;
+        }
+
+        public boolean appliesToUnpack() {
+            return appliesToUnpack;
+        }
+
+        public String id() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+
+        private static FilterApplicationMode byName(String name) {
+            if (name == null || name.isBlank()) {
+                return BOTH;
+            }
+            try {
+                return FilterApplicationMode.valueOf(name);
+            } catch (IllegalArgumentException e) {
+                return BOTH;
+            }
+        }
+    }
+
+    public enum BlockingMode {
+        IGNORE_NETWORK_CONTENTS,
+        BLOCK_UNPACK_WHEN_NETWORK_HAS_ITEMS;
+
+        public String id() {
+            return name().toLowerCase(java.util.Locale.ROOT);
+        }
+
+        private static BlockingMode byName(String name) {
+            if (name == null || name.isBlank()) {
+                return IGNORE_NETWORK_CONTENTS;
+            }
+            try {
+                return BlockingMode.valueOf(name);
+            } catch (IllegalArgumentException e) {
+                return IGNORE_NETWORK_CONTENTS;
             }
         }
     }
@@ -621,31 +1093,108 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
     }
 
     private void onInventorySlotChanged(int slot) {
-        if (slot == SLOT_OUTPUT && animationTicks == 0) {
-            renderedBox = displayStack(items.getStackInSlot(SLOT_OUTPUT));
+        if (slot == SLOT_INPUT) {
+            redstoneCooldown = 0;
+        }
+        if ((slot == SLOT_INPUT || slot == SLOT_OUTPUT) && animationTicks == 0) {
+            renderedBox = currentInventoryBox();
             syncVisualState();
         }
+    }
+
+    private void onFilterChanged() {
+        setChanged();
+    }
+
+    private void onUpgradesChanged() {
+        setChanged();
+    }
+
+    private List<GenericStack> contentFilterStacks() {
+        List<GenericStack> stacks = new ArrayList<>();
+        for (int slot = 0; slot < contentFilter.size(); slot++) {
+            GenericStack stack = contentFilter.getStack(slot);
+            if (stack != null && stack.amount() > 0) {
+                stacks.add(stack);
+            }
+        }
+        return stacks;
+    }
+
+    private int redstoneIntervalTicks() {
+        int speedCards = getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD);
+        return Math.max(2, CYCLIC_REDSTONE_INTERVAL_TICKS - speedCards * 3);
+    }
+
+    private static RedstoneMode normalizeRedstoneMode(RedstoneMode mode) {
+        if (mode == RedstoneMode.DISABLED) {
+            return RedstoneMode.NEVER;
+        }
+        if (mode == RedstoneMode.CYCLIC) {
+            return RedstoneMode.HIGH_SIGNAL;
+        }
+        return mode == null ? RedstoneMode.HIGH_SIGNAL : mode;
+    }
+
+    private static boolean targetHasContents(MEStorage target) {
+        KeyCounter available = new KeyCounter();
+        target.getAvailableStacks(available);
+        available.removeZeros();
+        return !available.isEmpty();
     }
 
     private void tickAnimation() {
         if (animationTicks <= 0) {
-            if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty() && renderedBox.isEmpty()) {
-                renderedBox = displayStack(items.getStackInSlot(SLOT_OUTPUT));
+            if (isWorking() && level != null && !level.isClientSide) {
+                finishWorkingOperation();
+                return;
+            }
+            if (!isWorking()) {
+                ItemStack currentBox = currentInventoryBox();
+                if (!currentBox.isEmpty() && !ItemStack.matches(renderedBox, currentBox)) {
+                    renderedBox = currentBox;
+                }
             }
             return;
         }
         animationTicks--;
-        if (animationTicks == 0 && animationInward) {
-            renderedBox = displayStack(items.getStackInSlot(SLOT_OUTPUT));
+        if (animationTicks > 0) {
+            return;
         }
-        if (animationTicks == 0 && level != null && !level.isClientSide) {
-            syncVisualState();
+        if (level != null && level.isClientSide) {
+            if (animationInward) {
+                renderedBox = ItemStack.EMPTY;
+            }
+            return;
         }
+        finishWorkingOperation();
     }
 
-    private void startAnimation(ItemStack stack, boolean inward) {
+    private void finishWorkingOperation() {
+        if (workingOperation == WorkingOperation.PACKING && !workingStack.isEmpty()) {
+            if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+                animationTicks = 1;
+                return;
+            }
+            ItemStack remainder = items.insertItem(SLOT_OUTPUT, workingStack.copy(), false);
+            if (!remainder.isEmpty()) {
+                animationTicks = 1;
+                return;
+            }
+        } else if (workingOperation == WorkingOperation.UNPACKING) {
+            renderedBox = ItemStack.EMPTY;
+        }
+        workingOperation = WorkingOperation.NONE;
+        workingStack = ItemStack.EMPTY;
+        renderedBox = currentInventoryBox();
+        syncVisualState();
+    }
+
+    private void startWorkingOperation(WorkingOperation operation, ItemStack stack) {
+        workingOperation = operation;
+        workingStack = displayStack(stack);
         renderedBox = displayStack(stack);
-        animationInward = inward;
+        animationInward = operation == WorkingOperation.UNPACKING;
         animationTicks = ANIMATION_CYCLE_TICKS;
         syncVisualState();
     }
@@ -664,5 +1213,18 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity implements Inven
         ItemStack copy = stack.copy();
         copy.setCount(1);
         return copy;
+    }
+
+    private ItemStack idleRenderedBox() {
+        ItemStack currentBox = currentInventoryBox();
+        return currentBox.isEmpty() ? renderedBox : currentBox;
+    }
+
+    private ItemStack currentInventoryBox() {
+        ItemStack input = displayStack(items.getStackInSlot(SLOT_INPUT));
+        if (!input.isEmpty()) {
+            return input;
+        }
+        return displayStack(items.getStackInSlot(SLOT_OUTPUT));
     }
 }

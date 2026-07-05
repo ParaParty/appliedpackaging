@@ -129,6 +129,20 @@ public record PackageFilter(
     }
 
     public boolean matches(PackageColor packageColor, PackageData data) {
+        return matches(packageColor, data, false);
+    }
+
+    public boolean matches(PackageColor packageColor, PackageData data, boolean invertContents) {
+        if (color.isPresent() && color.get() != packageColor) {
+            return false;
+        }
+        if (marker.isPresent() && !data.marker().map(actual -> actual.sameAs(marker.get())).orElse(false)) {
+            return false;
+        }
+        return matchesContents(data, invertContents);
+    }
+
+    public boolean matchesRequiredAmounts(PackageColor packageColor, PackageData data) {
         if (color.isPresent() && color.get() != packageColor) {
             return false;
         }
@@ -147,6 +161,35 @@ public record PackageFilter(
             }
         }
         return true;
+    }
+
+    public boolean matchesContents(PackageData data, boolean invertContents) {
+        if (requiredContents.isEmpty()) {
+            return true;
+        }
+        for (GenericStack content : data.contents()) {
+            if (!allowsContent(content.what(), invertContents)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public boolean allowsContent(AEKey key, boolean invertContents) {
+        if (requiredContents.isEmpty()) {
+            return true;
+        }
+        boolean listed = containsContentKey(key);
+        return invertContents ? !listed : listed;
+    }
+
+    public boolean containsContentKey(AEKey key) {
+        for (GenericStack stack : requiredContents) {
+            if (stack.what().equals(key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Optional<MarkerSpec> commonMarker(List<PackageData> packages) {

@@ -243,6 +243,10 @@ function Get-ExpectedPngSize {
         return @{ Width = 128; Height = 128; Label = "gui logo" }
     }
 
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/mepackager.png") {
+        return @{ Width = 256; Height = 256; Label = "ME Packager GUI atlas" }
+    }
+
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/item/", [System.StringComparison]::Ordinal)) {
         return @{ Width = 32; Height = 32; Label = "item texture" }
     }
@@ -309,6 +313,7 @@ Assert-True (Test-Path -LiteralPath $assetRoot) "Asset root exists: $assetRoot"
 $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/logo.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/logo.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/mepackager.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/auto_export.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/blocking_mode.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/capacity.png",

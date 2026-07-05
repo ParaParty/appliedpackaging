@@ -8,6 +8,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -26,6 +27,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.common.ToolAction;
+import net.minecraftforge.network.NetworkHooks;
 
 public class MePackagerBlock extends AbstractHorizontalMachineBlock {
     public static final DirectionProperty NETWORK_SIDE = DirectionProperty.create("network_side");
@@ -97,6 +99,8 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
         MePackagerBlockEntity.ActionResult result = packager.interact(player, held);
         if (result.messageKey() != null) {
             player.displayClientMessage(Component.translatable(result.messageKey()), true);
+        } else if (player instanceof ServerPlayer serverPlayer && serverPlayer.connection != null) {
+            NetworkHooks.openScreen(serverPlayer, packager, pos);
         }
         return result.consumed() ? InteractionResult.CONSUME : InteractionResult.PASS;
     }

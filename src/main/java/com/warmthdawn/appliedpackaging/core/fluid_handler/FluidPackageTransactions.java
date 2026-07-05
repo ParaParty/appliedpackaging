@@ -12,9 +12,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -119,37 +117,7 @@ public final class FluidPackageTransactions {
             List<GenericStack> looseContents,
             AEFluidKey key,
             int stackAmount) {
-        if (filter.requiredContents().isEmpty()) {
-            return stackAmount;
-        }
-        long required = requiredAmount(filter, key);
-        if (required <= 0) {
-            return 0;
-        }
-        long available = availableAmount(looseContents).getOrDefault(key, 0L);
-        long remaining = required - available;
-        if (remaining <= 0) {
-            return 0;
-        }
-        return (int) Math.min(stackAmount, remaining);
-    }
-
-    private static long requiredAmount(PackageFilter filter, AEKey key) {
-        long amount = 0;
-        for (GenericStack stack : filter.requiredContents()) {
-            if (stack.what().equals(key)) {
-                amount += stack.amount();
-            }
-        }
-        return amount;
-    }
-
-    private static Map<AEKey, Long> availableAmount(List<GenericStack> looseContents) {
-        Map<AEKey, Long> amounts = new HashMap<>();
-        for (GenericStack stack : looseContents) {
-            amounts.merge(stack.what(), stack.amount(), Long::sum);
-        }
-        return amounts;
+        return filter.allowsContent(key, false) ? stackAmount : 0;
     }
 
     private static int largestFittingAmount(

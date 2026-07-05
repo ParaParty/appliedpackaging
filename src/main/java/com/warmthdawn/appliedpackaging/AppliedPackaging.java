@@ -1,5 +1,7 @@
 package com.warmthdawn.appliedpackaging;
 
+import appeng.api.upgrades.Upgrades;
+import appeng.core.definitions.AEItems;
 import com.mojang.logging.LogUtils;
 import com.warmthdawn.appliedpackaging.client.AppliedPackagingClient;
 import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
@@ -44,6 +46,12 @@ public class AppliedPackaging {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            Upgrades.add(AEItems.REDSTONE_CARD, APBlocks.ME_PACKAGER.get(), 1);
+            Upgrades.add(AEItems.CAPACITY_CARD, APBlocks.ME_PACKAGER.get(), 3);
+            Upgrades.add(AEItems.SPEED_CARD, APBlocks.ME_PACKAGER.get(), 6);
+            Upgrades.add(AEItems.INVERTER_CARD, APBlocks.ME_PACKAGER.get(), 1);
+        });
         LOGGER.info("Applied Packaging initialized.");
     }
 

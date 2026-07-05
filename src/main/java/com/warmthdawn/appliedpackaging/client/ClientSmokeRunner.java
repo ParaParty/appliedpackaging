@@ -4,6 +4,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
+import appeng.api.util.AEColor;
+import appeng.core.definitions.AEParts;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
@@ -58,6 +60,8 @@ public final class ClientSmokeRunner {
     private static final int QUIT_DELAY_TICKS = 20;
     private static final int ME_PACKAGER_SMOKE_ANIMATION_TICKS = 8;
     private static final String WORLD_PACKAGER_SCREENSHOT_NAME = "appliedpackaging-client-smoke-world-me_packager.png";
+    private static final String WORLD_PACKAGER_LINK_SCREENSHOT_NAME =
+            "appliedpackaging-client-smoke-world-me_packager_link.png";
     private static final String WORLD_ALL_MACHINES_SCREENSHOT_NAME =
             "appliedpackaging-client-smoke-world-all_machines.png";
     private static final Field ME_PACKAGER_ANIMATION_TICKS =
@@ -90,11 +94,12 @@ public final class ClientSmokeRunner {
     private int currentStep = -1;
     private int screenTicks;
     private int worldScreenshotTicks;
+    private int worldScreenshotIndex;
     private int finishTicks;
     private boolean setupRequested;
     private volatile boolean setupComplete;
     private volatile RuntimeException setupFailure;
-    private boolean packagerWorldScreenshotCaptured;
+    private boolean packagerLinkCameraRequested;
     private boolean allMachinesCameraRequested;
     private BlockPos basePos;
     private State state = State.WAITING_FOR_WORLD;
@@ -193,7 +198,7 @@ public final class ClientSmokeRunner {
                         var state = step.block().defaultBlockState()
                                 .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH);
                         if (step.id().equals("me_packager")) {
-                            state = state.setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST);
+                            state = state.setValue(MePackagerBlock.NETWORK_SIDE, Direction.SOUTH);
                         }
                         level.setBlock(pos, state, 3);
                         if (step.id().equals("me_packager")
@@ -203,6 +208,12 @@ public final class ClientSmokeRunner {
                         }
                     }
                 }
+                PartHelper.setPart(
+                        level,
+                        posForStep(1).relative(Direction.SOUTH),
+                        null,
+                        null,
+                        AEParts.GLASS_CABLE.item(AEColor.TRANSPARENT));
                 for (int index = 0; index < WORLD_SMOKE_PACKAGE_COLORS.length; index++) {
                     PackageColor color = WORLD_SMOKE_PACKAGE_COLORS[index];
                     ItemStack droppedPackage = smokePackage(color, index == 0);
@@ -267,6 +278,29 @@ public final class ClientSmokeRunner {
                 serverPlayer.getXRot()));
     }
 
+    private void requestPackagerLinkCamera(Minecraft minecraft) {
+        if (packagerLinkCameraRequested || minecraft.player == null || basePos == null) {
+            return;
+        }
+        MinecraftServer server = minecraft.getSingleplayerServer();
+        ServerPlayer serverPlayer = server.getPlayerList().getPlayer(minecraft.player.getUUID());
+        if (serverPlayer == null) {
+            return;
+        }
+        packagerLinkCameraRequested = true;
+        BlockPos target = posForStep(1);
+        double cameraX = target.getX() + 0.5D;
+        double cameraY = target.getY();
+        double cameraZ = target.getZ() + 2.2D;
+        server.execute(() -> serverPlayer.teleportTo(
+                serverPlayer.serverLevel(),
+                cameraX,
+                cameraY,
+                cameraZ,
+                serverPlayer.getYRot(),
+                serverPlayer.getXRot()));
+    }
+
     private void tickWorldScreenshot(Minecraft minecraft) {
         minecraft.options.pauseOnLostFocus = false;
         if (minecraft.screen != null) {
@@ -276,12 +310,19 @@ public final class ClientSmokeRunner {
         }
         minecraft.options.hideGui = true;
         String screenshotName;
-        if (packagerWorldScreenshotCaptured) {
-            orientPlayerToAllMachines(minecraft);
-            screenshotName = WORLD_ALL_MACHINES_SCREENSHOT_NAME;
-        } else {
-            orientPlayerToMePackager(minecraft);
-            screenshotName = WORLD_PACKAGER_SCREENSHOT_NAME;
+        switch (worldScreenshotIndex) {
+            case 0 -> {
+                orientPlayerToMePackager(minecraft);
+                screenshotName = WORLD_PACKAGER_SCREENSHOT_NAME;
+            }
+            case 1 -> {
+                orientPlayerToMePackagerLink(minecraft);
+                screenshotName = WORLD_PACKAGER_LINK_SCREENSHOT_NAME;
+            }
+            default -> {
+                orientPlayerToAllMachines(minecraft);
+                screenshotName = WORLD_ALL_MACHINES_SCREENSHOT_NAME;
+            }
         }
         primeClientMePackagerSmokeAnimation(minecraft);
         worldScreenshotTicks++;
@@ -293,9 +334,13 @@ public final class ClientSmokeRunner {
                         "Applied Packaging client smoke captured {}: {}",
                         screenshotName,
                         message.getString()));
-        if (!packagerWorldScreenshotCaptured) {
-            packagerWorldScreenshotCaptured = true;
-            worldScreenshotTicks = 0;
+        worldScreenshotIndex++;
+        worldScreenshotTicks = 0;
+        if (worldScreenshotIndex == 1) {
+            requestPackagerLinkCamera(minecraft);
+            return;
+        }
+        if (worldScreenshotIndex == 2) {
             requestAllMachinesCamera(minecraft);
             return;
         }
@@ -321,6 +366,14 @@ public final class ClientSmokeRunner {
         }
         BlockPos target = posForStep(1);
         orientPlayerTo(minecraft, target.getX() + 0.5D, target.getY() + 0.55D, target.getZ() + 0.5D);
+    }
+
+    private void orientPlayerToMePackagerLink(Minecraft minecraft) {
+        if (minecraft.player == null || basePos == null) {
+            return;
+        }
+        BlockPos target = posForStep(1);
+        orientPlayerTo(minecraft, target.getX() + 0.5D, target.getY() + 0.75D, target.getZ() + 0.5D);
     }
 
     private void orientPlayerToAllMachines(Minecraft minecraft) {
@@ -436,10 +489,11 @@ public final class ClientSmokeRunner {
     private static void primeMePackagerSmokeAnimation(MePackagerBlockEntity packager, ItemStack packageStack) {
         ItemStack renderedBox = packageStack.copy();
         renderedBox.setCount(1);
-        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, renderedBox.copy());
+        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, renderedBox.copy());
+        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
         try {
             ME_PACKAGER_ANIMATION_TICKS.setInt(packager, ME_PACKAGER_SMOKE_ANIMATION_TICKS);
-            ME_PACKAGER_ANIMATION_INWARD.setBoolean(packager, false);
+            ME_PACKAGER_ANIMATION_INWARD.setBoolean(packager, true);
             ME_PACKAGER_RENDERED_BOX.set(packager, renderedBox);
         } catch (IllegalAccessException exception) {
             throw new IllegalStateException("Could not prime ME Packager smoke animation", exception);

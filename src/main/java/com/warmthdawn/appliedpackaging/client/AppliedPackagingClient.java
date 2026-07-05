@@ -16,6 +16,8 @@ import com.warmthdawn.appliedpackaging.registry.APEntityTypes;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
+import appeng.init.client.InitScreens;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
@@ -45,7 +47,11 @@ public final class AppliedPackagingClient {
 
     private static void clientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
-            MenuScreens.register(APMenus.ME_PACKAGER.get(), MePackagerScreen::new);
+            Minecraft.getInstance().getMainRenderTarget().enableStencil();
+            InitScreens.register(
+                    APMenus.ME_PACKAGER.get(),
+                    MePackagerScreen::new,
+                    "/screens/appliedpackaging/me_packager.json");
             MenuScreens.register(APMenus.PACKAGE_ASSEMBLER.get(), PackageAssemblerScreen::new);
             MenuScreens.register(APMenus.PACKAGE_PATTERN_TERMINAL.get(), PackagePatternTerminalScreen::new);
             MenuScreens.register(APMenus.PACKAGE_BUS.get(), PackageBusScreen::new);

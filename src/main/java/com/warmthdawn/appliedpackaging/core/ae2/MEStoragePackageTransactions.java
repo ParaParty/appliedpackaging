@@ -15,9 +15,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public final class MEStoragePackageTransactions {
@@ -44,6 +42,17 @@ public final class MEStoragePackageTransactions {
             PackageFilter filter,
             MarkerMergeMode markerMode,
             Optional<MarkerSpec> overrideMarker) {
+        return planPack(source, color, capacityProfile, filter, markerMode, overrideMarker, false);
+    }
+
+    public static Optional<MEStoragePackagePlan> planPack(
+            MEStorage source,
+            PackageColor color,
+            PackageCapacityProfile capacityProfile,
+            PackageFilter filter,
+            MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
+            boolean invertContents) {
         List<GenericStack> looseContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
         List<GenericStack> extractions = new ArrayList<>();
@@ -60,8 +69,7 @@ public final class MEStoragePackageTransactions {
 
             Optional<PackageData> packageData = packageDataFromKey(key);
             if (packageData.isPresent()) {
-                if (!effectiveFilter.isAny()
-                        && !contributesToRequiredContents(effectiveFilter, looseContents, sourcePackages, packageData.get())) {
+                if (!effectiveFilter.matchesContents(packageData.get(), invertContents)) {
                     continue;
                 }
                 if (tryPackageCandidate(
@@ -79,7 +87,7 @@ public final class MEStoragePackageTransactions {
                 continue;
             }
 
-            long maxAmount = filteredMaxAmount(effectiveFilter, looseContents, sourcePackages, key, available);
+            long maxAmount = filteredMaxAmount(effectiveFilter, key, available, invertContents);
             long amount = largestFittingAmount(
                     color,
                     capacityProfile,
@@ -108,7 +116,7 @@ public final class MEStoragePackageTransactions {
                         capacityProfile,
                         0)
                 .data()
-                .filter(data -> effectiveFilter.matches(color, data))
+                .filter(data -> effectiveFilter.matches(color, data, invertContents))
                 .map(data -> new MEStoragePackagePlan(data, extractions));
     }
 
@@ -186,65 +194,10 @@ public final class MEStoragePackageTransactions {
 
     private static long filteredMaxAmount(
             PackageFilter filter,
-            List<GenericStack> looseContents,
-            List<PackageData> sourcePackages,
             AEKey key,
-            long available) {
-        if (filter.requiredContents().isEmpty()) {
-            return available;
-        }
-        long required = requiredAmount(filter, key);
-        if (required <= 0) {
-            return 0;
-        }
-        long current = availableAmount(looseContents, sourcePackages).getOrDefault(key, 0L);
-        long remaining = required - current;
-        if (remaining <= 0) {
-            return 0;
-        }
-        return Math.min(available, remaining);
-    }
-
-    private static boolean contributesToRequiredContents(
-            PackageFilter filter,
-            List<GenericStack> looseContents,
-            List<PackageData> sourcePackages,
-            PackageData candidate) {
-        if (filter.requiredContents().isEmpty()) {
-            return true;
-        }
-        Map<AEKey, Long> current = availableAmount(looseContents, sourcePackages);
-        for (GenericStack candidateStack : candidate.contents()) {
-            if (requiredAmount(filter, candidateStack.what()) > current.getOrDefault(candidateStack.what(), 0L)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static long requiredAmount(PackageFilter filter, AEKey key) {
-        long amount = 0;
-        for (GenericStack stack : filter.requiredContents()) {
-            if (stack.what().equals(key)) {
-                amount += stack.amount();
-            }
-        }
-        return amount;
-    }
-
-    private static Map<AEKey, Long> availableAmount(
-            List<GenericStack> looseContents,
-            List<PackageData> sourcePackages) {
-        Map<AEKey, Long> amounts = new HashMap<>();
-        for (GenericStack stack : looseContents) {
-            amounts.merge(stack.what(), stack.amount(), Long::sum);
-        }
-        for (PackageData packageData : sourcePackages) {
-            for (GenericStack stack : packageData.contents()) {
-                amounts.merge(stack.what(), stack.amount(), Long::sum);
-            }
-        }
-        return amounts;
+            long available,
+            boolean invertContents) {
+        return filter.allowsContent(key, invertContents) ? available : 0;
     }
 
     private static long largestFittingAmount(

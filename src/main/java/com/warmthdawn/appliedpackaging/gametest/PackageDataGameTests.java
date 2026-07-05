@@ -266,21 +266,23 @@ public final class PackageDataGameTests {
         PackageFilter filter = new PackageFilter(
                 Optional.of(PackageColor.GREEN),
                 Optional.of(new MarkerSpec(marker)),
-                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 1)));
 
         helper.assertTrue(filter.matches(PackageColor.GREEN, data), "Filter should accept matching color, marker, and content");
         helper.succeed();
     }
 
     @GameTest(template = "empty")
-    public static void packageFilterRejectsMissingContent(GameTestHelper helper) {
-        PackageData data = ironPackageData(PackageColor.RED, 32);
+    public static void packageFilterRejectsUnlistedContent(GameTestHelper helper) {
+        PackageData data = itemPackageData(PackageColor.RED, 32, 32);
         PackageFilter filter = new PackageFilter(
                 Optional.empty(),
                 Optional.empty(),
-                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1)));
 
-        helper.assertFalse(filter.matches(PackageColor.RED, data), "Content filter should require the whole requested amount");
+        helper.assertFalse(filter.matches(PackageColor.RED, data), "Content filter should reject package contents outside the allowlist");
         helper.succeed();
     }
 
@@ -467,12 +469,12 @@ public final class PackageDataGameTests {
     @GameTest(template = "empty")
     public static void itemHandlerPackPlanUsesContentFilter(GameTestHelper helper) {
         ItemStackHandler source = new ItemStackHandler(2);
-        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 640));
         source.setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 64));
         PackageFilter filter = new PackageFilter(
                 Optional.of(PackageColor.RED),
                 Optional.empty(),
-                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)));
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1)));
 
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 source,
@@ -481,8 +483,8 @@ public final class PackageDataGameTests {
                 filter);
 
         helper.assertTrue(plan.isPresent(), "Filtered plan should be created from matching contents");
-        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
-                "Filtered plan should include required iron");
+        helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 576,
+                "Filtered plan should spend capacity on allowed iron without using the ghost amount as a limit");
         helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 0,
                 "Filtered plan should not spend capacity on unrelated loose items");
         helper.succeed();
@@ -827,9 +829,11 @@ public final class PackageDataGameTests {
 
         ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
         ItemStack insertRemainder = sideHandler.insertItem(0, packageStack.copy(), false);
-        helper.assertTrue(insertRemainder.isEmpty(), "Non-network sides should accept package input");
-        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).is(packageStack.getItem()),
-                "External package insertion should fill the internal input slot");
+        helper.assertTrue(ItemStack.isSameItemSameTags(packageStack, insertRemainder)
+                        && insertRemainder.getCount() == packageStack.getCount(),
+                "Non-network package input should reject packages when no AE target can unpack them");
+        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                "Rejected external package insertion should not fill the internal input slot");
 
         ItemStack component = ae2Item("cell_component_64k");
         ItemStack rejected = sideHandler.insertItem(0, component.copy(), true);
@@ -840,6 +844,192 @@ public final class PackageDataGameTests {
         ItemStack extracted = sideHandler.extractItem(1, 1, false);
         helper.assertTrue(extracted.is(packageStack.getItem()), "Non-network sides should expose package output");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerExternalCapabilityDirectlyUnpacksAcceptedPackage(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "external direct-unpack ME Packager test");
+                    assertMePackagerReady(helper, packager, "external direct-unpack ME Packager test");
+                })
+                .thenExecute(() -> {
+                    IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+                            .resolve()
+                            .orElseThrow();
+                    ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+                    packageStack.setCount(2);
+
+                    ItemStack simulatedRemainder = sideHandler.insertItem(0, packageStack.copy(), true);
+                    helper.assertTrue(simulatedRemainder.getCount() == 1,
+                            "External insert simulation should accept exactly one package while idle");
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
+                            "Simulated external insert should not commit unpacked contents");
+
+                    ItemStack remainder = sideHandler.insertItem(0, packageStack.copy(), false);
+                    helper.assertTrue(remainder.getCount() == 1,
+                            "External insert should consume exactly one accepted package");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "External insert should not stage the package in the input slot");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "External unpack should not create an output package");
+                    helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.UNPACKING,
+                            "External insert should enter unpacking work mode for animation");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
+                            "External insert should immediately unpack into the selected AE network");
+
+                    ItemStack busyRejected = sideHandler.insertItem(0, packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64)), false);
+                    helper.assertTrue(!busyRejected.isEmpty(),
+                            "External input should reject new packages while the packager is working");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerMenuShiftClickUnpacksOnePackageAndRejectsWhileWorking(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        FakePlayer player = newFakePlayer(helper);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "menu shift-click ME Packager test");
+                    assertMePackagerReady(helper, packager, "menu shift-click ME Packager test");
+                })
+                .thenExecute(() -> {
+                    ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+                    packageStack.setCount(2);
+                    player.getInventory().setItem(0, packageStack.copy());
+                    MePackagerMenu menu = new MePackagerMenu(0, player.getInventory(), packager);
+                    int playerPackageSlot = findMenuSlotWithStack(menu, packageStack);
+
+                    ItemStack moved = menu.quickMoveStack(player, playerPackageSlot);
+                    helper.assertTrue(moved.getCount() == 1 && PackageDataStorage.read(moved).isPresent(),
+                            "Menu shift-click should consume and report exactly one package");
+                    helper.assertTrue(player.getInventory().getItem(0).getCount() == 1,
+                            "Menu shift-click should leave the second package in the player inventory");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "Menu shift-click should not stage packages in the hidden input slot");
+                    helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.UNPACKING,
+                            "Menu shift-click should enter unpacking work mode");
+
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
+                            "Menu shift-click should immediately unpack the first package into the AE network");
+
+                    ItemStack busyMoved = menu.quickMoveStack(player, playerPackageSlot);
+                    helper.assertTrue(busyMoved.isEmpty(),
+                            "Menu shift-click should reject package input while the packager is working");
+                    helper.assertTrue(player.getInventory().getItem(0).getCount() == 1,
+                            "Rejected busy shift-click should leave the remaining package untouched");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 128, Actionable.SIMULATE, source) == 64,
+                            "Rejected busy shift-click should not unpack a second package");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerExternalCapabilityRequiresCurrentIdentityAndContentFilter(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        MarkerSpec diamondMarker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        MarkerSpec goldMarker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "external filter-gate ME Packager test");
+                    assertMePackagerReady(helper, packager, "external filter-gate ME Packager test");
+                })
+                .thenExecute(() -> {
+                    packager.setSelectedColor(PackageColor.RED);
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_MARKER, new ItemStack(Items.DIAMOND));
+                    packager.getContentFilter().setStack(0, new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1));
+                    IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+                            .resolve()
+                            .orElseThrow();
+
+                    ItemStack wrongColor = packageStack(
+                            PackageColor.BLUE,
+                            PackageData.create(
+                                    PackageColor.BLUE,
+                                    List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
+                                    Optional.of(diamondMarker),
+                                    0));
+                    ItemStack wrongMarker = packageStack(
+                            PackageColor.RED,
+                            PackageData.create(
+                                    PackageColor.RED,
+                                    List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
+                                    Optional.of(goldMarker),
+                                    0));
+                    ItemStack wrongContent = packageStack(
+                            PackageColor.RED,
+                            PackageData.create(
+                                    PackageColor.RED,
+                                    List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 64)),
+                                    Optional.of(diamondMarker),
+                                    0));
+                    ItemStack accepted = packageStack(
+                            PackageColor.RED,
+                            PackageData.create(
+                                    PackageColor.RED,
+                                    List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64)),
+                                    Optional.of(diamondMarker),
+                                    0));
+
+                    helper.assertTrue(!sideHandler.insertItem(0, wrongColor.copy(), false).isEmpty(),
+                            "External input should reject packages with a non-default color mismatch");
+                    helper.assertTrue(!sideHandler.insertItem(0, wrongMarker.copy(), false).isEmpty(),
+                            "External input should reject packages with a marker mismatch");
+                    helper.assertTrue(!sideHandler.insertItem(0, wrongContent.copy(), false).isEmpty(),
+                            "External input should reject packages containing keys outside the content allowlist");
+                    helper.assertTrue(sideHandler.insertItem(0, accepted.copy(), false).isEmpty(),
+                            "External input should accept packages matching current color, marker, and content allowlist");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerInverterCardReversesContentFilter(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "inverter-card ME Packager test");
+                    assertMePackagerReady(helper, packager, "inverter-card ME Packager test");
+                })
+                .thenExecute(() -> {
+                    packager.getContentFilter().setStack(0, new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1));
+                    packager.getUpgrades().addItems(AEItems.INVERTER_CARD.stack());
+                    IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+                            .resolve()
+                            .orElseThrow();
+                    ItemStack ironPackage = packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 64));
+                    ItemStack copperPackage = packageStack(
+                            PackageColor.FLUIX,
+                            PackageData.create(
+                                    PackageColor.FLUIX,
+                                    List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 64)),
+                                    Optional.empty(),
+                                    0));
+
+                    helper.assertTrue(!sideHandler.insertItem(0, ironPackage.copy(), false).isEmpty(),
+                            "Inverter card should reject package contents listed in the filter");
+                    helper.assertTrue(sideHandler.insertItem(0, copperPackage.copy(), false).isEmpty(),
+                            "Inverter card should accept package contents outside the filter");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "empty")
@@ -922,10 +1112,16 @@ public final class PackageDataGameTests {
                             "Top-side AE network should accept iron before ME Packager packs");
 
                     MePackagerBlockEntity.MachineResult result = packager.runOnce();
-                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
-                    PackageData data = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(result == MePackagerBlockEntity.MachineResult.PACKED,
                             "ME Packager should package from its selected top AE side");
+                    helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.PACKING,
+                            "ME Packager should enter packing work mode before exposing output");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "ME Packager should not expose the output package before the animation finishes");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData data = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
                             "Top-side package should contain iron");
                 })
@@ -978,18 +1174,22 @@ public final class PackageDataGameTests {
                             "Selected-side cable network should accept iron before ME Packager packs");
 
                     MePackagerBlockEntity.MachineResult result = packager.runOnce();
-                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
-                    PackageData data = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(result == MePackagerBlockEntity.MachineResult.PACKED,
                             "ME Packager should package from the AE grid connected through its selected cable side");
-                    helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
-                            "Cable-side package should contain iron");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "ME Packager should keep the output slot empty while the packing animation runs");
                     helper.assertTrue(storage.extract(
                             AEItemKey.of(Items.IRON_INGOT),
                             1,
                             Actionable.SIMULATE,
                             IActionSource.ofMachine(packager)) == 0,
                             "ME Packager should remove packaged iron from the selected cable network");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData data = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "Cable-side package should contain iron");
                 })
                 .thenSucceed();
     }
@@ -1005,6 +1205,10 @@ public final class PackageDataGameTests {
                     assertAe2InterfaceReady(helper, aeInterface, "auto-unpack ME Packager test");
                     assertMePackagerReady(helper, packager, "auto-unpack ME Packager test");
                 })
+                .thenExecute(() -> helper.getLevel().setBlock(
+                        helper.absolutePos(packagerPos.above()),
+                        Blocks.REDSTONE_BLOCK.defaultBlockState(),
+                        3))
                 .thenExecute(() -> packager.getItems().setStackInSlot(
                         MePackagerBlockEntity.SLOT_INPUT,
                         packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64))))
@@ -1016,6 +1220,38 @@ public final class PackageDataGameTests {
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
                             "ME Packager should automatically unpack into the selected AE network");
                 })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerRedstoneNeverOnlyStopsPacking(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        packager.getUpgrades().addItems(AEItems.REDSTONE_CARD.stack());
+        packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.NEVER);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "redstone-never unpack ME Packager test");
+                    assertMePackagerReady(helper, packager, "redstone-never unpack ME Packager test");
+                })
+                .thenExecute(() -> packager.getItems().setStackInSlot(
+                        MePackagerBlockEntity.SLOT_INPUT,
+                        packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64))))
+                .thenExecuteAfter(3, () -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "ME Packager should unpack even when packing activation is set to always off");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
+                            "Redstone-disabled packing mode should not block unpacking into the AE network");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Redstone-disabled packing mode should not immediately repack unpacked contents");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () ->
+                        helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                                "Redstone-disabled packing mode should keep automatic packing off"))
                 .thenSucceed();
     }
 
@@ -1060,8 +1296,30 @@ public final class PackageDataGameTests {
         boolean clicked = menu.clickMenuButton(player, MePackagerMenu.BUTTON_REDSTONE_MODE);
 
         helper.assertTrue(clicked, "ME Packager menu should accept the redstone mode button");
-        helper.assertTrue(packager.redstoneMode() == MePackagerBlockEntity.RedstoneMode.CYCLIC,
-                "ME Packager redstone mode should cycle from pulse to cyclic");
+        helper.assertTrue(packager.redstoneMode() == MePackagerBlockEntity.RedstoneMode.LOW_SIGNAL,
+                "ME Packager redstone mode should cycle from high-signal to low-signal activation");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerFilterRowsFollowCapacityCards(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(0, 1, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(packagerPos),
+                APBlocks.ME_PACKAGER.get().defaultBlockState(),
+                3);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.assertTrue(packager.unlockedFilterRows() == 2,
+                "ME Packager should unlock two filter rows by default");
+        packager.getUpgrades().addItems(AEItems.CAPACITY_CARD.stack());
+        helper.assertTrue(packager.unlockedFilterRows() == 3,
+                "One capacity card should unlock the third filter row");
+        packager.getUpgrades().addItems(AEItems.CAPACITY_CARD.stack());
+        packager.getUpgrades().addItems(AEItems.CAPACITY_CARD.stack());
+        packager.getUpgrades().addItems(AEItems.CAPACITY_CARD.stack());
+        helper.assertTrue(packager.unlockedFilterRows() == 5,
+                "ME Packager should cap filter rows at five");
         helper.succeed();
     }
 
@@ -1070,6 +1328,7 @@ public final class PackageDataGameTests {
         BlockPos packagerPos = new BlockPos(3, 1, 0);
         InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        packager.getUpgrades().addItems(AEItems.REDSTONE_CARD.stack());
         packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.PULSE);
 
         helper.startSequence()
@@ -1091,12 +1350,18 @@ public final class PackageDataGameTests {
                 .thenExecuteAfter(5, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.PACKING,
+                            "Pulse redstone should start a packing work cycle");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Pulse redstone should not expose output until the packing animation finishes");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 1, Actionable.SIMULATE, source) == 0,
+                            "Pulse redstone should consume the AE source contents that fit the base profile");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
                     helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 640,
                             "Pulse redstone should package the full 1k-capacity batch");
-                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 1, Actionable.SIMULATE, source) == 0,
-                            "Pulse redstone should consume the AE source contents that fit the base profile");
                     packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
                 })
                 .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () -> {
@@ -1111,7 +1376,8 @@ public final class PackageDataGameTests {
         BlockPos packagerPos = new BlockPos(3, 1, 0);
         InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
-        packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.CYCLIC);
+        packager.getUpgrades().addItems(AEItems.REDSTONE_CARD.stack());
+        packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.HIGH_SIGNAL);
 
         helper.startSequence()
                 .thenWaitUntil(() -> {
@@ -1130,6 +1396,12 @@ public final class PackageDataGameTests {
                             3);
                 })
                 .thenExecuteAfter(5, () -> {
+                    helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.PACKING,
+                            "Cyclic redstone should start a packing work cycle");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Cyclic redstone should not expose output until the packing animation finishes");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
                     helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 640,
@@ -2281,19 +2553,27 @@ public final class PackageDataGameTests {
                             "AE2 Interface network should accept copper before packager smoke");
 
                     MePackagerBlockEntity.MachineResult packResult = packager.runOnce();
-                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
-                    PackageData outputData = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(packResult == MePackagerBlockEntity.MachineResult.PACKED,
                             "ME Packager should package from the adjacent AE2 Interface");
-                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
-                            "AE2 Interface package should contain iron");
-                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
-                            "AE2 Interface package should contain copper");
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "ME Packager should wait until animation end before exposing the Interface package");
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
                             "ME Packager should remove packaged iron from the AE2 Interface network");
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.SIMULATE, source) == 0,
                             "ME Packager should remove packaged copper from the AE2 Interface network");
-
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                    InterfaceBlockEntity aeInterface =
+                            (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+                    MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+                    var storage = aeInterface.getMainNode().getGrid().getStorageService().getInventory();
+                    var source = IActionSource.ofMachine(aeInterface);
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "AE2 Interface package should contain iron");
+                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                            "AE2 Interface package should contain copper");
                     packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
                     packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, output);
                     MePackagerBlockEntity.MachineResult unpackResult = packager.runOnce();
@@ -3607,6 +3887,16 @@ public final class PackageDataGameTests {
         return FakePlayerFactory.get(
                 helper.getLevel(),
                 new GameProfile(UUID.randomUUID(), "appliedpackaging_test"));
+    }
+
+    private static int findMenuSlotWithStack(MePackagerMenu menu, ItemStack expected) {
+        for (int index = 0; index < menu.slots.size(); index++) {
+            ItemStack stack = menu.getSlot(index).getItem();
+            if (stack.getCount() == expected.getCount() && ItemStack.isSameItemSameTags(stack, expected)) {
+                return index;
+            }
+        }
+        throw new GameTestAssertException("Expected menu slot containing " + expected);
     }
 
     private static PackagePatternTerminalBlockEntity newPackagePatternTerminal() {

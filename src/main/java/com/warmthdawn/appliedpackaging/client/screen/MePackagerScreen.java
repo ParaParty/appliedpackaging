@@ -1,254 +1,401 @@
 package com.warmthdawn.appliedpackaging.client.screen;
 
-import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import appeng.api.config.ActionItems;
+import appeng.client.gui.Icon;
+import appeng.client.guidebook.PageAnchor;
+import appeng.client.gui.implementations.UpgradeableScreen;
+import appeng.client.gui.style.ScreenStyle;
+import appeng.client.gui.widgets.AETextField;
+import appeng.client.gui.widgets.ActionButton;
+import appeng.client.gui.widgets.IconButton;
+import appeng.menu.SlotSemantics;
+import appeng.menu.slot.IOptionalSlot;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
-import java.util.Locale;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
-import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
+import org.lwjgl.glfw.GLFW;
 
-public class MePackagerScreen extends AbstractContainerScreen<MePackagerMenu> {
-    private static final ResourceLocation PACK_ONCE_ICON =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/pack_once.png");
-    private static final ResourceLocation MARKER_RETAIN_ICON =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_retain.png");
-    private static final ResourceLocation MARKER_OVERRIDE_ICON =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_override.png");
-    private static final ResourceLocation MARKER_CLEAR_ICON =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_clear.png");
-    private static final ResourceLocation REDSTONE_ICON =
-            new ResourceLocation("minecraft", "textures/item/redstone.png");
-    private static final int PANEL = 0xffd6dbde;
-    private static final int PANEL_DARK = 0xff4a5058;
-    private static final int PANEL_MID = 0xff879198;
-    private static final int SLOT = 0xffb7c0c5;
+public class MePackagerScreen extends UpgradeableScreen<MePackagerMenu> {
+    private static final int COLOR_BUTTON_X = 67;
+    private static final int COLOR_BUTTON_Y = 39;
+    private static final int COLOR_BUTTON_SIZE = 12;
+    private static final int COLOR_POPUP_X = 8;
+    private static final int COLOR_POPUP_Y = 52;
+    private static final int COLOR_POPUP_COLUMNS = 9;
+    private static final int COLOR_POPUP_PADDING = 3;
+    private static final int COLOR_SWATCH_SIZE = 8;
+    private static final int COLOR_SWATCH_STEP = 10;
+    private static final int COLOR_POPUP_BACKGROUND = 0xf0180a1f;
+    private static final int COLOR_POPUP_BORDER = 0xff4d3f5c;
+    private static final int WORK_PROGRESS_X = 107;
+    private static final int WORK_PROGRESS_Y = 44;
+    private static final int WORK_PROGRESS_WIDTH = 28;
+    private static final int WORK_PROGRESS_HEIGHT = 6;
+    private static final int WORK_PROGRESS_TRACK = 0xff27313a;
+    private static final int WORK_PROGRESS_PACKING = 0xff4fc3f7;
+    private static final int WORK_PROGRESS_UNPACKING = 0xff7bd66f;
+    private static final int WORK_PROGRESS_HIGHLIGHT = 0x99ffffff;
+    private static final int SLOT_BACKGROUND_TOP = 0xff9a9fb4;
+    private static final int SLOT_BACKGROUND_BODY = 0xffadb0c4;
+    private static final int OPTIONAL_SLOT_DISABLED_ALPHA = 0x33;
 
-    public MePackagerScreen(MePackagerMenu menu, Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title);
-        imageWidth = 176;
-        imageHeight = 188;
-        titleLabelX = 8;
-        titleLabelY = 6;
-        inventoryLabelX = 8;
-        inventoryLabelY = 96;
+    private final AETextField packageNameField;
+    private final FilterModeButton filterModeButton;
+    private final ActivationModeButton activationModeButton;
+    private final BlockingModeButton blockingModeButton;
+    private boolean colorPopupOpen;
+    private boolean updatingNameField;
+
+    public MePackagerScreen(
+            MePackagerMenu menu,
+            Inventory playerInventory,
+            Component title,
+            ScreenStyle style) {
+        super(menu, playerInventory, title, style);
+
+        addToLeftToolbar(new LocalHelpButton());
+        addToLeftToolbar(new ActionButton(ActionItems.CLOSE, ignored -> menu.clear()));
+        addToLeftToolbar(new ActionButton(ActionItems.WRENCH, ignored -> menu.partition()));
+        filterModeButton = addToLeftToolbar(new FilterModeButton());
+        activationModeButton = addToLeftToolbar(new ActivationModeButton());
+        blockingModeButton = addToLeftToolbar(new BlockingModeButton());
+
+        packageNameField = widgets.addTextField("packageName");
+        packageNameField.setMaxLength(50);
+        packageNameField.setPlaceholder(Component.translatable(
+                "gui.appliedpackaging.me_packager.package_name.placeholder"));
+        packageNameField.setTooltipMessage(List.of(Component.translatable(
+                "gui.appliedpackaging.me_packager.package_name")));
+        packageNameField.setResponder(value -> {
+            if (!updatingNameField) {
+                menu.setPackageName(value);
+            }
+        });
     }
 
     @Override
     protected void init() {
         super.init();
-        ImageButton packButton = new ImageButton(
-                leftPos + 80,
-                topPos + 35,
-                16,
-                16,
-                0,
-                0,
-                0,
-                PACK_ONCE_ICON,
-                16,
-                16,
-                button -> minecraft.gameMode.handleInventoryButtonClick(menu.containerId, MePackagerMenu.BUTTON_PACK_ONCE),
-                Component.translatable("gui.appliedpackaging.me_packager.pack_once"));
-        packButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.me_packager.pack_once")));
-        addRenderableWidget(packButton);
-        addRenderableWidget(new MarkerModeButton(leftPos + 104, topPos + 35));
-        addRenderableWidget(new RedstoneModeButton(leftPos + 146, topPos + 35));
 
-        for (int index = 0; index < PackageColor.values().length; index++) {
-            PackageColor color = PackageColor.values()[index];
-            addRenderableWidget(new ColorSwatchButton(
-                    leftPos + 10 + index * 9,
-                    topPos + 82,
-                    color));
-        }
+        addRenderableWidget(new ColorPickerButton(leftPos + COLOR_BUTTON_X, topPos + COLOR_BUTTON_Y));
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics);
-        super.render(graphics, mouseX, mouseY, partialTick);
-        renderTooltip(graphics, mouseX, mouseY);
+    protected PageAnchor getHelpTopic() {
+        return null;
     }
 
     @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        int x = leftPos;
-        int y = topPos;
-        graphics.fill(x, y, x + imageWidth, y + imageHeight, PANEL);
-        graphics.renderOutline(x, y, imageWidth, imageHeight, PANEL_DARK);
-        graphics.fill(x + 6, y + 18, x + 170, y + 88, 0xffc9d0d4);
-        graphics.renderOutline(x + 6, y + 18, 164, 70, PANEL_MID);
-        renderSlot(graphics, x + 34, y + 33);
-        renderSlot(graphics, x + 122, y + 33);
-        renderSlot(graphics, x + 34, y + 59);
-        renderSlot(graphics, x + 60, y + 59);
-        renderSlot(graphics, x + 86, y + 59);
-        graphics.hLine(x + 54, x + 118, y + 42, PANEL_DARK);
-        graphics.fill(x + 88, y + 40, x + 91, y + 45, PANEL_DARK);
-        graphics.fill(x + 91, y + 39, x + 94, y + 46, menu.selectedColor().swatchArgb());
-        graphics.fill(x + 8, y + 81, x + 164, y + 92, 0xffaeb7bd);
-        graphics.renderOutline(x + 8, y + 81, 156, 11, PANEL_MID);
-        renderInventorySlots(graphics, x, y);
-    }
+    protected void updateBeforeRender() {
+        super.updateBeforeRender();
 
-    @Override
-    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, title, titleLabelX, titleLabelY, 0xff2a3036, false);
-        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xff2a3036, false);
-    }
+        filterModeButton.setMessage(Component.translatable(
+                "gui.appliedpackaging.me_packager.filter_mode." + menu.filterMode().id()));
+        activationModeButton.setMessage(Component.translatable(
+                "gui.appliedpackaging.me_packager.redstone_mode." + menu.activationMode().id()));
+        blockingModeButton.setMessage(Component.translatable(
+                "gui.appliedpackaging.me_packager.blocking_mode." + menu.blockingMode().id()));
 
-    private static void renderSlot(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x, y, x + 20, y + 20, PANEL_DARK);
-        graphics.fill(x + 1, y + 1, x + 19, y + 19, SLOT);
-        graphics.fill(x + 2, y + 2, x + 18, y + 18, 0xffe8ecee);
-    }
-
-    private static void renderInventorySlots(GuiGraphics graphics, int left, int top) {
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 9; column++) {
-                renderSlot(graphics, left + 7 + column * 18, top + 106 + row * 18);
+        if (!packageNameField.isFocused() && !packageNameField.getValue().equals(menu.packageName())) {
+            updatingNameField = true;
+            try {
+                packageNameField.setValue(menu.packageName());
+            } finally {
+                updatingNameField = false;
             }
         }
-        for (int column = 0; column < 9; column++) {
-            renderSlot(graphics, left + 7 + column * 18, top + 164);
+    }
+
+    @Override
+    public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
+        super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
+        drawOptionalConfigSlotBackgrounds(graphics, offsetX, offsetY);
+        drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.STORAGE_CELL, Icon.BACKGROUND_STORAGE_COMPONENT);
+        drawWorkProgress(graphics, offsetX, offsetY, partialTicks);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        super.render(graphics, mouseX, mouseY, partialTicks);
+        if (colorPopupOpen) {
+            renderColorPopup(graphics, mouseX, mouseY);
         }
     }
 
-    private class ColorSwatchButton extends AbstractButton {
-        private final PackageColor color;
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (colorPopupOpen) {
+            if (isInColorButton(mouseX, mouseY)) {
+                colorPopupOpen = false;
+                return true;
+            }
 
-        private ColorSwatchButton(int x, int y, PackageColor color) {
-            super(x, y, 8, 8, Component.translatable("item.appliedpackaging." + color.id() + "_package"));
-            this.color = color;
+            PackageColor color = colorAt(mouseX, mouseY);
+            if (color != null) {
+                menu.setSelectedColor(color);
+                colorPopupOpen = false;
+                return true;
+            }
+
+            colorPopupOpen = false;
+            return true;
+        }
+
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (colorPopupOpen) {
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (colorPopupOpen) {
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (colorPopupOpen) {
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (colorPopupOpen) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                colorPopupOpen = false;
+            }
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (colorPopupOpen) {
+            return true;
+        }
+        return super.charTyped(codePoint, modifiers);
+    }
+
+    private void drawSlotIcon(GuiGraphics graphics, int offsetX, int offsetY, appeng.menu.SlotSemantic semantic, Icon icon) {
+        List<Slot> slots = menu.getSlots(semantic);
+        if (slots.isEmpty()) {
+            return;
+        }
+        Slot slot = slots.get(0);
+        if (!slot.hasItem()) {
+            icon.getBlitter()
+                    .dest(offsetX + slot.x, offsetY + slot.y)
+                    .blit(graphics);
+        }
+    }
+
+    private void drawOptionalConfigSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
+        for (Slot slot : menu.getSlots(SlotSemantics.CONFIG)) {
+            if (slot instanceof IOptionalSlot optionalSlot) {
+                int alpha = optionalSlot.isSlotEnabled() ? 0xff : OPTIONAL_SLOT_DISABLED_ALPHA;
+                int x = offsetX + slot.x - 1;
+                int y = offsetY + slot.y - 1;
+                graphics.fill(x + 1, y + 1, x + 17, y + 2, withAlpha(SLOT_BACKGROUND_TOP, alpha));
+                graphics.fill(x + 1, y + 2, x + 17, y + 17, withAlpha(SLOT_BACKGROUND_BODY, alpha));
+            }
+        }
+    }
+
+    private void drawWorkProgress(GuiGraphics graphics, int offsetX, int offsetY, float partialTicks) {
+        if (!menu.isWorking()) {
+            return;
+        }
+        int x = offsetX + WORK_PROGRESS_X;
+        int y = offsetY + WORK_PROGRESS_Y;
+        int innerWidth = WORK_PROGRESS_WIDTH - 2;
+        int fillWidth = Math.max(1, Math.round(innerWidth * menu.workProgress(partialTicks)));
+        int fillColor = switch (menu.workingOperation()) {
+            case PACKING -> WORK_PROGRESS_PACKING;
+            case UNPACKING -> WORK_PROGRESS_UNPACKING;
+            case NONE -> WORK_PROGRESS_PACKING;
+        };
+
+        graphics.fill(x, y, x + WORK_PROGRESS_WIDTH, y + WORK_PROGRESS_HEIGHT, 0xff12171c);
+        graphics.fill(x + 1, y + 1, x + WORK_PROGRESS_WIDTH - 1, y + WORK_PROGRESS_HEIGHT - 1, WORK_PROGRESS_TRACK);
+        graphics.fill(x + 1, y + 1, x + 1 + fillWidth, y + WORK_PROGRESS_HEIGHT - 1, fillColor);
+        graphics.fill(x + 1, y + 1, x + 1 + fillWidth, y + 2, WORK_PROGRESS_HIGHLIGHT);
+    }
+
+    private static int withAlpha(int argb, int alpha) {
+        return (argb & 0x00ffffff) | (alpha << 24);
+    }
+
+    private void renderColorPopup(GuiGraphics graphics, int mouseX, int mouseY) {
+        int panelX = leftPos + COLOR_POPUP_X - COLOR_POPUP_PADDING;
+        int panelY = topPos + COLOR_POPUP_Y - COLOR_POPUP_PADDING;
+        int panelWidth = COLOR_POPUP_COLUMNS * COLOR_SWATCH_STEP + COLOR_POPUP_PADDING * 2;
+        int panelHeight = colorPopupRows() * COLOR_SWATCH_STEP + COLOR_POPUP_PADDING * 2;
+
+        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, COLOR_POPUP_BACKGROUND);
+        graphics.renderOutline(panelX, panelY, panelWidth, panelHeight, COLOR_POPUP_BORDER);
+
+        PackageColor[] colors = PackageColor.values();
+        for (int index = 0; index < colors.length; index++) {
+            PackageColor color = colors[index];
+            int x = swatchX(index);
+            int y = swatchY(index);
+            boolean selected = menu.selectedColor() == color;
+            boolean hovered = mouseX >= x && mouseX < x + COLOR_SWATCH_SIZE
+                    && mouseY >= y && mouseY < y + COLOR_SWATCH_SIZE;
+            int border = selected ? 0xffffffff : (hovered ? 0xffd6dbde : 0xff2a3036);
+            graphics.fill(x, y, x + COLOR_SWATCH_SIZE, y + COLOR_SWATCH_SIZE, border);
+            graphics.fill(x + 1, y + 1, x + COLOR_SWATCH_SIZE - 1, y + COLOR_SWATCH_SIZE - 1, color.swatchArgb());
+            if (selected) {
+                graphics.renderOutline(x - 1, y - 1, COLOR_SWATCH_SIZE + 2, COLOR_SWATCH_SIZE + 2, 0xff2a3036);
+            }
+        }
+    }
+
+    private boolean isInColorButton(double mouseX, double mouseY) {
+        int x = leftPos + COLOR_BUTTON_X;
+        int y = topPos + COLOR_BUTTON_Y;
+        return mouseX >= x && mouseX < x + COLOR_BUTTON_SIZE
+                && mouseY >= y && mouseY < y + COLOR_BUTTON_SIZE;
+    }
+
+    private boolean isInColorPopup(double mouseX, double mouseY) {
+        int x = leftPos + COLOR_POPUP_X - COLOR_POPUP_PADDING;
+        int y = topPos + COLOR_POPUP_Y - COLOR_POPUP_PADDING;
+        int width = COLOR_POPUP_COLUMNS * COLOR_SWATCH_STEP + COLOR_POPUP_PADDING * 2;
+        int height = colorPopupRows() * COLOR_SWATCH_STEP + COLOR_POPUP_PADDING * 2;
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+    }
+
+    private PackageColor colorAt(double mouseX, double mouseY) {
+        PackageColor[] colors = PackageColor.values();
+        for (int index = 0; index < colors.length; index++) {
+            int x = swatchX(index);
+            int y = swatchY(index);
+            if (mouseX >= x && mouseX < x + COLOR_SWATCH_SIZE
+                    && mouseY >= y && mouseY < y + COLOR_SWATCH_SIZE) {
+                return colors[index];
+            }
+        }
+        return null;
+    }
+
+    private int swatchX(int index) {
+        return leftPos + COLOR_POPUP_X + (index % COLOR_POPUP_COLUMNS) * COLOR_SWATCH_STEP;
+    }
+
+    private int swatchY(int index) {
+        return topPos + COLOR_POPUP_Y + (index / COLOR_POPUP_COLUMNS) * COLOR_SWATCH_STEP;
+    }
+
+    private static int colorPopupRows() {
+        return (PackageColor.values().length + COLOR_POPUP_COLUMNS - 1) / COLOR_POPUP_COLUMNS;
+    }
+
+    private class FilterModeButton extends IconButton {
+        private FilterModeButton() {
+            super(button -> menu.cycleFilterMode());
+        }
+
+        @Override
+        protected Icon getIcon() {
+            return switch (menu.filterMode()) {
+                case BOTH -> Icon.TYPE_FILTER_ALL;
+                case PACK_ONLY -> Icon.STORAGE_FILTER_EXTRACTABLE_NONE;
+                case UNPACK_ONLY -> Icon.FILTER_ON_EXTRACT_ENABLED;
+            };
+        }
+    }
+
+    private class LocalHelpButton extends IconButton {
+        private LocalHelpButton() {
+            super(button -> {
+                if (minecraft != null && minecraft.player != null) {
+                    minecraft.player.displayClientMessage(
+                            Component.translatable("gui.appliedpackaging.me_packager.help"),
+                            false);
+                }
+            });
+            setMessage(Component.translatable("gui.appliedpackaging.me_packager.help.title"));
+        }
+
+        @Override
+        protected Icon getIcon() {
+            return Icon.HELP;
+        }
+    }
+
+    private class ActivationModeButton extends IconButton {
+        private ActivationModeButton() {
+            super(button -> menu.cycleActivationMode());
+        }
+
+        @Override
+        protected Icon getIcon() {
+            return switch (menu.activationMode()) {
+                case HIGH_SIGNAL, CYCLIC -> Icon.REDSTONE_HIGH;
+                case LOW_SIGNAL -> Icon.REDSTONE_LOW;
+                case ALWAYS -> Icon.REDSTONE_IGNORE;
+                case PULSE -> Icon.REDSTONE_PULSE;
+                case NEVER, DISABLED -> Icon.CLEAR;
+            };
+        }
+    }
+
+    private class BlockingModeButton extends IconButton {
+        private BlockingModeButton() {
+            super(button -> menu.cycleBlockingMode());
+        }
+
+        @Override
+        protected Icon getIcon() {
+            return switch (menu.blockingMode()) {
+                case IGNORE_NETWORK_CONTENTS -> Icon.BLOCKING_MODE_NO;
+                case BLOCK_UNPACK_WHEN_NETWORK_HAS_ITEMS -> Icon.BLOCKING_MODE_YES;
+            };
+        }
+    }
+
+    private class ColorPickerButton extends AbstractButton {
+        private ColorPickerButton(int x, int y) {
+            super(x, y, COLOR_BUTTON_SIZE, COLOR_BUTTON_SIZE,
+                    Component.translatable("gui.appliedpackaging.me_packager.color"));
             setTooltip(Tooltip.create(getMessage()));
         }
 
         @Override
         public void onPress() {
-            minecraft.gameMode.handleInventoryButtonClick(
-                    menu.containerId,
-                    MePackagerMenu.BUTTON_COLOR_BASE + color.ordinal());
-        }
-
-        @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            boolean selected = menu.selectedColor() == color;
-            int border = selected ? 0xffffffff : (isHoveredOrFocused() ? 0xffd6dbde : 0xff2a3036);
-            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
-            graphics.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, color.swatchArgb());
-            if (selected) {
-                graphics.renderOutline(getX() - 1, getY() - 1, width + 2, height + 2, 0xff2a3036);
+            colorPopupOpen = !colorPopupOpen;
+            if (colorPopupOpen) {
+                packageNameField.setFocused(false);
             }
         }
 
         @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
-        }
-    }
-
-    private class MarkerModeButton extends AbstractButton {
-        private MarkerModeButton(int x, int y) {
-            super(x, y, 16, 16, Component.empty());
-            setMessage(markerModeMessage());
-            setTooltip(Tooltip.create(markerModeMessage()));
-        }
-
-        @Override
-        public void onPress() {
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, MePackagerMenu.BUTTON_MARKER_MODE);
-        }
-
-        @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            Component message = markerModeMessage();
-            setMessage(message);
-            setTooltip(Tooltip.create(message));
-            int border = isHoveredOrFocused() ? 0xffffffff : 0xff2a3036;
-            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
-            graphics.blit(markerModeIcon(), getX(), getY(), 0, 0, width, height, width, height);
+            graphics.fill(getX() + 3, getY() + 3, getX() + 9, getY() + 9, menu.selectedColor().swatchArgb());
         }
 
         @Override
         protected void updateWidgetNarration(NarrationElementOutput output) {
             defaultButtonNarrationText(output);
-        }
-
-        private Component markerModeMessage() {
-            return Component.translatable(
-                    "gui.appliedpackaging.me_packager.marker_mode."
-                            + menu.markerMode().name().toLowerCase(Locale.ROOT));
-        }
-
-        private ResourceLocation markerModeIcon() {
-            return switch (menu.markerMode()) {
-                case RETAIN -> MARKER_RETAIN_ICON;
-                case OVERRIDE -> MARKER_OVERRIDE_ICON;
-                case CLEAR -> MARKER_CLEAR_ICON;
-            };
-        }
-    }
-
-    private class RedstoneModeButton extends AbstractButton {
-        private RedstoneModeButton(int x, int y) {
-            super(x, y, 16, 16, Component.empty());
-            setMessage(redstoneModeMessage());
-            setTooltip(Tooltip.create(redstoneModeMessage()));
-        }
-
-        @Override
-        public void onPress() {
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, MePackagerMenu.BUTTON_REDSTONE_MODE);
-        }
-
-        @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            Component message = redstoneModeMessage();
-            setMessage(message);
-            setTooltip(Tooltip.create(message));
-            int border = isHoveredOrFocused() ? 0xffffffff : 0xff2a3036;
-            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
-            graphics.blit(REDSTONE_ICON, getX(), getY(), 0, 0, width, height, width, height);
-            renderModeMark(graphics);
-        }
-
-        @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
-        }
-
-        private Component redstoneModeMessage() {
-            return Component.translatable(
-                    "gui.appliedpackaging.me_packager.redstone_mode." + menu.redstoneMode().id());
-        }
-
-        private void renderModeMark(GuiGraphics graphics) {
-            int x = getX();
-            int y = getY();
-            switch (menu.redstoneMode()) {
-                case DISABLED -> {
-                    for (int offset = 0; offset < 11; offset++) {
-                        graphics.fill(x + 3 + offset, y + 13 - offset, x + 5 + offset, y + 15 - offset, 0xffffffff);
-                    }
-                }
-                case PULSE -> {
-                    graphics.fill(x + 11, y + 2, x + 14, y + 5, 0xffffffff);
-                    graphics.fill(x + 12, y + 5, x + 13, y + 12, 0xffffffff);
-                }
-                case CYCLIC -> {
-                    graphics.hLine(x + 3, x + 12, y + 3, 0xffffffff);
-                    graphics.hLine(x + 3, x + 12, y + 12, 0xffffffff);
-                    graphics.fill(x + 10, y + 4, x + 13, y + 7, 0xffffffff);
-                    graphics.fill(x + 3, y + 8, x + 6, y + 11, 0xffffffff);
-                }
-            }
         }
     }
 }
