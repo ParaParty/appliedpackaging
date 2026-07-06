@@ -10,16 +10,21 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.IUpgradeableObject;
+import appeng.api.upgrades.UpgradeInventories;
 import appeng.capabilities.Capabilities;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
+import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
+import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
@@ -30,6 +35,7 @@ import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBloc
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,22 +64,38 @@ import net.minecraftforge.items.wrapper.RangedWrapper;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-public class PackageAssemblerBlockEntity extends BlockEntity implements InventoryDroppingBlockEntity, MenuProvider, ICraftingMachine {
-    public static final int INPUT_SLOT_COUNT = 9;
+public class PackageAssemblerBlockEntity extends BlockEntity
+        implements InventoryDroppingBlockEntity, MenuProvider, ICraftingMachine, IUpgradeableObject {
+    public static final int LEGACY_INPUT_SLOT_COUNT = 9;
+    public static final int INPUT_SLOT_COUNT = LEGACY_INPUT_SLOT_COUNT;
+    public static final int OUTPUT_SLOT_COUNT = 17;
+    public static final int MENU_INPUT_COLUMNS = 4;
+    public static final int MENU_INPUT_SLOT_COUNT = OUTPUT_SLOT_COUNT * MENU_INPUT_COLUMNS;
     public static final int SLOT_PATTERN = 9;
     public static final int SLOT_OUTPUT = 10;
     public static final int SLOT_CAPACITY = 11;
-    private static final int SLOT_COUNT = 12;
+    public static final int EXTRA_OUTPUT_SLOT_START = 12;
+    public static final int SLOT_MARKER = EXTRA_OUTPUT_SLOT_START + OUTPUT_SLOT_COUNT - 1;
+    public static final int UPGRADE_SLOT_COUNT = 6;
+    private static final int SLOT_COUNT = SLOT_MARKER + 1;
     private static final String ITEMS_TAG = "items";
+    private static final String UPGRADES_TAG = "upgrades";
+    private static final String MENU_INPUTS_TAG = "menu_inputs";
+    private static final String MENU_INPUT_SLOT_TAG = "slot";
+    private static final String MENU_INPUT_STACK_TAG = "stack";
+    private static final String MENU_INPUT_AMOUNT_TAG = "amount";
     private static final String PENDING_PACKAGES_TAG = "pending_packages";
     private static final String PENDING_COLOR_TAG = "color";
     private static final String PENDING_DATA_TAG = "data";
     private static final String AUTO_EXPORT_TAG = "auto_export";
+    private static final String SELECTED_COLOR_TAG = "selected_color";
+    private static final String PACKAGE_NAME_TAG = "package_name";
 
+    private final MenuInputEntry[] menuInputs = new MenuInputEntry[MENU_INPUT_SLOT_COUNT];
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            if (slot == SLOT_OUTPUT) {
+            if (isOutputSlot(slot)) {
                 return stack.getItem() instanceof PackageItem;
             }
             if (slot == SLOT_PATTERN) {
@@ -81,6 +103,9 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             }
             if (slot == SLOT_CAPACITY) {
                 return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
+            }
+            if (slot == SLOT_MARKER) {
+                return isMarkerSlotItem(stack);
             }
             if (stack.getItem() instanceof PackageItem) {
                 return PackageDataStorage.read(stack).isPresent();
@@ -90,7 +115,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
         @Override
         public int getSlotLimit(int slot) {
-            if (slot == SLOT_CAPACITY) {
+            if (slot == SLOT_CAPACITY || slot == SLOT_PATTERN || slot == SLOT_MARKER) {
                 return 1;
             }
             return super.getSlotLimit(slot);
@@ -101,10 +126,16 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             setChanged();
         }
     };
-    private final RangedWrapper inputView = new RangedWrapper(items, 0, INPUT_SLOT_COUNT);
+    private final RangedWrapper inputView = new RangedWrapper(items, 0, LEGACY_INPUT_SLOT_COUNT);
+    private final IUpgradeInventory upgrades = UpgradeInventories.forMachine(
+            APBlocks.PACKAGE_ASSEMBLER.get(),
+            UPGRADE_SLOT_COUNT,
+            this::onUpgradesChanged);
     private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
     private final LazyOptional<ICraftingMachine> craftingMachine = LazyOptional.of(() -> this);
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
+    private PackageColor selectedColor = PackageColor.FLUIX;
+    private String packageName = "";
     private boolean autoExport = true;
 
     public PackageAssemblerBlockEntity(BlockPos pos, BlockState blockState) {
@@ -130,8 +161,256 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         return items;
     }
 
+    @Override
+    public IUpgradeInventory getUpgrades() {
+        return upgrades;
+    }
+
+    public PackageColor selectedColor() {
+        return selectedColor;
+    }
+
+    public void setSelectedColor(PackageColor selectedColor) {
+        this.selectedColor = selectedColor == null ? PackageColor.FLUIX : selectedColor;
+        setChanged();
+    }
+
+    public String packageName() {
+        return packageName;
+    }
+
+    public void setPackageName(String packageName) {
+        String value = packageName == null ? "" : packageName.strip();
+        if (value.length() > 50) {
+            value = value.substring(0, 50);
+        }
+        if (!this.packageName.equals(value)) {
+            this.packageName = value;
+            setChanged();
+        }
+    }
+
     public static boolean isPatternSlotItem(ItemStack stack) {
         return PackagePatternDataStorage.canStore(stack) || PackagedProcessingPatternDataStorage.canStore(stack);
+    }
+
+    public static int outputHandlerSlot(int outputSlot) {
+        if (outputSlot < 0 || outputSlot >= OUTPUT_SLOT_COUNT) {
+            throw new IndexOutOfBoundsException(outputSlot);
+        }
+        return outputSlot == 0 ? SLOT_OUTPUT : EXTRA_OUTPUT_SLOT_START + outputSlot - 1;
+    }
+
+    public static boolean isOutputSlot(int slot) {
+        return slot == SLOT_OUTPUT
+                || (slot >= EXTRA_OUTPUT_SLOT_START && slot < EXTRA_OUTPUT_SLOT_START + OUTPUT_SLOT_COUNT - 1);
+    }
+
+    public ItemStack menuInputDisplay(int slot) {
+        MenuInputEntry entry = menuInput(slot);
+        return entry == null ? ItemStack.EMPTY : entry.displayStack();
+    }
+
+    public int menuInputAmountForDisplay(int slot) {
+        MenuInputEntry entry = menuInput(slot);
+        if (entry == null) {
+            return 0;
+        }
+        return entry.amount() > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) entry.amount();
+    }
+
+    public ItemStack menuInputFilterDisplay(int slot) {
+        List<GenericStack> filters = menuInputFilters();
+        if (slot < 0 || slot >= filters.size()) {
+            return ItemStack.EMPTY;
+        }
+        return displayStack(filters.get(slot));
+    }
+
+    public int menuInputFilterAmountForDisplay(int slot) {
+        List<GenericStack> filters = menuInputFilters();
+        if (slot < 0 || slot >= filters.size()) {
+            return 0;
+        }
+        long amount = filters.get(slot).amount();
+        return amount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) amount;
+    }
+
+    public boolean hasMenuInput(int slot) {
+        return menuInput(slot) != null;
+    }
+
+    public int insertMenuInput(int preferredSlot, ItemStack stack, int requestedAmount, boolean simulate) {
+        if (stack.isEmpty() || requestedAmount <= 0) {
+            return 0;
+        }
+        ItemStack keyStack = stack.copy();
+        keyStack.setCount(1);
+        int amount = Math.min(requestedAmount, stack.getCount());
+        int inserted = 0;
+
+        if (preferredSlot >= 0 && preferredSlot < MENU_INPUT_SLOT_COUNT) {
+            inserted = insertMenuInputIntoSlot(preferredSlot, keyStack, amount, simulate);
+        } else {
+            for (int slot = 0; slot < MENU_INPUT_SLOT_COUNT && inserted < amount; slot++) {
+                MenuInputEntry entry = menuInputs[slot];
+                if (entry != null && ItemStack.isSameItemSameTags(entry.stack(), keyStack)) {
+                    inserted += insertMenuInputIntoSlot(slot, keyStack, amount - inserted, simulate);
+                }
+            }
+            for (int slot = 0; slot < MENU_INPUT_SLOT_COUNT && inserted < amount; slot++) {
+                if (menuInputs[slot] == null) {
+                    inserted += insertMenuInputIntoSlot(slot, keyStack, amount - inserted, simulate);
+                }
+            }
+        }
+
+        if (inserted > 0 && !simulate) {
+            setChanged();
+        }
+        return inserted;
+    }
+
+    public ItemStack extractMenuInput(int slot, int requestedAmount, boolean simulate) {
+        MenuInputEntry entry = menuInput(slot);
+        if (entry == null || requestedAmount <= 0) {
+            return ItemStack.EMPTY;
+        }
+        int amount = (int) Math.min(Math.min(entry.amount(), requestedAmount), entry.stack().getMaxStackSize());
+        ItemStack extracted = entry.stack().copy();
+        extracted.setCount(amount);
+        if (!simulate) {
+            long remaining = entry.amount() - amount;
+            menuInputs[slot] = remaining <= 0 ? null : new MenuInputEntry(entry.stack(), remaining);
+            setChanged();
+        }
+        return extracted;
+    }
+
+    private int insertMenuInputIntoSlot(int slot, ItemStack keyStack, int requestedAmount, boolean simulate) {
+        if (requestedAmount <= 0) {
+            return 0;
+        }
+        MenuInputEntry current = menuInputs[slot];
+        if (current != null && !ItemStack.isSameItemSameTags(current.stack(), keyStack)) {
+            return 0;
+        }
+        int low = 0;
+        int high = requestedAmount;
+        while (low < high) {
+            int mid = (low + high + 1) / 2;
+            if (canInsertMenuInputIntoSlot(slot, keyStack, mid)) {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        if (low > 0 && !simulate) {
+            long amount = (current == null ? 0 : current.amount()) + low;
+            menuInputs[slot] = new MenuInputEntry(keyStack, amount);
+        }
+        return low;
+    }
+
+    private boolean canInsertMenuInputIntoSlot(int slot, ItemStack keyStack, int amount) {
+        MenuInputEntry current = menuInputs[slot];
+        long newAmount = (current == null ? 0 : current.amount()) + amount;
+        if (newAmount <= 0) {
+            return false;
+        }
+        MenuInputEntry[] trial = copyMenuInputs();
+        trial[slot] = new MenuInputEntry(keyStack, newAmount);
+        List<GenericStack> filters = menuInputFilters();
+        if (!filters.isEmpty()) {
+            return menuInputsMatchFilters(trial, filters);
+        }
+        return menuInputsFitCapacity(trial, configuredCapacityProfile());
+    }
+
+    private MenuInputEntry[] copyMenuInputs() {
+        return Arrays.copyOf(menuInputs, menuInputs.length);
+    }
+
+    private MenuInputEntry menuInput(int slot) {
+        if (slot < 0 || slot >= menuInputs.length) {
+            return null;
+        }
+        return menuInputs[slot];
+    }
+
+    private boolean hasMenuInputs() {
+        for (MenuInputEntry entry : menuInputs) {
+            if (entry != null && entry.amount() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void clearMenuInputs() {
+        Arrays.fill(menuInputs, null);
+        setChanged();
+    }
+
+    private List<GenericStack> menuInputFilters() {
+        ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
+                PackagedProcessingPatternDataStorage.read(patternStack);
+        if (processingPattern.isPresent()) {
+            Map<AEKey, Long> merged = new LinkedHashMap<>();
+            for (PackageData data : processingPattern.get().packages()) {
+                for (GenericStack stack : data.contents()) {
+                    merged.merge(stack.what(), stack.amount(), Long::sum);
+                }
+            }
+            return genericStacksFromMap(merged);
+        }
+        Optional<PackagePatternDataStorage.EncodedPackagePattern> packagePattern =
+                PackagePatternDataStorage.read(patternStack);
+        return packagePattern.map(pattern -> pattern.data().contents()).orElse(List.of());
+    }
+
+    private static List<GenericStack> genericStacksFromMap(Map<AEKey, Long> amounts) {
+        List<GenericStack> stacks = new ArrayList<>();
+        for (var entry : amounts.entrySet()) {
+            if (entry.getValue() > 0) {
+                stacks.add(new GenericStack(entry.getKey(), entry.getValue()));
+            }
+        }
+        return List.copyOf(stacks);
+    }
+
+    private static boolean menuInputsMatchFilters(MenuInputEntry[] inputs, List<GenericStack> filters) {
+        for (int slot = 0; slot < inputs.length; slot++) {
+            MenuInputEntry entry = inputs[slot];
+            if (entry == null) {
+                continue;
+            }
+            if (slot >= filters.size()) {
+                return false;
+            }
+            GenericStack filter = filters.get(slot);
+            if (!filter.what().equals(AEItemKey.of(entry.stack())) || entry.amount() > filter.amount()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean menuInputsFitCapacity(MenuInputEntry[] inputs, PackageCapacityProfile capacityProfile) {
+        MenuInputContents contents = menuInputContents(inputs);
+        if (contents.isEmpty()) {
+            return true;
+        }
+        return PackagePlanBuilder.build(
+                        PackageColor.FLUIX,
+                        contents.looseContents(),
+                        contents.sourcePackages(),
+                        MarkerMergeMode.RETAIN,
+                        Optional.empty(),
+                        capacityProfile,
+                        0)
+                .success();
     }
 
     public boolean autoExport() {
@@ -160,11 +439,18 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     }
 
     public AssemblyResult tryAssemble() {
-        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+        if (!hasOutputRoom()) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
         if (!pendingPackages.isEmpty()) {
             return outputPendingPackage();
+        }
+        if (hasMenuInputs()) {
+            AssemblyAttempt attempt = planMenuAssembly();
+            if (attempt.plan().isEmpty()) {
+                return attempt.failure();
+            }
+            return commitMenuAssemblyPlan(attempt.plan().orElseThrow());
         }
         AssemblyAttempt attempt = planAssembly(inputView);
         if (attempt.plan().isEmpty()) {
@@ -178,25 +464,36 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (level == null || level.isClientSide) {
             return false;
         }
-        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
-        if (output.isEmpty()) {
-            return false;
-        }
 
-        Optional<MEStorage> meStorage = findOutputMEStorage();
-        if (meStorage.isPresent() && exportOutputToMEStorage(meStorage.get(), output)) {
-            return true;
+        Optional<MEStorage> meStorage = Optional.empty();
+        Optional<IItemHandler> itemTarget = Optional.empty();
+        boolean resolvedTargets = false;
+        for (int outputSlot = 0; outputSlot < OUTPUT_SLOT_COUNT; outputSlot++) {
+            int itemSlot = outputHandlerSlot(outputSlot);
+            ItemStack output = items.getStackInSlot(itemSlot);
+            if (output.isEmpty()) {
+                continue;
+            }
+            if (!resolvedTargets) {
+                meStorage = findOutputMEStorage();
+                itemTarget = findOutputItemHandler();
+                resolvedTargets = true;
+            }
+            if (meStorage.isPresent() && exportOutputToMEStorage(itemSlot, meStorage.get(), output)) {
+                return true;
+            }
+            if (itemTarget.isPresent() && exportOutputToItemHandler(itemSlot, itemTarget.get(), output)) {
+                return true;
+            }
         }
-
-        Optional<IItemHandler> itemTarget = findOutputItemHandler();
-        return itemTarget.isPresent() && exportOutputToItemHandler(itemTarget.get(), output);
+        return false;
     }
 
     private boolean exportOutputIfEnabled() {
         return autoExport && exportOutputOnce();
     }
 
-    private boolean exportOutputToMEStorage(MEStorage target, ItemStack output) {
+    private boolean exportOutputToMEStorage(int itemSlot, MEStorage target, ItemStack output) {
         AEItemKey key = AEItemKey.of(output);
         long simulated = target.insert(key, output.getCount(), Actionable.SIMULATE, IActionSource.empty());
         if (simulated <= 0) {
@@ -206,19 +503,19 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (committed <= 0) {
             return false;
         }
-        items.extractItem(SLOT_OUTPUT, (int) committed, false);
+        items.extractItem(itemSlot, (int) committed, false);
         setChanged();
         return true;
     }
 
-    private boolean exportOutputToItemHandler(IItemHandler target, ItemStack output) {
+    private boolean exportOutputToItemHandler(int itemSlot, IItemHandler target, ItemStack output) {
         ItemStack simulatedRemainder = ItemHandlerHelper.insertItemStacked(target, output.copy(), true);
         int transferable = output.getCount() - simulatedRemainder.getCount();
         if (transferable <= 0) {
             return false;
         }
 
-        ItemStack extracted = items.extractItem(SLOT_OUTPUT, transferable, true);
+        ItemStack extracted = items.extractItem(itemSlot, transferable, true);
         if (extracted.isEmpty()) {
             return false;
         }
@@ -227,23 +524,37 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (inserted <= 0) {
             return false;
         }
-        items.extractItem(SLOT_OUTPUT, inserted, false);
+        items.extractItem(itemSlot, inserted, false);
         setChanged();
         return true;
     }
 
     private AssemblyResult commitAssemblyPlan(IItemHandler input, AssemblyPlan plan) {
-        ItemStack packageStack = packageStack(plan.color(), plan.plan().data());
-        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack.copy(), true);
-        if (!remainder.isEmpty()) {
+        ItemStack packageStack = packageStack(plan.color(), plan.data());
+        if (!canInsertOutputPackage(packageStack)) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
-        if (!ItemPackageTransactions.canExtract(input, plan.plan())) {
+        if (!ItemPackageTransactions.canExtract(input, plan.itemPlan())) {
             return AssemblyResult.SOURCE_CHANGED;
         }
 
-        ItemPackageTransactions.commitExtract(input, plan.plan());
-        items.insertItem(SLOT_OUTPUT, packageStack, false);
+        ItemPackageTransactions.commitExtract(input, plan.itemPlan());
+        insertOutputPackage(packageStack);
+        setChanged();
+        return AssemblyResult.ASSEMBLED;
+    }
+
+    private AssemblyResult commitMenuAssemblyPlan(AssemblyPlan plan) {
+        ItemStack packageStack = packageStack(plan.color(), plan.data());
+        if (!canInsertOutputPackage(packageStack)) {
+            return AssemblyResult.OUTPUT_BLOCKED;
+        }
+        if (plan.menuExtractions() != null) {
+            commitMenuExtractions(plan.menuExtractions());
+        } else {
+            clearMenuInputs();
+        }
+        insertOutputPackage(packageStack);
         setChanged();
         return AssemblyResult.ASSEMBLED;
     }
@@ -262,16 +573,43 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     private AssemblyResult outputPackage(QueuedPackage queuedPackage) {
         ItemStack packageStack = packageStack(queuedPackage.color(), queuedPackage.data());
-        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack.copy(), true);
-        if (!remainder.isEmpty()) {
+        if (!canInsertOutputPackage(packageStack)) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
-        remainder = items.insertItem(SLOT_OUTPUT, packageStack, false);
-        if (!remainder.isEmpty()) {
-            return AssemblyResult.OUTPUT_BLOCKED;
-        }
+        insertOutputPackage(packageStack);
         setChanged();
         return AssemblyResult.ASSEMBLED;
+    }
+
+    private boolean hasOutputRoom() {
+        for (int outputSlot = 0; outputSlot < OUTPUT_SLOT_COUNT; outputSlot++) {
+            if (items.getStackInSlot(outputHandlerSlot(outputSlot)).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean canInsertOutputPackage(ItemStack packageStack) {
+        return findOutputSlotFor(packageStack).isPresent();
+    }
+
+    private ItemStack insertOutputPackage(ItemStack packageStack) {
+        Optional<Integer> slot = findOutputSlotFor(packageStack);
+        if (slot.isEmpty()) {
+            return packageStack;
+        }
+        return items.insertItem(slot.get(), packageStack, false);
+    }
+
+    private Optional<Integer> findOutputSlotFor(ItemStack packageStack) {
+        for (int outputSlot = 0; outputSlot < OUTPUT_SLOT_COUNT; outputSlot++) {
+            int itemSlot = outputHandlerSlot(outputSlot);
+            if (items.insertItem(itemSlot, packageStack.copy(), true).isEmpty()) {
+                return Optional.of(itemSlot);
+            }
+        }
+        return Optional.empty();
     }
 
     private AssemblyAttempt planAssembly(IItemHandler input) {
@@ -300,15 +638,159 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
         Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
                 input,
-                PackageColor.FLUIX,
-                configuredCapacityProfile());
+                selectedColor,
+                configuredCapacityProfile(),
+                com.warmthdawn.appliedpackaging.core.package_data.PackageFilter.any(),
+                configuredMarkerMode(),
+                configuredMarkerItem());
         if (plan.isEmpty()) {
             return AssemblyAttempt.failed(AssemblyResult.NO_CONTENTS);
         }
         if (!ItemPackageTransactions.canExtract(input, plan.get())) {
             return AssemblyAttempt.failed(AssemblyResult.SOURCE_CHANGED);
         }
-        return AssemblyAttempt.planned(new AssemblyPlan(PackageColor.FLUIX, plan.get()));
+        return AssemblyAttempt.planned(new AssemblyPlan(selectedColor, plan.get()));
+    }
+
+    private AssemblyAttempt planMenuAssembly() {
+        ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
+        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
+                PackagedProcessingPatternDataStorage.read(patternStack);
+        if (processingPattern.isPresent()) {
+            for (PackageData target : processingPattern.get().packages()) {
+                Optional<AssemblyPlan> plan = planMenuExactPackage(processingPattern.get().color(), target);
+                if (plan.isPresent()) {
+                    return AssemblyAttempt.planned(plan.get());
+                }
+            }
+            return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
+        }
+
+        Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern =
+                PackagePatternDataStorage.read(patternStack);
+        if (pattern.isPresent()) {
+            return planMenuExactPackage(pattern.get().color(), pattern.get().data())
+                    .map(AssemblyAttempt::planned)
+                    .orElseGet(() -> AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH));
+        }
+
+        MenuInputContents contents = menuInputContents(menuInputs);
+        if (contents.isEmpty()) {
+            return AssemblyAttempt.failed(AssemblyResult.NO_CONTENTS);
+        }
+        PackagePlanResult result = PackagePlanBuilder.build(
+                selectedColor,
+                contents.looseContents(),
+                contents.sourcePackages(),
+                configuredMarkerMode(),
+                configuredMarkerItem(),
+                configuredCapacityProfile(),
+                0);
+        if (result.data().isEmpty()) {
+            return AssemblyAttempt.failed(AssemblyResult.NO_CONTENTS);
+        }
+        return AssemblyAttempt.planned(new AssemblyPlan(
+                selectedColor,
+                result.data().orElseThrow(),
+                null));
+    }
+
+    private Optional<AssemblyPlan> planMenuExactPackage(PackageColor color, PackageData target) {
+        MenuExactExtraction extraction = extractMenuInputsForTarget(target);
+        if (!extraction.matched()) {
+            return Optional.empty();
+        }
+        MarkerMergeMode markerMode = target.marker().isPresent()
+                ? MarkerMergeMode.OVERRIDE
+                : MarkerMergeMode.CLEAR;
+        PackageCapacityProfile capacityProfile = capacityProfileFor(target).orElse(configuredCapacityProfile());
+        PackagePlanResult result = PackagePlanBuilder.build(
+                color,
+                extraction.looseContents(),
+                extraction.sourcePackages(),
+                markerMode,
+                target.marker(),
+                capacityProfile,
+                target.flags());
+        if (result.data().isEmpty()
+                || !result.data().orElseThrow().canonicalHash().equals(target.canonicalHash())) {
+            return Optional.empty();
+        }
+        return Optional.of(new AssemblyPlan(
+                color,
+                result.data().orElseThrow(),
+                extraction.extractions()));
+    }
+
+    private MenuExactExtraction extractMenuInputsForTarget(PackageData target) {
+        Map<AEKey, Long> remaining = new LinkedHashMap<>();
+        for (GenericStack stack : target.contents()) {
+            remaining.merge(stack.what(), stack.amount(), Long::sum);
+        }
+
+        List<GenericStack> looseContents = new ArrayList<>();
+        List<PackageData> sourcePackages = new ArrayList<>();
+        List<MenuInputExtraction> extractions = new ArrayList<>();
+        for (int slot = 0; slot < menuInputs.length; slot++) {
+            MenuInputEntry entry = menuInputs[slot];
+            if (entry == null || entry.amount() <= 0 || remainingValuesEmpty(remaining)) {
+                continue;
+            }
+
+            Optional<PackageData> packageData = PackageDataStorage.read(entry.stack());
+            if (packageData.isPresent()) {
+                long packagesToUse = 0;
+                for (long count = 0; count < entry.amount() && packageFitsRemaining(packageData.get(), remaining); count++) {
+                    subtractPackageContents(packageData.get(), remaining);
+                    sourcePackages.add(packageData.get());
+                    packagesToUse++;
+                }
+                if (packagesToUse > 0) {
+                    extractions.add(new MenuInputExtraction(slot, packagesToUse));
+                }
+                continue;
+            }
+
+            AEItemKey key = AEItemKey.of(entry.stack());
+            long required = remaining.getOrDefault(key, 0L);
+            if (required <= 0) {
+                continue;
+            }
+            long used = Math.min(required, entry.amount());
+            remaining.put(key, required - used);
+            looseContents.add(new GenericStack(key, used));
+            extractions.add(new MenuInputExtraction(slot, used));
+        }
+
+        return new MenuExactExtraction(
+                remainingValuesEmpty(remaining),
+                List.copyOf(looseContents),
+                List.copyOf(sourcePackages),
+                List.copyOf(extractions));
+    }
+
+    private static boolean remainingValuesEmpty(Map<AEKey, Long> remaining) {
+        for (long amount : remaining.values()) {
+            if (amount > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean packageFitsRemaining(PackageData data, Map<AEKey, Long> remaining) {
+        for (GenericStack stack : data.contents()) {
+            if (remaining.getOrDefault(stack.what(), 0L) < stack.amount()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void subtractPackageContents(PackageData data, Map<AEKey, Long> remaining) {
+        for (GenericStack stack : data.contents()) {
+            remaining.put(stack.what(), remaining.getOrDefault(stack.what(), 0L) - stack.amount());
+        }
     }
 
     private AssemblyAttempt planProcessingPattern(
@@ -381,8 +863,8 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                     entry.getKey(),
                     entry.getValue(),
                     List.of(),
-                    MarkerMergeMode.CLEAR,
-                    Optional.empty(),
+                    configuredMarkerMode(),
+                    configuredMarkerItem(),
                     configuredCapacityProfile(),
                     0);
             if (result.data().isEmpty()) {
@@ -395,25 +877,25 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     }
 
     private boolean commitProviderPackages(List<QueuedPackage> packages) {
-        if (packages.isEmpty()
-                || !pendingPackages.isEmpty()
-                || !items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+        if (packages.isEmpty() || !pendingPackages.isEmpty() || !hasOutputRoom()) {
             return false;
         }
 
-        QueuedPackage firstPackage = packages.get(0);
-        ItemStack firstStack = packageStack(firstPackage.color(), firstPackage.data());
-        ItemStack remainder = items.insertItem(SLOT_OUTPUT, firstStack.copy(), true);
-        if (!remainder.isEmpty()) {
+        int nextPackage = 0;
+        while (nextPackage < packages.size()) {
+            QueuedPackage queuedPackage = packages.get(nextPackage);
+            ItemStack packageStack = packageStack(queuedPackage.color(), queuedPackage.data());
+            if (!canInsertOutputPackage(packageStack)) {
+                break;
+            }
+            insertOutputPackage(packageStack);
+            nextPackage++;
+        }
+        if (nextPackage == 0) {
             return false;
         }
-        remainder = items.insertItem(SLOT_OUTPUT, firstStack, false);
-        if (!remainder.isEmpty()) {
-            return false;
-        }
-
-        if (packages.size() > 1) {
-            pendingPackages.addAll(packages.subList(1, packages.size()));
+        if (nextPackage < packages.size()) {
+            pendingPackages.addAll(packages.subList(nextPackage, packages.size()));
         }
         setChanged();
         return true;
@@ -425,15 +907,15 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
             return Optional.empty();
         }
         var result = PackagePlanBuilder.build(
-                PackageColor.FLUIX,
+                selectedColor,
                 contents.get(),
                 List.of(),
-                MarkerMergeMode.CLEAR,
-                Optional.empty(),
+                configuredMarkerMode(),
+                configuredMarkerItem(),
                 configuredCapacityProfile(),
                 0);
         return result.data()
-                .map(data -> new ColoredProviderPlan(List.of(new QueuedPackage(PackageColor.FLUIX, data)), contents.get()));
+                .map(data -> new ColoredProviderPlan(List.of(new QueuedPackage(selectedColor, data)), contents.get()));
     }
 
     private static Optional<List<GenericStack>> providerContents(KeyCounter[] inputHolder) {
@@ -612,7 +1094,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
 
     @Override
     public boolean acceptsPlans() {
-        return items.getStackInSlot(SLOT_OUTPUT).isEmpty() && inputBufferIsEmpty() && pendingPackages.isEmpty();
+        return hasOutputRoom() && inputBufferIsEmpty() && !hasMenuInputs() && pendingPackages.isEmpty();
     }
 
     private Optional<MEStorage> findOutputMEStorage() {
@@ -624,7 +1106,7 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         LazyOptional<MEStorage> capability = targetBlockEntity.getCapability(
                 Capabilities.STORAGE,
                 targetDirection.getOpposite());
-        return capability.resolve();
+        return resolveOptionalCapability(capability);
     }
 
     private Optional<IItemHandler> findOutputItemHandler() {
@@ -636,7 +1118,15 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         LazyOptional<IItemHandler> capability = targetBlockEntity.getCapability(
                 ForgeCapabilities.ITEM_HANDLER,
                 targetDirection.getOpposite());
-        return capability.resolve();
+        return resolveOptionalCapability(capability);
+    }
+
+    private static <T> Optional<T> resolveOptionalCapability(LazyOptional<T> capability) {
+        try {
+            return capability.resolve();
+        } catch (IllegalStateException e) {
+            return Optional.empty();
+        }
     }
 
     private Direction outputDirection() {
@@ -666,8 +1156,14 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
+        upgrades.writeToNBT(tag, UPGRADES_TAG);
+        tag.put(MENU_INPUTS_TAG, saveMenuInputs());
         tag.put(PENDING_PACKAGES_TAG, savePendingPackages());
         tag.putBoolean(AUTO_EXPORT_TAG, autoExport);
+        tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
+        if (!packageName.isBlank()) {
+            tag.putString(PACKAGE_NAME_TAG, packageName);
+        }
     }
 
     @Override
@@ -676,7 +1172,11 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             loadItems(tag.getCompound(ITEMS_TAG));
         }
+        upgrades.readFromNBT(tag, UPGRADES_TAG);
+        loadMenuInputs(tag);
         autoExport = !tag.contains(AUTO_EXPORT_TAG, Tag.TAG_BYTE) || tag.getBoolean(AUTO_EXPORT_TAG);
+        selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
+        packageName = tag.getString(PACKAGE_NAME_TAG);
         loadPendingPackages(tag);
     }
 
@@ -697,6 +1197,16 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                 Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
             }
         }
+        for (MenuInputEntry entry : menuInputs) {
+            if (entry != null) {
+                dropMenuInput(level, pos, entry);
+            }
+        }
+        for (ItemStack stack : upgrades) {
+            if (!stack.isEmpty()) {
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), stack);
+            }
+        }
         for (QueuedPackage queuedPackage : pendingPackages) {
             Containers.dropItemStack(
                     level,
@@ -704,6 +1214,56 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                     pos.getY(),
                     pos.getZ(),
                     packageStack(queuedPackage.color(), queuedPackage.data()));
+        }
+    }
+
+    private ListTag saveMenuInputs() {
+        ListTag list = new ListTag();
+        for (int slot = 0; slot < menuInputs.length; slot++) {
+            MenuInputEntry entry = menuInputs[slot];
+            if (entry == null || entry.amount() <= 0) {
+                continue;
+            }
+            CompoundTag tag = new CompoundTag();
+            tag.putInt(MENU_INPUT_SLOT_TAG, slot);
+            tag.put(MENU_INPUT_STACK_TAG, entry.stack().save(new CompoundTag()));
+            tag.putLong(MENU_INPUT_AMOUNT_TAG, entry.amount());
+            list.add(tag);
+        }
+        return list;
+    }
+
+    private void loadMenuInputs(CompoundTag tag) {
+        Arrays.fill(menuInputs, null);
+        if (!tag.contains(MENU_INPUTS_TAG, Tag.TAG_LIST)) {
+            return;
+        }
+        ListTag list = tag.getList(MENU_INPUTS_TAG, Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size(); index++) {
+            CompoundTag entryTag = list.getCompound(index);
+            int slot = entryTag.getInt(MENU_INPUT_SLOT_TAG);
+            if (slot < 0 || slot >= menuInputs.length
+                    || !entryTag.contains(MENU_INPUT_STACK_TAG, Tag.TAG_COMPOUND)) {
+                continue;
+            }
+            ItemStack stack = ItemStack.of(entryTag.getCompound(MENU_INPUT_STACK_TAG));
+            long amount = entryTag.getLong(MENU_INPUT_AMOUNT_TAG);
+            if (!stack.isEmpty() && amount > 0) {
+                stack.setCount(1);
+                menuInputs[slot] = new MenuInputEntry(stack, amount);
+            }
+        }
+    }
+
+    private static void dropMenuInput(Level level, BlockPos pos, MenuInputEntry entry) {
+        long remaining = entry.amount();
+        int maxStack = Math.max(1, entry.stack().getMaxStackSize());
+        while (remaining > 0) {
+            int amount = (int) Math.min(remaining, maxStack);
+            ItemStack drop = entry.stack().copy();
+            drop.setCount(amount);
+            Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), drop);
+            remaining -= amount;
         }
     }
 
@@ -716,12 +1276,63 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
     }
 
     private boolean inputBufferIsEmpty() {
-        for (int slot = 0; slot < INPUT_SLOT_COUNT; slot++) {
+        for (int slot = 0; slot < LEGACY_INPUT_SLOT_COUNT; slot++) {
             if (!items.getStackInSlot(slot).isEmpty()) {
                 return false;
             }
         }
         return true;
+    }
+
+    private void commitMenuExtractions(List<MenuInputExtraction> extractions) {
+        for (MenuInputExtraction extraction : extractions) {
+            MenuInputEntry entry = menuInput(extraction.slot());
+            if (entry == null) {
+                continue;
+            }
+            long remaining = entry.amount() - extraction.amount();
+            menuInputs[extraction.slot()] = remaining <= 0
+                    ? null
+                    : new MenuInputEntry(entry.stack(), remaining);
+        }
+    }
+
+    private static MenuInputContents menuInputContents(MenuInputEntry[] inputs) {
+        List<GenericStack> looseContents = new ArrayList<>();
+        List<PackageData> sourcePackages = new ArrayList<>();
+        for (MenuInputEntry entry : inputs) {
+            if (entry == null || entry.amount() <= 0) {
+                continue;
+            }
+            Optional<PackageData> packageData = PackageDataStorage.read(entry.stack());
+            if (packageData.isPresent()) {
+                for (long count = 0; count < entry.amount(); count++) {
+                    sourcePackages.add(packageData.get());
+                }
+                continue;
+            }
+            looseContents.add(new GenericStack(AEItemKey.of(entry.stack()), entry.amount()));
+        }
+        return new MenuInputContents(List.copyOf(looseContents), List.copyOf(sourcePackages));
+    }
+
+    private static ItemStack displayStack(GenericStack stack) {
+        ItemStack display = stack.what().wrapForDisplayOrFilter();
+        if (display.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        int count = (int) Math.max(1L, Math.min(stack.amount(), Integer.MAX_VALUE));
+        display.setCount(count);
+        return display;
+    }
+
+    private static Optional<PackageCapacityProfile> capacityProfileFor(PackageData data) {
+        for (PackageCapacityProfile profile : PackageCapacityProfile.values()) {
+            if (profile.fits(data.usedUnits(), data.usedTypes())) {
+                return Optional.of(profile);
+            }
+        }
+        return Optional.empty();
     }
 
     private ListTag savePendingPackages() {
@@ -755,9 +1366,12 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
         }
     }
 
-    private static ItemStack packageStack(PackageColor color, PackageData data) {
+    private ItemStack packageStack(PackageColor color, PackageData data) {
         ItemStack stack = new ItemStack(APItems.packageItems().get(color).get());
         PackageDataStorage.write(stack, data);
+        if (!packageName.isBlank()) {
+            stack.setHoverName(Component.literal(packageName));
+        }
         return stack;
     }
 
@@ -766,7 +1380,42 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                 .orElse(PackageCapacityProfile.DEFAULT);
     }
 
-    private record AssemblyPlan(PackageColor color, ItemPackagePlan plan) {
+    private MarkerMergeMode configuredMarkerMode() {
+        return configuredMarkerItem().isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.RETAIN;
+    }
+
+    private Optional<MarkerSpec> configuredMarkerItem() {
+        ItemStack markerStack = items.getStackInSlot(SLOT_MARKER);
+        if (!isMarkerSlotItem(markerStack)) {
+            return Optional.empty();
+        }
+        ItemStack keyStack = markerStack.copy();
+        keyStack.setCount(1);
+        return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
+    }
+
+    public static boolean isMarkerSlotItem(ItemStack stack) {
+        return !stack.isEmpty()
+                && !(stack.getItem() instanceof PackageItem)
+                && !PackagePatternDataStorage.canStore(stack);
+    }
+
+    private void onUpgradesChanged() {
+        setChanged();
+    }
+
+    private record AssemblyPlan(
+            PackageColor color,
+            PackageData data,
+            ItemPackagePlan itemPlan,
+            List<MenuInputExtraction> menuExtractions) {
+        private AssemblyPlan(PackageColor color, ItemPackagePlan plan) {
+            this(color, plan.data(), plan, List.of());
+        }
+
+        private AssemblyPlan(PackageColor color, PackageData data, List<MenuInputExtraction> menuExtractions) {
+            this(color, data, null, menuExtractions);
+        }
     }
 
     private record QueuedPackage(PackageColor color, PackageData data) {
@@ -845,6 +1494,45 @@ public class PackageAssemblerBlockEntity extends BlockEntity implements Inventor
                 consumed.source().remove(consumed.key(), consumed.amount());
                 consumed.source().removeZeros();
             }
+        }
+    }
+
+    private record MenuInputEntry(ItemStack stack, long amount) {
+        private MenuInputEntry {
+            stack = stack.copy();
+            stack.setCount(1);
+        }
+
+        private ItemStack displayStack() {
+            ItemStack display = stack.copy();
+            display.setCount((int) Math.max(1L, Math.min(amount, Integer.MAX_VALUE)));
+            return display;
+        }
+    }
+
+    private record MenuInputExtraction(int slot, long amount) {
+    }
+
+    private record MenuInputContents(List<GenericStack> looseContents, List<PackageData> sourcePackages) {
+        private MenuInputContents {
+            looseContents = List.copyOf(looseContents);
+            sourcePackages = List.copyOf(sourcePackages);
+        }
+
+        private boolean isEmpty() {
+            return looseContents.isEmpty() && sourcePackages.isEmpty();
+        }
+    }
+
+    private record MenuExactExtraction(
+            boolean matched,
+            List<GenericStack> looseContents,
+            List<PackageData> sourcePackages,
+            List<MenuInputExtraction> extractions) {
+        private MenuExactExtraction {
+            looseContents = List.copyOf(looseContents);
+            sourcePackages = List.copyOf(sourcePackages);
+            extractions = List.copyOf(extractions);
         }
     }
 }

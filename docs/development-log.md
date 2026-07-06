@@ -2388,3 +2388,88 @@ GameTest：已考虑。本次只调整客户端渲染、additional model 注册�
 未运行 runClientSmoke：本轮按反馈从静态模型结构修正，不使用客户端 smoke 作为判断依据。
 GameTest：已考虑。本次只调整客户端静态模型资源、移除动态 partial 注册和资产规格记录，不改变服务端 MEStorage 事务、红石触发、菜单或物品移动语义，因此不新增或运行 GameTest。
 ```
+
+最新进展：
+
+```text
+调整 ME Package Assembler GUI 与槽位语义：
+  新增 `textures/gui/mepackageassembler.png` 作为装配室 256x256 GUI atlas。
+  Package Assembler Screen 改为贴图背景，提供与 ME Packager 同类的容量槽/自动导出按钮区域。
+  下半部分改为 4 行可见、17 行总量的同步滚动输入/输出区；每个可见行左侧显示 4 个输入格，右侧显示 1 个输出格。
+  GUI 输入不是 fake slot：点击与 shift-click 会真实转移玩家物品，BlockEntity 以 ItemStack identity + long amount 持久化，可累计超过普通 stack size 的数量。
+  样板槽放入 package_pattern 或 packaged_processing_pattern 后，输入栏显示过滤 ghost，并只允许插入样板匹配材料与数量；无样板时按包裹容量档限制自由封装。
+  方块实体保留 9 格 legacy 输入槽用于旧存档/内部兼容，同时新增 68 格 menu input buffer（17 行 x 4 列）和 17 个输出槽。
+  Pattern Provider 多包裹输出优先写入 17 个输出槽；超过可用输出槽的余量才进入 pending queue。
+  自动导出遍历全部输出槽，并改为只有存在输出包裹时才解析背面 AE2 MEStorage / Forge item handler，避免相邻 AE2 接口未 ready 时空 capability 崩服。
+  资产审计将 ME Package Assembler GUI atlas 纳入必需 256x256 PNG，并新增错误尺寸自测 fixture。
+  docs/02、03、04、05、06 和 docs/assets/acceptance.md 已同步当前 4x4 输入、4 输出可见窗口、样板过滤和资产门禁语义。
+验证 git status --short --branch 初始为 clean master
+验证 .\gradlew.bat compileJava 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer 成功，133 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工抽看 Package Assembler 截图，新背景、滚动条、样板槽、容量槽、自动导出按钮和左右输入/输出区域正常显示
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，143 个 PNG 通过必需文件、RGBA、尺寸、可见非占位像素和模型门禁
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-assets-audit.ps1 成功，包含坏装配室 GUI atlas 尺寸负例
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+GameTest：已考虑并运行。本轮改变服务端槽位、菜单真实输入、样板过滤、Pattern Provider 多包裹输出和自动导出 capability 解析，已新增/更新相关 GameTest。
+```
+
+最新进展：
+
+```text
+纠正 ME Package Assembler GUI 的 AE2 UI 接入方式：
+  PackageAssemblerMenu 从普通 AbstractContainerMenu 改为 AE2 UpgradeableMenu，PackageAssemblerScreen 从 AbstractContainerScreen 改为 AE2 UpgradeableScreen。
+  新增 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景、标题、玩家背包、样板槽、容量槽、4 行输入槽和输出列坐标改由 ScreenStyle 管理。
+  AE2 1.20.1 style grid 没有 4 列枚举，因此 4x4 可见输入区拆成 4 个 AE2 slot semantic 行分组；业务上仍是 68 格真实 menu input buffer，不改成 fake slot。
+  滚动输入/输出槽背景由客户端按 AE2 slot background 风格绘制，避免把动态滚动槽烘进背景 atlas。
+验证 .\gradlew.bat compileJava 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 Package Assembler 截图，确认 4x4 输入格、4 输出格、滚动条、样板槽、容量槽和自动导出按钮可见
+验证 rg -n -i "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON" run\logs\latest.log 无命中
+GameTest：已考虑。本轮主要纠正客户端 Screen/Menu 基类、ScreenStyle 布局和滚动槽背景绘制，不改变服务端事务、红石、过滤或物品移动语义，因此不新增或复跑 GameTest。
+```
+
+最新进展：
+
+```text
+按 AE2 源码修正装配室配置开关位置：
+  查阅 AE2 15.4.10 `UpgradeableScreen`、`UpgradeableMenu`、`UpgradesPanel`、`ToolboxPanel`、`InscriberScreen` 和 `IOBusScreen` 源码，确认升级槽由 `SlotSemantics.UPGRADE` + `UpgradesPanel` 管理在右侧，配置开关通过 `addToLeftToolbar` 放在左侧悬浮 toolbar。
+  删除 PackageAssemblerScreen 主面板内自绘 auto_export 按钮，不再使用自定义 GUI icon 作为普通 widget。
+  PackageAssemblerScreen 新增 AE2 `IconButton` toolbar 按钮，使用 AE2 `Icon.AUTO_EXPORT_ON/OFF`；PackageAssemblerMenu 新增 AE client action `toggleAutoExport` 处理切换。
+  该轮未新增升级卡行为；后续若新增升级卡，只通过真实 `IUpgradeInventory` + `SlotSemantics.UPGRADE` 进入 AE2 右侧升级面板。
+验证 .\gradlew.bat compileJava 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 Package Assembler 截图，确认主面板内无额外奇怪按钮，auto-export 位于左侧 AE2 toolbar
+```
+
+最新进展：
+
+```text
+修正 AE2 UpgradeableMenu 槽位顺序带来的装配室菜单回归：
+  首次复跑 .\gradlew.bat runGameTestServer 失败，失败用例为 packageAssemblerMenuInputUsesPatternFilterAndLargeAmount；原因是 AE2 `createPlayerInventorySlots` 先加入 hotbar 再加入主背包，旧 `HOTBAR_START` 仍按 vanilla 背包优先顺序计算，导致 shift-click 没有点到玩家热键栏铁锭。
+  PackageAssemblerMenu 改为记录 AE2 实际分配给 4x4 可见输入槽和 4 个可见输出槽的 menu slot index；点击、shift-click 和客户端绘制都通过这些实际 index 访问滚动槽，而不是假设机器槽永远从 0 开始。
+  玩家侧移动改为按 AE2 `SlotSemantics.PLAYER_HOTBAR` / `PLAYER_INVENTORY` 计算真实玩家槽范围，避免后续 Network Tool 工具箱或右侧真实升级槽改变 slot 顺序时误判。
+  PackageAssemblerScreen 的滚动槽背景和样板 ghost 改为读取菜单提供的实际 slot index。
+  装配室 GameTest 改为通过菜单查询 hotbar/input/output 实际 slot index，覆盖新的 AE2 menu 契约。
+验证 .\gradlew.bat compileJava 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer 成功，133 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 Package Assembler 截图，确认主面板内无额外按钮，auto-export 位于左侧 AE2 toolbar，右侧没有自造升级控件
+验证 rg -n -i "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON" run\logs\latest.log 无命中
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，143 个 PNG 通过必需文件、RGBA、尺寸、可见非占位像素和模型门禁
+GameTest：已考虑并运行。本轮改变了菜单按钮 action、slot index 判断和 shift-click 物品移动路径，属于菜单/物品移动语义变更；GameTest 首次捕获回归，修复后 133 个 required GameTest 全部通过。
+```
+
+最新进展：
+
+```text
+纠正 ME Package Assembler GUI 实现方向：
+  恢复用户提供的 `mepackageassembler.png` 原始 256x256 atlas；仓库文件与源图 SHA-256 一致，不再重拼或改写 GUI 图。
+  ScreenStyle 使用原图主界面 `srcRect` 176x239；名称输入框、颜色 swatch、marker 槽、右上容量元件槽、下半区样板槽、4x4 输入窗口、4 输出窗口、玩家物品栏和 hotbar 均按原图像素坐标写入 style JSON。
+  上半区对齐的是 ME Packager 逻辑而不是贴图：装配室新增 `packageName`、`selectedColor`、真实 marker 槽和右上容量元件槽；默认自由封装、普通 Pattern Provider 和彩色 Pattern Provider 路径使用这些配置，已编码 package_pattern / packaged_processing_pattern 仍以样板自身颜色和 marker 为权威。
+  配置按钮保持 AE2 左侧 toolbar，目前只有 auto-export；没有新增主面板奇怪按钮。
+  方块实体新增 6 格真实 AE2 upgrade inventory，注册 PACKAGE_ASSEMBLER 的 redstone/capacity/speed/inverter 兼容升级，右侧由 AE2 `UpgradesPanel` 渲染和交互。
+  marker 槽通过真实槽手动放入；shift-click 普通物品继续进入左侧真实大数量输入缓冲，避免 marker 槽抢走材料。
+  新增 GameTest `packageAssemblerUsesConfiguredPackageIdentity` 覆盖装配室输出颜色、hover name 和 marker；更新 legacy NBT 测试以覆盖新增 marker 槽。
+验证 .\gradlew.bat compileJava 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer 首次失败，失败项为 packageAssemblerMenuInputUsesPatternFilterAndLargeAmount 与 packageAssemblerLoadsLegacyElevenSlotInventory；修复 marker shift-click 路由和 legacy slot count 断言后复跑成功，134 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 Package Assembler 截图，确认使用原图布局、左侧只有 AE toolbar auto-export、右侧为 AE2 升级面板、滚动条位于输入栏左侧、玩家物品栏与 hotbar 对齐
+GameTest：已考虑并运行。本轮改变装配室输出身份配置、真实 marker 槽、升级库存、NBT 保存/读取和 shift-click 路由，属于行为敏感变更；GameTest 已覆盖并通过。
+```

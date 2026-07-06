@@ -73,6 +73,15 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "expected 32x32 item texture"
 
+    $badGuiAtlasDimensionFixture = New-AssetsFixture "bad-gui-atlas-dimension"
+    $badGuiAtlasDimensionPath = Join-Path $badGuiAtlasDimensionFixture "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png"
+    [System.IO.File]::WriteAllBytes($badGuiAtlasDimensionPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad package assembler GUI atlas dimension fixture" `
+        -RootPath $badGuiAtlasDimensionFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 256x256 ME Package Assembler GUI atlas"
+
     $badHeaderFixture = New-AssetsFixture "bad-header"
     $badHeaderPath = Join-Path $badHeaderFixture "src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png"
     [System.IO.File]::WriteAllBytes($badHeaderPath, [byte[]]@(1, 2, 3, 4))

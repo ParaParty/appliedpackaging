@@ -201,12 +201,12 @@ GameTest/客户端验证
   水平朝向 blockstate
   方块掉落表
   Package Assembler GUI/Menu
-  9 格输入缓冲 + 1 格样板槽 + 1 格输出槽 + 1 格容量槽
-  shift-click 样板进样板槽，AE2 容量元件进容量槽，其它物品进入输入缓冲
+  9 格 legacy 输入缓冲 + 68 格 GUI 真实输入缓冲（17 行 x 4 列）+ 1 格样板槽 + 17 格输出槽 + 1 格容量槽
+  shift-click 样板进样板槽，AE2 容量元件进容量槽，其它物品进入 GUI 真实输入缓冲
   输入缓冲自动封装为 Fluix 包裹
   输入合法包裹展开后再封装
   容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
-  输出非空时阻挡且不消耗输入
+  全部输出槽阻挡时不消耗输入
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
   已编码 package_pattern 走 exact package plan，可重封装大于默认容量的源包裹
   已编码 package_pattern 不消耗，可重复作为本地装配计划
@@ -216,14 +216,14 @@ GameTest/客户端验证
   Pattern Provider pushPattern 可把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
   空样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
   本地自由封装、普通 Pattern Provider pushPattern、彩色 Pattern Provider pushPattern 均使用容量槽档位
-  pushPattern 在输出阻挡、输入缓冲非空、非物品 AEKey 或规划失败时整批拒绝且不消耗输入
+  pushPattern 在输出阻挡、输入缓冲非空或规划失败时整批拒绝且不消耗输入；本地样板槽兼容路径遇到无法转成 ItemStack 的 AEKey 时同样拒绝
   ColoredProcessingPatternDataStorage 可在 AE2 encoded processing pattern 上保存输入槽颜色元数据
   彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
   彩色 Pattern Provider pushPattern 支持流体 AEKey 输入
   同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
-  彩色 pushPattern 产生多个包裹时通过 pending queue 顺序输出并持久化保存
-  装配室输出自动导出默认开启，可通过 GUI 图标按钮切换并持久化保存
-  装配室 server tick 会把输出槽包裹优先导出到背面 AE2 MEStorage，其次回落到背面 Forge item handler
+  彩色 pushPattern 产生多个包裹时优先写入 17 格输出槽，超过可用输出槽的余量通过 pending queue 顺序输出并持久化保存
+  装配室输出自动导出默认开启，可通过 GUI 左侧 AE2 toolbar 图标切换并持久化保存
+  装配室 server tick 会遍历全部输出槽，把包裹优先导出到背面 AE2 MEStorage，其次回落到背面 Forge item handler
   自动导出失败时保留输出槽包裹，不丢弃、不继续消耗新输入
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler GameTest smoke
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler 彩色处理样板 GameTest smoke

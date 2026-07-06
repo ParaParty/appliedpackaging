@@ -52,7 +52,10 @@ public final class AppliedPackagingClient {
                     APMenus.ME_PACKAGER.get(),
                     MePackagerScreen::new,
                     "/screens/appliedpackaging/me_packager.json");
-            MenuScreens.register(APMenus.PACKAGE_ASSEMBLER.get(), PackageAssemblerScreen::new);
+            InitScreens.register(
+                    APMenus.PACKAGE_ASSEMBLER.get(),
+                    PackageAssemblerScreen::new,
+                    "/screens/appliedpackaging/package_assembler.json");
             MenuScreens.register(APMenus.PACKAGE_PATTERN_TERMINAL.get(), PackagePatternTerminalScreen::new);
             MenuScreens.register(APMenus.PACKAGE_BUS.get(), PackageBusScreen::new);
             ItemBlockRenderTypes.setRenderLayer(APBlocks.ME_PACKAGER.get(), RenderType.cutoutMipped());

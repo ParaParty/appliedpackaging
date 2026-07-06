@@ -140,8 +140,8 @@ gametest
 ```text
 AE2 Pattern Provider
 -> adjacent ICraftingMachine.pushPattern(...)
--> PackageAssembler converts item KeyCounter inputs into a local package plan
--> output slot simulateInsert(package)
+-> PackageAssembler converts KeyCounter inputs into one or more package plans
+-> 17 output slots simulateInsert(package), overflow only if no slot can accept more packages
 -> input holder all-or-nothing consume
 -> output slot insert(package)
 -> optional AE network insert

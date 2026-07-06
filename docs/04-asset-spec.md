@@ -174,6 +174,8 @@ Fluix 紫蓝高亮
 彩色小灯表示包裹颜色
 ME Packager GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 assets/ae2/screens/appliedpackaging/me_packager.json，背景贴图放在 assets/appliedpackaging/textures/gui/mepackager.png。
 ME Packager 过滤区背景只绘制基础启用行；容量卡解锁的可选行按 AE2 高版本 slot background 效果由代码渲染，禁用状态使用新版 0.2 alpha，不把全部 slot 烘进背景图。
+ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。上半部分的名称输入、颜色 swatch、marker 槽和右上容量元件槽按原图坐标接入与 ME Packager 一致的逻辑；自动导出等配置开关走 AE2 左侧悬浮 toolbar；右侧升级区走 AE2 `UpgradesPanel`。
+ME Package Assembler 的下半部分为输入/输出同步滚动区与下半区样板槽；可见窗口为左侧 4x4 输入格和右侧 4 个输出格。滚动条位于输入栏左侧，参考 AE2 样板终端 processing 模式的小滚动条；滚动输入/输出槽背景由客户端按 AE2 slot background 风格绘制，不烘进 atlas；atlas 提供面板、标题区、下半区样板槽、容量槽、marker 槽、左侧滚动条轨道、滚动槽容器和玩家背包区域。
 ```
 
 ## 7. 资源验收
@@ -222,7 +224,7 @@ scripts/test-assets-audit.ps1
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
-当前发布资源 PNG 和 package_box 模型门禁由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，Create-style 临时打包机细节贴图可为 16x16，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；普通不透明 block/part 模型还会检查不得声明 render_type。
+当前发布资源 PNG 和 package_box 模型门禁由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，Create-style 临时打包机细节贴图可为 16x16，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager 与 ME Package Assembler GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；普通不透明 block/part 模型还会检查不得声明 render_type。
 
 ## 9. 当前资产交付状态
 
@@ -232,7 +234,7 @@ scripts/test-assets-audit.ps1
 17 个包裹 item 已切换为 10x10x8 3D package_box 模型和 package_box_pixel_v7 的 85 张六面贴图；包裹掉落实体共用该 item model
 package_pattern 与 packaged_processing_pattern 仍使用 32x32 item 图标
 ME Packager 临时切换为 Create Packager 同款模型/贴图资源
-ME 包裹装配室仍使用 32x32 block textures/blockstate/block model/item model
+ME 包裹装配室仍使用 32x32 block textures/blockstate/block model/item model，并新增 256x256 GUI atlas `textures/gui/mepackageassembler.png`
 包裹样板终端、包裹存储总线、包裹输出总线、包裹拆包总线 32x32 textures/model
 Package Pattern Terminal 玩家入口使用 AE2 cable part item，并已交付自有 16x16 part body/front/back/sides/overlay mask 材质与 part model
 14 个 16x16 GUI 图标
@@ -255,8 +257,8 @@ docs/assets/reports/*.md
 
 ```text
 5 个 asset contract 均 validate ok
-60 个 PNG 尺寸符合预期
-scripts/verify-assets.ps1 通过，确认必需 PNG 存在、路径归类正确、PNG header 有效、RGBA 类型、可见非占位像素内容和尺寸符合规格
+143 个 PNG 尺寸符合预期
+scripts/verify-assets.ps1 通过，确认必需 PNG 存在、路径归类正确、PNG header 有效、RGBA 类型、可见非占位像素内容和尺寸符合规格，并覆盖 ME Package Assembler GUI atlas
 70 个 JSON 可解析
 block model 坐标保持在 0..16
 texture/model 引用存在

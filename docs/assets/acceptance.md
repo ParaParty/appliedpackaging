@@ -121,4 +121,4 @@ GUI 元素无错位
 日志无资源加载错误
 ```
 
-`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知资源路径、RGBA PNG header 和尺寸：普通 item/block 为 32x32，包裹盒体 face 为 10x8 或 10x10，临时 Create-style packager detail 可为 16x16，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128；同时检查 17 色 package_box 模型仍为 v7 的 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override，且 faces 声明 full-face uv [0,0,16,16]；普通不透明 block/part 模型不得声明 render_type。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。
+`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知资源路径、RGBA PNG header 和尺寸：普通 item/block 为 32x32，包裹盒体 face 为 10x8 或 10x10，临时 Create-style packager detail 可为 16x16，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128，ME Packager 与 ME Package Assembler GUI atlas 为 256x256；同时检查 17 色 package_box 模型仍为 v7 的 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override，且 faces 声明 full-face uv [0,0,16,16]；普通不透明 block/part 模型不得声明 render_type。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。

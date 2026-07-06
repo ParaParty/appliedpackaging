@@ -1,14 +1,20 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
+import appeng.menu.SlotSemantic;
+import appeng.menu.SlotSemantics;
+import appeng.menu.guisync.GuiSync;
+import appeng.menu.implementations.UpgradeableMenu;
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
@@ -16,25 +22,55 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
 
-public class PackageAssemblerMenu extends AbstractContainerMenu {
+public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockEntity> {
     public static final int BUTTON_AUTO_EXPORT = 0;
+    public static final int BUTTON_SCROLL_BASE = 100;
+    private static final String ACTION_TOGGLE_AUTO_EXPORT = "toggleAutoExport";
+    private static final String ACTION_SET_COLOR = "setColor";
+    private static final String ACTION_SET_NAME = "setName";
 
-    private static final int MACHINE_SLOT_COUNT = 12;
-    private static final int PLAYER_INVENTORY_START = MACHINE_SLOT_COUNT;
-    private static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
-    private static final int HOTBAR_END = PLAYER_INVENTORY_END + 9;
+    public static final int SCROLLED_ROW_COUNT = PackageAssemblerBlockEntity.OUTPUT_SLOT_COUNT;
+    public static final int VISIBLE_ROWS = 4;
+    public static final int VISIBLE_INPUT_COLUMNS = PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS;
+    public static final int VISIBLE_INPUT_COUNT = VISIBLE_ROWS * VISIBLE_INPUT_COLUMNS;
+    public static final int MENU_INPUT_START = 0;
+    public static final int MENU_INPUT_END = MENU_INPUT_START + VISIBLE_INPUT_COUNT;
+    public static final int PATTERN_SLOT = MENU_INPUT_END;
+    public static final int CAPACITY_SLOT = PATTERN_SLOT + 1;
+    public static final int MARKER_SLOT = CAPACITY_SLOT + 1;
+    public static final int OUTPUT_START = MARKER_SLOT + 1;
+    public static final int OUTPUT_END = OUTPUT_START + VISIBLE_ROWS;
+    public static final int HOTBAR_START = OUTPUT_END;
+    public static final int HOTBAR_END = HOTBAR_START + Inventory.getSelectionSize();
+    public static final int PLAYER_INVENTORY_START = HOTBAR_END;
+    public static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
 
-    private final PackageAssemblerBlockEntity blockEntity;
+    public static final int SCROLLED_SLOT_Y = 67;
+    public static final int SLOT_STEP = 18;
+
+    private static final SlotSemantic[] MENU_INPUT_ROW_SEMANTICS = {
+            SlotSemantics.PROCESSING_INPUTS,
+            SlotSemantics.MACHINE_CRAFTING_GRID,
+            SlotSemantics.CRAFTING_GRID,
+            SlotSemantics.CONFIG
+    };
+
     private final ContainerLevelAccess access;
     private final DataSlot autoExportSlot;
+    @GuiSync(10)
+    public PackageColor selectedColor = PackageColor.FLUIX;
+    @GuiSync(11)
+    public String packageName = "";
+    private int[] menuInputSlotIndexes;
+    private int[] outputSlotIndexes;
+    private int scrollOffset;
 
     public PackageAssemblerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
     }
 
     public PackageAssemblerMenu(int containerId, Inventory playerInventory, PackageAssemblerBlockEntity blockEntity) {
-        super(APMenus.PACKAGE_ASSEMBLER.get(), containerId);
-        this.blockEntity = blockEntity;
+        super(APMenus.PACKAGE_ASSEMBLER.get(), containerId, playerInventory, blockEntity);
         this.access = ContainerLevelAccess.create(blockEntity.getLevel(), blockEntity.getBlockPos());
         this.autoExportSlot = new DataSlot() {
             @Override
@@ -48,31 +84,76 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
             }
         };
 
-        addInputSlots();
-        addSlot(new SlotItemHandler(blockEntity.getItems(), PackageAssemblerBlockEntity.SLOT_PATTERN, 116, 24));
-        addSlot(new OutputSlot(blockEntity, 144, 24));
-        addSlot(new SlotItemHandler(blockEntity.getItems(), PackageAssemblerBlockEntity.SLOT_CAPACITY, 116, 52));
-        addPlayerInventory(playerInventory);
+        registerClientAction(ACTION_TOGGLE_AUTO_EXPORT, this::toggleAutoExport);
+        registerClientAction(ACTION_SET_COLOR, PackageColor.class, this::setSelectedColor);
+        registerClientAction(ACTION_SET_NAME, String.class, this::setPackageName);
         addDataSlot(autoExportSlot);
     }
 
     @Override
+    protected void setupInventorySlots() {
+        menuInputSlotIndexes = new int[VISIBLE_INPUT_COUNT];
+        outputSlotIndexes = new int[VISIBLE_ROWS];
+
+        for (int row = 0; row < VISIBLE_ROWS; row++) {
+            for (int column = 0; column < VISIBLE_INPUT_COLUMNS; column++) {
+                int visibleIndex = column + row * VISIBLE_INPUT_COLUMNS;
+                Slot slot = addSlot(new MenuInputDisplaySlot(visibleIndex), MENU_INPUT_ROW_SEMANTICS[row]);
+                menuInputSlotIndexes[visibleIndex] = slot.index;
+            }
+        }
+
+        addSlot(
+                new SlotItemHandler(getHost().getItems(), PackageAssemblerBlockEntity.SLOT_PATTERN, 0, 0),
+                SlotSemantics.ENCODED_PATTERN);
+        addSlot(
+                new SlotItemHandler(getHost().getItems(), PackageAssemblerBlockEntity.SLOT_CAPACITY, 0, 0),
+                SlotSemantics.STORAGE_CELL);
+        addSlot(
+                new SlotItemHandler(getHost().getItems(), PackageAssemblerBlockEntity.SLOT_MARKER, 0, 0),
+                SlotSemantics.BLANK_PATTERN);
+
+        for (int row = 0; row < VISIBLE_ROWS; row++) {
+            Slot slot = addSlot(new DynamicOutputSlot(row), SlotSemantics.PROCESSING_OUTPUTS);
+            outputSlotIndexes[row] = slot.index;
+        }
+    }
+
+    @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (id >= BUTTON_SCROLL_BASE && id <= BUTTON_SCROLL_BASE + maxScrollOffset()) {
+            setScrollOffset(id - BUTTON_SCROLL_BASE);
+            return true;
+        }
         if (id != BUTTON_AUTO_EXPORT) {
             return false;
         }
         if (!player.level().isClientSide) {
-            blockEntity.toggleAutoExport();
+            toggleAutoExport();
         }
         return true;
     }
 
-    public boolean autoExport() {
-        return autoExportSlot.get() != 0;
+    @Override
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        int visibleIndex = visibleIndexForMenuSlot(slotId);
+        if (visibleIndex >= 0) {
+            clickMenuInput(inputSlotForVisibleIndex(visibleIndex), button, clickType, player);
+            return;
+        }
+        super.clicked(slotId, button, clickType, player);
     }
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
+        if (index < 0 || index >= slots.size()) {
+            return ItemStack.EMPTY;
+        }
+        int visibleIndex = visibleIndexForMenuSlot(index);
+        if (visibleIndex >= 0) {
+            return quickMoveMenuInput(inputSlotForVisibleIndex(visibleIndex));
+        }
+
         Slot slot = slots.get(index);
         if (!slot.hasItem()) {
             return ItemStack.EMPTY;
@@ -80,34 +161,24 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
 
         ItemStack source = slot.getItem();
         ItemStack copy = source.copy();
-        if (index < MACHINE_SLOT_COUNT) {
-            if (!moveItemStackTo(source, PLAYER_INVENTORY_START, HOTBAR_END, true)) {
+        if (!isPlayerInventorySlot(slot)) {
+            if (!moveItemStackToPlayerInventory(source)) {
                 return ItemStack.EMPTY;
             }
         } else if (PackageAssemblerBlockEntity.isPatternSlotItem(source)) {
-            if (!moveItemStackTo(
-                    source,
-                    PackageAssemblerBlockEntity.SLOT_PATTERN,
-                    PackageAssemblerBlockEntity.SLOT_PATTERN + 1,
-                    false)) {
+            if (!moveItemStackTo(source, PATTERN_SLOT, PATTERN_SLOT + 1, false)) {
                 return ItemStack.EMPTY;
             }
         } else if (MePackagerBlockEntity.capacityProfileFromItem(source).isPresent()) {
-            if (!moveItemStackTo(
-                    source,
-                    PackageAssemblerBlockEntity.SLOT_CAPACITY,
-                    PackageAssemblerBlockEntity.SLOT_CAPACITY + 1,
-                    false)) {
+            if (!moveItemStackTo(source, CAPACITY_SLOT, CAPACITY_SLOT + 1, false)) {
                 return ItemStack.EMPTY;
             }
-        } else if (!moveItemStackTo(source, 0, PackageAssemblerBlockEntity.INPUT_SLOT_COUNT, false)) {
-            if (index < PLAYER_INVENTORY_END) {
-                if (!moveItemStackTo(source, PLAYER_INVENTORY_END, HOTBAR_END, false)) {
-                    return ItemStack.EMPTY;
-                }
-            } else if (!moveItemStackTo(source, PLAYER_INVENTORY_START, PLAYER_INVENTORY_END, false)) {
+        } else {
+            int inserted = getHost().insertMenuInput(-1, source, source.getCount(), false);
+            if (inserted <= 0) {
                 return ItemStack.EMPTY;
             }
+            source.shrink(inserted);
         }
 
         if (source.isEmpty()) {
@@ -123,23 +194,177 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
         return stillValid(access, player, APBlocks.PACKAGE_ASSEMBLER.get());
     }
 
-    private void addInputSlots() {
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 3; column++) {
-                addSlot(new SlotItemHandler(blockEntity.getItems(), column + row * 3, 26 + column * 18, 18 + row * 18));
-            }
+    @Override
+    public void broadcastChanges() {
+        if (isServerSide()) {
+            selectedColor = getHost().selectedColor();
+            packageName = getHost().packageName();
         }
+        super.broadcastChanges();
     }
 
-    private void addPlayerInventory(Inventory playerInventory) {
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 9; column++) {
-                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 107 + row * 18));
+    public boolean autoExport() {
+        return autoExportSlot.get() != 0;
+    }
+
+    public void toggleAutoExport() {
+        if (isClientSide()) {
+            sendClientAction(ACTION_TOGGLE_AUTO_EXPORT);
+            return;
+        }
+
+        getHost().toggleAutoExport();
+        broadcastChanges();
+    }
+
+    public void setSelectedColor(PackageColor color) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_COLOR, color);
+            return;
+        }
+
+        getHost().setSelectedColor(color);
+        selectedColor = getHost().selectedColor();
+        broadcastChanges();
+    }
+
+    public void setPackageName(String name) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_NAME, name);
+            return;
+        }
+
+        getHost().setPackageName(name);
+        packageName = getHost().packageName();
+        broadcastChanges();
+    }
+
+    public PackageColor selectedColor() {
+        return selectedColor == null ? PackageColor.FLUIX : selectedColor;
+    }
+
+    public String packageName() {
+        return packageName == null ? "" : packageName;
+    }
+
+    public int scrollOffset() {
+        return scrollOffset;
+    }
+
+    public int maxScrollOffset() {
+        return Math.max(0, SCROLLED_ROW_COUNT - VISIBLE_ROWS);
+    }
+
+    public void setScrollOffset(int scrollOffset) {
+        this.scrollOffset = Math.max(0, Math.min(scrollOffset, maxScrollOffset()));
+    }
+
+    public int inputSlotForVisibleIndex(int visibleIndex) {
+        return scrollOffset * VISIBLE_INPUT_COLUMNS + visibleIndex;
+    }
+
+    public int outputSlotForVisibleRow(int visibleRow) {
+        return scrollOffset + visibleRow;
+    }
+
+    public int menuInputMenuSlotIndex(int visibleIndex) {
+        if (visibleIndex < 0 || visibleIndex >= VISIBLE_INPUT_COUNT) {
+            throw new IndexOutOfBoundsException(visibleIndex);
+        }
+        return menuInputSlotIndexes[visibleIndex];
+    }
+
+    public int outputMenuSlotIndex(int visibleRow) {
+        if (visibleRow < 0 || visibleRow >= VISIBLE_ROWS) {
+            throw new IndexOutOfBoundsException(visibleRow);
+        }
+        return outputSlotIndexes[visibleRow];
+    }
+
+    public int hotbarMenuSlotIndex(int hotbarSlot) {
+        return getSlots(SlotSemantics.PLAYER_HOTBAR).get(hotbarSlot).index;
+    }
+
+    public ItemStack inputFilterDisplay(int slot) {
+        return getHost().menuInputFilterDisplay(slot);
+    }
+
+    private void clickMenuInput(int inputSlot, int button, ClickType clickType, Player player) {
+        if (player.level().isClientSide) {
+            return;
+        }
+        if (clickType == ClickType.QUICK_MOVE) {
+            quickMoveMenuInput(inputSlot);
+            broadcastChanges();
+            return;
+        }
+        if (clickType != ClickType.PICKUP) {
+            return;
+        }
+
+        ItemStack carried = getCarried();
+        if (carried.isEmpty()) {
+            int amount = button == 1 ? 1 : carriedStackLimit(inputSlot);
+            setCarried(getHost().extractMenuInput(inputSlot, amount, false));
+        } else {
+            int requested = button == 1 ? 1 : carried.getCount();
+            int inserted = getHost().insertMenuInput(inputSlot, carried, requested, false);
+            if (inserted > 0) {
+                carried.shrink(inserted);
+                setCarried(carried);
             }
         }
-        for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(playerInventory, column, 8 + column * 18, 165));
+        broadcastChanges();
+    }
+
+    private int carriedStackLimit(int inputSlot) {
+        ItemStack stack = getHost().menuInputDisplay(inputSlot);
+        return stack.isEmpty() ? 64 : stack.getMaxStackSize();
+    }
+
+    private ItemStack quickMoveMenuInput(int inputSlot) {
+        ItemStack extracted = getHost().extractMenuInput(inputSlot, carriedStackLimit(inputSlot), true);
+        if (extracted.isEmpty()) {
+            return ItemStack.EMPTY;
         }
+        ItemStack remaining = extracted.copy();
+        if (!moveItemStackToPlayerInventory(remaining)) {
+            return ItemStack.EMPTY;
+        }
+        int moved = extracted.getCount() - remaining.getCount();
+        if (moved <= 0) {
+            return ItemStack.EMPTY;
+        }
+        getHost().extractMenuInput(inputSlot, moved, false);
+        return extracted;
+    }
+
+    private int visibleIndexForMenuSlot(int slotId) {
+        for (int index = 0; index < menuInputSlotIndexes.length; index++) {
+            if (menuInputSlotIndexes[index] == slotId) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private boolean moveItemStackToPlayerInventory(ItemStack source) {
+        int start = Integer.MAX_VALUE;
+        int end = -1;
+        for (Slot slot : getSlots(SlotSemantics.PLAYER_HOTBAR)) {
+            start = Math.min(start, slot.index);
+            end = Math.max(end, slot.index + 1);
+        }
+        for (Slot slot : getSlots(SlotSemantics.PLAYER_INVENTORY)) {
+            start = Math.min(start, slot.index);
+            end = Math.max(end, slot.index + 1);
+        }
+        return start <= end && moveItemStackTo(source, start, end, true);
+    }
+
+    private boolean isPlayerInventorySlot(Slot slot) {
+        return getSlotSemantic(slot) == SlotSemantics.PLAYER_INVENTORY
+                || getSlotSemantic(slot) == SlotSemantics.PLAYER_HOTBAR;
     }
 
     private static PackageAssemblerBlockEntity getBlockEntity(Inventory inventory, BlockPos pos) {
@@ -150,14 +375,85 @@ public class PackageAssemblerMenu extends AbstractContainerMenu {
         throw new IllegalStateException("Expected Package Assembler block entity at " + pos);
     }
 
-    private static final class OutputSlot extends SlotItemHandler {
-        private OutputSlot(PackageAssemblerBlockEntity blockEntity, int x, int y) {
-            super(blockEntity.getItems(), PackageAssemblerBlockEntity.SLOT_OUTPUT, x, y);
+    private final class MenuInputDisplaySlot extends Slot {
+        private final int visibleIndex;
+
+        private MenuInputDisplaySlot(int visibleIndex) {
+            super(new SimpleContainer(1), 0, 0, 0);
+            this.visibleIndex = visibleIndex;
+        }
+
+        @Override
+        public ItemStack getItem() {
+            return getHost().menuInputDisplay(inputSlotForVisibleIndex(visibleIndex));
+        }
+
+        @Override
+        public boolean hasItem() {
+            return !getItem().isEmpty();
+        }
+
+        @Override
+        public ItemStack remove(int amount) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public void set(ItemStack stack) {
         }
 
         @Override
         public boolean mayPlace(ItemStack stack) {
             return false;
+        }
+
+        @Override
+        public boolean mayPickup(Player player) {
+            return false;
+        }
+
+        @Override
+        public void setChanged() {
+        }
+    }
+
+    private final class DynamicOutputSlot extends Slot {
+        private DynamicOutputSlot(int row) {
+            super(new SimpleContainer(1), row, 0, 0);
+        }
+
+        @Override
+        public ItemStack getItem() {
+            return getHost().getItems().getStackInSlot(handlerSlot());
+        }
+
+        @Override
+        public boolean hasItem() {
+            return !getItem().isEmpty();
+        }
+
+        @Override
+        public ItemStack remove(int amount) {
+            return getHost().getItems().extractItem(handlerSlot(), amount, false);
+        }
+
+        @Override
+        public void set(ItemStack stack) {
+            getHost().getItems().setStackInSlot(handlerSlot(), stack);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return false;
+        }
+
+        @Override
+        public void setChanged() {
+            getHost().setChanged();
+        }
+
+        private int handlerSlot() {
+            return PackageAssemblerBlockEntity.outputHandlerSlot(outputSlotForVisibleRow(getSlotIndex()));
         }
     }
 }

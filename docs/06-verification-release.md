@@ -58,6 +58,7 @@ item handler 拆包可完整插入目标
 装配室可使用已编码 package_pattern 重封装大于默认容量的源包裹
 装配室可用容量槽重封装超过默认容量的源包裹
 装配室可使用 packaged_processing_pattern 逐包生成有序处理包裹
+装配室可在不清空首个输出槽时使用额外输出槽生成后续处理包裹
 装配室可接受 AE2 Pattern Provider pushPattern 的物品输入
 装配室可接受 AE2 Pattern Provider pushPattern 的流体输入
 装配室普通 Pattern Provider pushPattern 可用容量槽承载超过 9 个物品栈的输入
@@ -66,13 +67,15 @@ item handler 拆包可完整插入目标
 装配室彩色 pushPattern 在同 AEKey 被输入持有者汇总时仍按 sparse input 槽位拆分
 装配室彩色 Pattern Provider pushPattern 可用容量槽承载超过默认容量的输入
 装配室彩色 Pattern Provider pushPattern 可封装流体 AEKey 输入
-装配室彩色 pushPattern 可通过 pending queue 在输出槽清空后继续输出后续包裹
+装配室彩色 pushPattern 可把多个输出优先写入 17 格输出栏，并在输出栏满时才使用 pending queue
 装配室可读取 AE2 encoded processing pattern 承载的 packaged_processing_pattern NBT 并按 packages[] 逐包输出
 装配室可读取带流体包裹内容的 packaged_processing_pattern NBT 并按 packages[] 逐包输出
 装配室输出阻挡时拒绝 Pattern Provider pushPattern 且不消耗输入
 装配室本地样板槽兼容路径仍拒绝无法转入 9 格物品缓冲的非物品输入且不消耗输入
-装配室可把旧 11 槽库存 NBT 迁移为当前 12 槽库存并补空容量槽
+装配室可把旧 11 槽库存 NBT 迁移为当前 28 槽库存并补空容量槽与新增输出槽
 装配室自动导出开关默认开启，可通过菜单按钮切换并同步到 menu state
+装配室 GUI 可见窗口为 4x4 输入格和 4 个输出格，滚动时输入/输出行同步映射
+装配室 GUI 真实输入缓冲可按 package_pattern 过滤材料并累计超过普通 stack size 的数量
 装配室自动导出设置可保存/读取
 装配室 server tick 可把输出包裹导出到相邻 Forge item handler
 真实 AE2 Interface 网络可接收装配室自动导出的包裹物品
@@ -159,11 +162,12 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 反例确认 ME Packager 无 MEStorage 时不回落、不消耗流体槽
-当前最新执行：.\gradlew.bat runGameTestServer --stacktrace 成功，130 个必需 GameTest 全部通过。
+当前最新执行：2026-07-06 在 ME Package Assembler 接入 AE2 `UpgradeableMenu` 后改为按 AE2 实际 slot index / slot semantic 处理滚动槽和玩家背包，执行 `.\gradlew.bat runGameTestServer` 成功，133 个必需 GameTest 全部通过。
 2026-07-03 06:15 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:27 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:40 在发布 jar 排除 dev verification classes 后再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-04 06:19 在 Package Pattern Terminal Split 输出收敛到 AE2 blank_pattern carrier 后再次执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，112 个必需 GameTest 全部通过。
+2026-07-06 首次复跑 `.\gradlew.bat runGameTestServer` 暴露 `packageAssemblerMenuInputUsesPatternFilterAndLargeAmount` 失败，原因是 AE2 `UpgradeableMenu` 玩家槽顺序为 hotbar 优先，旧 `HOTBAR_START` 常量仍按主背包优先顺序计算；修正菜单为按 AE2 实际 slot index / `SlotSemantics.PLAYER_HOTBAR` / `SlotSemantics.PLAYER_INVENTORY` 处理后复跑通过。
 ```
 
 1.20.1 运行要求：
@@ -206,7 +210,7 @@ language key 完整
 PNG/JSON/model 引用机械检查通过
 资源抽样视觉检查通过
 已按 AE2 forge/v15.4.10 源码资产生成参考 sheet，并基于参考完成二轮材质重做
-60 个 PNG 尺寸/模式/模型引用检查通过
+143 个 PNG 尺寸/模式/模型引用检查通过
 55 个 JSON 可解析
 .\gradlew.bat runData 成功
 2026-07-03 05:35 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容
@@ -216,6 +220,7 @@ PNG/JSON/model 引用机械检查通过
 2026-07-03 06:26 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 2026-07-03 06:27 资源审计通过：60 个 PNG 非空，55 个 JSON 可解析；Package Pattern Terminal part 新增 8 个 16x16 RGBA PNG 和 1 个 base part model。
 2026-07-03 06:42 再次执行 .\gradlew.bat runData 成功，未写出新的 generated resources 内容。
+2026-07-06 资源审计通过：143 个 PNG 通过必需文件、RGBA、尺寸、可见非占位像素和模型门禁；ME Package Assembler GUI atlas 纳入 256x256 必需 PNG。
 ```
 
 ## 4. 构建验证
@@ -301,7 +306,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-docs-audit.ps1` 使用临时文档 fixture 调用 `verify-docs.ps1 -RootPath`，覆盖有效 fixture、缺少必需文档路径、正式文档未清理占位和本地 Markdown 断链四种路径。该脚本只写入系统临时目录，不修改正式设计文档。
 
-`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，像素内容不是全透明或整张单一 RGBA 占位图，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128、ME Packager GUI atlas 为 256x256。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
+`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，像素内容不是全透明或整张单一 RGBA 占位图，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128、ME Packager 与 ME Package Assembler GUI atlas 为 256x256。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
 
 `scripts/test-assets-audit.ps1` 使用临时资源 fixture 调用 `verify-assets.ps1 -RootPath`，覆盖有效资产 fixture、item 贴图尺寸错误、PNG header 损坏、全透明 PNG、单一 RGBA 占位 PNG 和必需 PNG 缺失六种路径。该脚本只写入系统临时目录，不修改正式资源或发布产物。
 
@@ -481,6 +486,19 @@ run/logs/latest.log 未发现 ERROR、FATAL、Missing model、Unable to load mod
 
 2026-07-06 在 ME Packager GUI 工作进度条和菜单 shift-click 输入修正后，再次执行 .\gradlew.bat runClientSmoke --stacktrace 成功。
 本次 smoke 先发现 ME Packager 连接面世界截图用的 AE2 cable 覆盖了 Package Assembler smoke 目标，已将该开发截图连接面移动到不覆盖 6 个菜单目标的位置；复跑后生成 world-me_packager、world-me_packager_link、world-all_machines 和 6 张真实菜单截图并正常退出客户端。
+
+2026-07-06 在 ME Package Assembler GUI 改为 256x256 atlas、4x4 输入格 + 4 输出格同步滚动窗口和真实 menu input buffer 后，执行 .\gradlew.bat runClientSmoke 成功。
+本次 smoke 生成 world-me_packager、world-me_packager_link、world-all_machines 和 6 张真实菜单截图并正常退出客户端；人工抽看 Package Assembler 截图，确认新背景、滚动条、样板槽、容量槽、自动导出开关和左右输入/输出区域正常显示。
+
+2026-07-06 在 ME Package Assembler GUI 从独立 `AbstractContainerScreen` 修正为 AE2 `UpgradeableScreen` + `ScreenStyle`，并由客户端按 AE2 slot background 绘制滚动输入/输出槽背景后，执行 .\gradlew.bat compileJava 成功。
+随后执行 .\gradlew.bat runClientSmoke 成功；人工查看 `run/screenshots/appliedpackaging-client-smoke-package_assembler.png`，确认 4x4 输入格、4 个输出格、滚动条、样板槽、容量槽和左侧 toolbar auto-export 开关可见。
+run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON` 扫描无命中。
+
+2026-07-06 在 auto-export 从主面板普通 widget 改为 AE2 左侧 toolbar `IconButton`，并将滚动槽渲染改为读取菜单实际 slot index 后，再次执行 .\gradlew.bat runClientSmoke 成功。
+人工查看 `run/screenshots/appliedpackaging-client-smoke-package_assembler.png`，确认主面板内无额外按钮，auto-export 位于左侧 AE2 toolbar，右侧没有自造升级控件；run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON` 扫描无命中。
+
+2026-07-06 纠正 ME Package Assembler GUI 处理方式：恢复用户提供的 `mepackageassembler.png` 原始 256x256 atlas，ScreenStyle 使用主界面 `srcRect` 176x239，并按原图像素对齐名称输入、颜色 swatch、marker 槽、容量元件槽、4x4 输入格、4 输出格、玩家物品栏和 hotbar；配置按钮保持 AE2 左侧 toolbar，右侧升级使用 AE2 `UpgradesPanel`。
+本次同时补齐装配室 packageName、selectedColor、marker 槽、真实 upgrade inventory 与 `Upgrades.add` 注册；执行 .\gradlew.bat compileJava 成功，执行 .\gradlew.bat runGameTestServer 成功，134 个必需 GameTest 全部通过；执行 .\gradlew.bat runClientSmoke 成功，人工查看 `run/screenshots/appliedpackaging-client-smoke-package_assembler.png`，确认 GUI 使用原图布局、滚动条位于输入栏左侧、左侧仅显示 AE toolbar 配置按钮、右侧显示 AE2 升级面板。
 ```
 
 ## 6. Dedicated Server 验证
@@ -566,7 +584,7 @@ R2 无正常空包裹玩法：已满足，空包裹不进玩家配方/创造栏�
 R3 相同包裹才可堆叠：已满足，canonical hash 和规范化 NBT GameTest 覆盖。
 R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack，item、fluid 和 MEStorage 路径已覆盖。
 R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
-R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、pending queue、阻挡和自动导出均已覆盖。
+R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、4x4 输入与 4 输出可见窗口、17 格输出栏、pending queue、阻挡和自动导出均已覆盖。
 R7 ME 打包机：已满足，相邻 item/fluid/AE2 storage 端点、红石模式、容量、过滤、marker 和拆包事务均已覆盖。
 R8 包裹样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host 均已覆盖。
 R9 包裹总线：已满足，Storage/Export/Unpacking Bus 仅处理合法包裹，不暴露内部散装内容。
