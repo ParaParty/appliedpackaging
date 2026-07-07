@@ -15,7 +15,6 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
 public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMenu> {
@@ -39,11 +38,13 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
     private static final int SCROLLBAR_TRACK = 0xff8b93a6;
     private static final int SCROLLBAR_THUMB = 0xff4a5058;
     private static final int SCROLLBAR_HIGHLIGHT = 0xffd6dbde;
-    private static final int GHOST_OVERLAY = 0x88c7ccd5;
     private static final int SLOT_BACKGROUND_TOP = 0xff9a9fb4;
     private static final int SLOT_BACKGROUND_BODY = 0xffadb0c4;
+    private static final int SLOT_DISABLED_OVERLAY = 0x99c7ccd5;
+    private static final int SLOT_INVALID_OVERLAY = 0x55ff3333;
+    private static final int SLOT_INVALID_BORDER = 0xffff5555;
 
-    private final AutoExportToolbarButton autoExportButton;
+    private final OutputModeToolbarButton outputModeButton;
     private final AETextField packageNameField;
     private boolean colorPopupOpen;
     private boolean updatingNameField;
@@ -54,7 +55,7 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
             Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        autoExportButton = addToLeftToolbar(new AutoExportToolbarButton());
+        outputModeButton = addToLeftToolbar(new OutputModeToolbarButton());
 
         packageNameField = widgets.addTextField("packageName");
         packageNameField.setMaxLength(50);
@@ -79,7 +80,7 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
-        autoExportButton.setMessage(autoExportMessage());
+        outputModeButton.setMessage(outputModeMessage());
         if (!packageNameField.isFocused() && !packageNameField.getValue().equals(menu.packageName())) {
             updatingNameField = true;
             try {
@@ -94,8 +95,18 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
     public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
         renderScrolledSlotBackgrounds(graphics, offsetX, offsetY);
-        renderInputGhosts(graphics, offsetX, offsetY);
+        drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.ENCODED_PATTERN, Icon.BACKGROUND_ENCODED_PATTERN);
         drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.STORAGE_CELL, Icon.BACKGROUND_STORAGE_COMPONENT);
+    }
+
+    @Override
+    public void renderSlot(GuiGraphics graphics, Slot slot) {
+        super.renderSlot(graphics, slot);
+        int inputSlot = menu.inputSlotForMenuSlotIndex(slot.index);
+        if (inputSlot >= 0 && slot.hasItem() && !menu.isInputSlotValid(inputSlot)) {
+            graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, SLOT_INVALID_OVERLAY);
+            graphics.renderOutline(slot.x - 1, slot.y - 1, 18, 18, SLOT_INVALID_BORDER);
+        }
     }
 
     @Override
@@ -183,39 +194,29 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
         return super.charTyped(codePoint, modifiers);
     }
 
-    private void renderInputGhosts(GuiGraphics graphics, int offsetX, int offsetY) {
-        for (int index = 0; index < PackageAssemblerMenu.VISIBLE_INPUT_COUNT; index++) {
-            int inputSlot = menu.inputSlotForVisibleIndex(index);
-            Slot slot = menu.getSlot(menu.menuInputMenuSlotIndex(index));
-            if (slot.hasItem()) {
-                continue;
-            }
-            ItemStack filter = menu.inputFilterDisplay(inputSlot);
-            if (filter.isEmpty()) {
-                continue;
-            }
-            int x = offsetX + slot.x;
-            int y = offsetY + slot.y;
-            graphics.renderFakeItem(filter, x, y);
-            graphics.fill(x, y, x + 16, y + 16, GHOST_OVERLAY);
-            renderAmountLabel(graphics, filter, x, y, 0xff4a5058);
-        }
-    }
-
     private void renderScrolledSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
         for (int index = 0; index < PackageAssemblerMenu.VISIBLE_INPUT_COUNT; index++) {
-            drawSlotBackground(graphics, offsetX, offsetY, menu.getSlot(menu.menuInputMenuSlotIndex(index)));
+            int inputSlot = menu.inputSlotForVisibleIndex(index);
+            drawSlotBackground(
+                    graphics,
+                    offsetX,
+                    offsetY,
+                    menu.getSlot(menu.menuInputMenuSlotIndex(index)),
+                    menu.isInputSlotEnabled(inputSlot));
         }
         for (int row = 0; row < PackageAssemblerMenu.VISIBLE_ROWS; row++) {
-            drawSlotBackground(graphics, offsetX, offsetY, menu.getSlot(menu.outputMenuSlotIndex(row)));
+            drawSlotBackground(graphics, offsetX, offsetY, menu.getSlot(menu.outputMenuSlotIndex(row)), true);
         }
     }
 
-    private void drawSlotBackground(GuiGraphics graphics, int offsetX, int offsetY, Slot slot) {
+    private void drawSlotBackground(GuiGraphics graphics, int offsetX, int offsetY, Slot slot, boolean enabled) {
         int x = offsetX + slot.x - 1;
         int y = offsetY + slot.y - 1;
         graphics.fill(x + 1, y + 1, x + 17, y + 2, SLOT_BACKGROUND_TOP);
         graphics.fill(x + 1, y + 2, x + 17, y + 17, SLOT_BACKGROUND_BODY);
+        if (!enabled) {
+            graphics.fill(x + 1, y + 1, x + 17, y + 17, SLOT_DISABLED_OVERLAY);
+        }
     }
 
     private void drawSlotIcon(GuiGraphics graphics, int offsetX, int offsetY, appeng.menu.SlotSemantic semantic, Icon icon) {
@@ -229,14 +230,6 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
                     .dest(offsetX + slot.x, offsetY + slot.y)
                     .blit(graphics);
         }
-    }
-
-    private void renderAmountLabel(GuiGraphics graphics, ItemStack stack, int x, int y, int color) {
-        if (stack.getCount() <= 1) {
-            return;
-        }
-        String label = formatAmount(stack.getCount());
-        graphics.drawString(font, label, x + 17 - font.width(label), y + 9, color, true);
     }
 
     private void renderScrollbar(GuiGraphics graphics) {
@@ -277,20 +270,10 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
                 && mouseY >= y && mouseY < y + SCROLLBAR_HEIGHT;
     }
 
-    private static String formatAmount(int amount) {
-        if (amount >= 1000 && amount % 1000 == 0) {
-            return (amount / 1000) + "B";
-        }
-        if (amount >= 10000) {
-            return (amount / 1000) + "k";
-        }
-        return Integer.toString(amount);
-    }
-
-    private Component autoExportMessage() {
+    private Component outputModeMessage() {
         return Component.translatable(
-                "gui.appliedpackaging.package_assembler.auto_export."
-                        + (menu.autoExport() ? "enabled" : "disabled"));
+                "gui.appliedpackaging.package_assembler.output_mode."
+                        + menu.outputMode().id());
     }
 
     private void renderColorPopup(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -351,15 +334,19 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
         return (PackageColor.values().length + COLOR_POPUP_COLUMNS - 1) / COLOR_POPUP_COLUMNS;
     }
 
-    private class AutoExportToolbarButton extends IconButton {
-        private AutoExportToolbarButton() {
-            super(button -> menu.toggleAutoExport());
-            setMessage(autoExportMessage());
+    private class OutputModeToolbarButton extends IconButton {
+        private OutputModeToolbarButton() {
+            super(button -> menu.cycleOutputMode());
+            setMessage(outputModeMessage());
         }
 
         @Override
         protected Icon getIcon() {
-            return menu.autoExport() ? Icon.AUTO_EXPORT_ON : Icon.AUTO_EXPORT_OFF;
+            return switch (menu.outputMode()) {
+                case ME_NETWORK -> Icon.AUTO_EXPORT_ON;
+                case ADJACENT_BLOCK -> Icon.ARROW_RIGHT;
+                case NONE -> Icon.AUTO_EXPORT_OFF;
+            };
         }
     }
 

@@ -39,7 +39,7 @@ GuideME: [20.1.7,20.2.0)
 ```text
 ME Package Assembler / ME 包裹装配室：
   类 AE2 Molecular Assembler。
-  接收 AE2 样板供应器推入的一批输入，按普通/彩色/封装处理样板生成包裹。
+  接收 AE2 样板供应器推入的一批输入，或按本地已编码样板锁定真实输入槽，消耗本机 AE 网络能量推进合成进度并生成包裹输出。
 
 ME Packager / ME 打包机：
   类 Create Packager。
@@ -140,11 +140,12 @@ gametest
 ```text
 AE2 Pattern Provider
 -> adjacent ICraftingMachine.pushPattern(...)
--> PackageAssembler converts KeyCounter inputs into one or more package plans
--> 17 output slots simulateInsert(package), overflow only if no slot can accept more packages
+-> PackageAssembler uses the pushed pattern as a temporary plan, Molecular Assembler style
+-> validate local assembler is empty, output slots are empty, and KeyCounter exactly satisfies the plan
 -> input holder all-or-nothing consume
--> output slot insert(package)
--> optional AE network insert
+-> assembler craft progress advances with speed cards
+-> output package(s) insert into local output slots in order
+-> output mode exports one package at a time to ME network, adjacent item handler, or leaves output local
 ```
 
 ME 打包机打包：

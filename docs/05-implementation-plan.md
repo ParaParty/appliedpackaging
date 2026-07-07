@@ -189,7 +189,7 @@ Pattern Provider 输入适配
 普通处理样板 -> 包裹
 彩色处理样板 -> 多包裹
 封装处理样板 -> package plan
-阻挡模式
+输出阻挡与输出模式
 GameTest/客户端验证
 ```
 
@@ -201,38 +201,41 @@ GameTest/客户端验证
   水平朝向 blockstate
   方块掉落表
   Package Assembler GUI/Menu
-  9 格 legacy 输入缓冲 + 68 格 GUI 真实输入缓冲（17 行 x 4 列）+ 1 格样板槽 + 17 格输出槽 + 1 格容量槽
-  shift-click 样板进样板槽，AE2 容量元件进容量槽，其它物品进入 GUI 真实输入缓冲
-  输入缓冲自动封装为 Fluix 包裹
+  9 格 legacy 输入缓冲 + 68 格 GUI 真实输入缓冲（17 行 x 4 列）+ 1 格样板槽 + 17 格输出槽 + 1 格容量槽 + 1 格 marker 槽 + 5 格 AE2 加速卡升级槽
+  shift-click 已编码样板进样板槽，AE2 容量元件进容量槽，其它物品只有在样板过滤允许时进入 GUI 真实输入缓冲
+  样板槽为空时拒绝本地输入和本地合成，不再自由封装
   输入合法包裹展开后再封装
   容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
-  全部输出槽阻挡时不消耗输入
+  任意输出槽非空时不启动新合成或新 Pattern Provider plan，不消耗输入
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
   已编码 package_pattern 走 exact package plan，可重封装大于默认容量的源包裹
   已编码 package_pattern 不消耗，可重复作为本地装配计划
   已编码 packaged_processing_pattern 保存有序多包裹计划
   package_assembler 可按 packaged_processing_pattern 逐包生成匹配包裹
   package_assembler 暴露 AE2 ICraftingMachine capability
-  Pattern Provider pushPattern 可把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
-  空样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
-  本地自由封装、普通 Pattern Provider pushPattern、彩色 Pattern Provider pushPattern 均使用容量槽档位
+  Pattern Provider pushPattern 可按分子装配室语义临时使用本次 pattern 规划配方，把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
+  空本地样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
+  本地样板与 Pattern Provider pushPattern 均使用容量槽档位
   pushPattern 在输出阻挡、输入缓冲非空或规划失败时整批拒绝且不消耗输入；本地样板槽兼容路径遇到无法转成 ItemStack 的 AEKey 时同样拒绝
   ColoredProcessingPatternDataStorage 可在 AE2 encoded processing pattern 上保存输入槽颜色元数据
   彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
   彩色 Pattern Provider pushPattern 支持流体 AEKey 输入
   同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
-  彩色 pushPattern 产生多个包裹时优先写入 17 格输出槽，超过可用输出槽的余量通过 pending queue 顺序输出并持久化保存
-  装配室输出自动导出默认开启，可通过 GUI 左侧 AE2 toolbar 图标切换并持久化保存
-  装配室 server tick 会遍历全部输出槽，把包裹优先导出到背面 AE2 MEStorage，其次回落到背面 Forge item handler
+  彩色 pushPattern 产生多个包裹时按顺序写入空输出槽，超过可用输出槽的余量通过 pending queue 顺序输出并持久化保存
+  装配室存在 0-100 合成进度，只允许 5 张 AE2 speed card；0/1/2/3/4/5 张按分子装配室速度表每 tick 尝试推进 10/13/17/20/25/50，并按 1.0/1.3/1.7/2.0/2.5/5.0 能量倍率从本机 AE 网络抽取能量
+  装配室输出模式默认 ME_NETWORK，可通过 GUI 左侧 AE2 toolbar 图标循环切换 ME_NETWORK、ADJACENT_BLOCK 和 NONE 并持久化保存
+  装配室 server tick 会按输出槽顺序一次导出 1 个包裹；ME_NETWORK 只导出到本机接入的 AE 网络存储服务，ADJACENT_BLOCK 只导出到背面 Forge item handler，NONE 不自动导出
   自动导出失败时保留输出槽包裹，不丢弃、不继续消耗新输入
+  外部 Forge item handler 可见完整机器库存，但只允许按输出槽顺序每次抽取 1 个合法包裹，非输出槽不可抽取
+  包裹名称、颜色和 marker 只在样板或临时 pattern plan 没有对应包裹标记时作为 fallback 生效
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler GameTest smoke
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler 彩色处理样板 GameTest smoke
   真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider + Package Assembler 自动合成 job smoke
-  真实 AE2 Creative Energy Cell + Drive + Interface + Package Assembler 自动导出 GameTest smoke
+  真实 AE2 Creative Energy Cell + Drive + Interface + Package Assembler ME_NETWORK 输出 GameTest smoke
   装配室基础 GameTest
 
 客户端验证：
-  runClientSmoke 已覆盖 Package Assembler GUI 打开与截图
+  runClientSmoke 已覆盖 Package Assembler GUI 打开与截图；人工检查包括无过滤 ghost 物品、样板移除后残留输入红色错误状态、左侧 toolbar 与右侧 AE2 升级面板
 ```
 
 验收：
@@ -241,7 +244,7 @@ GameTest/客户端验证
 普通处理样板生成默认色包裹
 彩色输入格生成对应颜色包裹
 同 AEKey 位于不同颜色格时不会提前合并
-阻挡模式只检查本机输出口
+输出阻挡只检查本机输出口，输出模式不扫描目标网络内容
 ```
 
 ## 阶段 6：终端与总线

@@ -51,10 +51,7 @@ public class AppliedPackaging {
             Upgrades.add(AEItems.CAPACITY_CARD, APBlocks.ME_PACKAGER.get(), 3);
             Upgrades.add(AEItems.SPEED_CARD, APBlocks.ME_PACKAGER.get(), 6);
             Upgrades.add(AEItems.INVERTER_CARD, APBlocks.ME_PACKAGER.get(), 1);
-            Upgrades.add(AEItems.REDSTONE_CARD, APBlocks.PACKAGE_ASSEMBLER.get(), 1);
-            Upgrades.add(AEItems.CAPACITY_CARD, APBlocks.PACKAGE_ASSEMBLER.get(), 3);
-            Upgrades.add(AEItems.SPEED_CARD, APBlocks.PACKAGE_ASSEMBLER.get(), 6);
-            Upgrades.add(AEItems.INVERTER_CARD, APBlocks.PACKAGE_ASSEMBLER.get(), 1);
+            Upgrades.add(AEItems.SPEED_CARD, APBlocks.PACKAGE_ASSEMBLER.get(), 5);
         });
         LOGGER.info("Applied Packaging initialized.");
     }

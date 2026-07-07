@@ -2397,10 +2397,10 @@ GameTest：已考虑。本次只调整客户端静态模型资源、移除动态
   Package Assembler Screen 改为贴图背景，提供与 ME Packager 同类的容量槽/自动导出按钮区域。
   下半部分改为 4 行可见、17 行总量的同步滚动输入/输出区；每个可见行左侧显示 4 个输入格，右侧显示 1 个输出格。
   GUI 输入不是 fake slot：点击与 shift-click 会真实转移玩家物品，BlockEntity 以 ItemStack identity + long amount 持久化，可累计超过普通 stack size 的数量。
-  样板槽放入 package_pattern 或 packaged_processing_pattern 后，输入栏显示过滤 ghost，并只允许插入样板匹配材料与数量；无样板时按包裹容量档限制自由封装。
+  样板槽放入 package_pattern 或 packaged_processing_pattern 后，当时通过客户端过滤提示表达可输入内容，并只允许插入样板匹配材料与数量；该显示方式后续已被修正为不绘制过滤物品、改用槽位状态表达。
   方块实体保留 9 格 legacy 输入槽用于旧存档/内部兼容，同时新增 68 格 menu input buffer（17 行 x 4 列）和 17 个输出槽。
   Pattern Provider 多包裹输出优先写入 17 个输出槽；超过可用输出槽的余量才进入 pending queue。
-  自动导出遍历全部输出槽，并改为只有存在输出包裹时才解析背面 AE2 MEStorage / Forge item handler，避免相邻 AE2 接口未 ready 时空 capability 崩服。
+  自动导出遍历全部输出槽，并改为只有存在输出包裹时才解析旧的背面 AE2 存储接口或 Forge item handler，避免相邻 AE2 接口未 ready 时空 capability 崩服；后续 ME_NETWORK 输出已改为本机 AE 网络存储服务。
   资产审计将 ME Package Assembler GUI atlas 纳入必需 256x256 PNG，并新增错误尺寸自测 fixture。
   docs/02、03、04、05、06 和 docs/assets/acceptance.md 已同步当前 4x4 输入、4 输出可见窗口、样板过滤和资产门禁语义。
 验证 git status --short --branch 初始为 clean master
@@ -2472,4 +2472,49 @@ GameTest：已考虑并运行。本轮改变了菜单按钮 action、slot index 
 验证 .\gradlew.bat runGameTestServer 首次失败，失败项为 packageAssemblerMenuInputUsesPatternFilterAndLargeAmount 与 packageAssemblerLoadsLegacyElevenSlotInventory；修复 marker shift-click 路由和 legacy slot count 断言后复跑成功，134 个 required GameTest 全部通过
 验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 Package Assembler 截图，确认使用原图布局、左侧只有 AE toolbar auto-export、右侧为 AE2 升级面板、滚动条位于输入栏左侧、玩家物品栏与 hotbar 对齐
 GameTest：已考虑并运行。本轮改变装配室输出身份配置、真实 marker 槽、升级库存、NBT 保存/读取和 shift-click 路由，属于行为敏感变更；GameTest 已覆盖并通过。
+```
+
+最新进展：
+
+```text
+按 AE2 分子装配室语义修正 ME Package Assembler 逻辑：
+  阅读 AE2 15.4.10 `MolecularAssemblerBlockEntity`、`MolecularAssemblerMenu`、`MolecularAssemblerPatternSlot`、`IMolecularAssemblerSupportedPattern`、`InitUpgrades` 和分子装配室模型 JSON，确认输入门禁、Pattern Provider 临时 plan、合成进度和 speed card 升级规则。
+  装配室样板槽只接受已编码 package_pattern、packaged_processing_pattern 或 AE2 encoded processing pattern；无样板时本地输入槽锁定，不允许自由输入或自由封装。
+  放入样板后，真实 GUI 输入槽按样板输入数量解锁，并按同位置 AEKey 与数量严格匹配；样板槽增加 AE2 encoded-pattern 背景标记。
+  Pattern Provider pushPattern 改为分子装配室风格临时使用本次 pattern 规划，不写入本地样板槽；本地样板槽、输入、输出、pending queue 或合成进度非空时拒绝新 plan。
+  装配室新增 0-100 合成进度和 active package queue；只允许 5 张 AE2 speed card，进度步进使用分子装配室 10/13/17/20/25/50 速度表。
+  只要任意输出槽非空就不启动新合成；输出模式改为 ME_NETWORK（默认）、ADJACENT_BLOCK 和 NONE，左侧 AE toolbar 循环切换。
+  自动输出按输出槽顺序一次只导出 1 个包裹；当时 ME_NETWORK 按背面 AE2 存储接口处理，ADJACENT_BLOCK 只写入背面 Forge item handler，NONE 不自动输出；后续 ME_NETWORK 已改为写入本机 AE 网络存储服务。
+  外部 Forge item handler 可见机器库存，但只允许从输出槽按顺序每次抽取 1 个合法包裹，非输出槽不可抽取。
+  packageName、selectedColor 和 marker 只在样板或临时 pattern plan 没有对应包裹标记时作为 fallback 生效。
+  方块模型临时采用 AE2 分子装配室同款几何轮廓，换用 Applied Packaging 自有 package_assembler_side 贴图；未修改用户提供的 `mepackageassembler.png` GUI atlas。
+  更新 GameTest 覆盖无样板拒绝输入、样板严格输入、输出占用阻挡、输出模式循环、Pattern Provider 进度输出、相邻方块/ME 网络导出和外部 handler 顺序抽取；旧 damaged package entity 掉落测试改为掉落点附近等待式断言，避免新增测试改变 GameTest 排布后统计范围不稳。
+  docs/02、03、04、05、06 已同步当前装配室契约、模型临时策略和验证结果。
+验证 .\gradlew.bat compileJava 成功，仅既有 ItemBlockRenderTypes deprecation warning
+验证 .\gradlew.bat runGameTestServer 首次失败，失败项为 damagedPackageEntityUnpacksContentsToWorld；原因是旧测试同 tick/宽范围统计掉落实体，在新增测试改变 GameTest 排布后不稳定。改为掉落点附近等待式断言后复跑成功，当时 required GameTest 全部通过
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功，143 个 PNG 通过必需文件、RGBA、尺寸、可见非占位像素和模型门禁
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 Package Assembler 截图，确认左侧只有 AE toolbar 输出模式按钮、右侧为 5 格 speed-card 升级面板、样板槽有 encoded-pattern 背景标记、无样板时输入槽禁用；人工查看 world-all_machines 截图，确认装配室临时分子装配室轮廓模型正常渲染
+验证 rg -n -i "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON" run\logs\latest.log 无命中
+GameTest：已考虑并运行。本轮改变装配室样板门禁、Pattern Provider pushPattern、合成进度、升级限制、输出模式、外部 item handler 抽取和物品移动语义，属于行为敏感变更；GameTest 已覆盖并通过。
+```
+
+最新进展：
+
+```text
+修正 ME Package Assembler 样板过滤显示与 AE 能量进度语义：
+  阅读并对照 AE2 15.4.10 分子装配室代码，确认本地输入槽不应绘制过滤 ghost 物品，过滤状态应通过 slot enable/invalid state 表达。
+  Package Assembler Screen 移除输入过滤 ghost 渲染；样板取走后如果输入槽仍有残留物品，槽位保持可取出并绘制红色错误状态，空输入槽重新锁定。
+  菜单新增可见输入槽到真实输入 index 的映射与有效性查询，客户端按服务端样板/残留状态判断红色错误标记。
+  Package Assembler 方块实体改为 AE 网络方块实体，合成进度每 tick 从本机 AE grid energy service 抽取能量；无 AE 网络或能量不足时不推进。
+  加速卡沿用 AE2 分子装配室表：0/1/2/3/4/5 张 speed card 对应 10/13/17/20/25/50 进度，并按 1.0/1.3/1.7/2.0/2.5/5.0 能量倍率消耗 AE 能量。
+  ME_NETWORK 输出改为写入本机接入的 AE 网络存储服务，ADJACENT_BLOCK 仍只写入背面 Forge item handler，NONE 不自动导出。
+  更新 GameTest 覆盖样板移除后残留输入 invalid、无 AE 能量不推进、有 Creative Energy Cell 与 5 张 speed card 时按 50/50 两 tick 完成，并修正 CPU job 断言为默认 ME_NETWORK 输出后进入 AE storage。
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 首次失败，失败项为 ae2CraftingCpuJobPushesIntoPackageAssembler；原因是 ME_NETWORK 默认输出已进入 AE storage，不再停留在输出槽。修正断言后复跑成功，138 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 Package Assembler 截图，确认输入槽不再绘制过滤 ghost 物品，左侧 AE toolbar 与右侧 AE2 speed-card 升级面板仍正常显示
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 rg -n "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON" run/logs/latest.log run/logs/debug.log 仅发现 Netty/JDK Unsafe 访问探测栈，不含 missing texture、Missing model 或 Failed to read Screen JSON
+GameTest：已考虑并运行。本轮改变装配室样板过滤显示、AE 网络接入、合成进度能量消耗、加速卡税率、默认 ME_NETWORK 输出目标和 Pattern Provider/CPU 产出路径，属于行为敏感变更；GameTest 已覆盖并通过。
 ```

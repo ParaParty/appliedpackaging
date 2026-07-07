@@ -93,12 +93,9 @@ src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/pa
 ME 包裹装配室：
 
 ```text
-分子装配室轮廓
-透明 Fluix 装配腔
-悬浮包裹投影
-样板接口纹理
-17 色小灯条
-输出口/阻挡灯
+临时采用 AE2 分子装配室同款几何轮廓
+使用 Applied Packaging 自有 package_assembler_side 等贴图换色，不逐像素复制 AE2 贴图
+保留透明 Fluix 装配腔、样板接口纹理和输出状态视觉作为后续正式材质方向
 ```
 
 ME 打包机：
@@ -155,8 +152,7 @@ Package Unpacking Bus: Bus 轮廓 + 打开包裹图标
 颜色选择
 marker
 容量档
-阻挡模式
-自动导出输出包裹
+输出模式
 打包一次
 保留/覆盖/清除 marker
 打包过滤
@@ -174,7 +170,7 @@ Fluix 紫蓝高亮
 彩色小灯表示包裹颜色
 ME Packager GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 assets/ae2/screens/appliedpackaging/me_packager.json，背景贴图放在 assets/appliedpackaging/textures/gui/mepackager.png。
 ME Packager 过滤区背景只绘制基础启用行；容量卡解锁的可选行按 AE2 高版本 slot background 效果由代码渲染，禁用状态使用新版 0.2 alpha，不把全部 slot 烘进背景图。
-ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。上半部分的名称输入、颜色 swatch、marker 槽和右上容量元件槽按原图坐标接入与 ME Packager 一致的逻辑；自动导出等配置开关走 AE2 左侧悬浮 toolbar；右侧升级区走 AE2 `UpgradesPanel`。
+ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。上半部分的名称输入、颜色 swatch、marker 槽和右上容量元件槽按原图坐标接入与 ME Packager 一致的逻辑；输出模式等配置开关走 AE2 左侧悬浮 toolbar；右侧升级区走 AE2 `UpgradesPanel`，装配室只显示/接受 speed card。
 ME Package Assembler 的下半部分为输入/输出同步滚动区与下半区样板槽；可见窗口为左侧 4x4 输入格和右侧 4 个输出格。滚动条位于输入栏左侧，参考 AE2 样板终端 processing 模式的小滚动条；滚动输入/输出槽背景由客户端按 AE2 slot background 风格绘制，不烘进 atlas；atlas 提供面板、标题区、下半区样板槽、容量槽、marker 槽、左侧滚动条轨道、滚动槽容器和玩家背包区域。
 ```
 
@@ -265,6 +261,6 @@ texture/model 引用存在
 抽样视觉检查通过
 .\gradlew.bat build 成功
 .\gradlew.bat runData 成功
-.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过
+.\gradlew.bat runGameTestServer 成功，138 个必需 GameTest 全部通过
 .\gradlew.bat runClientSmoke 成功，Package Pattern Terminal 使用真实 AE2 part host 打开
 ```

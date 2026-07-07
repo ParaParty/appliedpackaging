@@ -162,7 +162,9 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 反例确认 ME Packager 无 MEStorage 时不回落、不消耗流体槽
-当前最新执行：2026-07-06 在 ME Package Assembler 接入 AE2 `UpgradeableMenu` 后改为按 AE2 实际 slot index / slot semantic 处理滚动槽和玩家背包，执行 `.\gradlew.bat runGameTestServer` 成功，133 个必需 GameTest 全部通过。
+当前最新执行：2026-07-08 在 ME Package Assembler 改为不渲染过滤 ghost、样板移除后残留输入红色错误状态、AE 网络能量驱动进度和分子装配室式 speed-card 能量税率后，执行 `.\gradlew.bat runGameTestServer` 成功，138 个必需 GameTest 全部通过。
+2026-07-08 首次复跑 `.\gradlew.bat runGameTestServer` 暴露旧 `damagedPackageEntityUnpacksContentsToWorld` 测试对掉落实体统计范围/时序过宽的问题；收紧为掉落点附近等待式断言后复跑通过。
+2026-07-06 在 ME Package Assembler 接入 AE2 `UpgradeableMenu` 后改为按 AE2 实际 slot index / slot semantic 处理滚动槽和玩家背包，执行 `.\gradlew.bat runGameTestServer` 成功，133 个必需 GameTest 全部通过。
 2026-07-03 06:15 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:27 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
 2026-07-03 06:40 在发布 jar 排除 dev verification classes 后再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
@@ -499,6 +501,14 @@ run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to
 
 2026-07-06 纠正 ME Package Assembler GUI 处理方式：恢复用户提供的 `mepackageassembler.png` 原始 256x256 atlas，ScreenStyle 使用主界面 `srcRect` 176x239，并按原图像素对齐名称输入、颜色 swatch、marker 槽、容量元件槽、4x4 输入格、4 输出格、玩家物品栏和 hotbar；配置按钮保持 AE2 左侧 toolbar，右侧升级使用 AE2 `UpgradesPanel`。
 本次同时补齐装配室 packageName、selectedColor、marker 槽、真实 upgrade inventory 与 `Upgrades.add` 注册；执行 .\gradlew.bat compileJava 成功，执行 .\gradlew.bat runGameTestServer 成功，134 个必需 GameTest 全部通过；执行 .\gradlew.bat runClientSmoke 成功，人工查看 `run/screenshots/appliedpackaging-client-smoke-package_assembler.png`，确认 GUI 使用原图布局、滚动条位于输入栏左侧、左侧仅显示 AE toolbar 配置按钮、右侧显示 AE2 升级面板。
+
+2026-07-08 在 ME Package Assembler 改为只接受已编码样板、本地输入严格按样板槽位解锁、Pattern Provider pushPattern 临时 plan、只允许 5 张 speed card、输出模式三态和外部 handler 按序抽取后，执行 .\gradlew.bat compileJava 成功，执行 .\gradlew.bat runGameTestServer 成功，当时的必需 GameTest 全部通过；后续同日能量进度修正已扩展为 138 个必需 GameTest。
+随后执行 .\gradlew.bat runClientSmoke 成功，生成 6 张菜单截图和 3 张世界截图；人工查看 `run/screenshots/appliedpackaging-client-smoke-package_assembler.png`，确认左侧只有 AE toolbar 输出模式按钮、右侧为 5 格 AE2 speed-card 升级面板、样板槽有 encoded-pattern 背景标记、无样板时输入槽显示禁用状态；人工查看 `run/screenshots/appliedpackaging-client-smoke-world-all_machines.png`，确认装配室临时分子装配室轮廓模型正常渲染。
+run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON` 扫描无命中。
+
+2026-07-08 在 ME Package Assembler 移除输入过滤 ghost 渲染、增加样板移除后残留输入红色错误状态、接入本机 AE 网络能量服务并按 AE2 分子装配室 speed-card 表消耗能量后，执行 .\gradlew.bat compileJava 成功，执行 .\gradlew.bat runGameTestServer 成功，138 个必需 GameTest 全部通过。
+随后执行 .\gradlew.bat runClientSmoke 成功；人工查看 `run/screenshots/appliedpackaging-client-smoke-package_assembler.png`，确认输入槽不再绘制过滤物品、左侧 AE toolbar 和右侧 AE2 speed-card 升级面板仍正常显示。
+执行 `rg -n "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON" run/logs/latest.log run/logs/debug.log` 后仅发现 Netty/JDK Unsafe 访问探测栈，不含 missing texture、Missing model 或 Failed to read Screen JSON。
 ```
 
 ## 6. Dedicated Server 验证
@@ -584,7 +594,7 @@ R2 无正常空包裹玩法：已满足，空包裹不进玩家配方/创造栏�
 R3 相同包裹才可堆叠：已满足，canonical hash 和规范化 NBT GameTest 覆盖。
 R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack，item、fluid 和 MEStorage 路径已覆盖。
 R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
-R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、4x4 输入与 4 输出可见窗口、17 格输出栏、pending queue、阻挡和自动导出均已覆盖。
+R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、4x4 输入与 4 输出可见窗口、17 格输出栏、样板门禁、合成进度、pending queue、输出模式、顺序抽取和客户端 smoke 均已覆盖。
 R7 ME 打包机：已满足，相邻 item/fluid/AE2 storage 端点、红石模式、容量、过滤、marker 和拆包事务均已覆盖。
 R8 包裹样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host 均已覆盖。
 R9 包裹总线：已满足，Storage/Export/Unpacking Bus 仅处理合法包裹，不暴露内部散装内容。
@@ -627,11 +637,11 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 AI 指令分离：已完成。证据：AGENTS.md 只放 agent 工作规则，docs/00-document-index.md 声明设计文档不承载 AI 指令。
 Minecraft 1.20.1 优先：已完成。证据：gradle.properties、build.gradle、README.md 和 docs/design.md 均固定 Minecraft 1.20.1 Forge / AE2 15.4.10。
 材质准备：已完成。证据：docs/04-asset-spec.md、docs/assets/*、src/main/resources/assets/appliedpackaging 下 PNG/模型/语言文件，以及资源审计记录。
-功能实现：已完成到 0.1.0-dev 范围。证据：R1-R13 完成度审计均为已满足，112 个必需 GameTest 全部通过。
+功能实现：已完成到 0.1.0-dev 范围。证据：R1-R13 完成度审计均为已满足，138 个必需 GameTest 全部通过。
 Git 初始化和文档管理：已完成。证据：仓库有连续提交记录，文档按 00-07 分类维护，开发流水记录在 docs/development-log.md。
 发布 jar：已完成。证据：build/libs/appliedpackaging-0.1.0-dev.jar 存在，已通过 build、jar 内容审计和 release metadata 审计。
 客户端可用性：已完成。证据：runClientSmoke 进入真实单人世界并打开 6 个关键菜单截图，无 missing model/texture/classloading 关键错误。
-GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，112 个必需 GameTest 全部通过。
+GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，138 个必需 GameTest 全部通过。
 DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
 Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；随后 `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` 自动刷新 latest.log 并出现 Done (2.413s)!，25565 清理完成，`verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 通过；最新 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 已再次刷新 dedicated server smoke，latest.log 出现 Done (2.471s)! 并通过完整 release audit；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。

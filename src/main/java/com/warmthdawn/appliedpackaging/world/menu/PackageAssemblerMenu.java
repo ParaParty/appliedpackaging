@@ -4,6 +4,9 @@ import appeng.menu.SlotSemantic;
 import appeng.menu.SlotSemantics;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.implementations.UpgradeableMenu;
+import appeng.menu.interfaces.IProgressProvider;
+import appeng.menu.slot.IOptionalSlot;
+import appeng.client.Point;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
@@ -22,10 +25,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
 
-public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockEntity> {
-    public static final int BUTTON_AUTO_EXPORT = 0;
+public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockEntity> implements IProgressProvider {
+    public static final int BUTTON_OUTPUT_MODE = 0;
+    public static final int BUTTON_AUTO_EXPORT = BUTTON_OUTPUT_MODE;
     public static final int BUTTON_SCROLL_BASE = 100;
-    private static final String ACTION_TOGGLE_AUTO_EXPORT = "toggleAutoExport";
+    private static final String ACTION_CYCLE_OUTPUT_MODE = "cycleOutputMode";
     private static final String ACTION_SET_COLOR = "setColor";
     private static final String ACTION_SET_NAME = "setName";
 
@@ -56,11 +60,13 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     };
 
     private final ContainerLevelAccess access;
-    private final DataSlot autoExportSlot;
+    private final DataSlot outputModeSlot;
     @GuiSync(10)
     public PackageColor selectedColor = PackageColor.FLUIX;
     @GuiSync(11)
     public String packageName = "";
+    @GuiSync(12)
+    public int craftProgress = 0;
     private int[] menuInputSlotIndexes;
     private int[] outputSlotIndexes;
     private int scrollOffset;
@@ -72,22 +78,23 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public PackageAssemblerMenu(int containerId, Inventory playerInventory, PackageAssemblerBlockEntity blockEntity) {
         super(APMenus.PACKAGE_ASSEMBLER.get(), containerId, playerInventory, blockEntity);
         this.access = ContainerLevelAccess.create(blockEntity.getLevel(), blockEntity.getBlockPos());
-        this.autoExportSlot = new DataSlot() {
+        this.outputModeSlot = new DataSlot() {
             @Override
             public int get() {
-                return blockEntity.autoExport() ? 1 : 0;
+                return blockEntity.outputMode().ordinal();
             }
 
             @Override
             public void set(int value) {
-                blockEntity.setAutoExport(value != 0);
+                PackageAssemblerBlockEntity.OutputMode[] modes = PackageAssemblerBlockEntity.OutputMode.values();
+                blockEntity.setOutputMode(modes[Math.max(0, Math.min(value, modes.length - 1))]);
             }
         };
 
-        registerClientAction(ACTION_TOGGLE_AUTO_EXPORT, this::toggleAutoExport);
+        registerClientAction(ACTION_CYCLE_OUTPUT_MODE, this::cycleOutputMode);
         registerClientAction(ACTION_SET_COLOR, PackageColor.class, this::setSelectedColor);
         registerClientAction(ACTION_SET_NAME, String.class, this::setPackageName);
-        addDataSlot(autoExportSlot);
+        addDataSlot(outputModeSlot);
     }
 
     @Override
@@ -125,11 +132,11 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
             setScrollOffset(id - BUTTON_SCROLL_BASE);
             return true;
         }
-        if (id != BUTTON_AUTO_EXPORT) {
+        if (id != BUTTON_OUTPUT_MODE) {
             return false;
         }
         if (!player.level().isClientSide) {
-            toggleAutoExport();
+            cycleOutputMode();
         }
         return true;
     }
@@ -199,17 +206,28 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         if (isServerSide()) {
             selectedColor = getHost().selectedColor();
             packageName = getHost().packageName();
+            craftProgress = getHost().craftingProgress();
         }
         super.broadcastChanges();
     }
 
     public boolean autoExport() {
-        return autoExportSlot.get() != 0;
+        return outputMode() != PackageAssemblerBlockEntity.OutputMode.NONE;
     }
 
     public void toggleAutoExport() {
+        cycleOutputMode();
+    }
+
+    public PackageAssemblerBlockEntity.OutputMode outputMode() {
+        PackageAssemblerBlockEntity.OutputMode[] modes = PackageAssemblerBlockEntity.OutputMode.values();
+        int ordinal = Math.max(0, Math.min(outputModeSlot.get(), modes.length - 1));
+        return modes[ordinal];
+    }
+
+    public void cycleOutputMode() {
         if (isClientSide()) {
-            sendClientAction(ACTION_TOGGLE_AUTO_EXPORT);
+            sendClientAction(ACTION_CYCLE_OUTPUT_MODE);
             return;
         }
 
@@ -287,6 +305,29 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
     public ItemStack inputFilterDisplay(int slot) {
         return getHost().menuInputFilterDisplay(slot);
+    }
+
+    public boolean isInputSlotEnabled(int slot) {
+        return getHost().isMenuInputSlotEnabled(slot);
+    }
+
+    public boolean isInputSlotValid(int slot) {
+        return getHost().isMenuInputSlotValid(slot);
+    }
+
+    public int inputSlotForMenuSlotIndex(int slotIndex) {
+        int visibleIndex = visibleIndexForMenuSlot(slotIndex);
+        return visibleIndex < 0 ? -1 : inputSlotForVisibleIndex(visibleIndex);
+    }
+
+    @Override
+    public int getCurrentProgress() {
+        return craftProgress;
+    }
+
+    @Override
+    public int getMaxProgress() {
+        return PackageAssemblerBlockEntity.MAX_CRAFT_PROGRESS;
     }
 
     private void clickMenuInput(int inputSlot, int button, ClickType clickType, Player player) {
@@ -375,7 +416,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         throw new IllegalStateException("Expected Package Assembler block entity at " + pos);
     }
 
-    private final class MenuInputDisplaySlot extends Slot {
+    private final class MenuInputDisplaySlot extends Slot implements IOptionalSlot {
         private final int visibleIndex;
 
         private MenuInputDisplaySlot(int visibleIndex) {
@@ -414,6 +455,22 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         @Override
         public void setChanged() {
+        }
+
+        @Override
+        public boolean isSlotEnabled() {
+            int inputSlot = inputSlotForVisibleIndex(visibleIndex);
+            return getHost().hasMenuInput(inputSlot) || getHost().isMenuInputSlotEnabled(inputSlot);
+        }
+
+        @Override
+        public boolean isRenderDisabled() {
+            return true;
+        }
+
+        @Override
+        public Point getBackgroundPos() {
+            return new Point(x - 1, y - 1);
         }
     }
 

@@ -733,11 +733,14 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(unpacked, "Damaging a package entity should unpack item contents");
         helper.assertTrue(entity.isRemoved(), "Damaged package entity should be removed after unpacking");
-        helper.assertTrue(itemEntityAmount(helper, Items.IRON_INGOT) == 64,
-                "Damaged package entity should drop unpacked iron");
-        helper.assertTrue(itemEntityAmount(helper, Items.COPPER_INGOT) == 32,
-                "Damaged package entity should drop unpacked copper");
-        helper.succeed();
+        helper.succeedWhen(() -> {
+            int ironAmount = itemEntityAmount(helper, Items.IRON_INGOT, spawnPos, 4.0D);
+            int copperAmount = itemEntityAmount(helper, Items.COPPER_INGOT, spawnPos, 4.0D);
+            helper.assertTrue(ironAmount == 64,
+                    "Damaged package entity should drop unpacked iron, found " + ironAmount);
+            helper.assertTrue(copperAmount == 32,
+                    "Damaged package entity should drop unpacked copper, found " + copperAmount);
+        });
     }
 
     @GameTest(template = "empty")
@@ -1572,14 +1575,14 @@ public final class PackageDataGameTests {
 
         PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
         ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
-        PackageData data = PackageDataStorage.read(output).orElseThrow();
 
-        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
-                "Assembler should create one output package");
-        helper.assertTrue(assembler.getItems().getStackInSlot(0).isEmpty(), "Iron input should be consumed");
-        helper.assertTrue(assembler.getItems().getStackInSlot(1).isEmpty(), "Copper input should be consumed");
-        helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64, "Package should contain iron");
-        helper.assertTrue(amountOf(data, AEItemKey.of(Items.COPPER_INGOT)) == 32, "Package should contain copper");
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.NO_CONTENTS,
+                "Assembler should not accept loose input without a pattern");
+        helper.assertTrue(output.isEmpty(), "Assembler should not create output without a pattern");
+        helper.assertTrue(assembler.getItems().getStackInSlot(0).getCount() == 64,
+                "Rejected loose input should remain in the input buffer");
+        helper.assertTrue(assembler.getItems().getStackInSlot(1).getCount() == 32,
+                "Rejected loose input should remain in the input buffer");
         helper.succeed();
     }
 
@@ -1601,6 +1604,16 @@ public final class PackageDataGameTests {
     @GameTest(template = "empty")
     public static void packageAssemblerFlattensInputPackages(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData target = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, target);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
         assembler.getItems().setStackInSlot(0, packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64)));
         assembler.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
 
@@ -1706,6 +1719,9 @@ public final class PackageDataGameTests {
                 List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640)),
                 Optional.empty(),
                 0);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.RED, sourceData);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
         assembler.getItems().setStackInSlot(0, packageStack(PackageColor.RED, sourceData));
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY, component);
 
@@ -1921,12 +1937,12 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(firstResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
                 "Assembler should produce the first processing package");
-        helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
-                "Assembler should use another output slot without requiring the first slot to be cleared");
+        helper.assertTrue(secondResult == PackageAssemblerBlockEntity.AssemblyResult.OUTPUT_BLOCKED,
+                "Assembler should not start another craft while any output slot is occupied");
         helper.assertTrue(PackageDataStorage.read(firstOutput).orElseThrow().canonicalHash().equals(iron.canonicalHash()),
                 "First output slot should contain the first package");
-        helper.assertTrue(PackageDataStorage.read(secondOutput).orElseThrow().canonicalHash().equals(copper.canonicalHash()),
-                "Second output slot should contain the second package");
+        helper.assertTrue(secondOutput.isEmpty(),
+                "Second output slot should stay empty until the first output is cleared");
         helper.succeed();
     }
 
@@ -2147,12 +2163,15 @@ public final class PackageDataGameTests {
         FakePlayer player = newFakePlayer(helper);
         PackageAssemblerMenu menu = new PackageAssemblerMenu(4, new Inventory(player), assembler);
 
-        helper.assertTrue(menu.autoExport(), "Assembler auto-export should default on");
+        helper.assertTrue(menu.outputMode() == PackageAssemblerBlockEntity.OutputMode.ME_NETWORK,
+                "Assembler output mode should default to ME network");
         boolean clicked = menu.clickMenuButton(player, PackageAssemblerMenu.BUTTON_AUTO_EXPORT);
 
-        helper.assertTrue(clicked, "Assembler menu should accept the auto-export button");
-        helper.assertFalse(assembler.autoExport(), "Auto-export button should toggle the block entity setting");
-        helper.assertFalse(menu.autoExport(), "Auto-export button should update the synced menu state");
+        helper.assertTrue(clicked, "Assembler menu should accept the output mode button");
+        helper.assertTrue(assembler.outputMode() == PackageAssemblerBlockEntity.OutputMode.ADJACENT_BLOCK,
+                "Output mode button should cycle to adjacent block output");
+        helper.assertTrue(menu.outputMode() == PackageAssemblerBlockEntity.OutputMode.ADJACENT_BLOCK,
+                "Output mode button should update the synced menu state");
         helper.succeed();
     }
 
@@ -2198,10 +2217,39 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerMenuInputInvalidAfterPatternRemoved(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData target = ironPackageData(PackageColor.FLUIX, 64);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, target);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.insertMenuInput(0, new ItemStack(Items.IRON_INGOT, 64), 64, false);
+
+        helper.assertTrue(assembler.isMenuInputSlotEnabled(0),
+                "Menu input slot with matching pattern should be enabled");
+        helper.assertTrue(assembler.isMenuInputSlotValid(0),
+                "Menu input slot with matching pattern should be valid");
+
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, ItemStack.EMPTY);
+
+        helper.assertTrue(assembler.isMenuInputSlotEnabled(0),
+                "Menu input slot with retained contents should stay enabled after pattern removal");
+        helper.assertFalse(assembler.isMenuInputSlotValid(0),
+                "Menu input slot with retained contents should become invalid after pattern removal");
+        helper.assertFalse(assembler.isMenuInputSlotEnabled(1),
+                "Empty menu input slots should lock again after pattern removal");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerUsesConfiguredPackageIdentity(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.setSelectedColor(PackageColor.RED);
         assembler.setPackageName("Assembler Batch");
+        PackageData target = ironPackageData(PackageColor.RED, 64);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.RED, target);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_MARKER, new ItemStack(Items.DIAMOND));
         assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
 
@@ -2225,11 +2273,29 @@ public final class PackageDataGameTests {
     @GameTest(template = "empty")
     public static void packageAssemblerMenuUsesFourByFourInputAndFourOutputWindow(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        PackageData target = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.COAL), 1),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 1),
+                        new GenericStack(AEItemKey.of(Items.DIAMOND), 1),
+                        new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1),
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, target);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
         FakePlayer player = newFakePlayer(helper);
         PackageAssemblerMenu menu = new PackageAssemblerMenu(6, new Inventory(player), assembler);
         ItemStack secondRowPackage = packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 16));
+        ItemStack fifthFilter = assembler.menuInputFilterDisplay(PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS);
 
-        assembler.insertMenuInput(PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS, new ItemStack(Items.IRON_INGOT, 32), 32, false);
+        assembler.insertMenuInput(
+                PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS,
+                fifthFilter,
+                fifthFilter.getCount(),
+                false);
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1), secondRowPackage);
         menu.setScrollOffset(1);
 
@@ -2239,7 +2305,7 @@ public final class PackageDataGameTests {
                 "Assembler menu should expose four visible output slots");
         helper.assertTrue(menu.maxScrollOffset() == PackageAssemblerBlockEntity.OUTPUT_SLOT_COUNT - PackageAssemblerMenu.VISIBLE_ROWS,
                 "Assembler menu scroll range should follow the output rows");
-        helper.assertTrue(menu.getSlot(menu.menuInputMenuSlotIndex(0)).getItem().is(Items.IRON_INGOT),
+        helper.assertTrue(menu.getSlot(menu.menuInputMenuSlotIndex(0)).getItem().is(fifthFilter.getItem()),
                 "Scrolled 4x4 input window should map its first visible slot to the next input row");
         helper.assertTrue(menu.getSlot(menu.outputMenuSlotIndex(0)).getItem().is(secondRowPackage.getItem()),
                 "Scrolled output window should map its first visible slot to the matching output row");
@@ -2260,28 +2326,134 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerExternalHandlerExtractsOnePackageInOrder(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        ItemStack first = packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 16));
+        first.setCount(2);
+        ItemStack second = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 16));
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, first);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1), second);
+        IItemHandler handler = assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+                .orElseThrow(IllegalStateException::new);
+
+        ItemStack skipped = handler.extractItem(PackageAssemblerBlockEntity.outputHandlerSlot(1), 64, false);
+        ItemStack nonOutput = handler.extractItem(PackageAssemblerBlockEntity.SLOT_PATTERN, 64, false);
+        ItemStack firstExtract = handler.extractItem(PackageAssemblerBlockEntity.SLOT_OUTPUT, 64, false);
+        ItemStack secondExtract = handler.extractItem(PackageAssemblerBlockEntity.SLOT_OUTPUT, 64, false);
+        ItemStack thirdExtract = handler.extractItem(PackageAssemblerBlockEntity.outputHandlerSlot(1), 64, false);
+
+        helper.assertTrue(skipped.isEmpty(), "External handler should not skip earlier output slots");
+        helper.assertTrue(nonOutput.isEmpty(), "External handler should not extract non-output slots");
+        helper.assertTrue(firstExtract.getCount() == 1 && firstExtract.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
+                "External handler should extract one package from the first output slot");
+        helper.assertTrue(secondExtract.getCount() == 1 && secondExtract.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
+                "External handler should extract the next package from the first output slot before later slots");
+        helper.assertTrue(thirdExtract.getCount() == 1 && thirdExtract.is(APItems.packageItems().get(PackageColor.RED).get()),
+                "External handler should move to the next output slot only after earlier slots are empty");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerAutoExportsToAdjacentItemHandler(GameTestHelper helper) {
         BlockPos chestPos = new BlockPos(0, 0, 0);
         BlockPos assemblerPos = new BlockPos(1, 0, 0);
+        BlockPos energyCellPos = new BlockPos(2, 0, 0);
         helper.getLevel().setBlock(
                 helper.absolutePos(chestPos),
                 Blocks.CHEST.defaultBlockState(),
                 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
         PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, assemblerPos, Direction.EAST);
+        PackageData target = ironPackageData(PackageColor.FLUIX, 64);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, target);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.setOutputMode(PackageAssemblerBlockEntity.OutputMode.ADJACENT_BLOCK);
         assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
 
-        assembler.serverTick();
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageAssemblerReady(helper, assembler, "adjacent auto-export test"))
+                .thenExecute(() -> {
+                    tickPackageAssemblerToCompletion(assembler);
 
-        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
-        ItemStack exported = chest.getItem(0);
-        PackageData exportedData = PackageDataStorage.read(exported).orElseThrow();
+                    ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+                    ItemStack exported = chest.getItem(0);
+                    PackageData exportedData = PackageDataStorage.read(exported).orElseThrow();
+                    helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Auto-export should clear the assembler output slot");
+                    helper.assertTrue(assembler.getItems().getStackInSlot(0).isEmpty(),
+                            "Auto-export should only happen after assembly consumes input");
+                    helper.assertTrue(amountOf(exportedData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "Adjacent item handler should receive the assembled package");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerRequiresAeEnergyForProgress(GameTestHelper helper) {
+        BlockPos assemblerPos = new BlockPos(0, 0, 0);
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, assemblerPos, Direction.NORTH);
+        PackageData target = ironPackageData(PackageColor.FLUIX, 64);
+        ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+        PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, target);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+
+        tickPackageAssemblerToCompletion(assembler);
+
+        helper.assertTrue(assembler.isCrafting(),
+                "Assembler should hold the planned package while waiting for AE energy");
+        helper.assertTrue(assembler.craftingProgress() == 0,
+                "Assembler should not advance progress without AE energy");
         helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
-                "Auto-export should clear the assembler output slot");
-        helper.assertTrue(assembler.getItems().getStackInSlot(0).isEmpty(),
-                "Auto-export should only happen after assembly consumes input");
-        helper.assertTrue(amountOf(exportedData, AEItemKey.of(Items.IRON_INGOT)) == 64,
-                "Adjacent item handler should receive the assembled package");
+                "Assembler should not output a package without AE energy");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerSpeedCardsUseAePowerProgress(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos assemblerPos = new BlockPos(1, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, assemblerPos, Direction.NORTH);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageAssemblerReady(helper, assembler, "speed-card progress test"))
+                .thenExecute(() -> {
+                    PackageData target = ironPackageData(PackageColor.FLUIX, 64);
+                    ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+                    PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, target);
+                    assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+                    assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+                    for (int card = 0; card < PackageAssemblerBlockEntity.UPGRADE_SLOT_COUNT; card++) {
+                        assembler.getUpgrades().addItems(AEItems.SPEED_CARD.stack());
+                    }
+
+                    assembler.serverTick();
+                    helper.assertTrue(assembler.isCrafting(),
+                            "Assembler should start a progress craft before output appears");
+                    helper.assertTrue(assembler.craftingProgress() == 0,
+                            "Assembler should start at zero progress");
+
+                    assembler.serverTick();
+                    helper.assertTrue(assembler.craftingProgress() == 50,
+                            "Five speed cards should advance by the molecular assembler powered speed value");
+                    helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Assembler should not output before progress reaches 100");
+
+                    assembler.serverTick();
+                    helper.assertTrue(!assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                            "Assembler should output after powered progress reaches 100");
+                    helper.assertTrue(assembler.craftingProgress() == 0,
+                            "Assembler should reset progress after completing a package");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "empty")
@@ -2312,15 +2484,20 @@ public final class PackageDataGameTests {
                             "AE2 Interface grid node should be active before assembler auto-export");
                     helper.assertTrue(aeInterface.getMainNode().hasGridBooted(),
                             "AE2 Interface grid should finish booting before assembler auto-export");
+                    assertPackageAssemblerReady(helper, assembler, "AE2 auto-export test");
                 })
                 .thenExecute(() -> {
                     DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
                     InterfaceBlockEntity aeInterface =
                             (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
                     drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+                    PackageData target = ironPackageData(PackageColor.FLUIX, 64);
+                    ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
+                    PackagePatternDataStorage.write(pattern, PackageColor.FLUIX, target);
+                    assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
                     assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
 
-                    assembler.serverTick();
+                    tickPackageAssemblerToCompletion(assembler);
 
                     var storage = aeInterface.getMainNode().getGrid().getStorageService().getInventory();
                     var source = IActionSource.ofMachine(aeInterface);
@@ -2380,7 +2557,12 @@ public final class PackageDataGameTests {
                     helper.assertTrue(accepted, "AE2 Pattern Provider should push into Package Assembler");
                     helper.assertTrue(iron.isEmpty(), "Accepted AE2 push should consume iron input");
                     helper.assertTrue(copper.isEmpty(), "Accepted AE2 push should consume copper input");
+                })
+                .thenWaitUntil(() -> {
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
                     ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+                    helper.assertTrue(!output.isEmpty(), "AE2-pushed package should appear after assembler progress");
                     PackageData outputData = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
                             "AE2-pushed iron should be packaged");
@@ -2432,20 +2614,26 @@ public final class PackageDataGameTests {
                     iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
 
                     boolean accepted = provider.getLogic().pushPattern(details, new KeyCounter[] { iron });
-                    ItemStack firstOutput =
-                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
-                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-                    ItemStack secondOutput =
-                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
-                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
-
                     helper.assertTrue(accepted,
                             "AE2 Pattern Provider should push colored processing patterns into Package Assembler");
                     helper.assertTrue(iron.isEmpty(), "Accepted colored AE2 push should consume iron input");
+                })
+                .thenWaitUntil(() -> {
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
+                    ItemStack firstOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+                    helper.assertTrue(!firstOutput.isEmpty(),
+                            "First colored package should appear after assembler progress");
+                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+                    ItemStack secondOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
+                    helper.assertTrue(!secondOutput.isEmpty(),
+                            "Second colored package should appear after assembler progress");
+                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
                     helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
                             "First AE2 colored output should be red");
-                    helper.assertTrue(!secondOutput.isEmpty(),
-                            "Second AE2 colored output should use the next output slot");
                     helper.assertTrue(secondOutput.is(APItems.packageItems().get(PackageColor.BLUE).get()),
                             "Second AE2 colored output should be blue");
                     helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 32,
@@ -2511,26 +2699,38 @@ public final class PackageDataGameTests {
 
                     boolean accepted =
                             provider.getLogic().pushPattern(details, new KeyCounter[] { ironInput, copperInput });
-                    ItemStack firstOutput =
-                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
-                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-                    ItemStack secondOutput =
-                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
-                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
-
                     helper.assertTrue(accepted,
                             "AE2 Pattern Provider should push packaged-processing patterns into Package Assembler");
                     helper.assertTrue(ironInput.isEmpty(),
                             "Accepted packaged-processing AE2 push should consume iron input");
                     helper.assertTrue(copperInput.isEmpty(),
                             "Accepted packaged-processing AE2 push should consume copper input");
+                })
+                .thenWaitUntil(() -> {
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
+                    ItemStack firstOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
+                    helper.assertTrue(!firstOutput.isEmpty(),
+                            "First packaged-processing package should appear after assembler progress");
+                    PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+                    ItemStack secondOutput =
+                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
+                    helper.assertTrue(!secondOutput.isEmpty(),
+                            "Second packaged-processing package should appear after assembler progress");
+                    PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+                    PackageData expectedIron = ironPackageData(PackageColor.RED, 64);
+                    PackageData expectedCopper = PackageData.create(
+                            PackageColor.RED,
+                            List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                            Optional.empty(),
+                            0);
+
                     helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
                             "First packaged-processing AE2 output should use the encoded color");
-                    helper.assertTrue(firstData.canonicalHash().equals(iron.canonicalHash()),
+                    helper.assertTrue(firstData.canonicalHash().equals(expectedIron.canonicalHash()),
                             "First packaged-processing AE2 output should match the first package");
-                    helper.assertTrue(!secondOutput.isEmpty(),
-                            "Second packaged-processing AE2 output should use the next output slot");
-                    helper.assertTrue(secondData.canonicalHash().equals(copper.canonicalHash()),
+                    helper.assertTrue(secondData.canonicalHash().equals(expectedCopper.canonicalHash()),
                             "Second packaged-processing AE2 output should match the second package");
                 })
                 .thenSucceed();
@@ -2569,10 +2769,13 @@ public final class PackageDataGameTests {
                 .thenWaitUntil(() -> {
                     PatternProviderBlockEntity provider =
                             (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    PackageAssemblerBlockEntity assembler =
+                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
                     helper.assertTrue(provider.getMainNode().isActive(),
                             "Pattern Provider grid node should be active before configuring the job");
                     helper.assertTrue(provider.getMainNode().hasGridBooted(),
                             "Pattern Provider grid should finish booting before configuring the job");
+                    assertPackageAssemblerReady(helper, assembler, "crafting CPU job");
                 })
                 .thenExecute(() -> {
                     DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
@@ -2598,16 +2801,25 @@ public final class PackageDataGameTests {
                 .thenWaitUntil(craftingJob::tickUntilStarted)
                 .thenIdle(2)
                 .thenWaitUntil(() -> {
-                    PackageAssemblerBlockEntity assembler =
-                            (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
-                    ItemStack output =
-                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
-                    helper.assertTrue(!output.isEmpty(), "Crafting CPU job should push inputs into Package Assembler");
-                    PackageData outputData = PackageDataStorage.read(output).orElseThrow();
-                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
-                            "CPU-pushed iron should be packaged");
-                    helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
-                            "CPU-pushed copper should be packaged");
+                    PatternProviderBlockEntity provider =
+                            (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
+                    var storage = provider.getMainNode().getGrid().getStorageService().getInventory();
+                    ItemStack expectedPackage = packageStack(
+                            PackageColor.FLUIX,
+                            PackageData.create(
+                                    PackageColor.FLUIX,
+                                    List.of(
+                                            new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                                            new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                                    Optional.empty(),
+                                    0));
+                    long storedPackages = storage.extract(
+                            AEItemKey.of(expectedPackage),
+                            1,
+                            Actionable.SIMULATE,
+                            IActionSource.ofMachine(provider));
+                    helper.assertTrue(storedPackages == 1,
+                            "Crafting CPU job should push inputs into Package Assembler and auto-output a package to ME storage");
                     helper.assertTrue(craftingJob.submitted(),
                             "Crafting CPU job should have been submitted before pushing inputs");
                 })
@@ -3872,7 +4084,11 @@ public final class PackageDataGameTests {
     }
 
     private static int itemEntityAmount(GameTestHelper helper, Item item) {
-        AABB bounds = new AABB(helper.absolutePos(BlockPos.ZERO)).inflate(8.0D);
+        return itemEntityAmount(helper, item, Vec3.atCenterOf(helper.absolutePos(BlockPos.ZERO)), 8.0D);
+    }
+
+    private static int itemEntityAmount(GameTestHelper helper, Item item, Vec3 center, double radius) {
+        AABB bounds = new AABB(center, center).inflate(radius);
         return helper.getLevel()
                 .getEntitiesOfClass(ItemEntity.class, bounds, entity -> entity.getItem().is(item))
                 .stream()
@@ -3882,6 +4098,12 @@ public final class PackageDataGameTests {
 
     private static PackageAssemblerBlockEntity newPackageAssembler() {
         return new PackageAssemblerBlockEntity(BlockPos.ZERO, APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState());
+    }
+
+    private static void tickPackageAssemblerToCompletion(PackageAssemblerBlockEntity assembler) {
+        for (int tick = 0; tick < 12; tick++) {
+            assembler.serverTick();
+        }
     }
 
     private static void fillAssemblerOutputSlots(PackageAssemblerBlockEntity assembler) {
@@ -3980,6 +4202,18 @@ public final class PackageDataGameTests {
                 "ME Packager grid should finish booting before " + label);
         helper.assertTrue(packager.getMainNode().getGrid() != null,
                 "ME Packager should have a grid before " + label);
+    }
+
+    private static void assertPackageAssemblerReady(
+            GameTestHelper helper,
+            PackageAssemblerBlockEntity assembler,
+            String label) {
+        helper.assertTrue(assembler.getMainNode().isActive(),
+                "Package Assembler grid node should be active before " + label);
+        helper.assertTrue(assembler.getMainNode().hasGridBooted(),
+                "Package Assembler grid should finish booting before " + label);
+        helper.assertTrue(assembler.getMainNode().getGrid() != null,
+                "Package Assembler should have a grid before " + label);
     }
 
     private static int ironAmountInChest(ChestBlockEntity chest) {
