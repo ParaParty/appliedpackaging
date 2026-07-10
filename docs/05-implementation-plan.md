@@ -271,16 +271,21 @@ GameTest/服务器 smoke test
   package_storage_bus 通过 IStorageProvider 挂载 PackageItemStorage
   PackageItemStorage 只暴露、插入、抽取合法包裹
   PackageItemStorage 支持 PackageFilter 限制可见、可插入、可抽取包裹
+  PackageItemStorage 模拟插入使用累计库存快照，避免多个包裹重复预占同一 slot 容量
   package_export_bus 只从 AE 网络输出已有合法包裹
-  package_unpacking_bus 整包事务性拆入背面库存
+  package_unpacking_bus 整包事务性拆入目标面库存
+  总线目标面只暴露相邻 Forge item handler，并从 AE grid 连接面与线缆渲染中排除；其它面连接 AE 网络
+  输出/拆包事务统一由 PackageBusTransactions 执行源/目标双向模拟、顺序提交与失败恢复
   总线支持手持已编码样板/合法包裹设置 ghost 过滤模板，潜行空手清除
   总线提供共享 Package Bus 配置 UI，可显示 ghost filter、从光标复制模板、清除模板、shift-click 背包模板设置 ghost filter
   Package Bus 配置 UI 不消耗玩家光标或背包中的模板物品
   Package Bus 配置 UI 支持手工编辑颜色、marker ghost 和 3 个 required content ghost slots
   Package Bus required content ghost slots 可从 Forge 流体容器编码 AEFluidKey 过滤条件
   手工 Package Bus 过滤器以 PackageFilter NBT 保存，并兼容旧 filter_template 读取
+  Package Bus 与 Package Pattern Terminal 的颜色/数量 DataSlot 使用服务端权威值和客户端菜单缓存同步
   runClientSmoke 可 quick-play 单人世界、摆放关键方块与 AE2 terminal parts、打开真实菜单、截图 Package Assembler/ME Packager/原版 Pattern Encoding Terminal/Advanced Pattern Terminal/Package Pattern Terminal/Package Storage Bus/Package Export Bus/Package Unpacking Bus 后退出
   PackageItemStorage/总线过滤 GameTest
+  PackageItemStorage 累计容量、总线真实 AE 网络导出/拆包、目标不足保持原包裹、源变化与目标部分提交回滚 GameTest
   package_pattern_terminal AE2 cable part item、part host、兼容方块、方块实体、菜单、客户端 screen
   package_pattern_terminal 物品 id 改为 AE2 part item，不新增重复终端物品；既有方块路径保留给兼容/测试
   Package Pattern Terminal 菜单通过 PackagePatternTerminalHost 同时支持方块 host 与 AE2 part host

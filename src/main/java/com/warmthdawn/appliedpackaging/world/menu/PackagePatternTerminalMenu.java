@@ -48,6 +48,11 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int HOTBAR_END = PLAYER_INVENTORY_END + 9;
 
     private final PackagePatternTerminalHost terminal;
+    private final boolean clientSide;
+    private int syncedSelectedColor;
+    private final int[] syncedInputColors = new int[PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT];
+    private final int[] syncedProcessingOutputAmounts =
+            new int[PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT];
     private final DataSlot selectedColorSlot;
     private final DataSlot[] inputColorSlots = new DataSlot[PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT];
     private final DataSlot[] processingOutputAmountSlots =
@@ -62,17 +67,22 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public PackagePatternTerminalMenu(int containerId, Inventory playerInventory, PackagePatternTerminalHost terminal) {
         super(APMenus.PACKAGE_PATTERN_TERMINAL.get(), containerId);
         this.terminal = terminal;
+        this.clientSide = playerInventory.player.level().isClientSide;
+        this.syncedSelectedColor = terminal.selectedColor().ordinal();
+        for (int slot = 0; slot < syncedInputColors.length; slot++) {
+            syncedInputColors[slot] = terminal.inputSlotColorOrdinal(slot);
+        }
         this.selectedColorSlot = new DataSlot() {
             @Override
             public int get() {
-                return terminal.selectedColor().ordinal();
+                return clientSide ? syncedSelectedColor : terminal.selectedColor().ordinal();
             }
 
             @Override
             public void set(int value) {
                 PackageColor[] values = PackageColor.values();
                 if (value >= 0 && value < values.length) {
-                    terminal.setSelectedColor(values[value]);
+                    syncedSelectedColor = value;
                 }
             }
         };
@@ -304,12 +314,14 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
             inputColorSlots[inputSlot] = new DataSlot() {
                 @Override
                 public int get() {
-                    return terminal.inputSlotColorOrdinal(inputSlot);
+                    return clientSide
+                            ? syncedInputColors[inputSlot]
+                            : terminal.inputSlotColorOrdinal(inputSlot);
                 }
 
                 @Override
                 public void set(int value) {
-                    terminal.setInputSlotColorOrdinal(inputSlot, value);
+                    syncedInputColors[inputSlot] = value;
                 }
             };
             addDataSlot(inputColorSlots[inputSlot]);
@@ -322,12 +334,14 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
             processingOutputAmountSlots[outputSlot] = new DataSlot() {
                 @Override
                 public int get() {
-                    return terminal.processingOutputAmountForDisplay(outputSlot);
+                    return clientSide
+                            ? syncedProcessingOutputAmounts[outputSlot]
+                            : terminal.processingOutputAmountForDisplay(outputSlot);
                 }
 
                 @Override
                 public void set(int value) {
-                    // Server-owned value.
+                    syncedProcessingOutputAmounts[outputSlot] = value;
                 }
             };
             addDataSlot(processingOutputAmountSlots[outputSlot]);

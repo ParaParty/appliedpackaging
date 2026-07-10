@@ -2606,3 +2606,29 @@ GameTest：已考虑并运行。本轮改变样板物品身份、AE2 解码、Pa
 验证日志关键字 ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout 无命中
 GameTest：已考虑。本轮只修正客户端槽位可见性，不改变样板编码、物品移动、Pattern Provider 或装配室事务语义，因此不新增或复跑 GameTest。
 ```
+
+最新进展：
+
+```text
+加固包裹端点与总线事务：
+  ItemPackageTransactions 使用保留 slot limit/isItemValid 的累计库存快照规划完整插入，并按真实 slot 记录提交步骤；提交中途失败时回滚已插入/抽取内容。
+  MEStoragePackageTransactions 与 FluidPackageTransactions 的真实抽取提交现在校验源状态，并在部分失败时恢复此前抽取；MEStorage 拆包提交可回滚此前插入。
+  PackageItemStorage 的 SIMULATE 插入使用累计快照，避免多个包裹重复预占同一 slot 空余容量。
+  新增 PackageBusTransactions，输出与拆包总线统一执行目标/源模拟、单包顺序提交和失败恢复；目标面从 AE grid 可连接面中排除，旋转后刷新连接面。
+  packaged_processing_pattern 只有每个包裹都共享同一 marker 时才生成公共 marker 过滤条件。
+  Package Bus 与 Package Pattern Terminal 的颜色/数量 DataSlot 改为服务端权威值 + 客户端菜单缓存，避免客户端 setter 修改本地 host 或忽略 amount 更新。
+  ClientSmokeRunner 为终端和三种总线预填可辨识颜色、marker、item/fluid amount，截图可覆盖同步状态。
+
+新增 GameTest 覆盖累计 slot 容量、PackageItemStorage 模拟预占、item/MEStorage 源变化回滚、MEStorage 共享容量回滚、总线纯事务、真实 AE2 Drive 端点、目标面不接 AE、目标容量不足保持原包裹和多包裹公共 marker 语义。
+首次执行新增测试时，既有 damagedPackageEntityUnpacksContentsToWorld 用铁/铜统计附近掉落而被并行测试布局污染；改用该场景唯一的 NETHER_STAR/DRAGON_BREATH 后稳定。总线真实端点初版 bus -> Drive -> energy 拓扑未使总线上线，改为总线直连 Creative Energy Cell、Drive 接另一面后通过。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 13 个 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，159 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；人工检查 Advanced Pattern Terminal、Package Pattern Terminal 和三种 Package Bus 截图，确认标题左侧无重复铁锭，颜色、marker、32 item、65 item output 和 2000 mB water 同步状态位于正确槽位
+验证 rg -n -i "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout" run/logs/latest.log 无命中
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-assets.ps1 成功，144 个 PNG 通过资源门禁
+验证 scripts/verify-docs.ps1 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，9 张必需截图有效，日志无发布阻断关键字
+GameTest：已考虑并运行。本轮改变 item handler、MEStorage、流体、PackageItemStorage、总线源/目标提交、过滤和 AE grid 连接面，属于行为敏感变更；新增/扩展 GameTest 并通过全部 159 个 required GameTest。
+```

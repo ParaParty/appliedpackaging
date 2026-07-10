@@ -83,10 +83,21 @@ public final class FluidPackageTransactions {
         return true;
     }
 
-    public static void commitExtract(IFluidHandler source, FluidPackagePlan plan) {
+    public static boolean commitExtract(IFluidHandler source, FluidPackagePlan plan) {
+        List<FluidStack> committed = new ArrayList<>();
         for (FluidStack extraction : plan.extractions()) {
-            source.drain(extraction, IFluidHandler.FluidAction.EXECUTE);
+            FluidStack extracted = source.drain(extraction, IFluidHandler.FluidAction.EXECUTE);
+            if (!extracted.isEmpty()) {
+                committed.add(extracted.copy());
+            }
+            if (!extracted.isFluidStackIdentical(extraction)) {
+                for (int index = committed.size() - 1; index >= 0; index--) {
+                    source.fill(committed.get(index), IFluidHandler.FluidAction.EXECUTE);
+                }
+                return false;
+            }
         }
+        return true;
     }
 
     public static boolean canInsertPackageContents(PackageData data, IFluidHandler target) {

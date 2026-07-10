@@ -165,8 +165,10 @@ public final class ItemPackageTransactions {
             if (plan.isEmpty()) {
                 break;
             }
+            if (!commitExtract(simulated, plan.get())) {
+                break;
+            }
             plans.add(plan.get());
-            commitExtract(simulated, plan.get());
         }
         return List.copyOf(plans);
     }
@@ -205,35 +207,140 @@ public final class ItemPackageTransactions {
         return true;
     }
 
-    public static void commitExtract(IItemHandler source, ItemPackagePlan plan) {
+    public static boolean commitExtract(IItemHandler source, ItemPackagePlan plan) {
+        List<SlotExtraction> committed = new ArrayList<>();
         for (SlotExtraction extraction : plan.extractions()) {
-            source.extractItem(extraction.slot(), extraction.stack().getCount(), false);
+            ItemStack extracted = source.extractItem(extraction.slot(), extraction.stack().getCount(), false);
+            if (!extracted.isEmpty()) {
+                committed.add(new SlotExtraction(extraction.slot(), extracted.copy()));
+            }
+            if (!ItemStack.isSameItemSameTags(extraction.stack(), extracted)
+                    || extracted.getCount() != extraction.stack().getCount()) {
+                rollbackExtractions(source, committed);
+                return false;
+            }
         }
+        return true;
+    }
+
+    private static boolean rollbackExtractions(IItemHandler source, List<SlotExtraction> committed) {
+        boolean complete = true;
+        for (int index = committed.size() - 1; index >= 0; index--) {
+            SlotExtraction extraction = committed.get(index);
+            ItemStack remainder = source.insertItem(extraction.slot(), extraction.stack().copy(), false);
+            if (!remainder.isEmpty()) {
+                complete = false;
+            }
+        }
+        return complete;
     }
 
     public static boolean canInsertPackageContents(PackageData data, IItemHandler target) {
-        SimulatedItemHandler simulated = SimulatedItemHandler.copyOf(target);
-        return insertPackageContents(data, simulated, true);
+        return planPackageContentsInsertion(data, target).isPresent();
     }
 
     public static boolean insertPackageContents(PackageData data, IItemHandler target, boolean simulate) {
+        Optional<List<SlotInsertion>> plan = planPackageContentsInsertion(data, target);
+        if (plan.isEmpty()) {
+            return false;
+        }
+        if (simulate) {
+            return true;
+        }
+        return commitPackageContentsInsertion(target, plan.get());
+    }
+
+    private static Optional<List<SlotInsertion>> planPackageContentsInsertion(
+            PackageData data,
+            IItemHandler target) {
+        SimulatedItemHandler simulated = SimulatedItemHandler.copyOf(target);
         for (GenericStack entry : data.contents()) {
             if (!AEItemKey.is(entry.what()) || entry.amount() > Integer.MAX_VALUE) {
-                return false;
+                return Optional.empty();
             }
             AEItemKey key = (AEItemKey) entry.what();
             long remaining = entry.amount();
             while (remaining > 0) {
                 int amount = (int) Math.min(remaining, key.getMaxStackSize());
                 ItemStack stack = key.toStack(amount);
-                ItemStack remainder = ItemHandlerHelper.insertItemStacked(target, stack, simulate);
+                ItemStack actualSimulation = ItemHandlerHelper.insertItemStacked(target, stack.copy(), true);
+                if (!actualSimulation.isEmpty()) {
+                    return Optional.empty();
+                }
+                ItemStack remainder = ItemHandlerHelper.insertItemStacked(simulated, stack, false);
                 if (!remainder.isEmpty()) {
-                    return false;
+                    return Optional.empty();
                 }
                 remaining -= amount;
             }
         }
+
+        List<SlotInsertion> insertions = new ArrayList<>();
+        for (int slot = 0; slot < target.getSlots(); slot++) {
+            ItemStack before = target.getStackInSlot(slot);
+            ItemStack after = simulated.getStackInSlot(slot);
+            int beforeCount = ItemStack.isSameItemSameTags(before, after) ? before.getCount() : 0;
+            int inserted = after.getCount() - beforeCount;
+            if (inserted > 0) {
+                ItemStack stack = after.copy();
+                stack.setCount(inserted);
+                insertions.add(new SlotInsertion(slot, stack));
+            }
+        }
+        return Optional.of(List.copyOf(insertions));
+    }
+
+    private static boolean commitPackageContentsInsertion(
+            IItemHandler target,
+            List<SlotInsertion> plan) {
+        List<SlotInsertion> committed = new ArrayList<>();
+        for (SlotInsertion insertion : plan) {
+            ItemStack requested = insertion.stack().copy();
+            ItemStack remainder = target.insertItem(insertion.slot(), requested, false);
+            int accepted = acceptedAmount(requested, remainder);
+            if (accepted > 0) {
+                ItemStack acceptedStack = requested.copy();
+                acceptedStack.setCount(accepted);
+                committed.add(new SlotInsertion(insertion.slot(), acceptedStack));
+            }
+            if (!remainder.isEmpty()) {
+                rollbackPackageContentsInsertion(target, committed);
+                return false;
+            }
+        }
         return true;
+    }
+
+    private static int acceptedAmount(ItemStack requested, ItemStack remainder) {
+        if (remainder.isEmpty()) {
+            return requested.getCount();
+        }
+        if (!ItemStack.isSameItemSameTags(requested, remainder)) {
+            return 0;
+        }
+        return Math.max(0, requested.getCount() - remainder.getCount());
+    }
+
+    private static boolean rollbackPackageContentsInsertion(
+            IItemHandler target,
+            List<SlotInsertion> committed) {
+        boolean complete = true;
+        for (int index = committed.size() - 1; index >= 0; index--) {
+            SlotInsertion insertion = committed.get(index);
+            int remaining = insertion.stack().getCount();
+            while (remaining > 0) {
+                ItemStack extracted = target.extractItem(insertion.slot(), remaining, false);
+                if (extracted.isEmpty() || !ItemStack.isSameItemSameTags(insertion.stack(), extracted)) {
+                    complete = false;
+                    break;
+                }
+                remaining -= extracted.getCount();
+            }
+        }
+        return complete;
+    }
+
+    private record SlotInsertion(int slot, ItemStack stack) {
     }
 
     private static boolean tryPackageCandidate(

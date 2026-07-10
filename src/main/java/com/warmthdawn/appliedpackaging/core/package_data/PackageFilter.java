@@ -196,7 +196,7 @@ public record PackageFilter(
         Optional<MarkerSpec> marker = Optional.empty();
         for (PackageData data : packages) {
             if (data.marker().isEmpty()) {
-                continue;
+                return Optional.empty();
             }
             if (marker.isEmpty()) {
                 marker = data.marker();

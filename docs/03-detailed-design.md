@@ -754,25 +754,28 @@ Split 会把已编码 packaged_processing_pattern 拆回多个由 AE2 原版 bla
 总线家族当前实现为 AE2 可连接方块端点，而不是 cable part。
 三种总线均注册为水平朝向方块、方块物品、方块实体、配方、loot table 和 blockstate。
 方块实体继承 AE2 AENetworkBlockEntity，持有 IManagedGridNode，可连接 AE2 网络。
-总线背面作为相邻 Forge item handler 目标端点。
+方块 `FACING` 的反向面是相邻 Forge item handler 目标端点；该面从 grid connectable sides 中移除并返回 `AECableType.NONE`，只允许其它面连接 AE 网络。方块旋转后立即刷新可连接面。
 
 package_storage_bus:
   作为 IStorageProvider 挂载 PackageItemStorage。
   只枚举带 PackageData 的合法包裹。
   insert/extract 均拒绝散装物品和无 PackageData 的包裹。
   设置过滤模板后，只暴露、插入、抽取匹配过滤的包裹。
+  SIMULATE 插入使用保留真实 slot limit 与 isItemValid 规则的累计库存快照，多个包裹不能重复占用同一份空余容量。
   不暴露包裹内部内容。
 
 package_export_bus:
   周期性从 AE 网络缓存中选择合法包裹。
   设置过滤模板后，只选择匹配过滤的包裹。
-  只输出已有包裹到背面库存。
+  只输出已有包裹到目标面库存。
+  目标插入和源抽取均先模拟；提交源抽取后目标状态若发生变化，则尝试把该包裹恢复到原 AE 存储。
   不把散装库存自动打成包裹。
 
 package_unpacking_bus:
   周期性从 AE 网络选择合法包裹。
   设置过滤模板后，只选择匹配过滤的包裹。
-  先模拟完整拆入背面库存，成功后才从网络抽取 1 个包裹并提交散装插入。
+  先在同一累计快照中模拟完整拆入目标面库存，成功后才从网络抽取 1 个包裹并提交散装插入。
+  目标提交中途失败时回滚已插入内容；包裹仍可恢复时写回原 AE 存储。
   不接受部分拆包。
 
 过滤模板当前为 ghost 配置：手持已编码 package_pattern、packaged_processing_pattern 或合法包裹右键总线写入模板；
@@ -781,6 +784,7 @@ package_unpacking_bus:
 UI 仍复用 PackageFilter.fromTemplate，因此 package_pattern、packaged_processing_pattern 和合法包裹的颜色、marker、内容过滤语义与右键快捷配置完全一致。
 Package Bus 配置 UI 也支持手工过滤器编辑：17 色 swatch 设置颜色过滤，marker ghost 槽从光标复制 1 个物品作为 marker，3 个 required content ghost 槽从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标点击清除；这些 ghost 编辑不消耗玩家物品。若 required content 光标物品是 Forge 流体容器，则过滤器保存对应 AEFluidKey 与流体数量，例如水桶保存 1000 mB water。鼠标悬停 required content ghost 槽并滚轮调整数量时，流体每步调整 1000 mB，物品/其它已存在 key 每步调整 1；数量不会降到小于一个调整步长。
 手工过滤器以 PackageFilter NBT 保存到总线方块实体，保留旧 filter_template 读取兼容；复制真实模板时仍保存 ghost 模板物品用于显示，手工编辑后清除模板来源显示但保留实际过滤条件。
+Package Bus 与 Package Pattern Terminal 的整数状态使用服务端权威 `DataSlot#get` 和客户端菜单本地缓存 `DataSlot#set`；客户端同步不直接修改本地方块实体/part host，颜色与 ghost amount 可在服务端更新后稳定刷新。
 
 包裹总线家族当前不含批量 required content 编辑、任意 AEKey 直接手工过滤输入，也不提供 AE2 cable part 形态；Package Pattern Terminal 已单独实现为 AE2 cable part item。
 ```
@@ -806,4 +810,5 @@ requiredContents 为空表示不过滤。
 反转模式下，包裹内每个 AEKey 都不得存在于 requiredContents。
 内容过滤只反转内容 AEKey，不反转颜色或 marker。
 精确样板封装等内部路径可使用 PackageFilter 的 required amount 匹配，但普通总线/打包机过滤不使用数量作为通过条件。
+packaged_processing_pattern 只有在每一个包裹都存在且使用同一个 marker 时才产生公共 marker 过滤条件；混合“有 marker/无 marker”或 marker 不同的多包裹样板不设置公共 marker 门禁。
 ```

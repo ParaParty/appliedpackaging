@@ -128,7 +128,7 @@ gametest
 
 1. `PackageData` 是纯数据，不直接调用 Forge 或 AE2 网络。
 2. `PackageDataStorage` 是 1.20.1 NBT 与未来 Data Component 的唯一读写入口。
-3. 所有会改变世界或库存的行为先生成 `PackagePlan`，再做模拟，最后提交。
+3. 所有会改变世界或库存的行为先生成 `PackagePlan`，再在同一累计快照上模拟，最后提交；提交期间端点发生变化时回滚本次已提交改动。
 4. 打包和拆包以单个包裹为最小事务单位。
 5. ME 打包机只扫描所选连接面的相邻 AE MEStorage，不扫描自身所在任意 ME 网络，也不回落到 Forge item/fluid handler。
 6. 装配室只处理样板语义，不处理相邻存储打包和拆包。
@@ -189,10 +189,21 @@ incoming package stack
 -> validate PackageData
 -> apply package filter
 -> expand contents
--> simulate full insert into target endpoint
+-> simulate full insert into one cumulative target snapshot
 -> accept N whole packages
--> commit insert for accepted packages
+-> commit insert for accepted packages, rolling back partial target changes on failure
 -> return remainder
+```
+
+包裹输出/拆包总线路由：
+
+```text
+all sides except the inventory target face -> AE2 grid connection
+opposite of block FACING -> adjacent Forge item handler only, no AE2 cable connection
+simulate target and ME source
+commit one package from ME source
+commit target insertion
+restore the package to ME source if the target no longer matches simulation
 ```
 
 ## 6. 版本适配

@@ -691,7 +691,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (!ItemPackageTransactions.canExtract(input, plan.itemPlan())) {
             return AssemblyResult.SOURCE_CHANGED;
         }
-        ItemPackageTransactions.commitExtract(input, plan.itemPlan());
+        if (!ItemPackageTransactions.commitExtract(input, plan.itemPlan())) {
+            return AssemblyResult.SOURCE_CHANGED;
+        }
         beginCrafting(List.of(new QueuedPackage(plan.color(), plan.data(), plan.packageNameOverride())));
         return AssemblyResult.ASSEMBLED;
     }
@@ -856,7 +858,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return AssemblyResult.SOURCE_CHANGED;
         }
 
-        ItemPackageTransactions.commitExtract(input, plan.itemPlan());
+        if (!ItemPackageTransactions.commitExtract(input, plan.itemPlan())) {
+            return AssemblyResult.SOURCE_CHANGED;
+        }
         insertOutputPackage(packageStack);
         setChanged();
         return AssemblyResult.ASSEMBLED;

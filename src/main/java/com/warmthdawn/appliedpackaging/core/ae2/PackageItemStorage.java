@@ -6,6 +6,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import com.warmthdawn.appliedpackaging.core.item_handler.SimulatedItemHandler;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
@@ -38,12 +39,15 @@ public class PackageItemStorage implements MEStorage {
         }
 
         AEItemKey key = (AEItemKey) what;
+        IItemHandler insertionTarget = mode.isSimulate()
+                ? SimulatedItemHandler.copyOf(itemHandler)
+                : itemHandler;
         long inserted = 0;
         long remaining = amount;
         while (remaining > 0) {
             int batch = (int) Math.min(remaining, key.getMaxStackSize());
             ItemStack stack = key.toStack(batch);
-            ItemStack remainder = ItemHandlerHelper.insertItemStacked(itemHandler, stack, mode.isSimulate());
+            ItemStack remainder = ItemHandlerHelper.insertItemStacked(insertionTarget, stack, false);
             int accepted = batch - remainder.getCount();
             inserted += accepted;
             remaining -= accepted;

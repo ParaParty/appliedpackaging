@@ -29,6 +29,7 @@ import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.bus.AbstractPackageBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
@@ -245,6 +246,14 @@ public final class ClientSmokeRunner {
                         if (part == null) {
                             throw new IllegalStateException("Could not place package pattern terminal part at " + pos);
                         }
+                        part.setSelectedColor(PackageColor.BLUE);
+                        part.setInputSlotColor(0, PackageColor.RED);
+                        part.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 32));
+                        part.getItems().setStackInSlot(
+                                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
+                                AEItems.BLANK_PATTERN.stack());
+                        part.setProcessingOutputFromGhostStack(0, new ItemStack(Items.DIAMOND, 64), false);
+                        part.adjustProcessingOutputAmount(0, true);
                     } else {
                         var state = step.block().defaultBlockState()
                                 .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH);
@@ -256,6 +265,11 @@ public final class ClientSmokeRunner {
                                 && level.getBlockEntity(pos) instanceof MePackagerBlockEntity packager) {
                             ItemStack packageStack = smokePackage(PackageColor.FLUIX, true);
                             primeMePackagerSmokeAnimation(packager, packageStack);
+                        } else if (level.getBlockEntity(pos) instanceof AbstractPackageBusBlockEntity bus) {
+                            bus.setManualFilterColor(PackageColor.RED);
+                            bus.setManualFilterMarker(new ItemStack(Items.DIAMOND));
+                            bus.setManualFilterContentFromGhostStack(0, new ItemStack(Items.WATER_BUCKET), false);
+                            bus.adjustManualFilterContentAmount(0, true);
                         }
                     }
                 }

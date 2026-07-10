@@ -88,7 +88,19 @@ AE2 PackageItemStorage 只暴露合法包裹
 AE2 PackageItemStorage 拒绝散装物品插入
 AE2 PackageItemStorage 可模拟并提交合法包裹插入/抽取
 AE2 PackageItemStorage 按 PackageFilter 限制可见、插入、抽取包裹
+AE2 PackageItemStorage 累计模拟不会让多个包裹重复占用同一 slot 空余容量
+item handler 拆包累计模拟会拒绝多种内容共同超过同一 slot 容量
+item handler 打包提交遇到源库存变化时回滚此前真实抽取
+MEStorage 打包提交遇到源库存变化时回滚此前真实抽取
+MEStorage 拆包在共享目标容量于提交阶段不足时回滚此前真实插入
 包裹总线可保存、拒绝非法项并清除 ghost 过滤模板
+包裹总线事务可输出一个已有网络包裹到相邻库存
+包裹总线事务可把一个网络包裹完整拆入相邻库存
+包裹总线在目标无法完整容纳内容时保留网络包裹
+包裹总线目标面不连接 AE 网络，其余面仍可加入 grid
+真实 AE2 Drive 网络上的存储总线只挂载相邻库存中的合法包裹
+真实 AE2 Drive 网络上的输出总线可把已有包裹送入相邻库存
+真实 AE2 Drive 网络上的拆包总线可完整提交相邻散装内容，容量不足时保持原网络包裹
 Package Bus 配置 UI 可从光标物品设置 ghost filter 且不消耗光标模板
 Package Bus 配置 UI 可从玩家背包 shift-click 设置 ghost filter 且不消耗背包模板
 package_pattern 数据可读写
@@ -136,6 +148,7 @@ package_bus 配置 UI 可从 Forge 流体容器设置 required content ghost，�
 package_bus 配置 UI 可调整流体 required content ghost 数量，且不会降到小于一桶
 package_bus 手工流体过滤器保存/读取后保留 color、required content key 和 amount
 PackageFilter 可按流体 key 匹配内容 allowlist
+PackageFilter 从多包裹样板提取 marker 时只接受每个包裹共享的同一 marker
 item handler 打包计划可按内容过滤只选择 requiredContents 中出现的 AEKey，且 ghost amount 不限制打包数量
 item handler 打包计划在没有任何 allowlist key 可用时拒绝
 item handler 打包计划可从过滤模板 override marker
@@ -169,7 +182,8 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 反例确认 ME Packager 无 MEStorage 时不回落、不消耗流体槽
-当前最新执行：2026-07-10 将高级列数据迁移到独立 advanced_processing_pattern 物品，并保留装配室普通/高级处理样板路由后，执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，145 个必需 GameTest 全部通过。
+当前最新执行：2026-07-10 加固 item handler、MEStorage、PackageItemStorage 和三种包裹总线事务，并补齐累计模拟、源变化回滚、共享容量失败、真实 AE 网络端点和公共 marker 语义后，执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，159 个必需 GameTest 全部通过。
+本轮首次执行 152 个测试时，既有 `damagedPackageEntityUnpacksContentsToWorld` 因用铁/铜统计附近掉落而被新增测试布局污染；改用该场景唯一的 NETHER_STAR/DRAGON_BREATH 后稳定。总线端点测试初版还暴露 bus -> Drive -> energy 拓扑未让目标总线上线，改为总线直连 Creative Energy Cell、Drive 接另一面后通过；这些均为测试场景修正，不放宽产品断言。
 2026-07-08 首次复跑 `.\gradlew.bat runGameTestServer` 暴露旧 `damagedPackageEntityUnpacksContentsToWorld` 测试对掉落实体统计范围/时序过宽的问题；收紧为掉落点附近等待式断言后复跑通过。
 2026-07-06 在 ME Package Assembler 接入 AE2 `UpgradeableMenu` 后改为按 AE2 实际 slot index / slot semantic 处理滚动槽和玩家背包，执行 `.\gradlew.bat runGameTestServer` 成功，133 个必需 GameTest 全部通过。
 2026-07-03 06:15 再次执行 `.\gradlew.bat runGameTestServer` 成功，112 个必需 GameTest 全部通过。
@@ -526,6 +540,7 @@ run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to
 2026-07-10 增加 Advanced Pattern Terminal 后执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功，生成 3 张世界截图和 8 张真实菜单截图。人工查看 `run/screenshots/appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png`，确认 854x480、GUI scale 2 下顶部短标题、搜索框、两行网络库存、三列颜色按钮、灰色加号列、4x4 输入、4 行输出、水平滚动区和玩家物品栏完整显示且无重叠；高级终端右侧保持 AE2 透明轮廓，没有扩图色带。日志按 `ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout` 扫描无命中。
 本次 `verify-release.ps1 -RequireClientSmokeScreenshots` 必需清单扩展为 9 张并通过，新增 `appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png`；`build`、`verify-assets.ps1`、`test-assets-audit.ps1`、`test-release-audit.ps1`、`verify-docs.ps1` 和机械发布审计均通过。
 2026-07-10 将高级列数据迁移到独立 `advanced_processing_pattern` 后再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工查看同一截图，确认高级终端主体加宽为 230px、顶部 10 列网络库存、左侧竖向列滚动条、带 4px 间距的 4 个输入列、4 行输出、独立样板输出预览与居中玩家栏均完整可见；GUI 总高仍为 240px，没有超出 854x480、GUI scale 2 视口。
+2026-07-10 在 Package Bus / Package Pattern Terminal `DataSlot` 同步改为服务端权威值与客户端菜单缓存后再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工检查 Advanced Pattern Terminal、Package Pattern Terminal 和三种 Package Bus 截图：标题左侧不再重复渲染共享输入索引 0 的铁锭；高级终端输入区铁/铜/金仅各显示在真实 processing slot；Package Pattern Terminal 可见 RED 输入列、32 个铁锭与 65 个钻石输出；三种总线可见 RED、钻石 marker 与 2000 mB water 过滤状态。日志关键字扫描零命中。
 ```
 
 ## 6. Dedicated Server 验证

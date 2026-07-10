@@ -134,10 +134,23 @@ public final class MEStoragePackageTransactions {
         return true;
     }
 
-    public static void commitExtract(MEStorage source, MEStoragePackagePlan plan) {
+    public static boolean commitExtract(MEStorage source, MEStoragePackagePlan plan) {
+        List<GenericStack> committed = new ArrayList<>();
         for (GenericStack extraction : plan.extractions()) {
-            source.extract(extraction.what(), extraction.amount(), Actionable.MODULATE, IActionSource.empty());
+            long extracted = source.extract(
+                    extraction.what(),
+                    extraction.amount(),
+                    Actionable.MODULATE,
+                    IActionSource.empty());
+            if (extracted > 0) {
+                committed.add(new GenericStack(extraction.what(), extracted));
+            }
+            if (extracted != extraction.amount()) {
+                rollbackExtractions(source, committed);
+                return false;
+            }
         }
+        return true;
     }
 
     public static boolean canInsertPackageContents(PackageData data, MEStorage target) {
@@ -154,13 +167,32 @@ public final class MEStoragePackageTransactions {
         if (!canInsertPackageContents(data, target)) {
             return false;
         }
+        List<GenericStack> committed = new ArrayList<>();
         for (GenericStack entry : data.contents()) {
             long inserted = target.insert(entry.what(), entry.amount(), Actionable.MODULATE, IActionSource.empty());
+            if (inserted > 0) {
+                committed.add(new GenericStack(entry.what(), inserted));
+            }
             if (inserted != entry.amount()) {
+                rollbackInsertions(target, committed);
                 return false;
             }
         }
         return true;
+    }
+
+    private static void rollbackExtractions(MEStorage source, List<GenericStack> committed) {
+        for (int index = committed.size() - 1; index >= 0; index--) {
+            GenericStack extraction = committed.get(index);
+            source.insert(extraction.what(), extraction.amount(), Actionable.MODULATE, IActionSource.empty());
+        }
+    }
+
+    private static void rollbackInsertions(MEStorage target, List<GenericStack> committed) {
+        for (int index = committed.size() - 1; index >= 0; index--) {
+            GenericStack insertion = committed.get(index);
+            target.extract(insertion.what(), insertion.amount(), Actionable.MODULATE, IActionSource.empty());
+        }
     }
 
     private static Optional<PackageData> packageDataFromKey(AEKey key) {

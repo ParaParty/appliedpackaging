@@ -1,29 +1,27 @@
 package com.warmthdawn.appliedpackaging.world.block.entity.bus;
 
-import appeng.api.config.Actionable;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.orientation.BlockOrientation;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.util.AECableType;
 import appeng.blockentity.grid.AENetworkBlockEntity;
+import com.warmthdawn.appliedpackaging.core.ae2.PackageBusTransactions;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
-import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
-import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
-import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -42,7 +40,6 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.ItemHandlerHelper;
 
 public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity implements MenuProvider {
     public static final int REQUIRED_CONTENT_SLOT_COUNT = 3;
@@ -67,7 +64,24 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
 
     @Override
     public AECableType getCableConnectionType(Direction side) {
-        return AECableType.SMART;
+        return side == targetDirection() ? AECableType.NONE : AECableType.SMART;
+    }
+
+    @Override
+    public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
+        EnumSet<Direction> sides = EnumSet.allOf(Direction.class);
+        sides.remove(targetDirection());
+        return sides;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void setBlockState(BlockState state) {
+        Direction previousTarget = targetDirection();
+        super.setBlockState(state);
+        if (previousTarget != targetDirection()) {
+            onGridConnectableSidesChanged();
+        }
     }
 
     protected abstract void tickNetwork();
@@ -86,8 +100,7 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         if (level == null) {
             return Optional.empty();
         }
-        Direction facing = getBlockState().getValue(AbstractHorizontalMachineBlock.FACING);
-        Direction targetDirection = facing.getOpposite();
+        Direction targetDirection = targetDirection();
         BlockEntity targetBlockEntity = level.getBlockEntity(worldPosition.relative(targetDirection));
         if (targetBlockEntity == null) {
             return Optional.empty();
@@ -111,6 +124,10 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
 
     protected IActionSource actionSource() {
         return IActionSource.ofMachine(this);
+    }
+
+    private Direction targetDirection() {
+        return getBlockState().getValue(AbstractHorizontalMachineBlock.FACING).getOpposite();
     }
 
     public boolean setFilterTemplate(ItemStack stack) {
@@ -274,76 +291,30 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
         return filter;
     }
 
-    protected boolean matchesConfiguredFilter(ItemStack stack) {
-        PackageFilter filter = configuredFilter();
-        if (filter.isAny()) {
-            return PackageItemStorage.isLegalPackageStack(stack);
-        }
-        if (!(stack.getItem() instanceof PackageItem packageItem)) {
-            return false;
-        }
-        return PackageDataStorage.read(stack)
-                .map(data -> filter.matches(packageItem.color(), data))
-                .orElse(false);
-    }
-
-    protected boolean exportOnePackageToTarget(Component description) {
+    protected boolean exportOnePackageToTarget() {
         Optional<IItemHandler> target = findTargetItemHandler();
         Optional<IStorageService> storage = storageService();
         if (target.isEmpty() || storage.isEmpty()) {
             return false;
         }
-
-        for (var entry : storage.get().getCachedInventory()) {
-            AEKey key = entry.getKey();
-            if (!PackageItemStorage.isPackageKey(key) || entry.getLongValue() <= 0) {
-                continue;
-            }
-            ItemStack packageStack = key.wrapForDisplayOrFilter();
-            packageStack.setCount(1);
-            if (!matchesConfiguredFilter(packageStack)) {
-                continue;
-            }
-            ItemStack remainder = ItemHandlerHelper.insertItemStacked(target.get(), packageStack, true);
-            if (!remainder.isEmpty()) {
-                continue;
-            }
-            long extracted = storage.get().getInventory().extract(key, 1, Actionable.MODULATE, actionSource());
-            if (extracted == 1) {
-                ItemHandlerHelper.insertItemStacked(target.get(), packageStack, false);
-                return true;
-            }
-        }
-        return false;
+        return PackageBusTransactions.exportOnePackage(
+                storage.get().getInventory(),
+                target.get(),
+                configuredFilter(),
+                actionSource());
     }
 
-    protected boolean unpackOnePackageToTarget(Component description) {
+    protected boolean unpackOnePackageToTarget() {
         Optional<IItemHandler> target = findTargetItemHandler();
         Optional<IStorageService> storage = storageService();
         if (target.isEmpty() || storage.isEmpty()) {
             return false;
         }
-
-        for (var entry : storage.get().getCachedInventory()) {
-            AEKey key = entry.getKey();
-            if (!PackageItemStorage.isPackageKey(key) || entry.getLongValue() <= 0) {
-                continue;
-            }
-            ItemStack packageStack = key.wrapForDisplayOrFilter();
-            packageStack.setCount(1);
-            if (!matchesConfiguredFilter(packageStack)) {
-                continue;
-            }
-            Optional<PackageData> data = PackageDataStorage.read(packageStack);
-            if (data.isEmpty() || !ItemPackageTransactions.canInsertPackageContents(data.get(), target.get())) {
-                continue;
-            }
-            long extracted = storage.get().getInventory().extract(key, 1, Actionable.MODULATE, actionSource());
-            if (extracted == 1 && ItemPackageTransactions.insertPackageContents(data.get(), target.get(), false)) {
-                return true;
-            }
-        }
-        return false;
+        return PackageBusTransactions.unpackOnePackage(
+                storage.get().getInventory(),
+                target.get(),
+                configuredFilter(),
+                actionSource());
     }
 
     private void onFilterChanged() {

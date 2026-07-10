@@ -4,13 +4,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 
-final class SimulatedItemHandler extends ItemStackHandler {
-    private SimulatedItemHandler(int size) {
-        super(size);
+public final class SimulatedItemHandler extends ItemStackHandler {
+    private final IItemHandler source;
+
+    private SimulatedItemHandler(IItemHandler source) {
+        super(source.getSlots());
+        this.source = source;
     }
 
-    static SimulatedItemHandler copyOf(IItemHandler source) {
-        SimulatedItemHandler copy = new SimulatedItemHandler(source.getSlots());
+    public static SimulatedItemHandler copyOf(IItemHandler source) {
+        SimulatedItemHandler copy = new SimulatedItemHandler(source);
         for (int slot = 0; slot < source.getSlots(); slot++) {
             copy.setStackInSlot(slot, source.getStackInSlot(slot).copy());
         }
@@ -19,12 +22,12 @@ final class SimulatedItemHandler extends ItemStackHandler {
 
     @Override
     public int getSlotLimit(int slot) {
-        return 64;
+        return source.getSlotLimit(slot);
     }
 
     @Override
     public boolean isItemValid(int slot, ItemStack stack) {
-        return true;
+        return source.isItemValid(slot, stack);
     }
 
     @Override

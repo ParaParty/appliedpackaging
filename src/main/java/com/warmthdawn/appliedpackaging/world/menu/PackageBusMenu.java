@@ -41,6 +41,10 @@ public class PackageBusMenu extends AbstractContainerMenu {
     private final SimpleContainer markerDisplay = new SimpleContainer(1);
     private final SimpleContainer contentDisplay =
             new SimpleContainer(AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT);
+    private final boolean clientSide;
+    private int syncedSelectedColor;
+    private final int[] syncedContentAmounts =
+            new int[AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT];
     private final DataSlot selectedColorSlot;
     private final DataSlot[] contentAmountSlots =
             new DataSlot[AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT];
@@ -52,17 +56,19 @@ public class PackageBusMenu extends AbstractContainerMenu {
     public PackageBusMenu(int containerId, Inventory playerInventory, AbstractPackageBusBlockEntity blockEntity) {
         super(APMenus.PACKAGE_BUS.get(), containerId);
         this.blockEntity = blockEntity;
+        this.clientSide = playerInventory.player.level().isClientSide;
+        this.syncedSelectedColor = blockEntity.filterColor().ordinal();
         this.selectedColorSlot = new DataSlot() {
             @Override
             public int get() {
-                return blockEntity.filterColor().ordinal();
+                return clientSide ? syncedSelectedColor : blockEntity.filterColor().ordinal();
             }
 
             @Override
             public void set(int value) {
                 PackageColor[] values = PackageColor.values();
                 if (value >= 0 && value < values.length) {
-                    blockEntity.setManualFilterColor(values[value]);
+                    syncedSelectedColor = value;
                 }
             }
         };
@@ -270,12 +276,14 @@ public class PackageBusMenu extends AbstractContainerMenu {
             contentAmountSlots[contentSlot] = new DataSlot() {
                 @Override
                 public int get() {
-                    return blockEntity.filterRequiredContentAmountForDisplay(contentSlot);
+                    return clientSide
+                            ? syncedContentAmounts[contentSlot]
+                            : blockEntity.filterRequiredContentAmountForDisplay(contentSlot);
                 }
 
                 @Override
                 public void set(int value) {
-                    // Server-owned value.
+                    syncedContentAmounts[contentSlot] = value;
                 }
             };
             addDataSlot(contentAmountSlots[contentSlot]);

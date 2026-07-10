@@ -15,7 +15,9 @@ import appeng.api.networking.crafting.ICraftingSubmitResult;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
+import appeng.api.orientation.BlockOrientation;
 import appeng.api.util.AEColor;
+import appeng.api.util.AECableType;
 import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.blockentity.crafting.PatternProviderBlockEntity;
 import appeng.blockentity.misc.InterfaceBlockEntity;
@@ -26,6 +28,7 @@ import appeng.core.definitions.AEParts;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
+import com.warmthdawn.appliedpackaging.core.ae2.PackageBusTransactions;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackagePlan;
 import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackageTransactions;
@@ -55,7 +58,10 @@ import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBloc
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.bus.AbstractPackageBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageExportBusBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageStorageBusBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageUnpackingBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
@@ -416,12 +422,43 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(plan.isPresent(), "Item handler should produce a package plan");
         helper.assertTrue(ItemPackageTransactions.canExtract(source, plan.get()), "Planned extraction should be simulatable");
-        ItemPackageTransactions.commitExtract(source, plan.get());
+        helper.assertTrue(ItemPackageTransactions.commitExtract(source, plan.get()),
+                "Planned item extraction should commit completely");
 
         helper.assertTrue(source.getStackInSlot(0).isEmpty(), "Iron source slot should be extracted");
         helper.assertTrue(source.getStackInSlot(1).isEmpty(), "Copper source slot should be extracted");
         helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 64, "Plan should contain iron");
         helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 32, "Plan should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerPackCommitRollsBackWhenSourceChanges(GameTestHelper helper) {
+        ItemStackHandler source = new ItemStackHandler(2) {
+            @Override
+            public ItemStack extractItem(int slot, int amount, boolean simulate) {
+                if (!simulate && slot == 1) {
+                    amount = Math.min(amount, 16);
+                }
+                return super.extractItem(slot, amount, simulate);
+            }
+        };
+        source.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        source.setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+        ItemPackagePlan plan = ItemPackageTransactions.planPack(
+                        source,
+                        PackageColor.FLUIX,
+                        PackageCapacityProfile.DEFAULT)
+                .orElseThrow();
+
+        helper.assertTrue(ItemPackageTransactions.canExtract(source, plan),
+                "Changing item source should pass the initial simulation");
+        helper.assertFalse(ItemPackageTransactions.commitExtract(source, plan),
+                "Short real extraction should fail the item transaction");
+        helper.assertTrue(source.getStackInSlot(0).getCount() == 64,
+                "Failed item transaction should restore the first source slot");
+        helper.assertTrue(source.getStackInSlot(1).getCount() == 32,
+                "Failed item transaction should restore the partially extracted source slot");
         helper.succeed();
     }
 
@@ -455,6 +492,24 @@ public final class PackageDataGameTests {
 
         helper.assertFalse(ItemPackageTransactions.canInsertPackageContents(data, target),
                 "Full incompatible target should reject complete package contents");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemHandlerUnpackRejectsCumulativeSlotOverflow(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStackHandler target = new ItemStackHandler(1);
+
+        helper.assertFalse(ItemPackageTransactions.canInsertPackageContents(data, target),
+                "One empty slot must not independently simulate accepting both iron and copper");
+        helper.assertTrue(target.getStackInSlot(0).isEmpty(),
+                "Cumulative unpack simulation must not mutate the target");
         helper.succeed();
     }
 
@@ -733,7 +788,14 @@ public final class PackageDataGameTests {
 
     @GameTest(template = "empty")
     public static void damagedPackageEntityUnpacksContentsToWorld(GameTestHelper helper) {
-        ItemStack packageStack = packageStack(PackageColor.BLUE, itemPackageData(PackageColor.BLUE, 64, 32));
+        PackageData data = PackageData.create(
+                PackageColor.BLUE,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.NETHER_STAR), 7),
+                        new GenericStack(AEItemKey.of(Items.DRAGON_BREATH), 5)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, data);
         Vec3 spawnPos = helper.absoluteVec(new Vec3(1.5D, 1.0D, 1.5D));
         PackageEntity entity = new PackageEntity(helper.getLevel(), spawnPos.x, spawnPos.y, spawnPos.z, packageStack);
         helper.getLevel().addFreshEntity(entity);
@@ -743,12 +805,12 @@ public final class PackageDataGameTests {
         helper.assertTrue(unpacked, "Damaging a package entity should unpack item contents");
         helper.assertTrue(entity.isRemoved(), "Damaged package entity should be removed after unpacking");
         helper.succeedWhen(() -> {
-            int ironAmount = itemEntityAmount(helper, Items.IRON_INGOT, spawnPos, 4.0D);
-            int copperAmount = itemEntityAmount(helper, Items.COPPER_INGOT, spawnPos, 4.0D);
-            helper.assertTrue(ironAmount == 64,
-                    "Damaged package entity should drop unpacked iron, found " + ironAmount);
-            helper.assertTrue(copperAmount == 32,
-                    "Damaged package entity should drop unpacked copper, found " + copperAmount);
+            int netherStarAmount = itemEntityAmount(helper, Items.NETHER_STAR, spawnPos, 4.0D);
+            int dragonBreathAmount = itemEntityAmount(helper, Items.DRAGON_BREATH, spawnPos, 4.0D);
+            helper.assertTrue(netherStarAmount == 7,
+                    "Damaged package entity should drop unpacked nether stars, found " + netherStarAmount);
+            helper.assertTrue(dragonBreathAmount == 5,
+                    "Damaged package entity should drop unpacked dragon breath, found " + dragonBreathAmount);
         });
     }
 
@@ -1442,7 +1504,8 @@ public final class PackageDataGameTests {
         helper.assertTrue(plan.isPresent(), "MEStorage should produce a package plan");
         helper.assertTrue(MEStoragePackageTransactions.canExtract(source, plan.get()),
                 "MEStorage extraction should simulate");
-        MEStoragePackageTransactions.commitExtract(source, plan.get());
+        helper.assertTrue(MEStoragePackageTransactions.commitExtract(source, plan.get()),
+                "Planned ME storage extraction should commit completely");
 
         helper.assertTrue(source.amount(AEItemKey.of(Items.IRON_INGOT)) == 0, "Iron should be extracted");
         helper.assertTrue(source.amount(AEItemKey.of(Items.COPPER_INGOT)) == 0, "Copper should be extracted");
@@ -1450,6 +1513,53 @@ public final class PackageDataGameTests {
                 "Package should contain iron");
         helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.COPPER_INGOT)) == 32,
                 "Package should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void meStoragePackCommitRollsBackWhenSourceChanges(GameTestHelper helper) {
+        MemoryMEStorage backing = new MemoryMEStorage();
+        backing.add(AEItemKey.of(Items.IRON_INGOT), 64);
+        backing.add(AEItemKey.of(Items.COPPER_INGOT), 32);
+        MEStorage changingSource = new MEStorage() {
+            @Override
+            public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+                return backing.insert(what, amount, mode, source);
+            }
+
+            @Override
+            public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+                if (mode == Actionable.MODULATE && what.equals(AEItemKey.of(Items.COPPER_INGOT))) {
+                    amount = Math.min(amount, 16);
+                }
+                return backing.extract(what, amount, mode, source);
+            }
+
+            @Override
+            public void getAvailableStacks(KeyCounter out) {
+                backing.getAvailableStacks(out);
+            }
+
+            @Override
+            public Component getDescription() {
+                return Component.literal("changing source");
+            }
+        };
+        MEStoragePackagePlan plan = MEStoragePackageTransactions.planPack(
+                        changingSource,
+                        PackageColor.FLUIX,
+                        PackageCapacityProfile.DEFAULT,
+                        PackageFilter.any())
+                .orElseThrow();
+
+        helper.assertTrue(MEStoragePackageTransactions.canExtract(changingSource, plan),
+                "Changing ME source should pass the initial simulation");
+        helper.assertFalse(MEStoragePackageTransactions.commitExtract(changingSource, plan),
+                "Short real ME extraction should fail the transaction");
+        helper.assertTrue(backing.amount(AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Failed ME transaction should restore the first extracted key");
+        helper.assertTrue(backing.amount(AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Failed ME transaction should restore the partially extracted key");
         helper.succeed();
     }
 
@@ -1474,6 +1584,28 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void meStorageUnpackRollsBackSharedCapacityFailure(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        CapacityMEStorage target = new CapacityMEStorage(64);
+
+        helper.assertTrue(MEStoragePackageTransactions.canInsertPackageContents(data, target),
+                "Independent ME simulations expose the shared-capacity edge case");
+        helper.assertFalse(MEStoragePackageTransactions.insertPackageContents(data, target),
+                "Shared-capacity ME insertion should fail as one transaction");
+        helper.assertTrue(target.amount(AEItemKey.of(Items.IRON_INGOT)) == 0,
+                "Failed ME insertion should roll back the first content key");
+        helper.assertTrue(target.amount(AEItemKey.of(Items.COPPER_INGOT)) == 0,
+                "Failed ME insertion should leave the second content key absent");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void meStoragePackPlanFlattensSourcePackages(GameTestHelper helper) {
         MemoryMEStorage source = new MemoryMEStorage();
         ItemStack sourcePackage = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
@@ -1488,7 +1620,8 @@ public final class PackageDataGameTests {
                 PackageFilter.any());
 
         helper.assertTrue(plan.isPresent(), "MEStorage should plan from an existing package key");
-        MEStoragePackageTransactions.commitExtract(source, plan.get());
+        helper.assertTrue(MEStoragePackageTransactions.commitExtract(source, plan.get()),
+                "Existing package extraction should commit completely");
         helper.assertTrue(source.amount(packageKey) == 0, "Source package should be extracted");
         helper.assertTrue(amountOf(plan.get().data(), AEItemKey.of(Items.IRON_INGOT)) == 64,
                 "Existing package contents should be flattened");
@@ -1534,7 +1667,8 @@ public final class PackageDataGameTests {
         helper.assertTrue(plan.isPresent(), "Fluid handler should produce a package plan");
         helper.assertTrue(FluidPackageTransactions.canExtract(source, plan.get()),
                 "Fluid handler extraction should simulate");
-        FluidPackageTransactions.commitExtract(source, plan.get());
+        helper.assertTrue(FluidPackageTransactions.commitExtract(source, plan.get()),
+                "Planned fluid extraction should commit completely");
 
         helper.assertTrue(source.getFluidAmount() == 0, "Source tank should be drained");
         helper.assertTrue(amountOf(plan.get().data(), AEFluidKey.of(Fluids.WATER)) == 2000,
@@ -3096,6 +3230,370 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageItemStorageSimulationDoesNotOverbookSlot(GameTestHelper helper) {
+        ItemStackHandler target = new ItemStackHandler(1);
+        ItemStack legalPackage = packageStack(PackageColor.GREEN, ironPackageData(PackageColor.GREEN, 64));
+        PackageItemStorage storage = new PackageItemStorage(
+                target,
+                net.minecraft.network.chat.Component.literal("test"));
+
+        long simulated = storage.insert(
+                AEItemKey.of(legalPackage),
+                128,
+                Actionable.SIMULATE,
+                IActionSource.empty());
+
+        helper.assertTrue(simulated == legalPackage.getMaxStackSize(),
+                "Package storage simulation must report only the one-slot capacity");
+        helper.assertTrue(target.getStackInSlot(0).isEmpty(),
+                "Package storage simulation must not mutate the target");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusTransactionsExportOneExistingPackage(GameTestHelper helper) {
+        MemoryMEStorage source = new MemoryMEStorage();
+        ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+        source.add(packageKey, 2);
+        source.add(AEItemKey.of(Items.IRON_INGOT), 64);
+        ItemStackHandler target = new ItemStackHandler(1);
+
+        boolean exported = PackageBusTransactions.exportOnePackage(
+                source,
+                target,
+                PackageFilter.any(),
+                IActionSource.empty());
+
+        helper.assertTrue(exported, "Package export transaction should move an existing package");
+        helper.assertTrue(source.amount(packageKey) == 1, "Package export should remove exactly one package");
+        helper.assertTrue(source.amount(AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Package export must not consume loose network items");
+        helper.assertTrue(ItemStack.isSameItemSameTags(target.getStackInSlot(0), packageStack),
+                "Package export target should receive the package unchanged");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusTransactionsUnpackOnePackage(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.BLUE,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, data);
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+        MemoryMEStorage source = new MemoryMEStorage();
+        source.add(packageKey, 1);
+        ItemStackHandler target = new ItemStackHandler(2);
+
+        boolean unpacked = PackageBusTransactions.unpackOnePackage(
+                source,
+                target,
+                PackageFilter.any(),
+                IActionSource.empty());
+
+        helper.assertTrue(unpacked, "Package unpacking transaction should unpack a complete package");
+        helper.assertTrue(source.amount(packageKey) == 0, "Successful unpacking should consume one package");
+        helper.assertTrue(itemAmountInHandler(target, Items.IRON_INGOT) == 64,
+                "Successful unpacking should insert all iron");
+        helper.assertTrue(itemAmountInHandler(target, Items.COPPER_INGOT) == 32,
+                "Successful unpacking should insert all copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusTransactionsKeepPackageWhenTargetCannotFitAllContents(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.BLUE,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, data);
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+        MemoryMEStorage source = new MemoryMEStorage();
+        source.add(packageKey, 1);
+        ItemStackHandler target = new ItemStackHandler(1);
+
+        boolean unpacked = PackageBusTransactions.unpackOnePackage(
+                source,
+                target,
+                PackageFilter.any(),
+                IActionSource.empty());
+
+        helper.assertFalse(unpacked, "Package unpacking must reject a target that cannot fit every content stack");
+        helper.assertTrue(source.amount(packageKey) == 1, "Rejected unpacking must keep the package in the network");
+        helper.assertTrue(target.getStackInSlot(0).isEmpty(), "Rejected unpacking must not insert partial contents");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusTargetFaceDoesNotConnectToAeNetwork(GameTestHelper helper) {
+        BlockState eastFacing = APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState()
+                .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST);
+        PackageExportBusBlockEntity bus = new PackageExportBusBlockEntity(BlockPos.ZERO, eastFacing);
+
+        helper.assertTrue(bus.getCableConnectionType(Direction.WEST) == AECableType.NONE,
+                "Package bus target face should not render an AE cable connection");
+        helper.assertFalse(bus.getGridConnectableSides(BlockOrientation.get(eastFacing)).contains(Direction.WEST),
+                "Package bus target face should not expose its AE grid node");
+        helper.assertTrue(bus.getGridConnectableSides(BlockOrientation.get(eastFacing)).contains(Direction.SOUTH),
+                "Package bus non-target faces should remain available for AE connections");
+
+        BlockState southFacing = eastFacing.setValue(AbstractHorizontalMachineBlock.FACING, Direction.SOUTH);
+        bus.setBlockState(southFacing);
+        helper.assertTrue(bus.getCableConnectionType(Direction.NORTH) == AECableType.NONE,
+                "Rotating a package bus should rotate its disconnected target face");
+        helper.assertFalse(bus.getGridConnectableSides(BlockOrientation.get(southFacing)).contains(Direction.NORTH),
+                "Rotated package bus target face should remain hidden from the AE grid");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagedPatternFilterUsesOnlyMarkerSharedByEveryPackage(GameTestHelper helper) {
+        MarkerSpec marker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        PackageData marked = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1)),
+                Optional.of(marker),
+                0);
+        PackageData unmarked = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 1)),
+                Optional.empty(),
+                0);
+        ItemStack pattern = new ItemStack(APItems.PACKAGED_PROCESSING_PATTERN.get());
+        PackagedProcessingPatternDataStorage.write(pattern, PackageColor.FLUIX, List.of(marked, unmarked));
+
+        PackageFilter filter = PackageFilter.fromTemplate(pattern).orElseThrow();
+
+        helper.assertTrue(filter.marker().isEmpty(),
+                "A packaged pattern marker filter is valid only when every package has the same marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageStorageBusMountsOnlyPackagesFromAdjacentInventory(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(0, 0, 0);
+        BlockPos busPos = new BlockPos(1, 0, 0);
+        BlockPos energyCellPos = new BlockPos(1, 0, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(busPos),
+                APBlocks.PACKAGE_STORAGE_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        PackageStorageBusBlockEntity bus = (PackageStorageBusBlockEntity) helper.getBlockEntity(busPos);
+        ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        chest.setItem(0, packageStack.copy());
+        chest.setItem(1, new ItemStack(Items.IRON_INGOT, 64));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(bus.getMainNode().isOnline(), "Package storage bus should join the powered AE grid");
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.extract(
+                                    AEItemKey.of(packageStack),
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(bus)) == 1,
+                            "Package storage bus should mount an adjacent legal package");
+                })
+                .thenExecute(() -> {
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    IActionSource source = IActionSource.ofMachine(bus);
+                    helper.assertTrue(storage.extract(
+                                    AEItemKey.of(Items.IRON_INGOT),
+                                    64,
+                                    Actionable.SIMULATE,
+                                    source) == 0,
+                            "Package storage bus must not expose loose adjacent items");
+                    helper.assertTrue(storage.insert(
+                                    AEItemKey.of(Items.IRON_INGOT),
+                                    64,
+                                    Actionable.MODULATE,
+                                    source) == 0,
+                            "Package storage bus must reject loose network insertion");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageExportBusMovesExistingNetworkPackageToAdjacentInventory(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(0, 0, 0);
+        BlockPos busPos = new BlockPos(1, 0, 0);
+        BlockPos drivePos = new BlockPos(2, 0, 0);
+        BlockPos energyCellPos = new BlockPos(1, 0, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(busPos),
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(helper.absolutePos(drivePos), AEBlocks.DRIVE.block().defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+        drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+        PackageExportBusBlockEntity bus = (PackageExportBusBlockEntity) helper.getBlockEntity(busPos);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageBusStorageReady(helper, bus, packageStack, "export bus"))
+                .thenExecute(() -> {
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    long inserted = storage.insert(
+                            AEItemKey.of(packageStack),
+                            1,
+                            Actionable.MODULATE,
+                            IActionSource.ofMachine(bus));
+                    helper.assertTrue(inserted == 1, "Export bus grid should accept the source package");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(
+                        ItemStack.isSameItemSameTags(chest.getItem(0), packageStack),
+                        "Export bus should move the existing package into its adjacent inventory"))
+                .thenExecute(() -> {
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.extract(
+                                    AEItemKey.of(packageStack),
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(bus)) == 0,
+                            "Export bus should remove exactly one package from network storage");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageUnpackingBusCommitsCompleteContentsToAdjacentInventory(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(0, 0, 0);
+        BlockPos busPos = new BlockPos(1, 0, 0);
+        BlockPos drivePos = new BlockPos(2, 0, 0);
+        BlockPos energyCellPos = new BlockPos(1, 0, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(busPos),
+                APBlocks.PACKAGE_UNPACKING_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(helper.absolutePos(drivePos), AEBlocks.DRIVE.block().defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+        drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+        PackageUnpackingBusBlockEntity bus = (PackageUnpackingBusBlockEntity) helper.getBlockEntity(busPos);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        PackageData data = PackageData.create(
+                PackageColor.GREEN,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.GREEN, data);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageBusStorageReady(helper, bus, packageStack, "unpacking bus"))
+                .thenExecute(() -> {
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    AEItemKey.of(packageStack),
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(bus)) == 1,
+                            "Unpacking bus grid should accept the source package");
+                })
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(itemAmountInContainer(chest, Items.IRON_INGOT) == 64,
+                            "Unpacking bus should insert all iron");
+                    helper.assertTrue(itemAmountInContainer(chest, Items.COPPER_INGOT) == 32,
+                            "Unpacking bus should insert all copper");
+                })
+                .thenExecute(() -> {
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.extract(
+                                    AEItemKey.of(packageStack),
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(bus)) == 0,
+                            "Successful unpacking should consume the source package");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageUnpackingBusKeepsPackageWhenAdjacentInventoryCannotFitAllContents(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(0, 0, 0);
+        BlockPos busPos = new BlockPos(1, 0, 0);
+        BlockPos drivePos = new BlockPos(2, 0, 0);
+        BlockPos energyCellPos = new BlockPos(1, 0, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(busPos),
+                APBlocks.PACKAGE_UNPACKING_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(helper.absolutePos(drivePos), AEBlocks.DRIVE.block().defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
+        drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
+        PackageUnpackingBusBlockEntity bus = (PackageUnpackingBusBlockEntity) helper.getBlockEntity(busPos);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        for (int slot = 1; slot < chest.getContainerSize(); slot++) {
+            chest.setItem(slot, new ItemStack(Items.DIRT, 64));
+        }
+        PackageData data = PackageData.create(
+                PackageColor.GREEN,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.GREEN, data);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageBusStorageReady(helper, bus, packageStack, "blocked unpacking bus"))
+                .thenExecute(() -> {
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    AEItemKey.of(packageStack),
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(bus)) == 1,
+                            "Blocked unpacking bus grid should accept the source package");
+                })
+                .thenExecuteAfter(30, () -> {
+                    MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.extract(
+                                    AEItemKey.of(packageStack),
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(bus)) == 1,
+                            "Blocked unpacking must keep the complete source package");
+                    helper.assertTrue(chest.getItem(0).isEmpty(),
+                            "Blocked unpacking must not insert the first content stack partially");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageBusStoresFilterTemplate(GameTestHelper helper) {
         PackageExportBusBlockEntity bus = new PackageExportBusBlockEntity(
                 BlockPos.ZERO,
@@ -4531,6 +5029,24 @@ public final class PackageDataGameTests {
                 "Package Assembler should have a grid before " + label);
     }
 
+    private static void assertPackageBusStorageReady(
+            GameTestHelper helper,
+            AbstractPackageBusBlockEntity bus,
+            ItemStack packageStack,
+            String label) {
+        helper.assertTrue(bus.getMainNode().isOnline(),
+                "Package " + label + " should join the powered AE grid");
+        helper.assertTrue(bus.getMainNode().hasGridBooted(),
+                "Package " + label + " grid should finish booting");
+        MEStorage storage = bus.getMainNode().getGrid().getStorageService().getInventory();
+        helper.assertTrue(storage.insert(
+                        AEItemKey.of(packageStack),
+                        1,
+                        Actionable.SIMULATE,
+                        IActionSource.ofMachine(bus)) == 1,
+                "Package " + label + " grid should have storage capacity");
+    }
+
     private static int ironAmountInChest(ChestBlockEntity chest) {
         int amount = 0;
         for (int slot = 0; slot < chest.getContainerSize(); slot++) {
@@ -4546,6 +5062,17 @@ public final class PackageDataGameTests {
         int amount = 0;
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
+            if (stack.is(item)) {
+                amount += stack.getCount();
+            }
+        }
+        return amount;
+    }
+
+    private static int itemAmountInContainer(ChestBlockEntity container, Item item) {
+        int amount = 0;
+        for (int slot = 0; slot < container.getContainerSize(); slot++) {
+            ItemStack stack = container.getItem(slot);
             if (stack.is(item)) {
                 amount += stack.getCount();
             }
@@ -4744,6 +5271,50 @@ public final class PackageDataGameTests {
         @Override
         public Component getDescription() {
             return Component.literal("memory");
+        }
+    }
+
+    private static final class CapacityMEStorage implements MEStorage {
+        private final KeyCounter contents = new KeyCounter();
+        private final long capacity;
+        private long used;
+
+        private CapacityMEStorage(long capacity) {
+            this.capacity = capacity;
+        }
+
+        private long amount(AEKey key) {
+            return contents.get(key);
+        }
+
+        @Override
+        public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+            long inserted = Math.max(0, Math.min(amount, capacity - used));
+            if (inserted > 0 && mode == Actionable.MODULATE) {
+                contents.add(what, inserted);
+                used += inserted;
+            }
+            return inserted;
+        }
+
+        @Override
+        public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+            long extracted = Math.min(amount, contents.get(what));
+            if (extracted > 0 && mode == Actionable.MODULATE) {
+                contents.remove(what, extracted);
+                used -= extracted;
+            }
+            return extracted;
+        }
+
+        @Override
+        public void getAvailableStacks(KeyCounter out) {
+            out.addAll(contents);
+        }
+
+        @Override
+        public Component getDescription() {
+            return Component.literal("capacity");
         }
     }
 

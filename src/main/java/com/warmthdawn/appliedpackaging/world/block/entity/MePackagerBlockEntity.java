@@ -506,7 +506,9 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             return MachineResult.OUTPUT_BLOCKED;
         }
 
-        MEStoragePackageTransactions.commitExtract(source, plan.get());
+        if (!MEStoragePackageTransactions.commitExtract(source, plan.get())) {
+            return MachineResult.SOURCE_CHANGED;
+        }
         startWorkingOperation(WorkingOperation.PACKING, packageStack);
         setChanged();
         return MachineResult.PACKED;

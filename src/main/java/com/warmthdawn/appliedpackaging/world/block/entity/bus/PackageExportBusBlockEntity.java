@@ -2,7 +2,6 @@ package com.warmthdawn.appliedpackaging.world.block.entity.bus;
 
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class PackageExportBusBlockEntity extends AbstractPackageBusBlockEntity {
@@ -12,6 +11,6 @@ public class PackageExportBusBlockEntity extends AbstractPackageBusBlockEntity {
 
     @Override
     protected void tickNetwork() {
-        exportOnePackageToTarget(Component.translatable("block.appliedpackaging.package_export_bus"));
+        exportOnePackageToTarget();
     }
 }
