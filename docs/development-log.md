@@ -2751,3 +2751,21 @@ GameTest：已考虑并运行。本轮改变物品自动化与 AE2 crafting-mach
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效，日志无发布阻断关键字
 GameTest：已考虑并运行。本轮改变菜单网络同步边界，属于行为敏感变更；新增 1 个 signed-short 往返 GameTest 并通过全部 170 个 required GameTest。
 ```
+
+最新进展：
+
+```text
+执行正式 UI/模型调整前的非 UI 收尾审计：
+  工作树从提交 57a9688 开始保持干净，未提前集成或推测 E:\resources\textures\appliedpackaging\ret 下新 UI/模型资产的用途。
+  对照 docs/01 R8-R10 和 docs/03 第 10 节复查 Package Pattern Terminal、Package Storage Bus、Package Export Bus 与 Package Unpacking Bus。
+  Package Pattern Terminal 已覆盖编码/拆分、AE2 part 持久化、blank-pattern-only 自动化 capability 及 invalidate/revive/remove 生命周期。
+  三种总线已覆盖 REQUIRE_CHANNEL、目标面隔离、Storage Bus 在线重挂载、Export/Unpacking 过滤在线更新、真实 AE Drive 端点与失败恢复。
+  全仓 TODO/FIXME/UnsupportedOperationException 扫描未发现新的功能占位；命中的 placeholder 仅为合法输入框文案，return null 仅为无命中/无可编码结果语义。
+  docs/05、06、08 已把过期的 112/138 GameTest、6 张截图和 IN-001/IN-002 待输入记录更新为当前 170 个 GameTest、10 张截图与唯一 IN-003 待输入项。
+  当前没有已知未实现的非 UI 项；未完成项明确为 IN-003 正式 UI/模型/动画描述与实现，以及该范围后的 client smoke、最终 dedicated server world-load 和 tag 就绪门禁。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，任务 up-to-date
+首次单独 verify-release 读取 client latest.log 时，仅因 Mojang Realms 对开发占位 token 0 的 SignedJWT 解析异常命中通用 Exception 关键字；资源、模型、jar 和 10 张截图均已通过。
+验证 scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke 成功；dedicated server 进入世界并出现 Done (3.435s)，25565 端口清理完成，刷新后的 release audit、asset audit 和 docs audit 全部通过。
+GameTest：已复查既有覆盖；本轮仅修正收尾文档，不改变样板、总线、事务、网络或物品移动语义，因此不新增 GameTest；最新行为基线仍为 170 个必需 GameTest 全部通过。
+```

@@ -652,13 +652,13 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 当前仍未完成的发布验收项：
 
 ```text
-新增范围后的 Dedicated server full world-load：未完成。
-原因：2026-07-04 当前基线已通过完整 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，并完成 dedicated server world-load smoke；但用户将在 2026-07-05 补充需求和材质，最终 dedicated server world-load 等新增范围冻结后重新执行。
-需要在新增需求和材质实现、验证并提交后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag` 或等价命令，确认专用服务端进入世界加载、无客户端类误加载，且 tag 就绪门禁通过。
+正式 UI/模型范围后的 Dedicated server full world-load：未完成。
+原因：2026-07-04 候选发布基线已通过完整 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，并完成 dedicated server world-load smoke；当前非 UI 收尾基线也已通过 170 个必需 GameTest、10 张必需 client smoke 截图、build 和 release audit，但 IN-003 正式 UI/模型范围尚待用户描述与实现。
+需要在 IN-003 实现、验收并提交后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag` 或等价命令，确认专用服务端进入世界加载、无客户端类误加载，且 tag 就绪门禁通过。
 最终 clean git 发布门禁：未完成。
-原因：当前提交基线已通过 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`；但最终候选发布门禁应在新增需求和材质实现、全部文件提交之后重新执行。
+原因：当前非 UI 提交基线已通过 clean-git audit；但最终候选发布门禁应在 IN-003 实现、验收且全部文件提交之后重新执行。
 最终 tag 就绪门禁：未完成。
-原因：当前 `verify-release-readiness.ps1 -RequireReadyForTag` 会因 IN-001/IN-002 待输入、接收窗口开放和发布 tag 未完成判定而失败；新增需求和材质冻结并迁移后才能通过。
+原因：当前 `verify-release-readiness.ps1 -RequireReadyForTag` 会因 IN-003 正式 UI/模型待输入、接收窗口开放和发布 tag 未完成判定而失败；IN-003 冻结并迁移后才能通过。
 ```
 
 当前记录的非阻塞发布后增强：
@@ -681,24 +681,24 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 讨论记录：已完成。证据：docs/chat-summary.md 保留历史讨论，并声明不作为最新实现规格。
 AI 指令分离：已完成。证据：AGENTS.md 只放 agent 工作规则，docs/00-document-index.md 声明设计文档不承载 AI 指令。
 Minecraft 1.20.1 优先：已完成。证据：gradle.properties、build.gradle、README.md 和 docs/design.md 均固定 Minecraft 1.20.1 Forge / AE2 15.4.10。
-材质准备：已完成。证据：docs/04-asset-spec.md、docs/assets/*、src/main/resources/assets/appliedpackaging 下 PNG/模型/语言文件，以及资源审计记录。
-功能实现：已完成到 0.1.0-dev 范围。证据：R1-R13 完成度审计均为已满足，138 个必需 GameTest 全部通过。
+当前基线资源：已完成。证据：docs/04-asset-spec.md、docs/assets/*、src/main/resources/assets/appliedpackaging 下 PNG/模型/语言文件，以及资源审计记录；IN-003 正式 UI/模型替换不属于已冻结基线。
+功能实现：已完成当前 0.1.0-dev 非 UI 范围。证据：R1-R13 完成度审计均为已满足，170 个必需 GameTest 全部通过。
 Git 初始化和文档管理：已完成。证据：仓库有连续提交记录，文档按 00-07 分类维护，开发流水记录在 docs/development-log.md。
 发布 jar：已完成。证据：build/libs/appliedpackaging-0.1.0-dev.jar 存在，已通过 build、jar 内容审计和 release metadata 审计。
-客户端可用性：已完成。证据：runClientSmoke 进入真实单人世界并打开 6 个关键菜单截图，无 missing model/texture/classloading 关键错误。
-GameTest 验证：已完成。证据：.\gradlew.bat runGameTestServer 成功，138 个必需 GameTest 全部通过。
+客户端可用性：当前基线已完成。证据：runClientSmoke 进入真实单人世界，10 张必需截图覆盖世界场景、两种机器、原版/高级/包裹样板终端与三种包裹总线，无 missing model/texture/classloading 关键错误。
+GameTest 验证：已完成。证据：`.\gradlew.bat runGameTestServer` 成功，170 个必需 GameTest 全部通过。
 DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
-Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；随后 `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` 自动刷新 latest.log 并出现 Done (2.413s)!，25565 清理完成，`verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 通过；最新 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 已再次刷新 dedicated server smoke，latest.log 出现 Done (2.471s)! 并通过完整 release audit；但用户将在 2026-07-05 补充需求和材质，最终服务端验收等待新增范围冻结后执行。
-发布 tag：未完成。原因：新增需求和材质尚待输入，最终 dedicated server full world-load 尚未验收；发布 tag 应在新增范围完成且服务端验收通过后创建。
-Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：`scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 通过，release manifest 记录提交基线且 `clean=true`；但新增需求和材质尚待输入，最终冻结并提交后必须重新执行 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag`，同时刷新并复验发布清单与发布附件包。
-Tag 就绪门禁：未完成。证据：当前变更接收表仍包含 IN-001/IN-002 待输入项，`scripts/verify-release-readiness.ps1 -RequireReadyForTag` 应失败并阻止发布 tag。
+Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；随后 `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` 自动刷新 latest.log 并出现 Done (2.413s)!，25565 清理完成，`verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 通过；最新完整 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 记录刷新 dedicated server smoke，latest.log 出现 Done (2.471s)! 并通过完整 release audit；最终服务端验收等待 IN-003 正式 UI/模型范围冻结并完成后执行。
+发布 tag：未完成。原因：IN-003 正式 UI/模型范围尚待用户描述，最终 dedicated server full world-load 尚未在该范围后验收；发布 tag 应在 IN-003 完成且服务端验收通过后创建。
+Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：当前非 UI 提交基线已通过 clean-git audit；IN-003 尚待输入，最终冻结并提交后必须重新执行 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag`，同时刷新并复验发布清单与发布附件包。
+Tag 就绪门禁：未完成。证据：当前变更接收表仍包含 IN-003 待输入项，`scripts/verify-release-readiness.ps1 -RequireReadyForTag` 应失败并阻止发布 tag。
 ```
 
 当前目标完成判定：
 
 ```text
 不能标记完成。
-当前不再是 EULA 阻塞；用户将在 2026-07-05 补充需求和材质，最终发布范围尚未冻结。
-发布 tag 应等待新增范围完成、重新验证并通过 dedicated server full world-load 与 tag 就绪门禁后再创建。
+当前不再是 EULA 或非 UI 功能阻塞；IN-003 正式 UI/模型描述尚待接收，最终发布范围尚未冻结。
+发布 tag 应等待 IN-003 完成、重新验证并通过 dedicated server full world-load 与 tag 就绪门禁后再创建。
 ```

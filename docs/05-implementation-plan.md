@@ -329,6 +329,11 @@ GameTest/服务器 smoke test
   装配室可读取 packaged_processing_pattern 并逐包输出
   已编码 packaged_processing_pattern 不会被终端当空白样板覆盖
 
+非 UI 收尾状态（2026-07-11）：
+  Package Pattern Terminal 的编码/拆分、AE2 part 持久化、受限自动化 capability 与失效/恢复生命周期已有实现和回归测试。
+  Storage/Export/Unpacking Bus 的 channel 门禁、目标面边界、在线缓存刷新、过滤持久化和单包裹事务已有实现和真实 AE 端点测试。
+  当前没有已知未实现的非 UI 项；后续仅接收 IN-003 正式 UI/模型范围，不在用户描述前推测新资产用途。
+
 发布后增强，不阻塞 0.1.0-dev 发布：
   彩色处理样板更完整的处理输出 UI
   封装处理样板任意 AEKey 处理输出 ghost editor
@@ -375,7 +380,8 @@ runClientSmoke GUI screenshot smoke
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
   当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
-  当前提交基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server Done (2.471s)、release audit、asset audit、docs audit、manifest audit 和 bundle audit
+  2026-07-04 候选发布基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含当时的 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server Done (2.471s)、release audit、asset audit、docs audit、manifest audit 和 bundle audit
+  当前非 UI 收尾基线为提交 57a9688；compileJava、170 个必需 GameTest、10 张必需 client smoke 截图、build、docs audit、release audit 与 clean-git audit 均有通过记录
   GuideME 发布依赖范围已进入 mods.toml，并通过 build、release audit、manifest audit 和 server smoke 验证
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   资产资源审计可由 verify-assets.ps1 覆盖必需 PNG、路径归类、RGBA PNG header、可见非占位像素内容和 item/block/gui/part/logo 尺寸
@@ -392,7 +398,7 @@ runClientSmoke GUI screenshot smoke
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
 
 暂缓：
-  0.1.0-dev 发布 tag 暂缓到用户补充需求和材质、范围冻结、实现并重新验证之后
+  0.1.0-dev 发布 tag 暂缓到 IN-003 正式 UI/模型范围由用户描述、实现、验收并完成最终服务端与 tag 就绪门禁之后
 ```
 
 验收：
