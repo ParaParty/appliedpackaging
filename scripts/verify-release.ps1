@@ -435,7 +435,8 @@ function Get-TranslationPlaceholders {
 function Test-ProductInvariants {
     $forbiddenLocalPatternItems = @(
         "appliedpackaging:package_pattern",
-        "appliedpackaging:packaged_processing_pattern"
+        "appliedpackaging:packaged_processing_pattern",
+        "appliedpackaging:advanced_processing_pattern"
     )
 
     $recipeFiles = @(Get-ChildItem "src/main/resources/data/appliedpackaging/recipes" -Filter "*.json" -File -ErrorAction SilentlyContinue)
@@ -455,9 +456,9 @@ function Test-ProductInvariants {
     }
 
     if ($forbiddenRecipeOutputs.Count -eq 0) {
-        Add-Pass "Local pattern compatibility items are not recipe outputs"
+        Add-Pass "Encoded local pattern items are not recipe outputs"
     } else {
-        Add-Fail "Local pattern compatibility items are recipe outputs: $($forbiddenRecipeOutputs -join ', ')"
+        Add-Fail "Encoded local pattern items are recipe outputs: $($forbiddenRecipeOutputs -join ', ')"
     }
 
     $creativeTabPath = "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java"
@@ -466,18 +467,21 @@ function Test-ProductInvariants {
         $forbiddenCreativeItems = @(
             [regex]::Matches(
                 $creativeTabText,
-                'output\.accept\s*\(\s*APItems\.(PACKAGE_PATTERN|PACKAGED_PROCESSING_PATTERN)\.get\s*\(\s*\)\s*\)')
+                'output\.accept\s*\(\s*APItems\.(PACKAGE_PATTERN|PACKAGED_PROCESSING_PATTERN|ADVANCED_PROCESSING_PATTERN)\.get\s*\(\s*\)\s*\)')
                 | ForEach-Object { $_.Groups[1].Value }
         )
         if ($forbiddenCreativeItems.Count -eq 0) {
-            Add-Pass "Creative tab does not expose local pattern compatibility items"
+            Add-Pass "Creative tab does not expose encoded local pattern items"
         } else {
-            Add-Fail "Creative tab exposes local pattern compatibility items: $($forbiddenCreativeItems -join ', ')"
+            Add-Fail "Creative tab exposes encoded local pattern items: $($forbiddenCreativeItems -join ', ')"
         }
 
         Assert-True `
             ($creativeTabText -match 'output\.accept\s*\(\s*APItems\.PACKAGE_PATTERN_TERMINAL\.get\s*\(\s*\)\s*\)') `
             "Creative tab exposes package pattern terminal item"
+        Assert-True `
+            ($creativeTabText -match 'output\.accept\s*\(\s*APItems\.ADVANCED_PATTERN_ENCODING_TERMINAL\.get\s*\(\s*\)\s*\)') `
+            "Creative tab exposes advanced pattern encoding terminal item"
     } else {
         Add-Fail "Creative tab source exists: $creativeTabPath"
     }
@@ -491,6 +495,12 @@ function Test-ProductInvariants {
         Assert-True `
             ($itemsText -notmatch 'PACKAGE_PATTERN_TERMINAL\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+BlockItem\s*\(\s*APBlocks\.PACKAGE_PATTERN_TERMINAL') `
             "Package pattern terminal item is not registered as a BlockItem"
+        Assert-True `
+            ($itemsText -match 'ADVANCED_PATTERN_ENCODING_TERMINAL\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+PartItem\s*<\s*>\s*\(') `
+            "Advanced pattern encoding terminal item registers as an AE2 PartItem"
+        Assert-True `
+            ($itemsText -match 'ADVANCED_PROCESSING_PATTERN\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+AdvancedProcessingPatternItem\s*\(') `
+            "Advanced processing pattern registers as a dedicated encoded-pattern item"
     } else {
         Add-Fail "Item registry source exists: $itemsPath"
     }
@@ -747,6 +757,8 @@ if ($RequireClientSmokeScreenshots) {
         "appliedpackaging-client-smoke-world-me_packager.png",
         "appliedpackaging-client-smoke-package_assembler.png",
         "appliedpackaging-client-smoke-me_packager.png",
+        "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png",
+        "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png",
         "appliedpackaging-client-smoke-package_pattern_terminal.png",
         "appliedpackaging-client-smoke-package_storage_bus.png",
         "appliedpackaging-client-smoke-package_export_bus.png",

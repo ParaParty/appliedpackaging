@@ -136,6 +136,19 @@ AE2 终端面板
 侧边 17 色灯条
 ```
 
+高级样板终端：
+
+```text
+part 与物品模型直接复用 AE2 pattern encoding terminal，不新增另一套机器外观
+高级终端编码产物 `advanced_processing_pattern` 使用独立 item id/model，图标可复用本 mod 封装处理样板视觉，不复用 AE2 原版样板物品 id
+ScreenStyle: assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json
+GUI texture: assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png
+GUI texture 固定 230x260 RGBA，实际 ScreenStyle 主体为 230x240；atlas 使用本 mod 自绘几何与调色，不逐像素复制 AE2 资源，编码区以下的右侧轮廓保持透明
+中间控件布局参考 AE2 1.21.1 processing encoding panel 的 slot/button 语言和玩家栏 bottom 基线，但不复制高版本代码或资源
+4 个列头按钮为 10x10；启用列显示居中 6x6 色块，第一未启用列显示加号，其余未启用列不显示按钮
+输入列之间固定保留 4px 间距；内容按列水平滚动，滚动条使用竖向外观并位于输入区左侧；禁用输入列按约 0.2 alpha 渲染，不绘制 ghost 物品
+```
+
 总线：
 
 ```text
@@ -172,6 +185,7 @@ ME Packager GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 assets/ae2/scr
 ME Packager 过滤区背景只绘制基础启用行；容量卡解锁的可选行按 AE2 高版本 slot background 效果由代码渲染，禁用状态使用新版 0.2 alpha，不把全部 slot 烘进背景图。
 ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。上半部分的名称输入、颜色 swatch、marker 槽和右上容量元件槽按原图坐标接入与 ME Packager 一致的逻辑；输出模式等配置开关走 AE2 左侧悬浮 toolbar；右侧升级区走 AE2 `UpgradesPanel`，装配室只显示/接受 speed card。
 ME Package Assembler 的下半部分为输入/输出同步滚动区与下半区样板槽；可见窗口为左侧 4x4 输入格和右侧 4 个输出格。滚动条位于输入栏左侧，参考 AE2 样板终端 processing 模式的小滚动条；滚动输入/输出槽背景由客户端按 AE2 slot background 风格绘制，不烘进 atlas；atlas 提供面板、标题区、下半区样板槽、容量槽、marker 槽、左侧滚动条轨道、滚动槽容器和玩家背包区域。
+高级样板终端 GUI 使用 AE2 `ScreenStyle`，style JSON 位于 `assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json`，230x260 背景位于 `assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png`；主体加宽后顶部显示 10 列 AE 网络库存，玩家背包在主体内居中，中间补列头、带 4px 间距的 4x4 输入、4 行输出、左侧竖向列滚动条和列编辑层。
 ```
 
 ## 7. 资源验收

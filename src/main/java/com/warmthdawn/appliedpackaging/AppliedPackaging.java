@@ -12,6 +12,7 @@ import com.warmthdawn.appliedpackaging.registry.APEntityTypes;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
+import com.warmthdawn.appliedpackaging.world.menu.AdvancedPatternEncodingTermMenu;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
@@ -47,6 +48,7 @@ public class AppliedPackaging {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
+            AdvancedPatternEncodingTermMenu.registerOpener(APMenus.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
             Upgrades.add(AEItems.REDSTONE_CARD, APBlocks.ME_PACKAGER.get(), 1);
             Upgrades.add(AEItems.CAPACITY_CARD, APBlocks.ME_PACKAGER.get(), 3);
             Upgrades.add(AEItems.SPEED_CARD, APBlocks.ME_PACKAGER.get(), 6);

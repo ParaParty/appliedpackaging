@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    {
+      "item": "ae2:pattern_encoding_terminal"
+    },
+    {
+      "item": "ae2:advanced_card"
+    }
+  ],
+  "result": {
+    "item": "appliedpackaging:advanced_pattern_encoding_terminal"
+  }
+}

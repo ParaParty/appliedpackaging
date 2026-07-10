@@ -5,17 +5,25 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
 import appeng.api.util.AEColor;
+import appeng.client.gui.me.items.PatternEncodingTermScreen;
+import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
+import appeng.menu.MenuOpener;
+import appeng.menu.locator.MenuLocators;
+import appeng.parts.encoding.PatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
+import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
+import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
+import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBridge;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
@@ -80,6 +88,10 @@ public final class ClientSmokeRunner {
     private static final SmokeStep[] STEPS = {
             SmokeStep.block("package_assembler", APBlocks.PACKAGE_ASSEMBLER, PackageAssemblerScreen.class),
             SmokeStep.block("me_packager", APBlocks.ME_PACKAGER, MePackagerScreen.class),
+            SmokeStep.ae2PatternEncodingTerminal("ae2_pattern_encoding_terminal", PatternEncodingTermScreen.class),
+            SmokeStep.advancedPatternEncodingTerminal(
+                    "advanced_pattern_encoding_terminal",
+                    AdvancedPatternEncodingTermScreen.class),
             SmokeStep.part("package_pattern_terminal", PackagePatternTerminalScreen.class),
             SmokeStep.block("package_storage_bus", APBlocks.PACKAGE_STORAGE_BUS, PackageBusScreen.class),
             SmokeStep.block("package_export_bus", APBlocks.PACKAGE_EXPORT_BUS, PackageBusScreen.class),
@@ -96,6 +108,7 @@ public final class ClientSmokeRunner {
     private int worldScreenshotTicks;
     private int worldScreenshotIndex;
     private int finishTicks;
+    private boolean screenPrepared;
     private boolean setupRequested;
     private volatile boolean setupComplete;
     private volatile RuntimeException setupFailure;
@@ -184,7 +197,45 @@ public final class ClientSmokeRunner {
                 for (int index = 0; index < STEPS.length; index++) {
                     SmokeStep step = STEPS[index];
                     BlockPos pos = posForStep(index);
-                    if (step.isPart()) {
+                    if (step.isAdvancedPatternEncodingTerminalPart()) {
+                        AdvancedPatternEncodingTerminalPart part = PartHelper.setPart(
+                                level,
+                                pos,
+                                Direction.NORTH,
+                                serverPlayer,
+                                advancedPatternEncodingTerminalPartItem());
+                        if (part == null) {
+                            throw new IllegalStateException(
+                                    "Could not place advanced pattern encoding terminal part at " + pos);
+                        }
+                        part.getAdvancedPatternState().setActiveColumns(3);
+                        part.getAdvancedPatternState().setColor(0, PackageColor.RED);
+                        part.getAdvancedPatternState().setColor(1, PackageColor.BLUE);
+                        part.getAdvancedPatternState().setColor(2, PackageColor.GREEN);
+                        part.getLogic().getEncodedInputInv().setStack(
+                                0,
+                                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32));
+                        part.getLogic().getEncodedInputInv().setStack(
+                                4,
+                                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16));
+                        part.getLogic().getEncodedInputInv().setStack(
+                                8,
+                                new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 8));
+                        part.getLogic().getEncodedOutputInv().setStack(
+                                0,
+                                new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+                        part.getLogic().getBlankPatternInv().setItemDirect(0, AEItems.BLANK_PATTERN.stack());
+                    } else if (step.isAe2PatternEncodingTerminalPart()) {
+                        PatternEncodingTerminalPart part = PartHelper.setPart(
+                                level,
+                                pos,
+                                Direction.NORTH,
+                                serverPlayer,
+                                ae2PatternEncodingTerminalPartItem());
+                        if (part == null) {
+                            throw new IllegalStateException("Could not place AE2 pattern encoding terminal part at " + pos);
+                        }
+                    } else if (step.isPart()) {
                         PackagePatternTerminalPart part = PartHelper.setPart(
                                 level,
                                 pos,
@@ -402,6 +453,7 @@ public final class ClientSmokeRunner {
     private void openNextScreen(Minecraft minecraft) {
         currentStep++;
         screenTicks = 0;
+        screenPrepared = false;
         if (currentStep >= STEPS.length) {
             state = State.DONE;
             AppliedPackaging.LOGGER.info("Applied Packaging client smoke completed all screen captures");
@@ -417,6 +469,38 @@ public final class ClientSmokeRunner {
         BlockPos pos = posForStep(currentStep);
         state = State.WAITING_FOR_SCREEN;
         server.execute(() -> {
+            if (step.isAdvancedPatternEncodingTerminalPart()) {
+                AdvancedPatternEncodingTerminalPart part = PartHelper.getPart(
+                        advancedPatternEncodingTerminalPartItem(),
+                        serverPlayer.serverLevel(),
+                        pos,
+                        Direction.NORTH);
+                if (part == null) {
+                    setupFailure = new IllegalStateException(
+                            "Expected advanced pattern encoding terminal part at " + pos);
+                    return;
+                }
+                if (!MenuOpener.open(part.getMenuType(serverPlayer), serverPlayer, MenuLocators.forPart(part))) {
+                    setupFailure = new IllegalStateException(
+                            "Could not open advanced pattern encoding terminal at " + pos);
+                }
+                return;
+            }
+            if (step.isAe2PatternEncodingTerminalPart()) {
+                PatternEncodingTerminalPart part = PartHelper.getPart(
+                        ae2PatternEncodingTerminalPartItem(),
+                        serverPlayer.serverLevel(),
+                        pos,
+                        Direction.NORTH);
+                if (part == null) {
+                    setupFailure = new IllegalStateException("Expected AE2 pattern encoding terminal part at " + pos);
+                    return;
+                }
+                if (!MenuOpener.open(part.getMenuType(serverPlayer), serverPlayer, MenuLocators.forPart(part))) {
+                    setupFailure = new IllegalStateException("Could not open AE2 pattern encoding terminal at " + pos);
+                }
+                return;
+            }
             if (step.isPart()) {
                 PackagePatternTerminalPart part = PartHelper.getPart(
                         packagePatternTerminalPartItem(),
@@ -458,6 +542,13 @@ public final class ClientSmokeRunner {
             return;
         }
 
+        if (!screenPrepared) {
+            prepareOpenedScreen(minecraft.screen, step);
+            screenPrepared = true;
+            screenTicks = 0;
+            return;
+        }
+
         screenTicks++;
         if (screenTicks < SCREEN_READY_TICKS) {
             return;
@@ -473,6 +564,21 @@ public final class ClientSmokeRunner {
         }
         minecraft.setScreen(null);
         state = State.WAITING_BETWEEN_SCREENS;
+    }
+
+    private void prepareOpenedScreen(Screen screen, SmokeStep step) {
+        if (step.isAe2PatternEncodingTerminalPart()
+                && screen instanceof PatternEncodingTermScreen<?> patternEncodingScreen) {
+            PackageCraftingPatternMenuBridge bridge =
+                    (PackageCraftingPatternMenuBridge) patternEncodingScreen.getMenu();
+            bridge.appliedpackaging$setPackageCraftingMode(true);
+            bridge.appliedpackaging$setPackageCraftingColor(PackageColor.BLUE);
+            bridge.appliedpackaging$setPackageCraftingName("Smoke Package");
+        }
+        if (step.isAdvancedPatternEncodingTerminalPart()
+                && screen instanceof AdvancedPatternEncodingTermScreen advancedScreen) {
+            advancedScreen.getMenu().encode();
+        }
     }
 
     private void tickDone(Minecraft minecraft) {
@@ -532,6 +638,16 @@ public final class ClientSmokeRunner {
         return (IPartItem<PackagePatternTerminalPart>) APItems.PACKAGE_PATTERN_TERMINAL.get();
     }
 
+    @SuppressWarnings("unchecked")
+    private static IPartItem<PatternEncodingTerminalPart> ae2PatternEncodingTerminalPartItem() {
+        return (IPartItem<PatternEncodingTerminalPart>) AEParts.PATTERN_ENCODING_TERMINAL.asItem();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static IPartItem<AdvancedPatternEncodingTerminalPart> advancedPatternEncodingTerminalPartItem() {
+        return (IPartItem<AdvancedPatternEncodingTerminalPart>) APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get();
+    }
+
     private enum State {
         WAITING_FOR_WORLD,
         WAITING_FOR_SCREEN,
@@ -543,16 +659,26 @@ public final class ClientSmokeRunner {
             String id,
             Supplier<? extends Block> blockSupplier,
             Class<? extends Screen> screenClass,
-            boolean isPart) {
+            boolean isPart,
+            boolean isAe2PatternEncodingTerminalPart,
+            boolean isAdvancedPatternEncodingTerminalPart) {
         private static SmokeStep block(
                 String id,
                 Supplier<? extends Block> blockSupplier,
                 Class<? extends Screen> screenClass) {
-            return new SmokeStep(id, blockSupplier, screenClass, false);
+            return new SmokeStep(id, blockSupplier, screenClass, false, false, false);
         }
 
         private static SmokeStep part(String id, Class<? extends Screen> screenClass) {
-            return new SmokeStep(id, null, screenClass, true);
+            return new SmokeStep(id, null, screenClass, true, false, false);
+        }
+
+        private static SmokeStep ae2PatternEncodingTerminal(String id, Class<? extends Screen> screenClass) {
+            return new SmokeStep(id, null, screenClass, true, true, false);
+        }
+
+        private static SmokeStep advancedPatternEncodingTerminal(String id, Class<? extends Screen> screenClass) {
+            return new SmokeStep(id, null, screenClass, true, false, true);
         }
 
         private Block block() {

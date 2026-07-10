@@ -2518,3 +2518,91 @@ GameTest：已考虑并运行。本轮改变装配室样板门禁、Pattern Prov
 验证 rg -n "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON" run/logs/latest.log run/logs/debug.log 仅发现 Netty/JDK Unsafe 访问探测栈，不含 missing texture、Missing model 或 Failed to read Screen JSON
 GameTest：已考虑并运行。本轮改变装配室样板过滤显示、AE 网络接入、合成进度能量消耗、加速卡税率、默认 ME_NETWORK 输出目标和 Pattern Provider/CPU 产出路径，属于行为敏感变更；GameTest 已覆盖并通过。
 ```
+
+最新进展：
+
+```text
+提交既有工作区基线：
+  按用户要求先提交现有代码，创建提交 bbf49bb（fix: align package assembler with AE2 behavior），再开始本轮新需求。
+
+新增 AE2 原版 Pattern Encoding Terminal 的包裹样板模式：
+  阅读 AE2 15.4.10 PatternEncodingTermMenu、PatternEncodingTermScreen、PatternEncodingLogic、EncodingMode、CraftingPatternItem、EncodedPatternItem、AEPatternDecoder、AECraftingPattern、IMolecularAssemblerSupportedPattern、PatternProviderLogic、RestrictedInputSlot 和 MolecularAssemblerBlockEntity 源码，确认 1.20.1 AE2 样板模式为 enum/switch 硬编码，需要 mixin 接入。
+  build.gradle 启用 Mixin 配置与 refmap，新增 appliedpackaging.mixins.json。
+  在 AE2 Pattern Encoding Terminal 中增加包裹样板 tab；该模式与 crafting / stonecutting / smithing 同级，复用 AE2 crafting grid，隐藏原版 crafting-only 控件，只补包裹名称输入、颜色 swatch 和 marker 槽。
+  新增 package_crafting_pattern 数据载体：输出使用 AE2 crafting_pattern 物品，并在 NBT 写入 Applied Packaging 专属包裹样板数据。
+  AE2 pattern decoder、tooltip 和 encoded-pattern output hook 可识别 package_crafting_pattern NBT；解码结果是 PackageCraftingPatternDetails，不实现 IMolecularAssemblerSupportedPattern，只允许 ME Package Assembler 执行，不进入分子装配室。
+  Package Assembler 样板槽、过滤、Pattern Provider pushPattern、Crafting CPU job 和本地合成路径均接入 AE2 crafting_pattern 承载的包裹样板；输出包裹的颜色、名称和 marker 以样板数据为权威，样板缺失时才回退机器配置。
+  ClientSmokeRunner 新增真实 AE2 Pattern Encoding Terminal part 步骤，通过 AE2 MenuOpener 打开原版 PatternEncodingTermScreen，并在截图前切换到包裹样板模式。
+  verify-release.ps1 的 -RequireClientSmokeScreenshots 必需清单扩展为 8 张，新增 appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png。
+  docs/01、03、05、06、08 已同步包裹样板模式、装配室专属执行语义和 client smoke 截图审计数量。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，140 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功，生成 3 张世界截图和 7 张真实菜单截图；人工查看 AE2 Pattern Encoding Terminal 截图，确认包裹样板 tab、名称输入、颜色 swatch、marker 槽和 AE2 crafting grid 可见
+验证 rg -n "ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout" run/logs/latest.log 无命中
+GameTest：已考虑并运行。本轮改变 AE2 样板解码、Pattern Provider pushPattern、Crafting CPU job 和装配室样板执行语义，属于行为敏感变更；GameTest 已扩展并通过。
+```
+
+最新进展：
+
+```text
+新增 AE2 原版处理样板可选包裹列元数据和高级样板终端：
+  阅读 AE2 15.4.10 与 1.21.1 PatternEncodingTerminalPart、PatternEncodingLogic、PatternEncodingTermMenu、PatternEncodingTermScreen、ProcessingEncodingPanel、processing ScreenStyle、ProcessingPatternItem 和 AEProcessingPattern 源码。
+  1.20.1 没有 Data Component，因此在 AE2 原版 processing_pattern ItemStack NBT 中写入 appliedpackaging.advanced_processing_pattern；普通 AE2 终端编码路径不写该 NBT。
+  metadata 使用 0..16 连续包裹列，每列映射 4 个 AE2 sparse processing input 槽，并保存颜色、可选名称与可选 marker；编码只读取启用列，忽略不可见旧 ghost 数据。
+  新增 Advanced Pattern Terminal AE2 PartItem、Part、Menu、Screen 与 MenuOpener；part/model/终端网络库存复用 AE2 Pattern Encoding Terminal，菜单强制 processing mode。
+  GUI 显示 4 个可见 4x1 输入列、4 行输出、列头色块、第一未启用列加号、禁用列和水平滚动条；列编辑层提供 17 色、名称与 marker fake slot，并拦截弹层输入透传。
+  GUI 使用 195x260 AE2 ScreenStyle 背景，总高固定 240px；修正初版扩图不透明横条、长标题与 480px smoke 视口裁切/标题重叠，最终顶部使用短标题 Advanced/高级。
+  Package Assembler 正式路由三种样板：package_crafting_pattern 精确生成单包裹；普通 processing_pattern 固定生成 Fluix/空名称/空 marker 单包裹；advanced processing pattern 按列顺序生成多个包裹，同色列不合并。
+  Advanced/ordinary Pattern Provider push 均严格匹配样板输入与 KeyCounter，不足或额外输入整批拒绝；仍经过装配室 AE 能量、合成进度、speed card、输出阻挡和顺序输出逻辑。
+  旧 colored_processing_pattern 与 packaged_processing_pattern 路径继续保留兼容。
+  发布门禁新增高级终端 PartItem/创造栏不变量、195x260 GUI 必需资源与尺寸负例，以及第 9 张必需 client smoke 截图。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，145 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；人工查看 advanced_pattern_encoding_terminal 截图，确认 854x480、GUI scale 2 下界面完整、无重叠、无扩图色带
+验证日志关键字 ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout 无命中
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-assets.ps1 成功，144 个 PNG 通过必需文件、RGBA、可见内容和尺寸门禁
+验证 scripts/test-assets-audit.ps1、scripts/test-release-audit.ps1、scripts/verify-docs.ps1 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，230 个发布资源与 jar 同步，9 张必需截图有效
+GameTest：已考虑并运行。本轮改变 AE2 processing pattern 元数据、Pattern Provider 输入消费、装配室多包裹顺序和样板路由，属于行为敏感变更；新增测试并通过全部 145 个 required GameTest。
+```
+
+最新进展：
+
+```text
+将高级样板从原版 AE2 processing_pattern 扩展改为独立物品：
+  新增 appliedpackaging:advanced_processing_pattern，item 类继承 AE2 ProcessingPatternItem，继续复用 AE2 processing in/out、Pattern Provider、Crafting CPU、清除为空白样板和输出预览行为。
+  AdvancedProcessingPatternDataStorage 只接受新物品；对 AE2 原版 processing_pattern 写入高级列 NBT 会抛出 IllegalArgumentException，默认原版终端不写该数据。
+  高级终端编码路径改为输出独立高级处理样板；装配室普通 AE2 processing pattern 路由保持 Fluix/空名称/空 marker，高级路由只识别新物品。
+  GameTest 增加原版样板拒绝高级元数据、新物品 AE2 解码和装配室按列顺序执行断言。
+
+重排 Advanced Pattern Terminal GUI：
+  atlas 改为本 mod 自绘 230x260 RGBA，不逐像素复制 AE2 资源；ScreenStyle 实际主体为 230x240。
+  顶部 AE 网络库存增为 10 列，搜索框、终端滚动条和 crafting status 随宽度重排；9 列玩家背包与 hotbar 在主体内居中，并采用 1.21.1 bottom 基线。
+  4 个 4x1 输入列之间保留 4px 间距；输入内容仍按列水平滚动，但滚动条改为位于输入区左侧的竖向外观。
+  样板槽、编码按钮、清除/循环按钮和 4 行输出在加宽区域重新对齐；样板图标不再与贴图槽框分离。
+  禁用列使用约 0.2 alpha 的新版效果，不绘制 ghost 物品；第一未启用列保留加号。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，145 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；人工查看 advanced_pattern_encoding_terminal 截图，确认 854x480、GUI scale 2 下 230px 加宽主体、左侧竖向滚动条、4px 列间距、10 列网络库存、独立样板输出预览和居中玩家栏完整显示
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-assets.ps1、scripts/test-assets-audit.ps1、scripts/test-release-audit.ps1 和 scripts/verify-docs.ps1 成功；144 个 PNG 通过资源门禁
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，9 张必需截图有效，日志无发布阻断关键字
+GameTest：已考虑并运行。本轮改变样板物品身份、AE2 解码、Pattern Provider 输入消费和装配室路由，属于行为敏感变更；相关 GameTest 已扩展并通过。GUI 布局与事件改动使用 client smoke 和截图验证。
+```
+
+最新进展：
+
+```text
+修正高级样板终端标题左侧重复铁锭：
+  AE2 PatternEncodingTermMenu 会为 crafting、processing、smithing 和 stonecutting 模式创建共享配置库存的多组槽；原版 Screen 由模式面板控制这些槽的可见性。
+  自定义 AdvancedPatternEncodingTermScreen 现在显式禁用所有非 processing 语义槽，避免共享输入索引 0 的铁锭由默认坐标 (0,0) 重复绘制。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 deprecation warning
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；人工查看 advanced_pattern_encoding_terminal 截图，确认标题左侧重复铁锭已消失，处理中铁/铜/金输入和钻石输出仍正常显示
+验证日志关键字 ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout 无命中
+GameTest：已考虑。本轮只修正客户端槽位可见性，不改变样板编码、物品移动、Pattern Provider 或装配室事务语义，因此不新增或复跑 GameTest。
+```

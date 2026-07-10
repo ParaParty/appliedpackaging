@@ -50,7 +50,8 @@ tasks.named('jar', Jar).configure {
                 'Specification-Version'   : mod_version,
                 'Implementation-Title'    : mod_name,
                 'Implementation-Version'  : mod_version,
-                'Implementation-Vendor'   : mod_authors
+                'Implementation-Vendor'   : mod_authors,
+                'MixinConfigs'            : "${mod_id}.mixins.json"
         ])
     }
 }
@@ -182,25 +183,13 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
     modImplementation "maven.modrinth:${ae2_modrinth_project}:${ae2_modrinth_version}"
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
-// Uncomment the lines below if you wish to configure mixin. The mixin file should be named modid.mixins.json.
-/*
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
     config "${mod_id}.mixins.json"
 }
-
-dependencies {
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
-}
-
-jar {
-    manifest.attributes([
-            "MixinConfigs": "${mod_id}.mixins.json"
-    ])
-}
-*/
 
 // This block of code expands all declared replace properties in the specified resource targets.
 // A missing property will result in an error. Properties are expanded using ${} Groovy notation.

@@ -8,6 +8,7 @@ import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
+import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
@@ -56,6 +57,10 @@ public final class AppliedPackagingClient {
                     APMenus.PACKAGE_ASSEMBLER.get(),
                     PackageAssemblerScreen::new,
                     "/screens/appliedpackaging/package_assembler.json");
+            InitScreens.register(
+                    APMenus.ADVANCED_PATTERN_ENCODING_TERMINAL.get(),
+                    AdvancedPatternEncodingTermScreen::new,
+                    "/screens/appliedpackaging/advanced_pattern_encoding_terminal.json");
             MenuScreens.register(APMenus.PACKAGE_PATTERN_TERMINAL.get(), PackagePatternTerminalScreen::new);
             MenuScreens.register(APMenus.PACKAGE_BUS.get(), PackageBusScreen::new);
             ItemBlockRenderTypes.setRenderLayer(APBlocks.ME_PACKAGER.get(), RenderType.cutoutMipped());

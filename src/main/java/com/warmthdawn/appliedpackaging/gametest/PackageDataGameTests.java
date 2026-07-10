@@ -16,6 +16,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
 import appeng.api.util.AEColor;
+import appeng.blockentity.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.blockentity.crafting.PatternProviderBlockEntity;
 import appeng.blockentity.misc.InterfaceBlockEntity;
 import appeng.blockentity.storage.DriveBlockEntity;
@@ -31,10 +32,13 @@ import com.warmthdawn.appliedpackaging.core.fluid_handler.FluidPackageTransactio
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
 import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
 import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDetails;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
@@ -44,6 +48,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
+import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
@@ -178,8 +183,12 @@ public final class PackageDataGameTests {
                 "Local package_pattern should remain as a compatibility carrier, not a player-craftable item");
         helper.assertFalse(hasRecipeOutput(helper, APItems.PACKAGED_PROCESSING_PATTERN.get()),
                 "Local packaged_processing_pattern should remain as a compatibility carrier, not a player-craftable item");
+        helper.assertFalse(hasRecipeOutput(helper, APItems.ADVANCED_PROCESSING_PATTERN.get()),
+                "Advanced processing patterns should only be encoded in the advanced terminal");
         assertRecipeOutput(helper, "package_assembler", APItems.PACKAGE_ASSEMBLER.get());
         assertRecipeOutput(helper, "package_pattern_terminal", APItems.PACKAGE_PATTERN_TERMINAL.get());
+        assertRecipeOutput(helper, "advanced_pattern_encoding_terminal",
+                APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
         assertRecipeOutput(helper, "package_storage_bus", APItems.PACKAGE_STORAGE_BUS.get());
         assertRecipeOutput(helper, "package_export_bus", APItems.PACKAGE_EXPORT_BUS.get());
         assertRecipeOutput(helper, "package_unpacking_bus", APItems.PACKAGE_UNPACKING_BUS.get());
@@ -1686,6 +1695,79 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageCraftingPatternDecodesAsAssemblerOnlyPattern(GameTestHelper helper) {
+        MarkerSpec marker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        ItemStack pattern = packageCraftingPattern(
+                PackageColor.PURPLE,
+                Optional.of(marker),
+                "Ore Kit",
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
+
+        helper.assertTrue(PatternDetailsHelper.isEncodedPattern(pattern),
+                "Package crafting pattern should be an AE2 encoded pattern");
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details instanceof PackageCraftingPatternDetails,
+                "Package crafting pattern should decode to AP package pattern details");
+        helper.assertFalse(details instanceof IMolecularAssemblerSupportedPattern,
+                "Package crafting pattern should not be accepted by the Molecular Assembler");
+        helper.assertFalse(details.supportsPushInputsToExternalInventory(),
+                "Package crafting pattern should only be pushed to its pattern machine");
+        helper.assertTrue(details.getOutputs().length == 1,
+                "Package crafting pattern should expose one computed package output");
+        helper.assertTrue(details.getOutputs()[0].what() instanceof AEItemKey,
+                "Package crafting output should be an item key");
+        AEItemKey outputKey = (AEItemKey) details.getOutputs()[0].what();
+        ItemStack output = outputKey.toStack();
+        PackageData data = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.PURPLE).get()),
+                "Computed package output should use the encoded color");
+        helper.assertTrue(output.getHoverName().getString().equals("Ore Kit"),
+                "Computed package output should use the encoded package name");
+        helper.assertTrue(data.marker().isPresent() && data.marker().orElseThrow().sameAs(marker),
+                "Computed package output should use the encoded marker");
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Computed package output should contain iron");
+        helper.assertTrue(amountOf(data, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Computed package output should contain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerUsesAe2PackageCraftingPattern(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        MarkerSpec marker = new MarkerSpec(new GenericStack(AEItemKey.of(Items.EMERALD), 1));
+        ItemStack pattern = packageCraftingPattern(
+                PackageColor.RED,
+                Optional.of(marker),
+                "Red Ore Kit",
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 64));
+        assembler.getItems().setStackInSlot(1, new ItemStack(Items.COPPER_INGOT, 32));
+
+        PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Assembler should execute an AE2-carried package crafting pattern");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.RED).get()),
+                "Assembler should use the package crafting pattern color");
+        helper.assertTrue(output.getHoverName().getString().equals("Red Ore Kit"),
+                "Assembler should use the package crafting pattern name");
+        helper.assertTrue(outputData.marker().isPresent() && outputData.marker().orElseThrow().sameAs(marker),
+                "Assembler should use the package crafting pattern marker");
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                "Assembler output should contain the encoded iron input");
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.COPPER_INGOT)) == 32,
+                "Assembler output should contain the encoded copper input");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerUsesLargeEncodedPackagePattern(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         PackageData data = PackageData.create(
@@ -1739,47 +1821,49 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerPatternProviderPushUsesCapacitySlot(GameTestHelper helper) {
+    public static void packageAssemblerPackageCraftingProviderPushUsesLargeEncodedPackage(GameTestHelper helper) {
         ItemStack component = ae2Item("cell_component_64k");
         helper.assertFalse(component.isEmpty(), "AE2 64k storage component should be registered");
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY, component);
+        ItemStack pattern = packageCraftingPattern(
+                PackageColor.BLUE,
+                Optional.empty(),
+                "",
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details instanceof PackageCraftingPatternDetails,
+                "AE2 should decode the large package crafting pattern");
         KeyCounter iron = new KeyCounter();
         iron.add(AEItemKey.of(Items.IRON_INGOT), 640);
 
-        boolean accepted = assembler.pushPattern(
-                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
-                new KeyCounter[] { iron },
-                Direction.UP);
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron }, Direction.UP);
         ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
         PackageData outputData = PackageDataStorage.read(output).orElseThrow();
 
         helper.assertTrue(accepted,
-                "Assembler should package large Pattern Provider pushes with the configured capacity slot");
-        helper.assertTrue(iron.isEmpty(), "Accepted large push should consume the input holder");
+                "Assembler should accept large package crafting Pattern Provider pushes");
+        helper.assertTrue(iron.isEmpty(), "Accepted large package crafting push should consume the input holder");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.BLUE).get()),
+                "Large package crafting push should use the encoded package color");
         helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 640,
-                "Large Pattern Provider push should preserve all iron");
+                "Large package crafting push should preserve all iron");
         helper.assertTrue(!assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY).isEmpty(),
-                "Pattern Provider push should not consume the capacity slot");
+                "Package crafting push should not consume the capacity slot");
         helper.succeed();
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerRejectsOversizedPatternProviderPushWithoutCapacity(GameTestHelper helper) {
-        PackageAssemblerBlockEntity assembler = newPackageAssembler();
-        KeyCounter iron = new KeyCounter();
-        iron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+    public static void packageCraftingPatternRejectsContentsBeyondPackageCapacity(GameTestHelper helper) {
+        GenericStack[] inputs = sparsePackageCraftingInputs(
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64L * 257L));
 
-        boolean accepted = assembler.pushPattern(
-                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
-                new KeyCounter[] { iron },
-                Direction.UP);
-
-        helper.assertFalse(accepted, "Default-capacity assembler should reject oversized Pattern Provider pushes");
-        helper.assertTrue(iron.get(AEItemKey.of(Items.IRON_INGOT)) == 640,
-                "Rejected oversized push should not consume input holders");
-        helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
-                "Rejected oversized push should not create output");
+        helper.assertTrue(PackageCraftingPatternDataStorage.create(
+                        PackageColor.FLUIX,
+                        inputs,
+                        Optional.empty(),
+                        "")
+                .isEmpty(), "Package crafting pattern should reject contents beyond package capacity");
         helper.succeed();
     }
 
@@ -2036,19 +2120,25 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerAcceptsPatternProviderPush(GameTestHelper helper) {
+    public static void packageAssemblerAcceptsPackageCraftingPatternProviderPush(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        ItemStack pattern = packageCraftingPattern(
+                PackageColor.FLUIX,
+                Optional.empty(),
+                "",
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details instanceof PackageCraftingPatternDetails,
+                "AE2 should decode the package crafting pattern");
         KeyCounter iron = new KeyCounter();
         iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
         KeyCounter copper = new KeyCounter();
         copper.add(AEItemKey.of(Items.COPPER_INGOT), 32);
 
         helper.assertTrue(assembler.acceptsPlans(), "Empty assembler should accept Pattern Provider plans");
-        boolean accepted = assembler.pushPattern(
-                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
-                new KeyCounter[] { iron, copper },
-                Direction.UP);
-        helper.assertTrue(accepted, "Assembler should accept Pattern Provider item inputs");
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron, copper }, Direction.UP);
+        helper.assertTrue(accepted, "Assembler should accept package crafting Pattern Provider inputs");
         ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
         PackageData outputData = PackageDataStorage.read(output).orElseThrow();
 
@@ -2102,13 +2192,18 @@ public final class PackageDataGameTests {
     public static void packageAssemblerRejectsPatternProviderPushWhenOutputBlocked(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         fillAssemblerOutputSlots(assembler);
+        ItemStack pattern = packageCraftingPattern(
+                PackageColor.FLUIX,
+                Optional.empty(),
+                "",
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        helper.assertTrue(details instanceof PackageCraftingPatternDetails,
+                "AE2 should decode the package crafting pattern");
         KeyCounter iron = new KeyCounter();
         iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
 
-        boolean accepted = assembler.pushPattern(
-                new DummyPatternDetails(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)),
-                new KeyCounter[] { iron },
-                Direction.UP);
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron }, Direction.UP);
 
         helper.assertFalse(accepted, "Blocked output should reject Pattern Provider pushes");
         helper.assertTrue(iron.get(AEItemKey.of(Items.IRON_INGOT)) == 64,
@@ -2117,7 +2212,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerAcceptsFluidPatternProviderPush(GameTestHelper helper) {
+    public static void packageAssemblerRejectsUnmarkedFluidPatternProviderPush(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         KeyCounter water = new KeyCounter();
         water.add(AEFluidKey.of(Fluids.WATER), 1000);
@@ -2127,12 +2222,11 @@ public final class PackageDataGameTests {
                 new KeyCounter[] { water },
                 Direction.UP);
         ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
-        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
 
-        helper.assertTrue(accepted, "Assembler should accept Pattern Provider fluid inputs");
-        helper.assertTrue(water.isEmpty(), "Accepted fluid push should consume input holders");
-        helper.assertTrue(amountOf(outputData, AEFluidKey.of(Fluids.WATER)) == 1000,
-                "Pushed water should be packaged");
+        helper.assertFalse(accepted, "Assembler should reject unmarked generic Pattern Provider fluid inputs");
+        helper.assertTrue(water.get(AEFluidKey.of(Fluids.WATER)) == 1000,
+                "Rejected unmarked fluid push should not consume input holders");
+        helper.assertTrue(output.isEmpty(), "Rejected unmarked fluid push should not create output");
         helper.succeed();
     }
 
@@ -2513,7 +2607,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "ae_network_column")
-    public static void ae2PatternProviderPushesIntoPackageAssembler(GameTestHelper helper) {
+    public static void ae2PatternProviderPushesPackageCraftingPatternIntoPackageAssembler(GameTestHelper helper) {
         BlockPos energyCellPos = new BlockPos(0, 0, 0);
         BlockPos providerPos = new BlockPos(0, 1, 0);
         BlockPos assemblerPos = new BlockPos(0, 2, 0);
@@ -2536,17 +2630,19 @@ public final class PackageDataGameTests {
                             (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
                     PackageAssemblerBlockEntity assembler =
                             (PackageAssemblerBlockEntity) helper.getBlockEntity(assemblerPos);
-                    ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
-                            new GenericStack[] {
-                                    new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
-                                    new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
-                            },
-                            new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+                    ItemStack pattern = packageCraftingPattern(
+                            PackageColor.FLUIX,
+                            Optional.empty(),
+                            "",
+                            new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                            new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
                     provider.getLogic().getPatternInv().addItems(pattern);
                     provider.getLogic().updatePatterns();
                     helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 1,
-                            "Pattern Provider should decode the processing pattern");
+                            "Pattern Provider should decode the package crafting pattern");
                     IPatternDetails details = provider.getLogic().getAvailablePatterns().get(0);
+                    helper.assertTrue(details instanceof PackageCraftingPatternDetails,
+                            "Pattern Provider should expose AP package crafting details");
                     KeyCounter iron = new KeyCounter();
                     iron.add(AEItemKey.of(Items.IRON_INGOT), 64);
                     KeyCounter copper = new KeyCounter();
@@ -2554,7 +2650,8 @@ public final class PackageDataGameTests {
 
                     boolean accepted = provider.getLogic().pushPattern(details, new KeyCounter[] { iron, copper });
 
-                    helper.assertTrue(accepted, "AE2 Pattern Provider should push into Package Assembler");
+                    helper.assertTrue(accepted,
+                            "AE2 Pattern Provider should push package crafting patterns into Package Assembler");
                     helper.assertTrue(iron.isEmpty(), "Accepted AE2 push should consume iron input");
                     helper.assertTrue(copper.isEmpty(), "Accepted AE2 push should consume copper input");
                 })
@@ -2763,7 +2860,15 @@ public final class PackageDataGameTests {
                 helper.absolutePos(assemblerPos),
                 APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState(),
                 3);
-        CpuCraftingJob craftingJob = new CpuCraftingJob(helper, providerPos, AEItemKey.of(Items.DIAMOND), 1);
+        ItemStack cpuPattern = packageCraftingPattern(
+                PackageColor.FLUIX,
+                Optional.empty(),
+                "",
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
+        ItemStack expectedPackage = PackageCraftingPatternDataStorage.toPackageStack(
+                PackageCraftingPatternDataStorage.read(cpuPattern).orElseThrow());
+        CpuCraftingJob craftingJob = new CpuCraftingJob(helper, providerPos, AEItemKey.of(expectedPackage), 1);
 
         helper.startSequence()
                 .thenWaitUntil(() -> {
@@ -2782,14 +2887,13 @@ public final class PackageDataGameTests {
                     PatternProviderBlockEntity provider =
                             (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
                     drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
-                    ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
-                            new GenericStack[] {
-                                    new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
-                                    new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)
-                            },
-                            new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
-                    provider.getLogic().getPatternInv().addItems(pattern);
+                    provider.getLogic().getPatternInv().addItems(cpuPattern.copy());
                     provider.getLogic().updatePatterns();
+                    helper.assertTrue(provider.getLogic().getAvailablePatterns().size() == 1,
+                            "Pattern Provider should decode the package crafting pattern for CPU crafting");
+                    helper.assertTrue(provider.getLogic().getAvailablePatterns().get(0)
+                                    instanceof PackageCraftingPatternDetails,
+                            "CPU crafting should see AP package crafting details");
                     var grid = provider.getMainNode().getGrid();
                     var source = IActionSource.ofMachine(provider);
                     var storage = grid.getStorageService().getInventory();
@@ -2804,15 +2908,6 @@ public final class PackageDataGameTests {
                     PatternProviderBlockEntity provider =
                             (PatternProviderBlockEntity) helper.getBlockEntity(providerPos);
                     var storage = provider.getMainNode().getGrid().getStorageService().getInventory();
-                    ItemStack expectedPackage = packageStack(
-                            PackageColor.FLUIX,
-                            PackageData.create(
-                                    PackageColor.FLUIX,
-                                    List.of(
-                                            new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
-                                            new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32)),
-                                    Optional.empty(),
-                                    0));
                     long storedPackages = storage.extract(
                             AEItemKey.of(expectedPackage),
                             1,
@@ -3383,6 +3478,200 @@ public final class PackageDataGameTests {
                 "First sparse input should remain iron");
         helper.assertTrue(sparseInputs.get(1).what().equals(AEItemKey.of(Items.COPPER_INGOT)),
                 "Second sparse input should remain copper");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void ordinaryAe2ProcessingPatternHasNoAdvancedPackageMetadata(GameTestHelper helper) {
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32) },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        var metadata = new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
+                new AdvancedProcessingPatternDataStorage.PackageColumn(
+                        0, PackageColor.FLUIX, "", Optional.empty())));
+        boolean rejected = false;
+        try {
+            AdvancedProcessingPatternDataStorage.write(pattern, metadata);
+        } catch (IllegalArgumentException expected) {
+            rejected = true;
+        }
+
+        helper.assertTrue(PatternDetailsHelper.isEncodedPattern(pattern),
+                "AE2 should encode an ordinary processing pattern");
+        helper.assertFalse(AdvancedProcessingPatternDataStorage.canStore(pattern),
+                "Ordinary AE2 processing patterns must not be advanced metadata carriers");
+        helper.assertFalse(AdvancedProcessingPatternDataStorage.hasData(pattern),
+                "Ordinary AE2 processing patterns must not contain advanced package metadata");
+        helper.assertTrue(rejected,
+                "Writing advanced package metadata to an ordinary AE2 processing pattern must be rejected");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void advancedProcessingPatternMetadataRoundTrips(GameTestHelper helper) {
+        ItemStack pattern = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
+                new GenericStack[] {
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
+                        null,
+                        null,
+                        null,
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16)
+                },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        MarkerSpec diamond = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        MarkerSpec emerald = new MarkerSpec(new GenericStack(AEItemKey.of(Items.EMERALD), 1));
+        AdvancedProcessingPatternDataStorage.write(
+                pattern,
+                new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                0, PackageColor.RED, "Iron Route", Optional.of(diamond)),
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                1, PackageColor.BLUE, "Copper Route", Optional.of(emerald)))));
+
+        var encoded = AdvancedProcessingPatternDataStorage.read(pattern).orElseThrow();
+        helper.assertTrue(pattern.is(APItems.ADVANCED_PROCESSING_PATTERN.get()),
+                "Advanced pattern metadata should be stored on the dedicated pattern item");
+        helper.assertTrue(encoded.activeColumnCount() == 2,
+                "Advanced processing pattern should preserve its active column count");
+        helper.assertTrue(encoded.column(0).color() == PackageColor.RED,
+                "First advanced package color should round-trip");
+        helper.assertTrue(encoded.column(1).packageName().equals("Copper Route"),
+                "Second advanced package name should round-trip");
+        helper.assertTrue(encoded.column(0).marker().orElseThrow().sameAs(diamond),
+                "First advanced package marker should round-trip");
+        helper.assertTrue(encoded.column(1).marker().orElseThrow().sameAs(emerald),
+                "Second advanced package marker should round-trip");
+        helper.assertTrue(PatternDetailsHelper.isEncodedPattern(pattern)
+                        && PatternDetailsHelper.decodePattern(pattern, helper.getLevel()) != null,
+                "The dedicated advanced pattern should retain normal AE2 processing-pattern behavior");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerOrdinaryPatternUsesDefaultPackageIdentity(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.setSelectedColor(PackageColor.RED);
+        assembler.setPackageName("Machine Override");
+        assembler.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_MARKER,
+                new ItemStack(Items.EMERALD));
+        ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32) },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 32);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron }, Direction.UP);
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData data = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(accepted, "Assembler should accept an ordinary AE2 processing pattern");
+        helper.assertTrue(iron.isEmpty(), "Accepted ordinary pattern should consume its exact inputs");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
+                "Ordinary processing patterns should use the default Fluix package color");
+        helper.assertFalse(output.hasCustomHoverName(),
+                "Ordinary processing patterns should leave the package name empty");
+        helper.assertTrue(data.marker().isEmpty(),
+                "Ordinary processing patterns should leave the package marker empty");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerAdvancedPatternPackagesEachColumnInOrder(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        ItemStack pattern = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
+                new GenericStack[] {
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
+                        null,
+                        null,
+                        null,
+                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16)
+                },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        MarkerSpec diamond = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        MarkerSpec emerald = new MarkerSpec(new GenericStack(AEItemKey.of(Items.EMERALD), 1));
+        AdvancedProcessingPatternDataStorage.write(
+                pattern,
+                new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                0, PackageColor.RED, "Iron Route", Optional.of(diamond)),
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                1, PackageColor.RED, "Copper Route", Optional.of(emerald)))));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        KeyCounter iron = new KeyCounter();
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 32);
+        KeyCounter copper = new KeyCounter();
+        copper.add(AEItemKey.of(Items.COPPER_INGOT), 16);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron, copper }, Direction.UP);
+        ItemStack firstOutput = assembler.getItems()
+                .getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT)
+                .copy();
+        ItemStack secondOutput = assembler.getItems()
+                .getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1))
+                .copy();
+        PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
+        PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
+
+        helper.assertTrue(accepted, "Assembler should accept an advanced processing pattern");
+        helper.assertTrue(iron.isEmpty() && copper.isEmpty(),
+                "Accepted advanced pattern should consume every exact input");
+        helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get())
+                        && secondOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
+                "Advanced columns with the same color should remain separate packages");
+        helper.assertTrue(firstOutput.getHoverName().getString().equals("Iron Route"),
+                "First package should preserve first-column name and order");
+        helper.assertTrue(secondOutput.getHoverName().getString().equals("Copper Route"),
+                "Second package should preserve second-column name and order");
+        helper.assertTrue(firstData.marker().orElseThrow().sameAs(diamond),
+                "First package should preserve first-column marker");
+        helper.assertTrue(secondData.marker().orElseThrow().sameAs(emerald),
+                "Second package should preserve second-column marker");
+        helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 32,
+                "First package should contain only first-column inputs");
+        helper.assertTrue(amountOf(secondData, AEItemKey.of(Items.COPPER_INGOT)) == 16,
+                "Second package should contain only second-column inputs");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void advancedPatternTerminalItemPlacesAe2PatternTerminalPart(GameTestHelper helper) {
+        helper.assertTrue(APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get() instanceof IPartItem<?>,
+                "Advanced pattern terminal item should be an AE2 part item");
+        @SuppressWarnings("unchecked")
+        IPartItem<AdvancedPatternEncodingTerminalPart> partItem =
+                (IPartItem<AdvancedPatternEncodingTerminalPart>) APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get();
+        BlockPos absolutePos = helper.absolutePos(new BlockPos(2, 2, 1));
+        AdvancedPatternEncodingTerminalPart part = PartHelper.setPart(
+                helper.getLevel(),
+                absolutePos,
+                Direction.NORTH,
+                null,
+                partItem);
+
+        helper.assertTrue(part != null, "Advanced pattern terminal should place as an AE2 cable part");
+        helper.assertTrue(part instanceof appeng.parts.encoding.PatternEncodingTerminalPart,
+                "Advanced pattern terminal should reuse AE2 pattern terminal part behavior");
+        part.getAdvancedPatternState().setActiveColumns(2);
+        part.getAdvancedPatternState().setColor(0, PackageColor.GREEN);
+        part.getAdvancedPatternState().setName(1, "Second Route");
+        part.getAdvancedPatternState().markers().setStack(
+                1,
+                new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        CompoundTag saved = new CompoundTag();
+        part.writeToNBT(saved);
+        part.getAdvancedPatternState().reset();
+        part.readFromNBT(saved);
+
+        helper.assertTrue(part.getAdvancedPatternState().activeColumns() == 2,
+                "Advanced terminal should persist active columns");
+        helper.assertTrue(part.getAdvancedPatternState().color(0) == PackageColor.GREEN,
+                "Advanced terminal should persist column colors");
+        helper.assertTrue(part.getAdvancedPatternState().name(1).equals("Second Route"),
+                "Advanced terminal should persist column names");
+        helper.assertTrue(part.getAdvancedPatternState().markers().getKey(1).equals(AEItemKey.of(Items.DIAMOND)),
+                "Advanced terminal should persist column markers");
         helper.succeed();
     }
 
@@ -4055,6 +4344,32 @@ public final class PackageDataGameTests {
         helper.assertTrue(terminal.getItems().getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_OUTPUT).isEmpty(),
                 "Rejected processing encode should not create output");
         helper.succeed();
+    }
+
+    private static ItemStack packageCraftingPattern(
+            PackageColor color,
+            Optional<MarkerSpec> marker,
+            String packageName,
+            GenericStack... inputs) {
+        var encoded = PackageCraftingPatternDataStorage.create(
+                        color,
+                        sparsePackageCraftingInputs(inputs),
+                        marker,
+                        packageName)
+                .orElseThrow();
+        return PackageCraftingPatternDataStorage.encode(encoded);
+    }
+
+    private static GenericStack[] sparsePackageCraftingInputs(GenericStack... inputs) {
+        GenericStack[] sparse = new GenericStack[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT];
+        if (inputs == null) {
+            return sparse;
+        }
+        if (inputs.length > sparse.length) {
+            throw new IllegalArgumentException("Package crafting test inputs exceed the crafting grid");
+        }
+        System.arraycopy(inputs, 0, sparse, 0, inputs.length);
+        return sparse;
     }
 
     private static PackageData ironPackageData(PackageColor color, long amount) {

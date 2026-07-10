@@ -23,6 +23,7 @@ public final class APCreativeTabs {
                 output.accept(APItems.PACKAGE_EXPORT_BUS.get());
                 output.accept(APItems.PACKAGE_UNPACKING_BUS.get());
                 output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
+                output.accept(APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
             })
             .build());
 

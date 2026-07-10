@@ -267,6 +267,7 @@ public final class APCreativeTabs {
         output.accept(APItems.ME_PACKAGER.get());
         output.accept(APItems.PACKAGE_ASSEMBLER.get());
         output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
+        output.accept(APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
     }
 }
 "@
@@ -286,12 +287,23 @@ public final class APItems {
             "packaged_processing_pattern",
             () -> new Item(new Item.Properties()));
 
+    public static final RegistryObject<Item> ADVANCED_PROCESSING_PATTERN = ITEMS.register(
+            "advanced_processing_pattern",
+            () -> new AdvancedProcessingPatternItem(new Item.Properties()));
+
     public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
             "package_pattern_terminal",
             () -> new PartItem<>(
                     new Item.Properties(),
                     PackagePatternTerminalPart.class,
                     PackagePatternTerminalPart::new));
+
+    public static final RegistryObject<Item> ADVANCED_PATTERN_ENCODING_TERMINAL = ITEMS.register(
+            "advanced_pattern_encoding_terminal",
+            () -> new PartItem<>(
+                    new Item.Properties(),
+                    AdvancedPatternEncodingTerminalPart.class,
+                    AdvancedPatternEncodingTerminalPart::new));
 }
 "@
 
@@ -475,7 +487,7 @@ try {
         -RootPath $localPatternRecipeFixture.RootPath `
         -JarPath $localPatternRecipeFixture.JarPath `
         -ExpectedExitCode 1 `
-        -ExpectedText "Local pattern compatibility items are recipe outputs"
+        -ExpectedText "Encoded local pattern items are recipe outputs"
 
     $creativeLocalPatternFixture = New-ReleaseAuditFixture "creative-local-pattern"
     Write-Utf8File -Path (Join-Path $creativeLocalPatternFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java") -Text @"
@@ -484,7 +496,7 @@ package com.warmthdawn.appliedpackaging.registry;
 public final class APCreativeTabs {
     public static void build(FixtureOutput output) {
         output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
-        output.accept(APItems.PACKAGE_PATTERN.get());
+        output.accept(APItems.ADVANCED_PROCESSING_PATTERN.get());
     }
 }
 "@
@@ -493,7 +505,7 @@ public final class APCreativeTabs {
         -RootPath $creativeLocalPatternFixture.RootPath `
         -JarPath $creativeLocalPatternFixture.JarPath `
         -ExpectedExitCode 1 `
-        -ExpectedText "Creative tab exposes local pattern compatibility items"
+        -ExpectedText "Creative tab exposes encoded local pattern items"
 
     $terminalBlockItemFixture = New-ReleaseAuditFixture "terminal-blockitem"
     Write-Utf8File -Path (Join-Path $terminalBlockItemFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Text @"
@@ -514,6 +526,34 @@ public final class APItems {
         -JarPath $terminalBlockItemFixture.JarPath `
         -ExpectedExitCode 1 `
         -ExpectedText "Package pattern terminal item registers as an AE2 PartItem"
+
+    $advancedTerminalBlockItemFixture = New-ReleaseAuditFixture "advanced-terminal-blockitem"
+    Write-Utf8File -Path (Join-Path $advancedTerminalBlockItemFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Text @"
+package com.warmthdawn.appliedpackaging.registry;
+
+import appeng.items.parts.PartItem;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+
+public final class APItems {
+    public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
+            "package_pattern_terminal",
+            () -> new PartItem<>(
+                    new Item.Properties(),
+                    PackagePatternTerminalPart.class,
+                    PackagePatternTerminalPart::new));
+
+    public static final RegistryObject<Item> ADVANCED_PATTERN_ENCODING_TERMINAL = ITEMS.register(
+            "advanced_pattern_encoding_terminal",
+            () -> new BlockItem(APBlocks.PACKAGE_PATTERN_TERMINAL.get(), new Item.Properties()));
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "advanced terminal block item fixture" `
+        -RootPath $advancedTerminalBlockItemFixture.RootPath `
+        -JarPath $advancedTerminalBlockItemFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Advanced pattern encoding terminal item registers as an AE2 PartItem"
 
     Write-Host ""
     Write-Host "Release audit self-test passed." -ForegroundColor Green

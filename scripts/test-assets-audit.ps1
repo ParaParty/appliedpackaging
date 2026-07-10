@@ -82,6 +82,15 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "expected 256x256 ME Package Assembler GUI atlas"
 
+    $badAdvancedTerminalGuiFixture = New-AssetsFixture "bad-advanced-terminal-gui-dimension"
+    $badAdvancedTerminalGuiPath = Join-Path $badAdvancedTerminalGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png"
+    [System.IO.File]::WriteAllBytes($badAdvancedTerminalGuiPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad advanced terminal GUI dimension fixture" `
+        -RootPath $badAdvancedTerminalGuiFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 230x260 advanced pattern encoding terminal GUI texture"
+
     $badHeaderFixture = New-AssetsFixture "bad-header"
     $badHeaderPath = Join-Path $badHeaderFixture "src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png"
     [System.IO.File]::WriteAllBytes($badHeaderPath, [byte[]]@(1, 2, 3, 4))

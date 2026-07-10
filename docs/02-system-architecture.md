@@ -102,6 +102,8 @@ pattern
   PackagedProcessingPatternItem
   PatternDataStorage
   PackagePatternTerminalBlock/Menu/Screen
+  AdvancedProcessingPatternDataStorage
+  AdvancedPatternEncodingTerminalPart/Menu/Screen
 
 bus
   PackageStorageBusPart
@@ -148,6 +150,23 @@ AE2 Pattern Provider
 -> output mode exports one package at a time to ME network, adjacent item handler, or leaves output local
 ```
 
+样板类型路由：
+
+```text
+AE2 crafting_pattern + appliedpackaging.package_crafting_pattern
+-> PackageCraftingPatternDetails
+-> Package Assembler exact single-package plan
+
+AE2 processing_pattern without Applied Packaging column metadata
+-> ordinary processing plan
+-> one Fluix package with empty name and marker
+
+Applied Packaging advanced_processing_pattern
+-> inherits AE2 processing-pattern decoding and preserves normal inputs/outputs for planning
+-> Package Assembler groups sparse inputs by contiguous 4-slot columns
+-> ordered multi-package plan using each column's color, name, and marker
+```
+
 ME 打包机打包：
 
 ```text
@@ -181,6 +200,8 @@ incoming package stack
 ```text
 1.20.1:
   ItemStack NBT adapter
+  custom advanced processing pattern stores package-column metadata in namespaced ItemStack NBT
+  ordinary AE2 processing_pattern never stores advanced package-column metadata
   Forge 47.4.x
   AE2 15.x
 

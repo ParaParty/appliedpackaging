@@ -2,10 +2,12 @@ package com.warmthdawn.appliedpackaging.registry;
 
 import appeng.items.parts.PartItem;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.item.AdvancedProcessingPatternItem;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
 import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
+import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
@@ -29,6 +31,10 @@ public final class APItems {
     public static final RegistryObject<Item> PACKAGED_PROCESSING_PATTERN = ITEMS.register(
             "packaged_processing_pattern",
             () -> new PackagePatternItem(new Item.Properties().stacksTo(1)));
+
+    public static final RegistryObject<AdvancedProcessingPatternItem> ADVANCED_PROCESSING_PATTERN = ITEMS.register(
+            "advanced_processing_pattern",
+            () -> new AdvancedProcessingPatternItem(new Item.Properties().stacksTo(1)));
 
     public static final RegistryObject<Item> ME_PACKAGER = ITEMS.register(
             "me_packager",
@@ -56,6 +62,13 @@ public final class APItems {
                     new Item.Properties(),
                     PackagePatternTerminalPart.class,
                     PackagePatternTerminalPart::new));
+
+    public static final RegistryObject<Item> ADVANCED_PATTERN_ENCODING_TERMINAL = ITEMS.register(
+            "advanced_pattern_encoding_terminal",
+            () -> new PartItem<>(
+                    new Item.Properties(),
+                    AdvancedPatternEncodingTerminalPart.class,
+                    AdvancedPatternEncodingTerminalPart::new));
 
     static {
         for (PackageColor color : PackageColor.values()) {
