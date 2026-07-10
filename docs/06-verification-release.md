@@ -78,6 +78,7 @@ item handler 拆包可完整插入目标
 装配室 GUI 真实输入缓冲可按 package_pattern 过滤材料并累计超过普通 stack size 的数量
 装配室自动导出设置可保存/读取
 装配室 server tick 可把输出包裹导出到相邻 Forge item handler
+ME 打包机内/外 item capability 与装配室 item/CRAFTING_MACHINE capability 在 invalidate 后使旧 handle 失效，并在 revive 后恢复可用
 真实 AE2 Interface 网络可接收装配室自动导出的包裹物品
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送处理样板输入到装配室
 真实 AE2 Creative Energy Cell + Pattern Provider 方块网络可推送彩色处理样板输入到装配室

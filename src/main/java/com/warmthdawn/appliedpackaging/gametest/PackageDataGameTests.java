@@ -2584,6 +2584,47 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void machineCapabilitiesReviveAfterInvalidation(GameTestHelper helper) {
+        MePackagerBlockEntity packager = new MePackagerBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.ME_PACKAGER.get().defaultBlockState());
+        LazyOptional<IItemHandler> packagerInternal =
+                packager.getCapability(ForgeCapabilities.ITEM_HANDLER, null);
+        LazyOptional<IItemHandler> packagerExternal =
+                packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP);
+        helper.assertTrue(packagerInternal.isPresent() && packagerExternal.isPresent(),
+                "ME Packager item capabilities should initially be available");
+
+        packager.invalidateCaps();
+        helper.assertFalse(packagerInternal.isPresent() || packagerExternal.isPresent(),
+                "Invalidating ME Packager capabilities should invalidate existing handles");
+        packager.reviveCaps();
+        helper.assertTrue(packager.getCapability(ForgeCapabilities.ITEM_HANDLER, null).isPresent()
+                        && packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP).isPresent(),
+                "Reviving the ME Packager should recreate both item capabilities");
+
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        LazyOptional<IItemHandler> assemblerItems =
+                assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP);
+        LazyOptional<?> assemblerCrafting =
+                assembler.getCapability(appeng.capabilities.Capabilities.CRAFTING_MACHINE, Direction.UP);
+        helper.assertTrue(assemblerItems.isPresent() && assemblerCrafting.isPresent(),
+                "Package Assembler item and crafting-machine capabilities should initially be available");
+
+        assembler.invalidateCaps();
+        helper.assertFalse(assemblerItems.isPresent() || assemblerCrafting.isPresent(),
+                "Invalidating Package Assembler capabilities should invalidate existing handles");
+        assembler.reviveCaps();
+        helper.assertTrue(assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP).isPresent()
+                        && assembler.getCapability(
+                                        appeng.capabilities.Capabilities.CRAFTING_MACHINE,
+                                        Direction.UP)
+                                .isPresent(),
+                "Reviving the Package Assembler should recreate item and crafting-machine capabilities");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerAutoExportsToAdjacentItemHandler(GameTestHelper helper) {
         BlockPos chestPos = new BlockPos(0, 0, 0);
         BlockPos assemblerPos = new BlockPos(1, 0, 0);

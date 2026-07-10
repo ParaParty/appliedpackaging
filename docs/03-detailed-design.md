@@ -330,6 +330,7 @@ SLOT_MARKER = 28
 extra output slots 12-27；outputHandlerSlot(0)=10，outputHandlerSlot(1..16)=12..27
 Forge item handler capability 暴露完整 29 格机器库存；GUI menuInputBuffer 单独保存，不暴露给外部 item handler
 AE2 CRAFTING_MACHINE capability 暴露装配室本体
+方块实体 capability invalidation 后会在 revive 时重建 item handler 与 CRAFTING_MACHINE `LazyOptional`，区块卸载/重新激活后自动化入口不得永久失效
 pending package queue 与 active package queue 持久化保存
 容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
 marker 槽接受非包裹、非样板物品；只有样板或 Pattern Provider 临时 plan 没有包裹 marker 时，marker 槽才作为输出 marker fallback
@@ -557,6 +558,7 @@ GUI 作为主入口，客户端使用 AE2 `UpgradeableScreen` + `ScreenStyle`，
   空手或非包裹物品时先尝试取出输出槽。
   输出槽为空且没有快速动作时打开 GUI。
 其它非 network_side 面暴露 2 槽普通 item capability：slot 0 只在包裹可立即完整拆包时接收 1 个合法包裹，接收后不暂存到 inputSlot；slot 1 只导出 outputSlot 中的输出包裹；network_side 不暴露普通 item capability。
+方块实体 capability invalidation 后会在 revive 时同时重建内部与外部 item handler `LazyOptional`。
 GUI 左侧按钮区包含帮助、清除配置、基于网络现存物品配置分区、过滤应用模式、打包激活模式和阻挡模式。
 过滤区为 5 行 9 列 ConfigInventory；默认启用 2 行，最多 3 张容量卡各启用 1 行，未启用行由 AE2 OptionalFakeSlot 控制渲染和交互。
 包裹配置区包含包裹名称输入、左侧小颜色选择按钮和右侧 marker 物品槽；marker 槽有物品时直接作为输出 marker 覆盖来源 marker。

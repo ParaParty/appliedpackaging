@@ -178,8 +178,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             return slot == 0 && items.isItemValid(SLOT_INPUT, stack);
         }
     };
-    private final LazyOptional<IItemHandler> internalItemHandler = LazyOptional.of(() -> items);
-    private final LazyOptional<IItemHandler> externalItemHandler = LazyOptional.of(() -> externalItems);
+    private LazyOptional<IItemHandler> internalItemHandler = createInternalItemHandlerCapability();
+    private LazyOptional<IItemHandler> externalItemHandler = createExternalItemHandlerCapability();
     private boolean powered;
     private int redstoneCooldown;
     private int animationTicks;
@@ -786,6 +786,21 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         super.invalidateCaps();
         internalItemHandler.invalidate();
         externalItemHandler.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        internalItemHandler = createInternalItemHandlerCapability();
+        externalItemHandler = createExternalItemHandlerCapability();
+    }
+
+    private LazyOptional<IItemHandler> createInternalItemHandlerCapability() {
+        return LazyOptional.of(() -> items);
+    }
+
+    private LazyOptional<IItemHandler> createExternalItemHandlerCapability() {
+        return LazyOptional.of(() -> externalItems);
     }
 
     @Override

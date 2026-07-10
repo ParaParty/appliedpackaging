@@ -151,8 +151,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             UPGRADE_SLOT_COUNT,
             this::onUpgradesChanged);
     private final ExternalItemHandler externalItemHandler = new ExternalItemHandler();
-    private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> externalItemHandler);
-    private final LazyOptional<ICraftingMachine> craftingMachine = LazyOptional.of(() -> this);
+    private LazyOptional<IItemHandler> itemHandler = createItemHandlerCapability();
+    private LazyOptional<ICraftingMachine> craftingMachine = createCraftingMachineCapability();
     private final List<QueuedPackage> activePackages = new ArrayList<>();
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
     private PackageColor selectedColor = PackageColor.FLUIX;
@@ -1768,6 +1768,21 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         super.invalidateCaps();
         itemHandler.invalidate();
         craftingMachine.invalidate();
+    }
+
+    @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        itemHandler = createItemHandlerCapability();
+        craftingMachine = createCraftingMachineCapability();
+    }
+
+    private LazyOptional<IItemHandler> createItemHandlerCapability() {
+        return LazyOptional.of(() -> externalItemHandler);
+    }
+
+    private LazyOptional<ICraftingMachine> createCraftingMachineCapability() {
+        return LazyOptional.of(() -> this);
     }
 
     @Override

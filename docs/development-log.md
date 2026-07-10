@@ -2712,3 +2712,20 @@ GameTest：已考虑并运行。本轮改变 Forge item capability 暴露范围�
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效；仅忽略 1 条外部 Yggdrasil 公钥获取警告
 GameTest：已考虑并运行。本轮修正在线 AE grid 节点的过滤配置与 IStorageProvider 服务调用，属于行为敏感变更；新增 1 个真实端点 GameTest 并通过全部 168 个 required GameTest。
 ```
+
+最新进展：
+
+```text
+补齐 ME Packager 与 Package Assembler 方块实体 capability revive 生命周期：
+  全仓扫描持久 LazyOptional、invalidateCaps、reviveCaps 与 AE2 capability 实现，确认两台机器旧实现失效 capability 后没有重建路径。
+  ME Packager 的内部/外部 item handler capability 改为可重建字段，reviveCaps 同时恢复两者。
+  Package Assembler 的外部 item handler 与 AE2 CRAFTING_MACHINE capability 改为可重建字段，reviveCaps 同时恢复两者。
+  新增 lifecycle GameTest，保留四个旧 LazyOptional handle 并确认 invalidate 后全部失效，再确认 revive 后重新获取的四个 capability 全部可用。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 13 个 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，169 个 required GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效，日志无发布阻断关键字
+GameTest：已考虑并运行。本轮改变物品自动化与 AE2 crafting-machine capability 的区块实体生命周期，属于行为敏感变更；新增 1 个 GameTest 并通过全部 169 个 required GameTest。
+```
