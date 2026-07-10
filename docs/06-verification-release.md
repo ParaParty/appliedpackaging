@@ -99,7 +99,7 @@ MEStorage 拆包在共享目标容量于提交阶段不足时回滚此前真实�
 包裹总线在目标无法完整容纳内容时保留网络包裹
 包裹总线目标面不连接 AE 网络，其余面仍可加入 grid
 真实 AE2 Drive 网络上的存储总线只挂载相邻库存中的合法包裹
-真实 AE2 存储总线要求 channel，并会在初始挂载后刷新相邻包裹增删、在线过滤启用和过滤清除
+真实 AE2 存储总线要求 channel，并会在初始挂载后刷新相邻包裹增删、目标移除/替换、在线过滤启用和过滤清除
 真实 AE2 Drive 网络上的输出总线可把已有包裹送入相邻库存
 真实 AE2 Drive 网络上的拆包总线可完整提交相邻散装内容，容量不足时保持原网络包裹
 Package Bus 配置 UI 可从光标物品设置 ghost filter 且不消耗光标模板
@@ -141,6 +141,7 @@ package_pattern_terminal 拒绝把已编码 packaged_processing_pattern 当空�
 package_pattern_terminal 使用按朝向旋转的薄面板 VoxelShape
 package_pattern_terminal 物品是 AE2 part item，可通过 PartHelper 放置到 cable bus 侧面并打开/使用同一终端逻辑
 package_pattern_terminal AE2 part 可保存/读取 selectedColor、预览输入槽和流体处理输出 ghost
+package_pattern_terminal 兼容方块与 AE2 part 的外部 item capability 只暴露空白样板槽，拒绝预览物品；方块 capability revive 与 part 拆除会正确重建/失效 `LazyOptional`
 玩家配方不再产出本地 package_pattern / packaged_processing_pattern，关键机器、终端和总线配方仍可加载
 装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT 并生成匹配包裹
 装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT 并逐包生成匹配包裹

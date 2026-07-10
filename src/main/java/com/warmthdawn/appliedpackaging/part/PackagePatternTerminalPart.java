@@ -58,7 +58,7 @@ public class PackagePatternTerminalPart extends AbstractDisplayPart implements M
                     PackagePatternTerminalPart.this.markTerminalChanged();
                 }
             };
-    private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(terminal::getItems);
+    private LazyOptional<IItemHandler> itemHandler = createItemHandlerCapability();
     private boolean loading;
 
     public PackagePatternTerminalPart(IPartItem<?> partItem) {
@@ -238,6 +238,17 @@ public class PackagePatternTerminalPart extends AbstractDisplayPart implements M
             return itemHandler.cast();
         }
         return super.getCapability(cap);
+    }
+
+    @Override
+    public void removeFromWorld() {
+        super.removeFromWorld();
+        itemHandler.invalidate();
+        itemHandler = createItemHandlerCapability();
+    }
+
+    private LazyOptional<IItemHandler> createItemHandlerCapability() {
+        return LazyOptional.of(terminal::getBlankPatternAutomationView);
     }
 
     private void markTerminalChanged() {

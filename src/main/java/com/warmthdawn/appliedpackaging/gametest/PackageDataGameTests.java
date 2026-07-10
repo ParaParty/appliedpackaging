@@ -3516,6 +3516,57 @@ public final class PackageDataGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 250)
+    public static void packageStorageBusRemountsWhenAdjacentInventoryIsReplaced(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(0, 0, 0);
+        BlockPos busPos = new BlockPos(1, 0, 0);
+        BlockPos energyCellPos = new BlockPos(1, 0, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(busPos),
+                APBlocks.PACKAGE_STORAGE_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        PackageStorageBusBlockEntity bus = (PackageStorageBusBlockEntity) helper.getBlockEntity(busPos);
+        ItemStack redPackage = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        ItemStack bluePackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        AEItemKey redKey = AEItemKey.of(redPackage);
+        AEItemKey blueKey = AEItemKey.of(bluePackage);
+        ((ChestBlockEntity) helper.getBlockEntity(chestPos)).setItem(0, redPackage.copy());
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(bus.getMainNode().isOnline(),
+                            "Package storage bus should join its powered AE grid");
+                    KeyCounter cached = bus.getMainNode().getGrid().getStorageService().getCachedInventory();
+                    helper.assertTrue(cached.get(redKey) == 1,
+                            "Storage bus should initially mount the adjacent package inventory");
+                })
+                .thenExecute(() -> helper.getLevel().removeBlock(helper.absolutePos(chestPos), false))
+                .thenWaitUntil(() -> {
+                    KeyCounter cached = bus.getMainNode().getGrid().getStorageService().getCachedInventory();
+                    helper.assertTrue(cached.get(redKey) == 0,
+                            "Storage bus should unmount a removed adjacent inventory");
+                })
+                .thenExecute(() -> {
+                    helper.getLevel().setBlock(
+                            helper.absolutePos(chestPos),
+                            Blocks.CHEST.defaultBlockState(),
+                            3);
+                    ((ChestBlockEntity) helper.getBlockEntity(chestPos)).setItem(0, bluePackage.copy());
+                })
+                .thenWaitUntil(() -> {
+                    KeyCounter cached = bus.getMainNode().getGrid().getStorageService().getCachedInventory();
+                    helper.assertTrue(cached.get(redKey) == 0 && cached.get(blueKey) == 1,
+                            "Storage bus should mount the replacement inventory without retaining stale keys");
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     public static void packageExportBusMovesExistingNetworkPackageToAdjacentInventory(GameTestHelper helper) {
         BlockPos chestPos = new BlockPos(0, 0, 0);
@@ -4412,6 +4463,74 @@ public final class PackageDataGameTests {
                 "Package pattern terminal part should persist fluid processing output key");
         helper.assertTrue(loaded.processingOutputKey(0).amount() == 1000,
                 "Package pattern terminal part should persist fluid processing output amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalCompatibilityCapabilityMatchesAe2(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = placePackagePatternTerminal(helper);
+        LazyOptional<IItemHandler> capability =
+                terminal.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP);
+        IItemHandler handler = capability.resolve().orElseThrow();
+
+        helper.assertTrue(handler.getSlots() == 1,
+                "Package pattern terminal automation should expose only its blank-pattern slot");
+        ItemStack iron = new ItemStack(Items.IRON_INGOT);
+        ItemStack rejected = handler.insertItem(0, iron.copy(), false);
+        helper.assertTrue(ItemStack.isSameItemSameTags(rejected, iron) && rejected.getCount() == 1,
+                "Package pattern terminal automation should reject preview input items");
+        helper.assertTrue(handler.insertItem(0, AEItems.BLANK_PATTERN.stack(), false).isEmpty(),
+                "Package pattern terminal automation should accept a blank pattern");
+        helper.assertTrue(terminal.getItems()
+                        .getStackInSlot(PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN)
+                        .is(AEItems.BLANK_PATTERN.asItem()),
+                "Automation should target the terminal blank-pattern slot");
+        helper.assertTrue(terminal.getItems().getStackInSlot(0).isEmpty(),
+                "Automation must not write into package preview slots");
+
+        terminal.invalidateCaps();
+        helper.assertFalse(capability.isPresent(),
+                "Invalidating the compatibility terminal should invalidate its item capability");
+        terminal.reviveCaps();
+        helper.assertTrue(terminal.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP)
+                        .map(revived -> revived.getSlots() == 1)
+                        .orElse(false),
+                "Revived compatibility terminals should recreate the restricted item capability");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalPartCapabilityMatchesAe2AndInvalidates(GameTestHelper helper) {
+        IPartItem<PackagePatternTerminalPart> partItem = packagePatternTerminalPartItem();
+        BlockPos absolutePos = helper.absolutePos(new BlockPos(1, 2, 1));
+        PackagePatternTerminalPart part = PartHelper.setPart(
+                helper.getLevel(),
+                absolutePos,
+                Direction.NORTH,
+                null,
+                partItem);
+        helper.assertTrue(part != null, "Package pattern terminal should place as an AE2 cable part");
+        part.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 32));
+
+        LazyOptional<IItemHandler> capability = part.getCapability(ForgeCapabilities.ITEM_HANDLER);
+        IItemHandler handler = capability.resolve().orElseThrow();
+        helper.assertTrue(handler.getSlots() == 1,
+                "Package pattern terminal part automation should expose only its blank-pattern slot");
+        helper.assertTrue(handler.getStackInSlot(0).isEmpty(),
+                "The exposed slot must not alias a package preview slot");
+        ItemStack diamond = new ItemStack(Items.DIAMOND);
+        ItemStack rejected = handler.insertItem(0, diamond.copy(), false);
+        helper.assertTrue(ItemStack.isSameItemSameTags(rejected, diamond) && rejected.getCount() == 1,
+                "Package pattern terminal part automation should reject non-pattern items");
+        helper.assertTrue(handler.insertItem(0, AEItems.BLANK_PATTERN.stack(), false).isEmpty(),
+                "Package pattern terminal part automation should accept a blank pattern");
+
+        helper.assertTrue(part.getHost().removePart(part),
+                "Removing the package pattern terminal part should succeed");
+        helper.assertFalse(capability.isPresent(),
+                "Removing the package pattern terminal part should invalidate its item capability");
+        helper.assertTrue(PartHelper.getPart(partItem, helper.getLevel(), absolutePos, Direction.NORTH) == null,
+                "Removed package pattern terminal part should no longer be discoverable");
         helper.succeed();
     }
 

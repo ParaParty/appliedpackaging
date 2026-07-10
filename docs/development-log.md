@@ -2677,3 +2677,21 @@ GameTest：已考虑并运行。本轮改变 AE channel、IStorageProvider 在�
 验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效；仅忽略 1 条外部 Yggdrasil 公钥获取警告，日志无发布阻断关键字
 GameTest：已考虑。本轮只改变客户端绘制、输入拦截与 smoke 截图时序，不改变样板编码、物品移动、总线事务或服务端状态，因此不新增或复跑 GameTest。
 ```
+
+最新进展：
+
+```text
+收紧 Package Pattern Terminal 自动化边界并补齐端点生命周期测试：
+  对照 AE2 15.4.10 PatternEncodingTerminalPart 与 EnergyAcceptorPart 源码，确认原版样板终端只向 Forge item handler 暴露空白样板槽，持久 LazyOptional 在 part 拆除时必须失效。
+  Package Pattern Terminal 的兼容方块与 AE2 part 均改为只暴露空白样板槽；预览输入、编码输出、容量和 marker 不再能被外部管道访问。
+  兼容方块在 invalidateCaps/reviveCaps 间失效并重建受限 capability；AE2 part 在 removeFromWorld 时失效旧 capability，并为可能的重新加入创建新 capability。
+  新增真实存储总线目标替换测试：相邻箱子移除后旧 package key 从 AE cache 卸载，新箱子放回后只挂载新 package key。
+  复查 PackageFilter 与 Package Bus 手工过滤 UI：requiredContents 会按 key 合并并压紧，三个 ghost 槽是三个过滤条件容量，不承诺稀疏位置，因此未引入无依据的索引语义修改。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 13 个 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，167 个 required GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效；仅忽略 1 条外部 Yggdrasil 公钥获取警告
+GameTest：已考虑并运行。本轮改变 Forge item capability 暴露范围、LazyOptional 生命周期和 IStorageProvider 相邻目标替换行为，属于行为敏感变更；新增 3 个 GameTest 并通过全部 167 个 required GameTest。
+```

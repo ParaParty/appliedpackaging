@@ -110,7 +110,9 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity
         }
     };
     private final RangedWrapper inputView = new RangedWrapper(items, 0, INPUT_SLOT_COUNT);
-    private final LazyOptional<IItemHandler> itemHandler = LazyOptional.of(() -> items);
+    private final RangedWrapper blankPatternView =
+            new RangedWrapper(items, SLOT_BLANK_PATTERN, SLOT_BLANK_PATTERN + 1);
+    private LazyOptional<IItemHandler> itemHandler = createItemHandlerCapability();
 
     public PackagePatternTerminalBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.PACKAGE_PATTERN_TERMINAL.get(), pos, blockState);
@@ -121,6 +123,10 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity
 
     public ItemStackHandler getItems() {
         return items;
+    }
+
+    public IItemHandler getBlankPatternAutomationView() {
+        return blankPatternView;
     }
 
     @Override
@@ -488,6 +494,12 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity
     }
 
     @Override
+    public void reviveCaps() {
+        super.reviveCaps();
+        itemHandler = createItemHandlerCapability();
+    }
+
+    @Override
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
@@ -742,5 +754,9 @@ public class PackagePatternTerminalBlockEntity extends BlockEntity
     private static boolean isEncodedPackagePattern(ItemStack stack) {
         return PackagePatternDataStorage.read(stack).isPresent()
                 || PackagedProcessingPatternDataStorage.read(stack).isPresent();
+    }
+
+    private LazyOptional<IItemHandler> createItemHandlerCapability() {
+        return LazyOptional.of(this::getBlankPatternAutomationView);
     }
 }
