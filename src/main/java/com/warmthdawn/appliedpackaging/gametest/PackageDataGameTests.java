@@ -9,6 +9,7 @@ import appeng.api.storage.MEStorage;
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
+import appeng.api.networking.GridFlags;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingSubmitResult;
@@ -64,6 +65,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageStorageBusB
 import com.warmthdawn.appliedpackaging.world.block.entity.bus.PackageUnpackingBusBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
+import com.warmthdawn.appliedpackaging.world.menu.AdvancedPatternEncodingTermMenu;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
@@ -3275,6 +3277,32 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageBusTransactionsRespectConfiguredFilter(GameTestHelper helper) {
+        MemoryMEStorage source = new MemoryMEStorage();
+        ItemStack bluePackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        ItemStack redPackage = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        AEItemKey blueKey = AEItemKey.of(bluePackage);
+        AEItemKey redKey = AEItemKey.of(redPackage);
+        source.add(blueKey, 1);
+        source.add(redKey, 1);
+        ItemStackHandler target = new ItemStackHandler(1);
+        PackageFilter redFilter = new PackageFilter(Optional.of(PackageColor.RED), Optional.empty(), List.of());
+
+        boolean exported = PackageBusTransactions.exportOnePackage(
+                source,
+                target,
+                redFilter,
+                IActionSource.empty());
+
+        helper.assertTrue(exported, "Package export should find a package matching its configured filter");
+        helper.assertTrue(source.amount(blueKey) == 1, "Package export must leave filtered packages in the network");
+        helper.assertTrue(source.amount(redKey) == 0, "Package export should consume the matching package");
+        helper.assertTrue(ItemStack.isSameItemSameTags(target.getStackInSlot(0), redPackage),
+                "Package export should send only the matching package to its target");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageBusTransactionsUnpackOnePackage(GameTestHelper helper) {
         PackageData data = PackageData.create(
                 PackageColor.BLUE,
@@ -3423,6 +3451,67 @@ public final class PackageDataGameTests {
                                     Actionable.MODULATE,
                                     source) == 0,
                             "Package storage bus must reject loose network insertion");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void packageStorageBusRefreshesLiveInventoryAndFilter(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(0, 0, 0);
+        BlockPos busPos = new BlockPos(1, 0, 0);
+        BlockPos energyCellPos = new BlockPos(1, 0, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(busPos),
+                APBlocks.PACKAGE_STORAGE_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        PackageStorageBusBlockEntity bus = (PackageStorageBusBlockEntity) helper.getBlockEntity(busPos);
+        ItemStack redPackage = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        ItemStack bluePackage = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
+        AEItemKey redKey = AEItemKey.of(redPackage);
+        AEItemKey blueKey = AEItemKey.of(bluePackage);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(bus.getMainNode().isOnline(),
+                            "Package storage bus should join its powered AE grid");
+                    helper.assertTrue(bus.getMainNode().getNode() != null
+                                    && bus.getMainNode().getNode().hasFlag(GridFlags.REQUIRE_CHANNEL),
+                            "Package buses should require an AE channel like AE2 bus devices");
+                })
+                .thenExecute(() -> {
+                    chest.setItem(0, redPackage.copy());
+                    chest.setItem(1, bluePackage.copy());
+                })
+                .thenWaitUntil(() -> {
+                    KeyCounter cached = bus.getMainNode().getGrid().getStorageService().getCachedInventory();
+                    helper.assertTrue(cached.get(redKey) == 1 && cached.get(blueKey) == 1,
+                            "Storage bus should refresh packages added after the initial mount");
+                })
+                .thenExecute(() -> bus.setManualFilterColor(PackageColor.RED))
+                .thenWaitUntil(() -> {
+                    KeyCounter cached = bus.getMainNode().getGrid().getStorageService().getCachedInventory();
+                    helper.assertTrue(cached.get(redKey) == 1,
+                            "A live storage-bus filter should retain matching packages");
+                    helper.assertTrue(cached.get(blueKey) == 0,
+                            "A live storage-bus filter should remove non-matching packages from the AE cache");
+                })
+                .thenExecute(() -> {
+                    chest.setItem(0, ItemStack.EMPTY);
+                    bus.clearFilterTemplate();
+                })
+                .thenWaitUntil(() -> {
+                    KeyCounter cached = bus.getMainNode().getGrid().getStorageService().getCachedInventory();
+                    helper.assertTrue(cached.get(redKey) == 0,
+                            "Storage bus should refresh packages removed from its adjacent inventory");
+                    helper.assertTrue(cached.get(blueKey) == 1,
+                            "Clearing a live storage-bus filter should expose previously filtered packages");
                 })
                 .thenSucceed();
     }
@@ -3697,6 +3786,25 @@ public final class PackageDataGameTests {
         helper.assertTrue(menu.contentFilter(0).is(Items.IRON_INGOT), "Content ghost should be visible in the menu");
         helper.assertTrue(menu.getCarried().getCount() == 32,
                 "Manual package bus filter should not consume the carried content stack");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageBusMenuRefreshesGhostDisplaysFromHost(GameTestHelper helper) {
+        PackageExportBusBlockEntity bus = placePackageExportBus(helper);
+        FakePlayer player = newFakePlayer(helper);
+        PackageBusMenu menu = new PackageBusMenu(3, new Inventory(player), bus);
+
+        bus.setManualFilterMarker(new ItemStack(Items.EMERALD));
+        bus.setManualFilterContent(0, new ItemStack(Items.COPPER_INGOT), 24);
+        menu.broadcastChanges();
+
+        helper.assertTrue(menu.markerFilter().is(Items.EMERALD),
+                "An open package-bus menu should refresh marker changes made through the host");
+        helper.assertTrue(menu.contentFilter(0).is(Items.COPPER_INGOT),
+                "An open package-bus menu should refresh content changes made through the host");
+        helper.assertTrue(menu.contentFilterAmount(0) == 24,
+                "An open package-bus menu should refresh host-owned content amounts");
         helper.succeed();
     }
 
@@ -4174,6 +4282,77 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void advancedPatternTerminalEncodesDedicatedPattern(GameTestHelper helper) {
+        @SuppressWarnings("unchecked")
+        IPartItem<AdvancedPatternEncodingTerminalPart> partItem =
+                (IPartItem<AdvancedPatternEncodingTerminalPart>) APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get();
+        BlockPos absolutePos = helper.absolutePos(new BlockPos(2, 2, 1));
+        AdvancedPatternEncodingTerminalPart part = PartHelper.setPart(
+                helper.getLevel(),
+                absolutePos,
+                Direction.NORTH,
+                null,
+                partItem);
+        helper.assertTrue(part != null, "Advanced pattern terminal should place for encoding");
+
+        part.getAdvancedPatternState().setActiveColumns(2);
+        part.getAdvancedPatternState().setColor(0, PackageColor.RED);
+        part.getAdvancedPatternState().setColor(1, PackageColor.BLUE);
+        part.getAdvancedPatternState().setName(1, "Copper Route");
+        part.getAdvancedPatternState().markers().setStack(
+                1,
+                new GenericStack(AEItemKey.of(Items.EMERALD), 7));
+        part.getLogic().getEncodedInputInv().setStack(
+                0,
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32));
+        part.getLogic().getEncodedInputInv().setStack(
+                4,
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16));
+        part.getLogic().getEncodedInputInv().setStack(
+                8,
+                new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 64));
+        part.getLogic().getEncodedOutputInv().setStack(
+                0,
+                new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        part.getLogic().getBlankPatternInv().setItemDirect(0, AEItems.BLANK_PATTERN.stack());
+
+        FakePlayer player = newFakePlayer(helper);
+        AdvancedPatternEncodingTermMenu menu =
+                new AdvancedPatternEncodingTermMenu(7, new Inventory(player), part);
+        menu.encode();
+
+        ItemStack encodedStack = part.getLogic().getEncodedPatternInv().getStackInSlot(0);
+        Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> encodedPattern =
+                AdvancedProcessingPatternDataStorage.read(encodedStack);
+        helper.assertTrue(encodedPattern.isPresent(),
+                "Advanced terminal output should contain advanced package-column metadata");
+        var encoded = encodedPattern.get();
+        List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(encodedStack);
+
+        helper.assertTrue(encodedStack.is(APItems.ADVANCED_PROCESSING_PATTERN.get()),
+                "Advanced terminal should encode the dedicated advanced pattern item");
+        helper.assertTrue(part.getLogic().getBlankPatternInv().getStackInSlot(0).isEmpty(),
+                "Successful advanced encoding should consume one blank pattern");
+        helper.assertTrue(encoded.activeColumnCount() == 2,
+                "Advanced terminal should encode only active package columns");
+        helper.assertTrue(encoded.column(0).color() == PackageColor.RED
+                        && encoded.column(1).color() == PackageColor.BLUE,
+                "Advanced terminal should preserve each active column color");
+        helper.assertTrue(encoded.column(1).packageName().equals("Copper Route"),
+                "Advanced terminal should preserve the configured package name");
+        helper.assertTrue(encoded.column(1).marker().isPresent(),
+                "Advanced terminal should preserve the configured package marker");
+        helper.assertTrue(encoded.column(1).marker().get().stack().amount() == 1,
+                "Advanced package marker metadata must normalize to one item");
+        helper.assertTrue(sparseInputs.get(0).what().equals(AEItemKey.of(Items.IRON_INGOT))
+                        && sparseInputs.get(4).what().equals(AEItemKey.of(Items.COPPER_INGOT)),
+                "Advanced terminal should preserve inputs in their four-slot package columns");
+        helper.assertTrue(sparseInputs.size() <= 8 || sparseInputs.get(8) == null,
+                "Advanced terminal must ignore stale ghost inputs outside active columns");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packagePatternTerminalItemPlacesAe2Part(GameTestHelper helper) {
         helper.assertTrue(APItems.PACKAGE_PATTERN_TERMINAL.get() instanceof IPartItem<?>,
                 "Package pattern terminal item should be an AE2 part item");
@@ -4525,6 +4704,29 @@ public final class PackageDataGameTests {
                 "Encoded processing output should preserve the item key");
         helper.assertTrue(pattern.outputs().get(0).amount() == 2,
                 "Encoded processing output should preserve the item amount");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packagePatternTerminalMenuRefreshesGhostOutputsFromHost(GameTestHelper helper) {
+        PackagePatternTerminalBlockEntity terminal = new PackagePatternTerminalBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_PATTERN_TERMINAL.get().defaultBlockState());
+        FakePlayer player = newFakePlayer(helper);
+        PackagePatternTerminalMenu menu = new PackagePatternTerminalMenu(3, new Inventory(player), terminal);
+
+        terminal.setProcessingOutputFromGhostStack(1, new ItemStack(Items.DIAMOND, 23), false);
+        menu.broadcastChanges();
+
+        helper.assertTrue(menu.processingOutput(1).is(Items.DIAMOND),
+                "An open package-pattern menu should refresh ghost output changes from its host");
+        helper.assertTrue(menu.processingOutputAmount(1) == 23,
+                "An open package-pattern menu should refresh host-owned ghost output amounts");
+
+        terminal.clearProcessingOutput(1);
+        menu.broadcastChanges();
+        helper.assertTrue(menu.processingOutput(1).isEmpty(),
+                "An open package-pattern menu should clear ghost outputs removed through its host");
         helper.succeed();
     }
 

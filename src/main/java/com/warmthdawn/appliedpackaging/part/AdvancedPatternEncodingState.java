@@ -195,11 +195,11 @@ public final class AdvancedPatternEncodingState {
     }
 
     private Optional<MarkerSpec> marker(int column) {
-        GenericStack marker = markers.getStack(column);
-        if (marker == null || marker.amount() <= 0 || !AEItemKey.is(marker.what())) {
+        var marker = markers.getKey(column);
+        if (!AEItemKey.is(marker)) {
             return Optional.empty();
         }
-        return Optional.of(new MarkerSpec(new GenericStack(marker.what(), 1)));
+        return Optional.of(new MarkerSpec(new GenericStack(marker, 1)));
     }
 
     private boolean isAllowedMarker(appeng.api.stacks.AEKey key) {

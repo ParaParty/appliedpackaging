@@ -261,6 +261,14 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
         return terminal.isTerminalMenuValid(player);
     }
 
+    @Override
+    public void broadcastChanges() {
+        if (!clientSide) {
+            updateProcessingOutputDisplay();
+        }
+        super.broadcastChanges();
+    }
+
     private void clickProcessingOutput(int outputSlot, int button, ClickType clickType, Player player) {
         if (clickType != ClickType.PICKUP) {
             return;

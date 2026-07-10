@@ -99,6 +99,7 @@ MEStorage 拆包在共享目标容量于提交阶段不足时回滚此前真实�
 包裹总线在目标无法完整容纳内容时保留网络包裹
 包裹总线目标面不连接 AE 网络，其余面仍可加入 grid
 真实 AE2 Drive 网络上的存储总线只挂载相邻库存中的合法包裹
+真实 AE2 存储总线要求 channel，并会在初始挂载后刷新相邻包裹增删、在线过滤启用和过滤清除
 真实 AE2 Drive 网络上的输出总线可把已有包裹送入相邻库存
 真实 AE2 Drive 网络上的拆包总线可完整提交相邻散装内容，容量不足时保持原网络包裹
 Package Bus 配置 UI 可从光标物品设置 ghost filter 且不消耗光标模板
@@ -115,6 +116,7 @@ package_pattern_terminal 可把带处理输出 ghost 的 AE2 原版 blank_patter
 AE2 原版 Pattern Encoding Terminal 可切换到包裹样板模式，编码带颜色、marker 和名称配置的 AE2 crafting_pattern 载体
 AE2 普通 processing_pattern 不写且拒绝 advanced_processing_pattern NBT；独立高级处理样板元数据可完整读写，并可通过 AE2 processing-pattern 解码路径工作
 advanced_pattern_encoding_terminal 是 AE2 part item，可复用 PatternEncodingTerminalPart 行为并保存/读取启用列、颜色、名称和 marker
+advanced_pattern_encoding_terminal 可从真实 AE2 blank pattern 编码独立 advanced_processing_pattern，保留 4 槽列映射、颜色、名称和 marker，忽略未启用列残留输入；CONFIG_TYPES marker 会归一为数量 1
 装配室执行普通 processing pattern 时固定输出 Fluix、空名称和空 marker，不读取机器身份配置
 装配室执行 advanced processing pattern 时按连续 4 槽列生成有序多包裹，同色列不合并，并严格消费 Pattern Provider 输入
 package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
@@ -128,6 +130,7 @@ package_pattern_terminal 配置 UI 可从光标设置 packaged_processing_patter
 package_pattern_terminal 配置 UI 可从 Forge 流体容器设置处理输出 ghost slot，编码时写入 AEFluidKey 输出且不消耗光标容器
 package_pattern_terminal 处理输出 fluid ghost 可保存/读取后保持 display stack 与 GenericStack 输出
 package_pattern_terminal 配置 UI 可调整流体处理输出 ghost 数量，调整后 AE2 processing pattern outputs[] 可见 2000 mB water
+package_pattern_terminal 已打开菜单会在 host 被其它路径修改后刷新 processing output ghost、数量和清除状态
 package_pattern_terminal Split 可把已编码 packaged_processing_pattern 逐张拆为由 AE2 blank_pattern 承载的 package_pattern
 package_pattern_terminal Split pending queue 可保存/读取后继续输出
 package_pattern_terminal 输入槽颜色可清除
@@ -143,6 +146,7 @@ package_pattern_terminal AE2 part 可保存/读取 selectedColor、预览输入�
 装配室可接受 AE2 Pattern Provider 推送的 AE2 encoded packaged-processing carrier
 装配室可读取 AE2 crafting_pattern 承载的 package_crafting_pattern NBT，并确认该 pattern 不支持分子装配室执行
 package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
+package_bus 已打开菜单会在 host 被其它路径修改后刷新 marker/content ghost 与数量
 package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
 package_bus 配置 UI 可从 Forge 流体容器设置 required content ghost，编码时写入 AEFluidKey 过滤条件且不消耗光标容器
 package_bus 配置 UI 可调整流体 required content ghost 数量，且不会降到小于一桶
@@ -182,7 +186,8 @@ fluid handler 打包计划可从 Forge FluidTank 抽取 AEFluidKey 内容
 fluid handler 拆包可把包裹完整插入 Forge FluidTank
 fluid handler 拆包在目标流体不兼容且已满时拒绝
 真实世界相邻 Forge fluid handler smoke 反例确认 ME Packager 无 MEStorage 时不回落、不消耗流体槽
-当前最新执行：2026-07-10 加固 item handler、MEStorage、PackageItemStorage 和三种包裹总线事务，并补齐累计模拟、源变化回滚、共享容量失败、真实 AE 网络端点和公共 marker 语义后，执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，159 个必需 GameTest 全部通过。
+当前最新执行：2026-07-10 补齐总线 REQUIRE_CHANNEL、存储总线在线缓存刷新、菜单 host 驱动 ghost 刷新和高级终端真实编码/marker 语义后，执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，164 个必需 GameTest 全部通过。
+本轮新增高级终端编码测试首次失败并暴露真实 marker 丢失：AE2 `ConfigInventory.CONFIG_TYPES` 会把类型槽 GenericStack amount 固定为 0，旧代码误用 `amount <= 0` 判断空槽。改为读取 `getKey()` 并在样板数据中归一为 1 后复跑通过；未删除或放宽该断言。
 本轮首次执行 152 个测试时，既有 `damagedPackageEntityUnpacksContentsToWorld` 因用铁/铜统计附近掉落而被新增测试布局污染；改用该场景唯一的 NETHER_STAR/DRAGON_BREATH 后稳定。总线端点测试初版还暴露 bus -> Drive -> energy 拓扑未让目标总线上线，改为总线直连 Creative Energy Cell、Drive 接另一面后通过；这些均为测试场景修正，不放宽产品断言。
 2026-07-08 首次复跑 `.\gradlew.bat runGameTestServer` 暴露旧 `damagedPackageEntityUnpacksContentsToWorld` 测试对掉落实体统计范围/时序过宽的问题；收紧为掉落点附近等待式断言后复跑通过。
 2026-07-06 在 ME Package Assembler 接入 AE2 `UpgradeableMenu` 后改为按 AE2 实际 slot index / slot semantic 处理滚动槽和玩家背包，执行 `.\gradlew.bat runGameTestServer` 成功，133 个必需 GameTest 全部通过。
@@ -541,6 +546,7 @@ run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to
 本次 `verify-release.ps1 -RequireClientSmokeScreenshots` 必需清单扩展为 9 张并通过，新增 `appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png`；`build`、`verify-assets.ps1`、`test-assets-audit.ps1`、`test-release-audit.ps1`、`verify-docs.ps1` 和机械发布审计均通过。
 2026-07-10 将高级列数据迁移到独立 `advanced_processing_pattern` 后再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工查看同一截图，确认高级终端主体加宽为 230px、顶部 10 列网络库存、左侧竖向列滚动条、带 4px 间距的 4 个输入列、4 行输出、独立样板输出预览与居中玩家栏均完整可见；GUI 总高仍为 240px，没有超出 854x480、GUI scale 2 视口。
 2026-07-10 在 Package Bus / Package Pattern Terminal `DataSlot` 同步改为服务端权威值与客户端菜单缓存后再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工检查 Advanced Pattern Terminal、Package Pattern Terminal 和三种 Package Bus 截图：标题左侧不再重复渲染共享输入索引 0 的铁锭；高级终端输入区铁/铜/金仅各显示在真实 processing slot；Package Pattern Terminal 可见 RED 输入列、32 个铁锭与 65 个钻石输出；三种总线可见 RED、钻石 marker 与 2000 mB water 过滤状态。日志关键字扫描零命中。
+2026-07-10 在三种总线加入 `REQUIRE_CHANNEL`、两个菜单加入 host 驱动 ghost 刷新并修复高级终端 marker 编码后，再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工复查 Advanced Pattern Terminal、Package Pattern Terminal 和 Package Storage Bus 截图，现有布局与预填状态保持完整；日志发布阻断关键字零命中。
 ```
 
 ## 6. Dedicated Server 验证
@@ -628,8 +634,8 @@ R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack
 R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
 R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、4x4 输入与 4 输出可见窗口、17 格输出栏、样板门禁、合成进度、pending queue、输出模式、顺序抽取和客户端 smoke 均已覆盖。
 R7 ME 打包机：已满足，相邻 item/fluid/AE2 storage 端点、红石模式、容量、过滤、marker 和拆包事务均已覆盖。
-R8 样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host、AE2 原版 Pattern Encoding Terminal 的包裹样板模式，以及只保留 processing 模式的 Advanced Pattern Terminal 均已覆盖；高级终端以 4x1 列、左侧竖向列滚动条、列颜色/名称/marker 配置编码独立 advanced_processing_pattern 物品，原版 AE2 processing_pattern 不承载高级列数据。
-R9 包裹总线：已满足，Storage/Export/Unpacking Bus 仅处理合法包裹，不暴露内部散装内容。
+R8 样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host、AE2 原版 Pattern Encoding Terminal 的包裹样板模式，以及只保留 processing 模式的 Advanced Pattern Terminal 均已覆盖；高级终端以 4x1 列、左侧竖向列滚动条、列颜色/名称/marker 配置编码独立 advanced_processing_pattern 物品，原版 AE2 processing_pattern 不承载高级列数据，真实编码测试覆盖 marker 与未启用列残留。
+R9 包裹总线：已满足，Storage/Export/Unpacking Bus 仅处理合法包裹，不暴露内部散装内容；三者要求 AE channel，Storage Bus 在线缓存增删与过滤刷新已有真实网络测试。
 R10 事务性：已满足，打包/拆包模拟失败不提交、完整包裹拆入和容量失败回滚均由 GameTest 覆盖。
 R11 Tooltip：已满足，包裹、样板、AE2 blank_pattern carrier 和 packaged-processing 输出提示已接入。
 R12 英文与简体中文语言：已满足，语言 key 与占位符对齐审计通过。

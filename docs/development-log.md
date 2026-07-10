@@ -2632,3 +2632,28 @@ GameTest：已考虑。本轮只修正客户端槽位可见性，不改变样板
 验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，9 张必需截图有效，日志无发布阻断关键字
 GameTest：已考虑并运行。本轮改变 item handler、MEStorage、流体、PackageItemStorage、总线源/目标提交、过滤和 AE grid 连接面，属于行为敏感变更；新增/扩展 GameTest 并通过全部 159 个 required GameTest。
 ```
+
+最新进展：
+
+```text
+继续收尾终端与三种总线的非资产缺口：
+  对照 AE2 15.4.10 StorageBusPart、UpgradeablePart、IStorageProvider 和 ConfigInventory 源码复查当前实现。
+  三种包裹总线节点加入 GridFlags.REQUIRE_CHANNEL，保持目标面不接 AE、其它面接网的既有边界。
+  新增真实存储总线在线刷新测试：初始挂载后向相邻箱子增删包裹、启用 RED 过滤和清除过滤，AE storage cache 都在轮询重新挂载后得到正确 key。
+  Package Bus 与 Package Pattern Terminal 菜单在服务端 broadcastChanges 前从 host 重建 ghost display，另一个菜单或外部逻辑修改 marker/content/processing output 后，已打开菜单不再显示旧图标。
+  AdvancedProcessingPatternDataStorage 在 PackageColumn 数据边界把 marker 固定归一为数量 1。
+  新增真实 Advanced Pattern Terminal 编码测试，从 AE2 blank pattern 编出独立 advanced_processing_pattern，并验证两列输入、颜色、名称、marker、空白样板消耗和未启用列残留忽略。
+
+首次执行 164 个 GameTest 时，advancedPatternTerminalEncodesDedicatedPattern 失败并暴露真实 marker 丢失。原因是 AdvancedPatternEncodingState 使用 ConfigInventory.CONFIG_TYPES，AE2 会把类型槽 GenericStack amount 固定为 0，旧 marker() 误用 amount <= 0 判断空槽。改为读取 getKey() 并在编码数据中写入数量 1 后复跑通过；没有删除或放宽断言。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 13 个 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，164 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；人工复查 Advanced Pattern Terminal、Package Pattern Terminal 和 Package Storage Bus 截图，布局与预填同步状态保持完整
+验证客户端日志发布阻断关键字无命中
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-assets.ps1 成功，144 个 PNG 通过资源门禁
+验证 scripts/verify-docs.ps1 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，9 张必需截图有效，日志无发布阻断关键字
+验证 scripts/verify-release-readiness.ps1 预审完成；仅保留 3 个预期 blocker：IN-003 正式 UI/模型待输入、变更接收/最终服务端验证仍开放、产品目标与 release tag 尚未完成
+GameTest：已考虑并运行。本轮改变 AE channel、IStorageProvider 在线缓存刷新、菜单 ghost 同步和高级 marker 编码语义，属于行为敏感变更；新增 5 个 GameTest 并通过全部 164 个 required GameTest。
+```

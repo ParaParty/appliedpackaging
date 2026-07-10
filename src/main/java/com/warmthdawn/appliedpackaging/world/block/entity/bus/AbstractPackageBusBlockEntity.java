@@ -1,5 +1,6 @@
 package com.warmthdawn.appliedpackaging.world.block.entity.bus;
 
+import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.security.IActionSource;
@@ -52,7 +53,9 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
 
     protected AbstractPackageBusBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState blockState) {
         super(type, pos, blockState);
-        getMainNode().setIdlePowerUsage(1.0D);
+        getMainNode()
+                .setFlags(GridFlags.REQUIRE_CHANNEL)
+                .setIdlePowerUsage(1.0D);
     }
 
     public void serverTick() {

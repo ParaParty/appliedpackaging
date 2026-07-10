@@ -182,6 +182,14 @@ public class PackageBusMenu extends AbstractContainerMenu {
                 pos.getZ() + 0.5D) <= 64.0D;
     }
 
+    @Override
+    public void broadcastChanges() {
+        if (!clientSide) {
+            updateFilterDisplays();
+        }
+        super.broadcastChanges();
+    }
+
     public ItemStack filterTemplate() {
         return filterDisplay.getItem(0).copy();
     }

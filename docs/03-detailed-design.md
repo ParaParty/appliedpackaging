@@ -705,6 +705,7 @@ AE2 原版 Pattern Encoding Terminal 通过 mixin 增加包裹样板模式 tab�
 高级样板终端注册为 AE2 cable part item，part 继承 AE2 PatternEncodingTerminalPart，复用原版静态模型、网络终端库存、搜索栏、AE 左侧工具栏和右侧 view-cell 区域；菜单继承 PatternEncodingTermMenu 并强制保持 PROCESSING 模式。
 高级样板终端 GUI 使用 AE2 ScreenStyle/MEStorageScreen；主体宽 230px、总高固定 240px，顶部网络库存为 10 列，可在 480px 高且 GUI scale 2 的 smoke 视口完整显示。中间编码区为 4 个可见输入列，每列 4 个垂直 fake processing input 槽，列之间保留 4px 间距，右侧为 4 个 fake processing output 槽。输入内容按列水平滚动，但滚动条采用 AE 新版处理样板区的竖向外观并位于输入列左侧；第一未启用列显示加号，后续列显示 0.2 alpha 禁用背景且无颜色按钮。
 每个启用列上方的小色块按钮打开该列编辑层；编辑层只包含 17 色选择、包裹名称和 marker fake slot，并拦截鼠标、滚轮、键盘与字符输入，避免点击透传到底层 processing slots。
+高级 marker 库使用 AE2 `ConfigInventory.CONFIG_TYPES`；该模式内部数量固定为 0，因此存在性必须通过 `getKey()` 判断，编码时再显式归一为数量 1 的 AEItemKey MarkerSpec，不能用 GenericStack amount 判断槽位是否为空。
 高级终端编码结果是独立 `advanced_processing_pattern` 物品，并写入 AE2 processing in/out 与 appliedpackaging.advanced_processing_pattern 列数据；默认 AE2 Pattern Encoding Terminal 和其它普通编码路径只输出原版样板，不写高级列 NBT。
 高级终端读取普通 processing pattern 时按最后一个非空 sparse input 推导启用列数；读取高级 processing pattern 时恢复列数、颜色、名称和 marker。
 容量槽使用与 ME Packager 相同的 AE2 16k/64k/256k 容量元件映射。
@@ -753,7 +754,7 @@ Split 会把已编码 packaged_processing_pattern 拆回多个由 AE2 原版 bla
 ```text
 总线家族当前实现为 AE2 可连接方块端点，而不是 cable part。
 三种总线均注册为水平朝向方块、方块物品、方块实体、配方、loot table 和 blockstate。
-方块实体继承 AE2 AENetworkBlockEntity，持有 IManagedGridNode，可连接 AE2 网络。
+方块实体继承 AE2 AENetworkBlockEntity，持有 IManagedGridNode，并设置 `GridFlags.REQUIRE_CHANNEL`；与 AE2 Storage/Export Bus 一样，只有获得 channel 且节点在线时才挂载或执行路由。
 方块 `FACING` 的反向面是相邻 Forge item handler 目标端点；该面从 grid connectable sides 中移除并返回 `AECableType.NONE`，只允许其它面连接 AE 网络。方块旋转后立即刷新可连接面。
 
 package_storage_bus:
@@ -762,6 +763,7 @@ package_storage_bus:
   insert/extract 均拒绝散装物品和无 PackageData 的包裹。
   设置过滤模板后，只暴露、插入、抽取匹配过滤的包裹。
   SIMULATE 插入使用保留真实 slot limit 与 isItemValid 规则的累计库存快照，多个包裹不能重复占用同一份空余容量。
+  服务端每 10 tick 请求重新挂载 IStorageProvider；相邻 handler 中包裹增删或运行中修改过滤器后，AE storage cache 会刷新可见 key。
   不暴露包裹内部内容。
 
 package_export_bus:
@@ -784,7 +786,7 @@ package_unpacking_bus:
 UI 仍复用 PackageFilter.fromTemplate，因此 package_pattern、packaged_processing_pattern 和合法包裹的颜色、marker、内容过滤语义与右键快捷配置完全一致。
 Package Bus 配置 UI 也支持手工过滤器编辑：17 色 swatch 设置颜色过滤，marker ghost 槽从光标复制 1 个物品作为 marker，3 个 required content ghost 槽从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标点击清除；这些 ghost 编辑不消耗玩家物品。若 required content 光标物品是 Forge 流体容器，则过滤器保存对应 AEFluidKey 与流体数量，例如水桶保存 1000 mB water。鼠标悬停 required content ghost 槽并滚轮调整数量时，流体每步调整 1000 mB，物品/其它已存在 key 每步调整 1；数量不会降到小于一个调整步长。
 手工过滤器以 PackageFilter NBT 保存到总线方块实体，保留旧 filter_template 读取兼容；复制真实模板时仍保存 ghost 模板物品用于显示，手工编辑后清除模板来源显示但保留实际过滤条件。
-Package Bus 与 Package Pattern Terminal 的整数状态使用服务端权威 `DataSlot#get` 和客户端菜单本地缓存 `DataSlot#set`；客户端同步不直接修改本地方块实体/part host，颜色与 ghost amount 可在服务端更新后稳定刷新。
+Package Bus 与 Package Pattern Terminal 的整数状态使用服务端权威 `DataSlot#get` 和客户端菜单本地缓存 `DataSlot#set`；客户端同步不直接修改本地方块实体/part host，颜色与 ghost amount 可在服务端更新后稳定刷新。服务端菜单每次 `broadcastChanges()` 前还会从 host 重建 marker/content/processing-output ghost display，因此另一菜单或外部逻辑修改配置时，已打开菜单不会停留在旧图标。
 
 包裹总线家族当前不含批量 required content 编辑、任意 AEKey 直接手工过滤输入，也不提供 AE2 cable part 形态；Package Pattern Terminal 已单独实现为 AE2 cable part item。
 ```

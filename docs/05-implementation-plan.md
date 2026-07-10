@@ -267,11 +267,12 @@ GameTest/服务器 smoke test
 已实现：
   package_storage_bus/package_export_bus/package_unpacking_bus 方块、方块物品、方块实体注册
   三种总线 blockstate、item model、loot table、recipe、语言文件
-  AE2 可连接方块端点：AENetworkBlockEntity + IManagedGridNode
+  AE2 可连接方块端点：AENetworkBlockEntity + IManagedGridNode + REQUIRE_CHANNEL
   package_storage_bus 通过 IStorageProvider 挂载 PackageItemStorage
   PackageItemStorage 只暴露、插入、抽取合法包裹
   PackageItemStorage 支持 PackageFilter 限制可见、可插入、可抽取包裹
   PackageItemStorage 模拟插入使用累计库存快照，避免多个包裹重复预占同一 slot 容量
+  package_storage_bus 每 10 tick 重新请求 provider mount，联网后相邻库存增删与过滤修改会刷新 AE storage cache
   package_export_bus 只从 AE 网络输出已有合法包裹
   package_unpacking_bus 整包事务性拆入目标面库存
   总线目标面只暴露相邻 Forge item handler，并从 AE grid 连接面与线缆渲染中排除；其它面连接 AE 网络
@@ -282,7 +283,7 @@ GameTest/服务器 smoke test
   Package Bus 配置 UI 支持手工编辑颜色、marker ghost 和 3 个 required content ghost slots
   Package Bus required content ghost slots 可从 Forge 流体容器编码 AEFluidKey 过滤条件
   手工 Package Bus 过滤器以 PackageFilter NBT 保存，并兼容旧 filter_template 读取
-  Package Bus 与 Package Pattern Terminal 的颜色/数量 DataSlot 使用服务端权威值和客户端菜单缓存同步
+  Package Bus 与 Package Pattern Terminal 的颜色/数量 DataSlot 使用服务端权威值和客户端菜单缓存同步，ghost display 在服务端 broadcast 前从 host 刷新
   runClientSmoke 可 quick-play 单人世界、摆放关键方块与 AE2 terminal parts、打开真实菜单、截图 Package Assembler/ME Packager/原版 Pattern Encoding Terminal/Advanced Pattern Terminal/Package Pattern Terminal/Package Storage Bus/Package Export Bus/Package Unpacking Bus 后退出
   PackageItemStorage/总线过滤 GameTest
   PackageItemStorage 累计容量、总线真实 AE 网络导出/拆包、目标不足保持原包裹、源变化与目标部分提交回滚 GameTest
@@ -303,6 +304,7 @@ GameTest/服务器 smoke test
   advanced_pattern_encoding_terminal 作为 AE2 cable part item 注册，复用原版 Pattern Encoding Terminal part/model/terminal body，只保留 processing mode
   advanced_pattern_encoding_terminal 中间区显示 4 个可见的 4x1 输入列、4 个垂直输出槽、列头颜色按钮、第一未启用列加号和左侧竖向列滚动条，最多 17 列；主体加宽至 230px，输入列间距为 4px
   advanced_pattern_encoding_terminal 为每列保存颜色、名称和 marker，并编码独立 advanced_processing_pattern 物品；AE2 原版 processing_pattern 不写也不接受该高级列元数据
+  advanced_pattern_encoding_terminal 按 ConfigInventory type key 读取 marker，并在样板元数据中固定归一为 1 个物品
   Package Assembler 按包裹样板、普通处理样板和高级处理样板三路执行；高级样板按列顺序生成多个包裹，普通处理样板固定 Fluix/空名称/空 marker
   packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个处理输出 ghost slots
   处理输出 ghost slots 可从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标清除，且不消耗玩家物品

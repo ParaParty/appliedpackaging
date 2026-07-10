@@ -125,6 +125,7 @@ public final class AdvancedProcessingPatternDataStorage {
             if (marker.isPresent() && !AEItemKey.is(marker.get().stack().what())) {
                 throw new IllegalArgumentException("Advanced package markers must be items");
             }
+            marker = marker.map(value -> new MarkerSpec(new GenericStack(value.stack().what(), 1)));
         }
     }
 
