@@ -149,6 +149,7 @@ package_pattern_terminal 兼容方块与 AE2 part 的外部 item capability 只�
 装配室可读取 AE2 crafting_pattern 承载的 package_crafting_pattern NBT，并确认该 pattern 不支持分子装配室执行
 package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
 package_bus 已打开菜单会在 host 被其它路径修改后刷新 marker/content ghost 与数量
+在线 package_export_bus 与 package_unpacking_bus 修改手工过滤器时不会请求未注册的 IStorageProvider 重挂载，也不会抛服务端异常
 package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
 package_bus 配置 UI 可从 Forge 流体容器设置 required content ghost，编码时写入 AEFluidKey 过滤条件且不消耗光标容器
 package_bus 配置 UI 可调整流体 required content ghost 数量，且不会降到小于一桶

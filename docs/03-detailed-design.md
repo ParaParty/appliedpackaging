@@ -788,6 +788,8 @@ Package Bus 配置 UI 也支持手工过滤器编辑：17 色 swatch 设置颜�
 手工过滤器以 PackageFilter NBT 保存到总线方块实体，保留旧 filter_template 读取兼容；复制真实模板时仍保存 ghost 模板物品用于显示，手工编辑后清除模板来源显示但保留实际过滤条件。
 Package Bus 与 Package Pattern Terminal 的整数状态使用服务端权威 `DataSlot#get` 和客户端菜单本地缓存 `DataSlot#set`；客户端同步不直接修改本地方块实体/part host，颜色与 ghost amount 可在服务端更新后稳定刷新。服务端菜单每次 `broadcastChanges()` 前还会从 host 重建 marker/content/processing-output ghost display，因此另一菜单或外部逻辑修改配置时，已打开菜单不会停留在旧图标。
 
+过滤器变化时只有注册了 `IStorageProvider` 的 Package Storage Bus 请求重新挂载；Package Export Bus 与 Package Unpacking Bus 只保存新过滤器并在后续路由 tick 使用，不得向 AE2 请求不存在的 storage provider 刷新。
+
 Package Pattern Terminal 的 Forge item handler 与 AE2 原版 Pattern Encoding Terminal 保持同一自动化边界：只暴露空白样板槽；预览输入、编码输出、容量和 marker 均不暴露。AE2 part 拆除时旧 `LazyOptional` 必须失效，兼容方块在 capability revive 后重建同一受限视图。
 
 包裹总线家族当前不含批量 required content 编辑、任意 AEKey 直接手工过滤输入，也不提供 AE2 cable part 形态；Package Pattern Terminal 已单独实现为 AE2 cable part item。

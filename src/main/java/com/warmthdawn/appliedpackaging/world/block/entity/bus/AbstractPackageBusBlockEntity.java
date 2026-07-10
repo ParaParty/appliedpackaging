@@ -322,7 +322,9 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
 
     private void onFilterChanged() {
         setChanged();
-        IStorageProvider.requestUpdate(getMainNode());
+        if (this instanceof IStorageProvider) {
+            IStorageProvider.requestUpdate(getMainNode());
+        }
     }
 
     private void setManualFilter(PackageFilter manualFilter) {

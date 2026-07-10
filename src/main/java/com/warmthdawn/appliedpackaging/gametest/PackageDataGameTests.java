@@ -3567,6 +3567,55 @@ public final class PackageDataGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void packageRoutingBusFiltersDoNotRequestStorageProviderRemount(GameTestHelper helper) {
+        BlockPos exportPos = new BlockPos(0, 0, 0);
+        BlockPos exportEnergyPos = new BlockPos(0, 0, 1);
+        BlockPos unpackingPos = new BlockPos(4, 0, 0);
+        BlockPos unpackingEnergyPos = new BlockPos(4, 0, 1);
+        helper.getLevel().setBlock(
+                helper.absolutePos(exportPos),
+                APBlocks.PACKAGE_EXPORT_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(exportEnergyPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(unpackingPos),
+                APBlocks.PACKAGE_UNPACKING_BUS.get().defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
+                3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(unpackingEnergyPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        PackageExportBusBlockEntity exportBus =
+                (PackageExportBusBlockEntity) helper.getBlockEntity(exportPos);
+        PackageUnpackingBusBlockEntity unpackingBus =
+                (PackageUnpackingBusBlockEntity) helper.getBlockEntity(unpackingPos);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(exportBus.getMainNode().isOnline(),
+                            "Package export bus should join its powered AE grid");
+                    helper.assertTrue(unpackingBus.getMainNode().isOnline(),
+                            "Package unpacking bus should join its powered AE grid");
+                })
+                .thenExecute(() -> {
+                    exportBus.setManualFilterColor(PackageColor.RED);
+                    unpackingBus.setManualFilterColor(PackageColor.BLUE);
+                })
+                .thenExecute(() -> {
+                    helper.assertTrue(exportBus.getConfiguredFilter().color().orElseThrow() == PackageColor.RED,
+                            "Online export bus should accept filter changes without requesting a storage remount");
+                    helper.assertTrue(unpackingBus.getConfiguredFilter().color().orElseThrow() == PackageColor.BLUE,
+                            "Online unpacking bus should accept filter changes without requesting a storage remount");
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     public static void packageExportBusMovesExistingNetworkPackageToAdjacentInventory(GameTestHelper helper) {
         BlockPos chestPos = new BlockPos(0, 0, 0);

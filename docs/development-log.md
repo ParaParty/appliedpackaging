@@ -2695,3 +2695,20 @@ GameTest：已考虑。本轮只改变客户端绘制、输入拦截与 smoke �
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效；仅忽略 1 条外部 Yggdrasil 公钥获取警告
 GameTest：已考虑并运行。本轮改变 Forge item capability 暴露范围、LazyOptional 生命周期和 IStorageProvider 相邻目标替换行为，属于行为敏感变更；新增 3 个 GameTest 并通过全部 167 个 required GameTest。
 ```
+
+最新进展：
+
+```text
+修正在线路由总线修改过滤器时的非法 storage provider 刷新：
+  审计 AbstractPackageBusBlockEntity、PackageExportBusBlockEntity、PackageUnpackingBusBlockEntity 与 AE2 IStorageProvider.requestUpdate / StorageService.refreshNodeStorageProvider 源码。
+  旧基类在三种总线过滤器变化时一律请求重新挂载，但只有 Package Storage Bus 注册 IStorageProvider；在线 Export/Unpacking Bus 会触发 AE2 IllegalArgumentException。
+  onFilterChanged 现在仍统一保存配置，但只对实际实现 IStorageProvider 的存储总线请求重挂载；输出与拆包总线在后续路由 tick 直接使用新过滤器。
+  新增真实 powered/channel GameTest，同时上线 Package Export Bus 与 Package Unpacking Bus 并修改颜色过滤，确认两者保存新条件且不抛异常。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 13 个 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，168 个 required GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效；仅忽略 1 条外部 Yggdrasil 公钥获取警告
+GameTest：已考虑并运行。本轮修正在线 AE grid 节点的过滤配置与 IStorageProvider 服务调用，属于行为敏感变更；新增 1 个真实端点 GameTest 并通过全部 168 个 required GameTest。
+```
