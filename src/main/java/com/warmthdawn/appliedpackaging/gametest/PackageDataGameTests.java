@@ -70,6 +70,7 @@ import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
+import com.warmthdawn.appliedpackaging.world.menu.SplitIntDataSlots;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -138,6 +139,24 @@ public final class PackageDataGameTests {
         helper.assertFalse(stack.hasFoil(), "Package contents should not add an enchantment glint");
         helper.assertTrue(read.get().canonicalHash().equals(data.canonicalHash()), "Canonical hash should round-trip");
         helper.assertTrue(read.get().usedUnits() == 1, "64 iron ingots should use one package unit");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void splitIntDataSlotsSurviveVanillaShortTransport(GameTestHelper helper) {
+        SplitIntDataSlots unsyncedClient = new SplitIntDataSlots(true, () -> Integer.MAX_VALUE);
+        helper.assertTrue(unsyncedClient.get() == 0,
+                "Client split DataSlots should start empty until the server synchronizes them");
+
+        int[] values = { 0, 32767, 32768, 65535, 65536, 100000, Integer.MAX_VALUE };
+        for (int value : values) {
+            SplitIntDataSlots server = new SplitIntDataSlots(false, () -> value);
+            SplitIntDataSlots client = new SplitIntDataSlots(true, () -> 0);
+            client.lowWordSlot().set((short) server.lowWordSlot().get());
+            client.highWordSlot().set((short) server.highWordSlot().get());
+            helper.assertTrue(client.get() == value,
+                    "Split int DataSlots should preserve " + value + " through signed-short transport");
+        }
         helper.succeed();
     }
 

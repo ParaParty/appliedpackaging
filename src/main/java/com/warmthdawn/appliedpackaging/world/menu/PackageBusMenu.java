@@ -43,11 +43,9 @@ public class PackageBusMenu extends AbstractContainerMenu {
             new SimpleContainer(AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT);
     private final boolean clientSide;
     private int syncedSelectedColor;
-    private final int[] syncedContentAmounts =
-            new int[AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT];
     private final DataSlot selectedColorSlot;
-    private final DataSlot[] contentAmountSlots =
-            new DataSlot[AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT];
+    private final SplitIntDataSlots[] contentAmountSlots =
+            new SplitIntDataSlots[AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT];
 
     public PackageBusMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -281,20 +279,12 @@ public class PackageBusMenu extends AbstractContainerMenu {
     private void addContentAmountSlots() {
         for (int slot = 0; slot < contentAmountSlots.length; slot++) {
             final int contentSlot = slot;
-            contentAmountSlots[contentSlot] = new DataSlot() {
-                @Override
-                public int get() {
-                    return clientSide
-                            ? syncedContentAmounts[contentSlot]
-                            : blockEntity.filterRequiredContentAmountForDisplay(contentSlot);
-                }
-
-                @Override
-                public void set(int value) {
-                    syncedContentAmounts[contentSlot] = value;
-                }
-            };
-            addDataSlot(contentAmountSlots[contentSlot]);
+            SplitIntDataSlots amountSlots = new SplitIntDataSlots(
+                    clientSide,
+                    () -> blockEntity.filterRequiredContentAmountForDisplay(contentSlot));
+            contentAmountSlots[contentSlot] = amountSlots;
+            addDataSlot(amountSlots.lowWordSlot());
+            addDataSlot(amountSlots.highWordSlot());
         }
     }
 

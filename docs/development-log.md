@@ -2729,3 +2729,25 @@ GameTest：已考虑并运行。本轮修正在线 AE grid 节点的过滤配置
 验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效，日志无发布阻断关键字
 GameTest：已考虑并运行。本轮改变物品自动化与 AE2 crafting-machine capability 的区块实体生命周期，属于行为敏感变更；新增 1 个 GameTest 并通过全部 169 个 required GameTest。
 ```
+
+最新进展：
+
+```text
+修复 Package Bus 与 Package Pattern Terminal 大数量 ghost 状态的菜单同步：
+  反编译确认 Minecraft 1.20.1 ClientboundContainerSetDataPacket 对 DataSlot id/value 均使用 writeShort/readShort；旧单 DataSlot 在 32768 以上会截断或变成负值。
+  新增 SplitIntDataSlots，把非负 int 拆成低/高两个 unsigned 16-bit word；客户端收到 signed short 后以 0xffff 归一并重组。
+  客户端双 word 缓存固定从 0 开始，不从本地 host 预填；避免服务端真实值为 0 且初始 DataSlot 不发包时保留客户端陈旧数量。
+  Package Bus 三个 required-content amount 与 Package Pattern Terminal 四个 processing-output amount 均改走双 DataSlot，同步范围覆盖到 Integer.MAX_VALUE。
+  新增 splitIntDataSlotsSurviveVanillaShortTransport GameTest，覆盖 0、32767、32768、65535、65536、100000 和 Integer.MAX_VALUE。
+  删除 ClientSmokeRunner 中仅为观察 100000 同步而额外写入的铁锭；标准三种 Package Bus 截图恢复为只显示 RED、钻石 marker 与 2000 mB water。
+  人工查看截图时图片查看工具曾显示分块深色伪影；直接读取源 PNG 后确认玩家物品栏格子内部为 #E8ECEE，三张总线核心 GUI 区域 99600 像素中仅有 284-492 个正常差异，因此没有为查看工具伪影修改产品 Screen。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 13 个 deprecation warning
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，170 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；三种 Package Bus 源 PNG 均无额外铁锭，玩家物品栏与过滤槽像素完整
+验证 .\gradlew.bat build --stacktrace 成功
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1 成功
+最终 smoke 日志按 ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout 扫描无命中；前一轮曾遇到外部 Yggdrasil AuthenticationUnavailableException/SSLHandshakeException，刷新 smoke 后消失
+验证 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效，日志无发布阻断关键字
+GameTest：已考虑并运行。本轮改变菜单网络同步边界，属于行为敏感变更；新增 1 个 signed-short 往返 GameTest 并通过全部 170 个 required GameTest。
+```

@@ -51,12 +51,10 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     private final boolean clientSide;
     private int syncedSelectedColor;
     private final int[] syncedInputColors = new int[PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT];
-    private final int[] syncedProcessingOutputAmounts =
-            new int[PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT];
     private final DataSlot selectedColorSlot;
     private final DataSlot[] inputColorSlots = new DataSlot[PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT];
-    private final DataSlot[] processingOutputAmountSlots =
-            new DataSlot[PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT];
+    private final SplitIntDataSlots[] processingOutputAmountSlots =
+            new SplitIntDataSlots[PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT];
     private final SimpleContainer processingOutputDisplay =
             new SimpleContainer(PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT);
 
@@ -339,20 +337,12 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     private void addProcessingOutputAmountSlots() {
         for (int slot = 0; slot < processingOutputAmountSlots.length; slot++) {
             final int outputSlot = slot;
-            processingOutputAmountSlots[outputSlot] = new DataSlot() {
-                @Override
-                public int get() {
-                    return clientSide
-                            ? syncedProcessingOutputAmounts[outputSlot]
-                            : terminal.processingOutputAmountForDisplay(outputSlot);
-                }
-
-                @Override
-                public void set(int value) {
-                    syncedProcessingOutputAmounts[outputSlot] = value;
-                }
-            };
-            addDataSlot(processingOutputAmountSlots[outputSlot]);
+            SplitIntDataSlots amountSlots = new SplitIntDataSlots(
+                    clientSide,
+                    () -> terminal.processingOutputAmountForDisplay(outputSlot));
+            processingOutputAmountSlots[outputSlot] = amountSlots;
+            addDataSlot(amountSlots.lowWordSlot());
+            addDataSlot(amountSlots.highWordSlot());
         }
     }
 

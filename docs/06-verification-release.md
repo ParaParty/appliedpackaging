@@ -150,6 +150,7 @@ package_pattern_terminal 兼容方块与 AE2 part 的外部 item capability 只�
 装配室可读取 AE2 crafting_pattern 承载的 package_crafting_pattern NBT，并确认该 pattern 不支持分子装配室执行
 package_bus 配置 UI 可手工编辑颜色、marker ghost 和 required content ghost，且不消耗玩家光标物品
 package_bus 已打开菜单会在 host 被其它路径修改后刷新 marker/content ghost 与数量
+Package Bus required-content amount 与 Package Pattern Terminal processing-output amount 的客户端缓存未同步前保持 0；通过低/高 16 位 `DataSlot` 往返后可保留 32768、65535、65536、100000 和 `Integer.MAX_VALUE`，不会被 1.20.1 signed-short 菜单包截断
 在线 package_export_bus 与 package_unpacking_bus 修改手工过滤器时不会请求未注册的 IStorageProvider 重挂载，也不会抛服务端异常
 package_bus 手工过滤器保存/读取后保留 color、marker 和 required content
 package_bus 配置 UI 可从 Forge 流体容器设置 required content ghost，编码时写入 AEFluidKey 过滤条件且不消耗光标容器
@@ -552,6 +553,7 @@ run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to
 2026-07-10 在 Package Bus / Package Pattern Terminal `DataSlot` 同步改为服务端权威值与客户端菜单缓存后再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工检查 Advanced Pattern Terminal、Package Pattern Terminal 和三种 Package Bus 截图：标题左侧不再重复渲染共享输入索引 0 的铁锭；高级终端输入区铁/铜/金仅各显示在真实 processing slot；Package Pattern Terminal 可见 RED 输入列、32 个铁锭与 65 个钻石输出；三种总线可见 RED、钻石 marker 与 2000 mB water 过滤状态。日志关键字扫描零命中。
 2026-07-10 在三种总线加入 `REQUIRE_CHANNEL`、两个菜单加入 host 驱动 ghost 刷新并修复高级终端 marker 编码后，再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工复查 Advanced Pattern Terminal、Package Pattern Terminal 和 Package Storage Bus 截图，现有布局与预填状态保持完整；日志发布阻断关键字零命中。
 2026-07-10 修正 Advanced Pattern Terminal 列编辑层层级与事件透传后执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。runner 在同一菜单依次保存主界面和 `appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png`，并等待每张截图回调完成后才切换 screen；人工检查两张截图均无黑块，弹层不透明覆盖网络库存，底层编码控件未穿出，色板、名称框和 marker 槽位于前景。必需截图清单扩展为 10 张。
+2026-07-10 修正大数量 ghost menu 同步后执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功；标准 Package Bus smoke 夹具仍只显示 RED、钻石 marker 和 2000 mB water，不再为了验证 100000 数量额外显示铁锭。三张总线源 PNG 的玩家物品栏内部抽样均为 `#E8ECEE`，核心 GUI 区域逐像素比较仅保留标题与正常渲染差异。
 ```
 
 ## 6. Dedicated Server 验证

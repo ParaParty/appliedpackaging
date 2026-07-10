@@ -788,7 +788,7 @@ package_unpacking_bus:
 UI 仍复用 PackageFilter.fromTemplate，因此 package_pattern、packaged_processing_pattern 和合法包裹的颜色、marker、内容过滤语义与右键快捷配置完全一致。
 Package Bus 配置 UI 也支持手工过滤器编辑：17 色 swatch 设置颜色过滤，marker ghost 槽从光标复制 1 个物品作为 marker，3 个 required content ghost 槽从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标点击清除；这些 ghost 编辑不消耗玩家物品。若 required content 光标物品是 Forge 流体容器，则过滤器保存对应 AEFluidKey 与流体数量，例如水桶保存 1000 mB water。鼠标悬停 required content ghost 槽并滚轮调整数量时，流体每步调整 1000 mB，物品/其它已存在 key 每步调整 1；数量不会降到小于一个调整步长。
 手工过滤器以 PackageFilter NBT 保存到总线方块实体，保留旧 filter_template 读取兼容；复制真实模板时仍保存 ghost 模板物品用于显示，手工编辑后清除模板来源显示但保留实际过滤条件。
-Package Bus 与 Package Pattern Terminal 的整数状态使用服务端权威 `DataSlot#get` 和客户端菜单本地缓存 `DataSlot#set`；客户端同步不直接修改本地方块实体/part host，颜色与 ghost amount 可在服务端更新后稳定刷新。服务端菜单每次 `broadcastChanges()` 前还会从 host 重建 marker/content/processing-output ghost display，因此另一菜单或外部逻辑修改配置时，已打开菜单不会停留在旧图标。
+Package Bus 与 Package Pattern Terminal 的整数状态使用服务端权威 `DataSlot#get` 和客户端菜单本地缓存 `DataSlot#set`；客户端缓存从 0 开始，只接受菜单包更新，不从可能陈旧的本地 block entity/part host 预填。Minecraft 1.20.1 的 `ClientboundContainerSetDataPacket` 以 signed short 传输每个 `DataSlot` 值，因此可超过 32767 的 required-content amount 与 processing-output amount 必须分别同步低 16 位和高 16 位，客户端按 unsigned word 重组为非负 int，不能直接用单个 `DataSlot`。服务端菜单每次 `broadcastChanges()` 前还会从 host 重建 marker/content/processing-output ghost display，因此另一菜单或外部逻辑修改配置时，已打开菜单不会停留在旧图标。
 
 过滤器变化时只有注册了 `IStorageProvider` 的 Package Storage Bus 请求重新挂载；Package Export Bus 与 Package Unpacking Bus 只保存新过滤器并在后续路由 tick 使用，不得向 AE2 请求不存在的 storage provider 刷新。
 
