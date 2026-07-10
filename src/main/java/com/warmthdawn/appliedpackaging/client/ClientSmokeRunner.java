@@ -34,6 +34,7 @@ import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatter
 import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
 import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -79,6 +80,8 @@ public final class ClientSmokeRunner {
             mePackagerField("animationInward");
     private static final Field ME_PACKAGER_RENDERED_BOX =
             mePackagerField("renderedBox");
+    private static final Method ADVANCED_PATTERN_OPEN_COLUMN_EDITOR =
+            advancedPatternScreenMethod("openColumnEditor", int.class);
     private static final PackageColor[] WORLD_SMOKE_PACKAGE_COLORS = {
             PackageColor.FLUIX,
             PackageColor.BLUE,
@@ -110,6 +113,9 @@ public final class ClientSmokeRunner {
     private int worldScreenshotIndex;
     private int finishTicks;
     private boolean screenPrepared;
+    private boolean screenCaptureRequested;
+    private boolean advancedEditorCapturePending;
+    private volatile boolean screenshotPending;
     private boolean setupRequested;
     private volatile boolean setupComplete;
     private volatile RuntimeException setupFailure;
@@ -468,6 +474,9 @@ public final class ClientSmokeRunner {
         currentStep++;
         screenTicks = 0;
         screenPrepared = false;
+        screenCaptureRequested = false;
+        advancedEditorCapturePending = false;
+        screenshotPending = false;
         if (currentStep >= STEPS.length) {
             state = State.DONE;
             AppliedPackaging.LOGGER.info("Applied Packaging client smoke completed all screen captures");
@@ -563,16 +572,63 @@ public final class ClientSmokeRunner {
             return;
         }
 
+        if (screenCaptureRequested) {
+            screenTicks++;
+            if (screenshotPending) {
+                if (screenTicks > SCREEN_TIMEOUT_TICKS) {
+                    throw new IllegalStateException("Timed out saving client smoke screenshot for " + step.id());
+                }
+                return;
+            }
+            screenCaptureRequested = false;
+            if (advancedEditorCapturePending) {
+                closeCurrentScreen(minecraft);
+                return;
+            }
+            if (step.isAdvancedPatternEncodingTerminalPart()
+                    && minecraft.screen instanceof AdvancedPatternEncodingTermScreen advancedScreen) {
+                openAdvancedPatternColumnEditor(advancedScreen);
+                advancedEditorCapturePending = true;
+                screenTicks = 0;
+                return;
+            }
+            closeCurrentScreen(minecraft);
+            return;
+        }
+
         screenTicks++;
         if (screenTicks < SCREEN_READY_TICKS) {
             return;
         }
-        String fileName = "appliedpackaging-client-smoke-" + step.id() + ".png";
-        Screenshot.grab(minecraft.gameDirectory, fileName, minecraft.getMainRenderTarget(), message ->
-                AppliedPackaging.LOGGER.info(
-                        "Applied Packaging client smoke captured {}: {}",
-                        fileName,
-                        message.getString()));
+        captureScreen(minecraft, advancedEditorCapturePending ? step.id() + "_editor" : step.id());
+        screenCaptureRequested = true;
+        screenTicks = 0;
+    }
+
+    private void captureScreen(Minecraft minecraft, String id) {
+        if (screenshotPending) {
+            throw new IllegalStateException("Client smoke requested a second screenshot while one was still pending");
+        }
+        String fileName = "appliedpackaging-client-smoke-" + id + ".png";
+        screenshotPending = true;
+        try {
+            Screenshot.grab(minecraft.gameDirectory, fileName, minecraft.getMainRenderTarget(), message -> {
+                try {
+                    AppliedPackaging.LOGGER.info(
+                            "Applied Packaging client smoke captured {}: {}",
+                            fileName,
+                            message.getString());
+                } finally {
+                    screenshotPending = false;
+                }
+            });
+        } catch (RuntimeException exception) {
+            screenshotPending = false;
+            throw exception;
+        }
+    }
+
+    private void closeCurrentScreen(Minecraft minecraft) {
         if (minecraft.player != null) {
             minecraft.player.closeContainer();
         }
@@ -640,6 +696,24 @@ public final class ClientSmokeRunner {
             return field;
         } catch (NoSuchFieldException exception) {
             throw new IllegalStateException("ME Packager smoke animation field is missing: " + name, exception);
+        }
+    }
+
+    private static Method advancedPatternScreenMethod(String name, Class<?>... parameterTypes) {
+        try {
+            Method method = AdvancedPatternEncodingTermScreen.class.getDeclaredMethod(name, parameterTypes);
+            method.setAccessible(true);
+            return method;
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalStateException("Advanced Pattern Terminal smoke method is missing: " + name, exception);
+        }
+    }
+
+    private static void openAdvancedPatternColumnEditor(AdvancedPatternEncodingTermScreen screen) {
+        try {
+            ADVANCED_PATTERN_OPEN_COLUMN_EDITOR.invoke(screen, 0);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not open Advanced Pattern Terminal column editor", exception);
         }
     }
 

@@ -305,6 +305,7 @@ GameTest/服务器 smoke test
   advanced_pattern_encoding_terminal 中间区显示 4 个可见的 4x1 输入列、4 个垂直输出槽、列头颜色按钮、第一未启用列加号和左侧竖向列滚动条，最多 17 列；主体加宽至 230px，输入列间距为 4px
   advanced_pattern_encoding_terminal 为每列保存颜色、名称和 marker，并编码独立 advanced_processing_pattern 物品；AE2 原版 processing_pattern 不写也不接受该高级列元数据
   advanced_pattern_encoding_terminal 按 ConfigInventory type key 读取 marker，并在样板元数据中固定归一为 1 个物品
+  advanced_pattern_encoding_terminal 列编辑层在 AE 主界面完成渲染后绘制，完整拦截弹层输入且不允许点击透传到底层 RepoSlot/processing slot/编码按钮
   Package Assembler 按包裹样板、普通处理样板和高级处理样板三路执行；高级样板按列顺序生成多个包裹，普通处理样板固定 Fluix/空名称/空 marker
   packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个处理输出 ghost slots
   处理输出 ghost slots 可从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标清除，且不消耗玩家物品
@@ -369,7 +370,7 @@ runClientSmoke GUI screenshot smoke
   scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke、可选 run-server-smoke、机械发布审计、文档审计、发布清单和发布附件包
   scripts/run-release-checks.ps1 -ReleaseCandidate 已作为最终候选发布预设，自动启用 client smoke、server smoke、manifest 和 bundle 审计
   scripts/verify-release-readiness.ps1 已作为 tag 就绪审计，-RequireReadyForTag 会阻止状态、迁移目标或验证要求仍为待输入、待判定、阻塞或失败的 intake 项创建发布 tag，并要求已填写的迁移目标是仓库内已存在文件的规范相对路径、不包含父级遍历，且与类型目标族匹配：需求类落在 docs/01、02、03、05、06 或 07，材质类落在 docs/04、docs/assets 或 src/main/resources/assets/appliedpackaging；负面 blocker 清除后还要求文档明确记录范围已冻结、最终服务端 world-load 已完成、发布 tag 可创建、目标可以标记完成和 tag 就绪门禁已通过
-  使用 -RunClientSmoke 时会自动审计 9 张必需 client smoke 截图存在、非空且为有效 PNG
+  使用 -RunClientSmoke 时会自动审计 10 张必需 client smoke 截图存在、非空且为有效 PNG
   dedicated server world-load 已在当前基线通过；服务端 latest.log 审计可由 run-server-smoke.ps1 或 run-release-checks.ps1 -RunServerSmoke 刷新后执行
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad

@@ -2657,3 +2657,23 @@ GameTest：已考虑并运行。本轮改变 item handler、MEStorage、流体�
 验证 scripts/verify-release-readiness.ps1 预审完成；仅保留 3 个预期 blocker：IN-003 正式 UI/模型待输入、变更接收/最终服务端验证仍开放、产品目标与 release tag 尚未完成
 GameTest：已考虑并运行。本轮改变 AE channel、IStorageProvider 在线缓存刷新、菜单 ghost 同步和高级 marker 编码语义，属于行为敏感变更；新增 5 个 GameTest 并通过全部 164 个 required GameTest。
 ```
+
+最新进展：
+
+```text
+深审 Advanced Pattern Terminal 列编辑层后修正 modal 层级与输入边界：
+  旧实现从 drawBG 绘制弹层，并在弹层内继续调用 super.mouseClicked/released/dragged/keyPressed/charTyped；AE RepoSlot、processing slot、底层按钮和 tooltip 仍可能覆盖或接收输入。
+  弹层改为 super.render 完成后绘制不透明前景；只手工分发色板、名称框与当前 marker fake slot 输入，其余鼠标/滚轮/键盘/字符事件全部吞掉，外部点击只关闭弹层。
+  弹层打开时隐藏 encode/clear/cycle 控件，处理输入/输出槽继续停用；marker 物品、光标携带物和弹层 tooltip 在前景重绘。
+  ClientSmokeRunner 在同一 Advanced Pattern Terminal 中依次拍主界面与列编辑层，并等待 Screenshot.grab 回调完成后才切换 screen，避免异步 GPU 截图读取与打开/关闭菜单竞态。
+  verify-release.ps1 必需清单加入 appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png，当前门禁为 10 张截图。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功，仅既有 13 个 deprecation warning
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；人工检查主界面与列编辑层截图均无黑块，弹层覆盖网络库存，底层编码控件未穿出，色板、名称框和 marker 位于前景
+验证过程中先后暴露两类独立黑块：未封口的 post-super GuiGraphics 前景批次，以及 Screenshot.grab 回调前切换 screen；分别通过前后 flush 与截图完成握手修正，未把黑块误记为通过
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/test-release-audit.ps1 成功，release audit 2 条正例与 13 条负例全部通过；新增 10 张截图齐全正例和缺少 advanced editor 截图负例
+验证 scripts/verify-docs.ps1 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，231 个发布资源与 jar 同步，144 个 PNG 非空，10 张必需截图有效；仅忽略 1 条外部 Yggdrasil 公钥获取警告，日志无发布阻断关键字
+GameTest：已考虑。本轮只改变客户端绘制、输入拦截与 smoke 截图时序，不改变样板编码、物品移动、总线事务或服务端状态，因此不新增或复跑 GameTest。
+```

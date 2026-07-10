@@ -704,7 +704,7 @@ AE2 原版 Pattern Encoding Terminal 通过 mixin 增加包裹样板模式 tab�
 包裹样板模式编码时输出 AE2 crafting_pattern 物品，并写入 appliedpackaging.package_crafting_pattern NBT；AE2 tooltip、pattern decoder、Pattern Provider 和 Crafting CPU 通过该 NBT 识别输出包裹，装配室之外的机器不会把它当作可执行的分子装配室 crafting pattern。
 高级样板终端注册为 AE2 cable part item，part 继承 AE2 PatternEncodingTerminalPart，复用原版静态模型、网络终端库存、搜索栏、AE 左侧工具栏和右侧 view-cell 区域；菜单继承 PatternEncodingTermMenu 并强制保持 PROCESSING 模式。
 高级样板终端 GUI 使用 AE2 ScreenStyle/MEStorageScreen；主体宽 230px、总高固定 240px，顶部网络库存为 10 列，可在 480px 高且 GUI scale 2 的 smoke 视口完整显示。中间编码区为 4 个可见输入列，每列 4 个垂直 fake processing input 槽，列之间保留 4px 间距，右侧为 4 个 fake processing output 槽。输入内容按列水平滚动，但滚动条采用 AE 新版处理样板区的竖向外观并位于输入列左侧；第一未启用列显示加号，后续列显示 0.2 alpha 禁用背景且无颜色按钮。
-每个启用列上方的小色块按钮打开该列编辑层；编辑层只包含 17 色选择、包裹名称和 marker fake slot，并拦截鼠标、滚轮、键盘与字符输入，避免点击透传到底层 processing slots。
+每个启用列上方的小色块按钮打开该列编辑层；编辑层只包含 17 色选择、包裹名称和 marker fake slot。编辑层在 `super.render(...)` 完成后作为不透明前景绘制，色板与名称框由弹层单独分发输入，marker 只向当前列 fake slot 发送点击；弹层打开时鼠标点击/释放/拖拽/滚轮、键盘与字符输入均不会透传到底层 AE 网络库存、processing slots 或编码按钮，点击外部只关闭弹层。
 高级 marker 库使用 AE2 `ConfigInventory.CONFIG_TYPES`；该模式内部数量固定为 0，因此存在性必须通过 `getKey()` 判断，编码时再显式归一为数量 1 的 AEItemKey MarkerSpec，不能用 GenericStack amount 判断槽位是否为空。
 高级终端编码结果是独立 `advanced_processing_pattern` 物品，并写入 AE2 processing in/out 与 appliedpackaging.advanced_processing_pattern 列数据；默认 AE2 Pattern Encoding Terminal 和其它普通编码路径只输出原版样板，不写高级列 NBT。
 高级终端读取普通 processing pattern 时按最后一个非空 sparse input 推导启用列数；读取高级 processing pattern 时恢复列数、颜色、名称和 marker。

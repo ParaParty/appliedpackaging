@@ -29,6 +29,7 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
@@ -69,12 +70,13 @@ public class AdvancedPatternEncodingTermScreen
     private static final int TRACK = 0xff6d718b;
     private static final int THUMB = 0xffa7acc0;
     private static final int THUMB_HIGHLIGHT = 0xffeeeef2;
-    private static final int POPUP_BACKGROUND = 0xf0c8cad5;
+    private static final int POPUP_BACKGROUND = 0xffc8cad5;
     private static final int POPUP_BORDER = 0xff6d718b;
 
     private final ColumnHeaderButton[] columnButtons = new ColumnHeaderButton[VISIBLE_COLUMNS];
     private final List<PackageColorButton> colorButtons = new ArrayList<>();
     private final EditBox packageNameField;
+    private final ActionButton encodeButton;
     private final ActionButton clearButton;
     private final ActionButton cycleOutputButton;
     private int scrollColumn;
@@ -89,7 +91,8 @@ public class AdvancedPatternEncodingTermScreen
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
 
-        widgets.add("encodePattern", new ActionButton(ActionItems.ENCODE, ignored -> menu.encode()));
+        encodeButton = new ActionButton(ActionItems.ENCODE, ignored -> menu.encode());
+        widgets.add("encodePattern", encodeButton);
         clearButton = new ActionButton(ActionItems.CLOSE, ignored -> menu.clear());
         clearButton.setHalfSize(true);
         widgets.add("processingClearPattern", clearButton);
@@ -132,9 +135,9 @@ public class AdvancedPatternEncodingTermScreen
             addRenderableWidget(button);
         }
         for (PackageColorButton button : colorButtons) {
-            addRenderableWidget(button);
+            addWidget(button);
         }
-        addRenderableWidget(packageNameField);
+        addWidget(packageNameField);
         layoutDynamicWidgets();
     }
 
@@ -144,7 +147,10 @@ public class AdvancedPatternEncodingTermScreen
         scrollColumn = Math.max(0, Math.min(scrollColumn, maxScrollColumn()));
         updateProcessingSlots();
         layoutDynamicWidgets();
-        cycleOutputButton.setVisibility(menu.canCycleProcessingOutputs());
+        boolean editorClosed = editedColumn < 0;
+        encodeButton.setVisibility(editorClosed);
+        clearButton.setVisibility(editorClosed);
+        cycleOutputButton.setVisibility(editorClosed && menu.canCycleProcessingOutputs());
 
         if (editedColumn >= menu.activeColumns()) {
             closeColumnEditor();
@@ -180,9 +186,7 @@ public class AdvancedPatternEncodingTermScreen
             float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
 
-        if (editedColumn >= 0) {
-            drawColumnEditorBackground(graphics, offsetX, offsetY);
-        } else {
+        if (editedColumn < 0) {
             drawEncodingSlotBackgrounds(graphics, offsetX, offsetY);
             drawColumnScrollbar(graphics, offsetX, offsetY);
         }
@@ -193,13 +197,32 @@ public class AdvancedPatternEncodingTermScreen
     }
 
     @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        super.render(graphics, mouseX, mouseY, partialTicks);
+        if (editedColumn >= 0) {
+            renderColumnEditorOverlay(graphics, mouseX, mouseY, partialTicks);
+        }
+    }
+
+    @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (editedColumn >= 0) {
             if (!isInsidePopup(mouseX, mouseY)) {
                 closeColumnEditor();
                 return true;
             }
-            super.mouseClicked(mouseX, mouseY, button);
+            if (packageNameField.mouseClicked(mouseX, mouseY, button)) {
+                return true;
+            }
+            for (PackageColorButton colorButton : colorButtons) {
+                if (colorButton.mouseClicked(mouseX, mouseY, button)) {
+                    return true;
+                }
+            }
+            if ((button == 0 || button == 1) && isOverPopupMarker(mouseX, mouseY)) {
+                var markerSlot = menu.markerSlot(editedColumn);
+                slotClicked(markerSlot, markerSlot.index, button, ClickType.PICKUP);
+            }
             return true;
         }
         if (isOverColumnScrollbar(mouseX, mouseY)) {
@@ -217,7 +240,10 @@ public class AdvancedPatternEncodingTermScreen
             return true;
         }
         if (editedColumn >= 0) {
-            super.mouseReleased(mouseX, mouseY, button);
+            packageNameField.mouseReleased(mouseX, mouseY, button);
+            for (PackageColorButton colorButton : colorButtons) {
+                colorButton.mouseReleased(mouseX, mouseY, button);
+            }
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -230,7 +256,7 @@ public class AdvancedPatternEncodingTermScreen
             return true;
         }
         if (editedColumn >= 0) {
-            super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+            packageNameField.mouseDragged(mouseX, mouseY, button, dragX, dragY);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -255,7 +281,7 @@ public class AdvancedPatternEncodingTermScreen
                 closeColumnEditor();
                 return true;
             }
-            super.keyPressed(keyCode, scanCode, modifiers);
+            packageNameField.keyPressed(keyCode, scanCode, modifiers);
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -264,7 +290,7 @@ public class AdvancedPatternEncodingTermScreen
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (editedColumn >= 0) {
-            super.charTyped(codePoint, modifiers);
+            packageNameField.charTyped(codePoint, modifiers);
             return true;
         }
         return super.charTyped(codePoint, modifiers);
@@ -283,6 +309,9 @@ public class AdvancedPatternEncodingTermScreen
 
     @Override
     protected void renderTooltip(GuiGraphics graphics, int x, int y) {
+        if (editedColumn >= 0) {
+            return;
+        }
         if (menu.getCarried().isEmpty() && menu.canModifyAmountForSlot(hoveredSlot)) {
             List<Component> tooltip = new ArrayList<>(getTooltipFromContainerItem(hoveredSlot.getItem()));
             GenericStack stack = GenericStack.fromItemStack(hoveredSlot.getItem());
@@ -293,6 +322,52 @@ public class AdvancedPatternEncodingTermScreen
             drawTooltip(graphics, x, y, tooltip);
         } else {
             super.renderTooltip(graphics, x, y);
+        }
+    }
+
+    private void renderColumnEditorOverlay(
+            GuiGraphics graphics,
+            int mouseX,
+            int mouseY,
+            float partialTicks) {
+        graphics.flush();
+        try {
+            drawColumnEditorBackground(graphics, leftPos, topPos);
+
+            var markerSlot = menu.markerSlot(editedColumn);
+            ItemStack marker = markerSlot.getItem();
+            int markerX = leftPos + POPUP_X + POPUP_MARKER_X;
+            int markerY = topPos + imageHeight - POPUP_BOTTOM + POPUP_MARKER_Y;
+            if (!marker.isEmpty()) {
+                graphics.renderItem(marker, markerX, markerY);
+            }
+            if (isOverPopupMarker(mouseX, mouseY)) {
+                graphics.fill(markerX, markerY, markerX + 16, markerY + 16, 0x40ffffff);
+            }
+
+            for (PackageColorButton colorButton : colorButtons) {
+                colorButton.render(graphics, mouseX, mouseY, partialTicks);
+            }
+            packageNameField.render(graphics, mouseX, mouseY, partialTicks);
+
+            ItemStack carried = menu.getCarried();
+            if (!carried.isEmpty()) {
+                graphics.renderItem(carried, mouseX - 8, mouseY - 8);
+                graphics.renderItemDecorations(font, carried, mouseX - 8, mouseY - 8);
+                return;
+            }
+            if (!marker.isEmpty() && isOverPopupMarker(mouseX, mouseY)) {
+                graphics.renderTooltip(font, marker, mouseX, mouseY);
+                return;
+            }
+            for (PackageColorButton colorButton : colorButtons) {
+                if (colorButton.isMouseOver(mouseX, mouseY)) {
+                    graphics.renderTooltip(font, colorButton.getMessage(), mouseX, mouseY);
+                    return;
+                }
+            }
+        } finally {
+            graphics.flush();
         }
     }
 
@@ -549,6 +624,13 @@ public class AdvancedPatternEncodingTermScreen
         int y = topPos + imageHeight - POPUP_BOTTOM;
         return mouseX >= x && mouseX < x + POPUP_WIDTH
                 && mouseY >= y && mouseY < y + POPUP_HEIGHT;
+    }
+
+    private boolean isOverPopupMarker(double mouseX, double mouseY) {
+        int x = leftPos + POPUP_X + POPUP_MARKER_X;
+        int y = topPos + imageHeight - POPUP_BOTTOM + POPUP_MARKER_Y;
+        return mouseX >= x && mouseX < x + 16
+                && mouseY >= y && mouseY < y + 16;
     }
 
     private static void setSlotPosition(Slot slot, int x, int y) {
