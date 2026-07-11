@@ -12,9 +12,5 @@ public interface PackageCraftingPatternMenuBridge {
 
     void appliedpackaging$setPackageCraftingColor(PackageColor color);
 
-    String appliedpackaging$getPackageCraftingName();
-
-    void appliedpackaging$setPackageCraftingName(String name);
-
     FakeSlot appliedpackaging$getPackageCraftingMarkerSlot();
 }

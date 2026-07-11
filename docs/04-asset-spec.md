@@ -136,6 +136,16 @@ AE2 终端面板
 侧边 17 色灯条
 ```
 
+AE2 原版 Pattern Encoding Terminal 包裹模式：
+
+```text
+GUI atlas: assets/appliedpackaging/textures/gui/pattern_mode_packaging.png
+atlas 固定为 256x256 RGBA，有效模式面板位于 [0,0,124,66]；文件直接使用用户提供的 pattern_mode_packaging.png，不缩放、不重绘。
+模式面板按 AE2 1.21.1 panel 放在终端 left=8、bottom=165；左侧滚动条轨道位于面板内 x=8..12、y=6..59，scrollbar widget 位于终端 left=15、bottom=158，3x3 可见输入窗口首槽位于终端 `(24,bottom-158)`、面板内 `(16,7)`，marker 位于 `(95,7)`，自动输出位于 `(98,31)`。
+清空按钮使用共享 sprite [0,0,8,8]，颜色设置按钮使用共享 sprite [8,0,8,8] 并在内部绘制当前颜色，两者位于面板内 `(72,7)` 与 `(82,7)`；包裹模式 tab 使用共享 sprite [32,0,16,16]。
+本 atlas 与共享 sprite 含 AE2 高版本适配像素，以 LGPL-3.0-or-later 例外标记。
+```
+
 高级样板终端：
 
 ```text
@@ -143,10 +153,11 @@ part 与物品模型直接复用 AE2 pattern encoding terminal，不新增另一
 高级终端编码产物 `advanced_processing_pattern` 使用独立 item id/model，图标可复用本 mod 封装处理样板视觉，不复用 AE2 原版样板物品 id
 ScreenStyle: assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json
 GUI texture: assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png
-GUI texture 固定 230x260 RGBA，实际 ScreenStyle 主体为 230x240；atlas 使用本 mod 自绘几何与调色，不逐像素复制 AE2 资源，编码区以下的右侧轮廓保持透明
-中间控件布局参考 AE2 1.21.1 processing encoding panel 的 slot/button 语言和玩家栏 bottom 基线，但不复制高版本代码或资源
-4 个列头按钮为 10x10；启用列显示居中 6x6 色块，第一未启用列显示加号，其余未启用列不显示按钮
-输入列之间固定保留 4px 间距；内容按列水平滚动，滚动条使用竖向外观并位于输入区左侧；禁用输入列按约 0.2 alpha 渲染，不绘制 ghost 物品
+GUI base 与 sprite atlas 均固定为 256x256 RGBA；两行网络库存时 ScreenStyle 主体为 195x250，使用用户提供的 `adv-pattern-terminal-base.png` 最终视觉。
+终端标题、搜索框、9 列 AE 网络库存、网络滚动条、玩家物品栏与样板编码区坐标按 AE2 1.21.1 Pattern Encoding Terminal 布局适配到 AE2 15.4.10 ScreenStyle。
+每个包裹列仍包含 4 个真实处理输入 slot，中间区同时显示 4 列 x 3 行；左侧 AE2 小滚动条同步滚动输入/输出的第 4 行，底部水平滚动条只滚动包裹列。
+列间距为 1px；每个启用列显示 8x8 颜色 swatch 与 8x8 编辑按钮，第一未启用列只显示加号，后续列保持禁用底色且不绘制 ghost 物品。
+`advanced_pattern_encoding_terminal_sprites.png` 是用户提供的本地 sprite atlas，其小滚动条/紧凑按钮包含 AE2 高版本 GUI 适配像素；`advanced_pattern_encoding_terminal_states.png` 从 AE2 当前 main/1.21.1 同字节 `states.png` 复制，用于主产物叠加层、样板槽背景、Encode 按钮和右上角合成状态按钮。两行 base 不含独立中间行，`advanced_pattern_encoding_terminal_middle_row.png` 使用末行顶部 17px 与首行底边 1px 合成 195x18 可重复中间段；`advanced_pattern_encoding_terminal_scrollbar.png` 将新版 AE2 big scroller 启用/禁用图标装入 1.20.1 Blitter 兼容的 256x256 atlas。以上资源均以 `LGPL-3.0-or-later` 例外标记，完整许可证收录于 `META-INF/licenses/ae2-LGPL-3.0-or-later.txt`。
 ```
 
 总线：
@@ -183,9 +194,10 @@ Fluix 紫蓝高亮
 彩色小灯表示包裹颜色
 ME Packager GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 assets/ae2/screens/appliedpackaging/me_packager.json，背景贴图放在 assets/appliedpackaging/textures/gui/mepackager.png。
 ME Packager 过滤区背景只绘制基础启用行；容量卡解锁的可选行按 AE2 高版本 slot background 效果由代码渲染，禁用状态使用新版 0.2 alpha，不把全部 slot 烘进背景图。
-ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。上半部分的名称输入、颜色 swatch、marker 槽和右上容量元件槽按原图坐标接入与 ME Packager 一致的逻辑；输出模式等配置开关走 AE2 左侧悬浮 toolbar；右侧升级区走 AE2 `UpgradesPanel`，装配室只显示/接受 speed card。
+ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。颜色 swatch 与 marker 槽位于输入区右侧，样板与容量元件槽并列位于顶部；右侧为主输出、只读副预览和进度条。输出模式等配置开关走 AE2 左侧悬浮 toolbar；右侧升级区走 AE2 `UpgradesPanel`，装配室只显示/接受 speed card。
 ME Package Assembler 的下半部分为输入/输出同步滚动区与下半区样板槽；可见窗口为左侧 4x4 输入格和右侧 4 个输出格。滚动条位于输入栏左侧，参考 AE2 样板终端 processing 模式的小滚动条；滚动输入/输出槽背景由客户端按 AE2 slot background 风格绘制，不烘进 atlas；atlas 提供面板、标题区、下半区样板槽、容量槽、marker 槽、左侧滚动条轨道、滚动槽容器和玩家背包区域。
-高级样板终端 GUI 使用 AE2 `ScreenStyle`，style JSON 位于 `assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json`，230x260 背景位于 `assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png`；主体加宽后顶部显示 10 列 AE 网络库存，玩家背包在主体内居中，中间补列头、带 4px 间距的 4x4 输入、4 行输出、左侧竖向列滚动条和列编辑层。
+高级样板终端 GUI 使用 AE2 `ScreenStyle`，style JSON 位于 `assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json`，256x256 base/sprite/states atlas 位于 `assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal*.png`；主体保持高版本 AE2 的 195px 宽度、9 列网络库存和玩家栏基线，中间为 4 列 x 3 行可见真实输入、3 行可见真实输出、左侧行滚动条、底部列滚动条和纯颜色弹窗。每列逻辑容量为 AE2 默认 processing pattern 的 81 个输入槽。页面保持贴图与 style 的既有原点；slot hover 颜色严格采用 AE2 1.21.1 的 `0x669cd3ff` 填充和 `0xffdaffff` 边线。
+AE2 原版 Pattern Encoding Terminal 的包裹模式通过 mixin 使用 `textures/gui/pattern_mode_packaging.png` 的 124x66 有效区域；面板采用 AE2 1.21.1 的 screen `left=8,bottom=165` 基准。面板内坐标为：3x3 可见输入窗口首槽 `(16,7)`、清空按钮 `(72,7)`、颜色按钮 `(82,7)`、marker `(95,7)`、唯一自动包裹输出 `(98,31)`。面板左侧轨道使用 `advanced_pattern_encoding_terminal_sprites.png` 中标记来源的 AE2 1.21.1 small scroller handle，widget 位于 screen `left=15,bottom=158`，滚动 81 个 sparse 输入槽；不显示、接受或绘制 processing output 配置槽。自动包裹预览不使用 AE2 processing primary-output overlay 或 tooltip。PackagePattern 图标从 `(32,0,16,16)` 完整单元读取，按 AE2 水平 tab 的 `x+1,y+3` 绘制，不再裁成 12x14 后手调。颜色按钮只打开统一拾色弹窗，关闭状态不显示大色板。全项目拾色弹窗不使用额外 atlas：Fluix 独立在左，其余 16 色按 8x2 排列，无标题，按钮和 swatch 使用代码绘制并保持 AE2 边框色；弹窗使用独立高 Z 层覆盖 slot/item，底层物品保持正常渲染。
 ```
 
 ## 7. 资源验收
@@ -234,7 +246,7 @@ scripts/test-assets-audit.ps1
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
-当前发布资源 PNG 和 package_box 模型门禁由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，Create-style 临时打包机细节贴图可为 16x16，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager 与 ME Package Assembler GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；普通不透明 block/part 模型还会检查不得声明 render_type。
+当前发布资源 PNG 和 package_box 模型门禁由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，Create-style 临时打包机细节贴图可为 16x16，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager、ME Package Assembler、高级终端与包裹模式 GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；普通不透明 block/part 模型还会检查不得声明 render_type。
 
 ## 9. 当前资产交付状态
 

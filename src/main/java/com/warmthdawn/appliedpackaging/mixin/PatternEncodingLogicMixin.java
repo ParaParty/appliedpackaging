@@ -12,6 +12,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
@@ -40,6 +41,9 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
     @Shadow
     @Final
     private ConfigInventory encodedInputInv;
+    @Shadow
+    @Final
+    private ConfigInventory encodedOutputInv;
 
     @Shadow
     public abstract void setMode(EncodingMode mode);
@@ -51,8 +55,6 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
     private boolean appliedpackaging$packageCraftingMode;
     @Unique
     private PackageColor appliedpackaging$packageCraftingColor = PackageColor.FLUIX;
-    @Unique
-    private String appliedpackaging$packageCraftingName = "";
     @Unique
     private final AppEngInternalInventory appliedpackaging$markerInv =
             new AppEngInternalInventory((InternalInventoryHost) (Object) this, 1, 1);
@@ -69,6 +71,23 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
         }
         if (host instanceof AdvancedPatternEncodingTerminalHost advancedHost) {
             advancedHost.getAdvancedPatternState().loadFromPattern(pattern);
+            if (AdvancedProcessingPatternDataStorage.hasData(pattern)) {
+                setMode(EncodingMode.PROCESSING);
+                encodedInputInv.clear();
+                var outputs = ColoredProcessingPatternDataStorage.readSparseOutputs(pattern);
+                encodedOutputInv.beginBatch();
+                try {
+                    encodedOutputInv.clear();
+                    for (int slot = 0; slot < Math.min(outputs.size(), encodedOutputInv.size()); slot++) {
+                        encodedOutputInv.setStack(slot, outputs.get(slot));
+                    }
+                } finally {
+                    encodedOutputInv.endBatch();
+                }
+                saveChanges();
+                ci.cancel();
+                return;
+            }
         }
         var encoded = PackageCraftingPatternDataStorage.read(pattern);
         if (encoded.isEmpty()) {
@@ -78,7 +97,6 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
         setMode(EncodingMode.CRAFTING);
         appliedpackaging$setPackageCraftingMode(true);
         appliedpackaging$setPackageCraftingColor(encoded.get().color());
-        appliedpackaging$setPackageCraftingName(encoded.get().packageName());
         appliedpackaging$loadSparseInputs(encoded.get().sparseInputs());
         appliedpackaging$loadMarker(encoded.get().data().marker());
         saveChanges();
@@ -90,8 +108,6 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
         CompoundTag tag = data.getCompound("appliedpackagingPackageCrafting");
         appliedpackaging$packageCraftingMode = tag.getBoolean("mode");
         appliedpackaging$packageCraftingColor = PackageColor.byId(tag.getString("color")).orElse(PackageColor.FLUIX);
-        appliedpackaging$packageCraftingName =
-                PackageCraftingPatternDataStorage.sanitizePackageName(tag.getString("name"));
         appliedpackaging$markerInv.readFromNBT(tag, "marker");
     }
 
@@ -100,9 +116,6 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
         CompoundTag tag = new CompoundTag();
         tag.putBoolean("mode", appliedpackaging$packageCraftingMode);
         tag.putString("color", appliedpackaging$packageCraftingColor.id());
-        if (!appliedpackaging$packageCraftingName.isBlank()) {
-            tag.putString("name", appliedpackaging$packageCraftingName);
-        }
         appliedpackaging$markerInv.writeToNBT(tag, "marker");
         data.put("appliedpackagingPackageCrafting", tag);
     }
@@ -137,20 +150,6 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
         PackageColor value = color == null ? PackageColor.FLUIX : color;
         if (this.appliedpackaging$packageCraftingColor != value) {
             this.appliedpackaging$packageCraftingColor = value;
-            saveChanges();
-        }
-    }
-
-    @Override
-    public String appliedpackaging$getPackageCraftingName() {
-        return appliedpackaging$packageCraftingName;
-    }
-
-    @Override
-    public void appliedpackaging$setPackageCraftingName(String name) {
-        String value = PackageCraftingPatternDataStorage.sanitizePackageName(name);
-        if (!this.appliedpackaging$packageCraftingName.equals(value)) {
-            this.appliedpackaging$packageCraftingName = value;
             saveChanges();
         }
     }

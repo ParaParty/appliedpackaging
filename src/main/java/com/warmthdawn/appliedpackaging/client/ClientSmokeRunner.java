@@ -18,12 +18,15 @@ import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
 import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBridge;
+import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternLogicBridge;
+import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternScreenBridge;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
@@ -39,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.MouseHandler;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -49,6 +53,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
@@ -56,8 +61,11 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.network.NetworkHooks;
+import org.lwjgl.glfw.GLFW;
 
 public final class ClientSmokeRunner {
     private static final String ENABLED_PROPERTY = "appliedpackaging.clientSmoke.enabled";
@@ -82,6 +90,8 @@ public final class ClientSmokeRunner {
             mePackagerField("renderedBox");
     private static final Method ADVANCED_PATTERN_OPEN_COLUMN_EDITOR =
             advancedPatternScreenMethod("openColumnEditor", int.class);
+    private static final Method MOUSE_HANDLER_ON_MOVE =
+            mouseHandlerMethod("onMove", long.class, double.class, double.class);
     private static final PackageColor[] WORLD_SMOKE_PACKAGE_COLORS = {
             PackageColor.FLUIX,
             PackageColor.BLUE,
@@ -114,8 +124,10 @@ public final class ClientSmokeRunner {
     private int finishTicks;
     private boolean screenPrepared;
     private boolean screenCaptureRequested;
+    private boolean packageSettingsCapturePending;
     private boolean advancedEditorCapturePending;
     private volatile boolean screenshotPending;
+    private volatile String pendingScreenCaptureId;
     private boolean setupRequested;
     private volatile boolean setupComplete;
     private volatile RuntimeException setupFailure;
@@ -133,6 +145,7 @@ public final class ClientSmokeRunner {
                     "Applied Packaging client smoke enabled; waiting for quick-play world '{}'",
                     System.getProperty(WORLD_PROPERTY, "New World"));
             MinecraftForge.EVENT_BUS.addListener(INSTANCE::clientTick);
+            MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, INSTANCE::screenRendered);
         }
     }
 
@@ -219,18 +232,19 @@ public final class ClientSmokeRunner {
                         part.getAdvancedPatternState().setColor(0, PackageColor.RED);
                         part.getAdvancedPatternState().setColor(1, PackageColor.BLUE);
                         part.getAdvancedPatternState().setColor(2, PackageColor.GREEN);
-                        part.getLogic().getEncodedInputInv().setStack(
+                        part.getAdvancedPatternState().inputs().setStack(
                                 0,
                                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32));
-                        part.getLogic().getEncodedInputInv().setStack(
-                                4,
+                        part.getAdvancedPatternState().inputs().setStack(
+                                AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE,
                                 new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16));
-                        part.getLogic().getEncodedInputInv().setStack(
-                                8,
+                        part.getAdvancedPatternState().inputs().setStack(
+                                AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE * 2,
                                 new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 8));
+                        ItemStack packageOutput = smokePackage(PackageColor.FLUIX, true);
                         part.getLogic().getEncodedOutputInv().setStack(
                                 0,
-                                new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+                                new GenericStack(AEItemKey.of(packageOutput), 1));
                         part.getLogic().getBlankPatternInv().setItemDirect(0, AEItems.BLANK_PATTERN.stack());
                     } else if (step.isAe2PatternEncodingTerminalPart()) {
                         PatternEncodingTerminalPart part = PartHelper.setPart(
@@ -242,6 +256,15 @@ public final class ClientSmokeRunner {
                         if (part == null) {
                             throw new IllegalStateException("Could not place AE2 pattern encoding terminal part at " + pos);
                         }
+                        PackageCraftingPatternLogicBridge packageLogic =
+                                (PackageCraftingPatternLogicBridge) part.getLogic();
+                        packageLogic.appliedpackaging$setPackageCraftingMode(true);
+                        packageLogic.appliedpackaging$setPackageCraftingColor(PackageColor.BLUE);
+                        packageLogic.appliedpackaging$getPackageCraftingMarkerInv()
+                                .setItemDirect(0, new ItemStack(Items.DIAMOND));
+                        part.getLogic().getEncodedInputInv().setStack(
+                                0,
+                                new GenericStack(AEItemKey.of(Items.OAK_LOG), 4));
                     } else if (step.isPart()) {
                         PackagePatternTerminalPart part = PartHelper.setPart(
                                 level,
@@ -475,8 +498,10 @@ public final class ClientSmokeRunner {
         screenTicks = 0;
         screenPrepared = false;
         screenCaptureRequested = false;
+        packageSettingsCapturePending = false;
         advancedEditorCapturePending = false;
         screenshotPending = false;
+        pendingScreenCaptureId = null;
         if (currentStep >= STEPS.length) {
             state = State.DONE;
             AppliedPackaging.LOGGER.info("Applied Packaging client smoke completed all screen captures");
@@ -572,6 +597,12 @@ public final class ClientSmokeRunner {
             return;
         }
 
+        if (step.isAdvancedPatternEncodingTerminalPart()
+                && !screenCaptureRequested
+                && !advancedEditorCapturePending
+                && minecraft.screen instanceof AdvancedPatternEncodingTermScreen advancedScreen) {
+            hoverAdvancedInputSlot(advancedScreen);
+        }
         if (screenCaptureRequested) {
             screenTicks++;
             if (screenshotPending) {
@@ -581,8 +612,25 @@ public final class ClientSmokeRunner {
                 return;
             }
             screenCaptureRequested = false;
+            if (packageSettingsCapturePending
+                    && minecraft.screen instanceof PatternEncodingTermScreen<?> patternEncodingScreen) {
+                packageSettingsCapturePending = false;
+                ((PackageCraftingPatternScreenBridge) patternEncodingScreen)
+                        .appliedpackaging$handlePackageSettingsKeyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                patternEncodingScreen.getMenu().clear();
+                closeCurrentScreen(minecraft);
+                return;
+            }
             if (advancedEditorCapturePending) {
                 closeCurrentScreen(minecraft);
+                return;
+            }
+            if (step.isAe2PatternEncodingTerminalPart()
+                    && minecraft.screen instanceof PatternEncodingTermScreen<?> patternEncodingScreen) {
+                ((PackageCraftingPatternScreenBridge) patternEncodingScreen)
+                        .appliedpackaging$openPackageSettings();
+                packageSettingsCapturePending = true;
+                screenTicks = 0;
                 return;
             }
             if (step.isAdvancedPatternEncodingTerminalPart()
@@ -600,18 +648,33 @@ public final class ClientSmokeRunner {
         if (screenTicks < SCREEN_READY_TICKS) {
             return;
         }
-        captureScreen(minecraft, advancedEditorCapturePending ? step.id() + "_editor" : step.id());
+        String captureId = packageSettingsCapturePending
+                ? step.id() + "_settings"
+                : advancedEditorCapturePending ? step.id() + "_editor" : step.id();
+        requestScreenCapture(captureId);
         screenCaptureRequested = true;
         screenTicks = 0;
     }
 
-    private void captureScreen(Minecraft minecraft, String id) {
-        if (screenshotPending) {
+    private void requestScreenCapture(String id) {
+        if (screenshotPending || pendingScreenCaptureId != null) {
             throw new IllegalStateException("Client smoke requested a second screenshot while one was still pending");
         }
-        String fileName = "appliedpackaging-client-smoke-" + id + ".png";
+        pendingScreenCaptureId = id;
         screenshotPending = true;
+    }
+
+    private void screenRendered(ScreenEvent.Render.Post event) {
+        String id = pendingScreenCaptureId;
+        if (id == null || event.getScreen() != Minecraft.getInstance().screen) {
+            return;
+        }
+        pendingScreenCaptureId = null;
+        String fileName = "appliedpackaging-client-smoke-" + id + ".png";
         try {
+            Minecraft minecraft = Minecraft.getInstance();
+            event.getGuiGraphics().flush();
+            minecraft.renderBuffers().bufferSource().endBatch();
             Screenshot.grab(minecraft.gameDirectory, fileName, minecraft.getMainRenderTarget(), message -> {
                 try {
                     AppliedPackaging.LOGGER.info(
@@ -643,11 +706,40 @@ public final class ClientSmokeRunner {
                     (PackageCraftingPatternMenuBridge) patternEncodingScreen.getMenu();
             bridge.appliedpackaging$setPackageCraftingMode(true);
             bridge.appliedpackaging$setPackageCraftingColor(PackageColor.BLUE);
-            bridge.appliedpackaging$setPackageCraftingName("Smoke Package");
         }
         if (step.isAdvancedPatternEncodingTerminalPart()
                 && screen instanceof AdvancedPatternEncodingTermScreen advancedScreen) {
             advancedScreen.getMenu().encode();
+            hoverAdvancedInputSlot(advancedScreen);
+        }
+    }
+
+    private static void hoverAdvancedInputSlot(AdvancedPatternEncodingTermScreen screen) {
+        Slot[] slots = screen.getMenu().getAdvancedInputSlots();
+        if (slots.length == 0) {
+            return;
+        }
+        Slot slot = slots[Math.min(1, slots.length - 1)];
+        hoverSlot(screen.getGuiLeft(), screen.getGuiTop(), slot);
+    }
+
+    private static void hoverSlot(int guiLeft, int guiTop, Slot slot) {
+        Minecraft minecraft = Minecraft.getInstance();
+        double scale = minecraft.getWindow().getGuiScale();
+        double targetX = (guiLeft + slot.x + 8) * scale;
+        double targetY = (guiTop + slot.y + 8) * scale;
+        GLFW.glfwSetCursorPos(
+                minecraft.getWindow().getWindow(),
+                targetX,
+                targetY);
+        try {
+            MOUSE_HANDLER_ON_MOVE.invoke(
+                    minecraft.mouseHandler,
+                    minecraft.getWindow().getWindow(),
+                    targetX,
+                    targetY);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not move the client smoke cursor", exception);
         }
     }
 
@@ -706,6 +798,16 @@ public final class ClientSmokeRunner {
             return method;
         } catch (NoSuchMethodException exception) {
             throw new IllegalStateException("Advanced Pattern Terminal smoke method is missing: " + name, exception);
+        }
+    }
+
+    private static Method mouseHandlerMethod(String name, Class<?>... parameterTypes) {
+        try {
+            Method method = MouseHandler.class.getDeclaredMethod(name, parameterTypes);
+            method.setAccessible(true);
+            return method;
+        } catch (NoSuchMethodException exception) {
+            throw new IllegalStateException("Client smoke mouse handler method is missing: " + name, exception);
         }
     }
 

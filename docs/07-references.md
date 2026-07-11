@@ -63,6 +63,20 @@ AE2 GitHub / Maven 信息
 
 ## AE2 玩法语义
 
+AE2 1.21.1 Pattern Encoding Terminal UI reference
+
+```text
+本地源码：build/reference/ae2-1.21.1
+主要文件：src/main/java/appeng/client/gui/me/items/PatternEncodingTermScreen.java
+             src/main/java/appeng/client/gui/me/items/CraftingEncodingPanel.java
+             src/main/java/appeng/client/gui/me/items/ProcessingEncodingPanel.java
+             src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json
+             src/main/resources/assets/ae2/screens/terminals/encoding/crafting.json
+用途：高级样板终端的 9 列终端主体、搜索/玩家栏基线、processing slot 行滚动与紧凑按钮视觉；2026-07-11 复核 AE2 main 后确认 small scroller、states 与 1.21.1 参考文件 SHA-256 相同，因此运行时复制的 states atlas 可同时代表当前 main 样式。
+版本边界：仅作客户端视觉/交互参考，运行时依赖仍是 AE2 15.4.10 Forge。
+许可证：LGPL-3.0-or-later；本地适配 atlas 的许可证文本打包至 META-INF/licenses/ae2-LGPL-3.0-or-later.txt。
+```
+
 AE2 1.20.1 Pattern Provider 指南
 
 ```text

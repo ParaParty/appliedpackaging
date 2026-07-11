@@ -21,6 +21,7 @@ public final class ColoredProcessingPatternDataStorage {
     private static final String SLOT = "slot";
     private static final String COLOR = "color";
     private static final String AE2_PROCESSING_INPUTS = "in";
+    private static final String AE2_PROCESSING_OUTPUTS = "out";
     private static final int CURRENT_VERSION = 1;
 
     private ColoredProcessingPatternDataStorage() {
@@ -91,12 +92,20 @@ public final class ColoredProcessingPatternDataStorage {
     }
 
     public static List<GenericStack> readSparseInputs(ItemStack stack) {
-        if (!stack.hasTag() || !stack.getTag().contains(AE2_PROCESSING_INPUTS, Tag.TAG_LIST)) {
+        return readSparseStacks(stack, AE2_PROCESSING_INPUTS);
+    }
+
+    public static List<GenericStack> readSparseOutputs(ItemStack stack) {
+        return readSparseStacks(stack, AE2_PROCESSING_OUTPUTS);
+    }
+
+    private static List<GenericStack> readSparseStacks(ItemStack stack, String key) {
+        if (!stack.hasTag() || !stack.getTag().contains(key, Tag.TAG_LIST)) {
             return List.of();
         }
 
         List<GenericStack> inputs = new ArrayList<>();
-        for (Tag element : stack.getTag().getList(AE2_PROCESSING_INPUTS, Tag.TAG_COMPOUND)) {
+        for (Tag element : stack.getTag().getList(key, Tag.TAG_COMPOUND)) {
             if (!(element instanceof CompoundTag entry) || entry.isEmpty()) {
                 inputs.add(null);
                 continue;

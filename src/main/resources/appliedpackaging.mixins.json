@@ -12,9 +12,15 @@
     "PatternEncodingTermMenuMixin"
   ],
   "client": [
+    "client.AEBaseScreenPackageSettingsMixin",
     "client.AbstractContainerScreenAccessor",
     "client.CraftingEncodingPanelMixin",
+    "client.EncodingModePanelAccessor",
+    "client.MEStorageScreenAccessor",
+    "client.MEStorageScreenPackageSettingsMixin",
+    "client.ScrollbarAccessor",
     "client.SlotAccessor",
+    "client.ProcessingEncodingPanelMixin",
     "client.PatternEncodingTermScreenMixin"
   ],
   "injectors": {

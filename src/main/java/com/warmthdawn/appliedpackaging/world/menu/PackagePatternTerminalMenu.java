@@ -32,11 +32,11 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
     public static final int BUTTON_ENCODE = 0;
     public static final int BUTTON_SPLIT = 1;
     public static final int BUTTON_COLOR_BASE = 10;
-    public static final int BUTTON_INPUT_COLOR_BASE = 40;
     public static final int BUTTON_INPUT_COLOR_CLEAR_BASE = 60;
     public static final int BUTTON_OUTPUT_AMOUNT_INCREASE_BASE = 80;
     public static final int BUTTON_OUTPUT_AMOUNT_DECREASE_BASE =
             BUTTON_OUTPUT_AMOUNT_INCREASE_BASE + PackagePatternTerminalBlockEntity.PROCESSING_OUTPUT_SLOT_COUNT;
+    public static final int BUTTON_INPUT_COLOR_SELECT_BASE = 100;
 
     public static final int ITEM_HANDLER_SLOT_COUNT = 13;
     public static final int PROCESSING_OUTPUT_START = ITEM_HANDLER_SLOT_COUNT;
@@ -100,16 +100,20 @@ public class PackagePatternTerminalMenu extends AbstractContainerMenu {
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
-        if (id >= BUTTON_COLOR_BASE && id < BUTTON_COLOR_BASE + PackageColor.values().length) {
+        int inputColorSelection = id - BUTTON_INPUT_COLOR_SELECT_BASE;
+        int inputColorSelectionCount = PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT
+                * PackageColor.values().length;
+        if (inputColorSelection >= 0 && inputColorSelection < inputColorSelectionCount) {
             if (!player.level().isClientSide) {
-                terminal.setSelectedColor(PackageColor.values()[id - BUTTON_COLOR_BASE]);
+                int slot = inputColorSelection / PackageColor.values().length;
+                int color = inputColorSelection % PackageColor.values().length;
+                terminal.setInputSlotColor(slot, PackageColor.values()[color]);
             }
             return true;
         }
-        if (id >= BUTTON_INPUT_COLOR_BASE
-                && id < BUTTON_INPUT_COLOR_BASE + PackagePatternTerminalBlockEntity.INPUT_SLOT_COUNT) {
+        if (id >= BUTTON_COLOR_BASE && id < BUTTON_COLOR_BASE + PackageColor.values().length) {
             if (!player.level().isClientSide) {
-                terminal.setInputSlotColor(id - BUTTON_INPUT_COLOR_BASE, terminal.selectedColor());
+                terminal.setSelectedColor(PackageColor.values()[id - BUTTON_COLOR_BASE]);
             }
             return true;
         }

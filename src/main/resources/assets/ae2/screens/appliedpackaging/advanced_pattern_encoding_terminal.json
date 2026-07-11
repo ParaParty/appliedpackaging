@@ -5,30 +5,30 @@
   ],
   "slots": {
     "PROCESSING_INPUTS": {
-      "left": 22,
-      "bottom": 171,
+      "left": 23,
+      "bottom": 167,
       "grid": "VERTICAL"
     },
     "PROCESSING_OUTPUTS": {
-      "left": 120,
-      "bottom": 171,
+      "left": 129,
+      "bottom": 167,
       "grid": "VERTICAL"
     },
     "BLANK_PATTERN": {
-      "left": 165,
-      "bottom": 169
+      "left": 166,
+      "bottom": 166
     },
     "ENCODED_PATTERN": {
-      "left": 165,
+      "left": 166,
       "bottom": 119
     },
     "PLAYER_INVENTORY": {
-      "left": 25,
+      "left": 8,
       "bottom": 84,
       "grid": "BREAK_AFTER_9COLS"
     },
     "PLAYER_HOTBAR": {
-      "left": 25,
+      "left": 8,
       "bottom": 26,
       "grid": "HORIZONTAL"
     },
@@ -41,11 +41,20 @@
   "text": {
     "dialog_title": {
       "text": {
-        "translate": "gui.appliedpackaging.advanced_pattern_terminal.short_title"
+        "translate": "gui.ae2.Terminal"
       },
       "position": {
         "left": 8,
         "top": 6
+      }
+    },
+    "crafting_grid_title": {
+      "text": {
+        "translate": "gui.ae2.PatternEncoding"
+      },
+      "position": {
+        "left": 8,
+        "bottom": 194
       }
     },
     "player_inventory_title": {
@@ -53,74 +62,88 @@
         "translate": "container.inventory"
       },
       "position": {
-        "left": 25,
+        "left": 8,
         "bottom": 95
+      }
+    },
+    "entriesShown": {
+      "color": "DEFAULT_TEXT_COLOR",
+      "align": "RIGHT",
+      "scale": 0.6,
+      "position": {
+        "right": 26,
+        "top": 8
       }
     }
   },
   "terminalStyle": {
-    "slotsPerRow": 10,
+    "slotsPerRow": 9,
     "header": {
       "texture": "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal.png",
-      "textureWidth": 230,
-      "textureHeight": 260,
-      "srcRect": [0, 0, 230, 17]
+      "textureWidth": 256,
+      "textureHeight": 256,
+      "srcRect": [0, 0, 195, 17]
     },
     "firstRow": {
       "texture": "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal.png",
-      "textureWidth": 230,
-      "textureHeight": 260,
-      "srcRect": [0, 17, 230, 18]
+      "textureWidth": 256,
+      "textureHeight": 256,
+      "srcRect": [0, 17, 195, 18]
     },
     "row": {
-      "texture": "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal.png",
-      "textureWidth": 230,
-      "textureHeight": 260,
-      "srcRect": [0, 35, 230, 18]
+      "texture": "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal_middle_row.png",
+      "textureWidth": 195,
+      "textureHeight": 18,
+      "srcRect": [0, 0, 195, 18]
     },
     "lastRow": {
       "texture": "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal.png",
-      "textureWidth": 230,
-      "textureHeight": 260,
-      "srcRect": [0, 53, 230, 18]
+      "textureWidth": 256,
+      "textureHeight": 256,
+      "srcRect": [0, 35, 195, 18]
     },
     "bottom": {
       "texture": "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal.png",
-      "textureWidth": 230,
-      "textureHeight": 260,
-      "srcRect": [0, 71, 230, 187]
+      "textureWidth": 256,
+      "textureHeight": 256,
+      "srcRect": [0, 53, 195, 197]
     }
   },
   "widgets": {
     "encodePattern": {
-      "left": 165,
+      "left": 166,
       "bottom": 146
     },
-    "processingClearPattern": {
-      "left": 145,
-      "bottom": 171
+    "processingPatternModeScrollbar": {
+      "left": 14,
+      "bottom": 167,
+      "height": 52
     },
     "processingCycleOutput": {
-      "left": 145,
-      "bottom": 153
+      "left": 108,
+      "bottom": 177,
+      "width": 8,
+      "height": 8
     },
     "scrollbar": {
-      "left": 210,
+      "left": 175,
       "top": 18
     },
     "craftingStatus": {
-      "left": 205,
-      "top": -4,
-      "hideEdge": true
+      "left": 171,
+      "top": -5,
+      "hideEdge": false,
+      "width": 20,
+      "height": 20
     },
     "viewCells": {
-      "right": -2,
+      "right": 800,
       "top": 0
     },
     "search": {
-      "left": 92,
+      "left": 80,
       "top": 4,
-      "width": 112,
+      "width": 89,
       "height": 12
     }
   }

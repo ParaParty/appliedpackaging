@@ -26,17 +26,18 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkHooks;
 
 public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
     private static final String ACTION_ADD_COLUMN = "apAdvancedAddColumn";
     private static final String ACTION_SET_COLUMN_COLOR = "apAdvancedSetColumnColor";
-    private static final String ACTION_SET_COLUMN_NAME = "apAdvancedSetColumnName";
+    private static final String ACTION_CLEAR_OR_DELETE_COLUMN = "apAdvancedClearOrDeleteColumn";
 
     private final AdvancedPatternEncodingTerminalHost advancedHost;
-    private final FakeSlot[] markerSlots =
-            new FakeSlot[AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS];
+    private final FakeSlot[] advancedInputSlots =
+            new FakeSlot[AdvancedProcessingPatternDataStorage.MAX_INPUT_SLOTS];
 
     @GuiSync(76)
     public ColumnSyncData columnData = ColumnSyncData.empty();
@@ -48,17 +49,17 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         super(APMenus.ADVANCED_PATTERN_ENCODING_TERMINAL.get(), id, inventory, host, true);
         this.advancedHost = host;
 
-        var markerInventory = host.getAdvancedPatternState().markers().createMenuWrapper();
-        for (int column = 0; column < markerSlots.length; column++) {
-            FakeSlot markerSlot = new FakeSlot(markerInventory, column);
-            markerSlot.setHideAmount(true);
-            markerSlots[column] = markerSlot;
-            addSlot(markerSlot, SlotSemantics.CONFIG);
+        var advancedInputs = host.getAdvancedPatternState().inputs().createMenuWrapper();
+        for (int slot = 0; slot < advancedInputSlots.length; slot++) {
+            FakeSlot inputSlot = new FakeSlot(advancedInputs, slot);
+            advancedInputSlots[slot] = inputSlot;
+            addSlot(inputSlot, SlotSemantics.PROCESSING_INPUTS);
         }
+        getProcessingOutputSlots()[0].setIcon(null);
 
         registerClientAction(ACTION_ADD_COLUMN, this::applyAddColumn);
         registerClientAction(ACTION_SET_COLUMN_COLOR, ColumnColorAction.class, this::applyColumnColor);
-        registerClientAction(ACTION_SET_COLUMN_NAME, ColumnNameAction.class, this::applyColumnName);
+        registerClientAction(ACTION_CLEAR_OR_DELETE_COLUMN, Integer.class, this::applyClearOrDeleteColumn);
 
         if (isServerSide()) {
             host.getLogic().setMode(EncodingMode.PROCESSING);
@@ -138,7 +139,7 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         int activeInputSlots = advancedState().activeColumns()
                 * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
         for (int slot = 0; slot < activeInputSlots; slot++) {
-            inputs[slot] = advancedHost.getLogic().getEncodedInputInv().getStack(slot);
+            inputs[slot] = advancedState().inputs().getStack(slot);
             hasInput |= inputs[slot] != null && inputs[slot].amount() > 0;
         }
         if (!hasInput) {
@@ -157,12 +158,13 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         AdvancedProcessingPatternDataStorage.write(
                 pattern,
                 new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(
-                        advancedState().columns()));
+                        advancedState().columns(outputs[0])));
         return pattern;
     }
 
     public int activeColumns() {
-        return Math.max(1, Math.min(columnData.activeColumns(), markerSlots.length));
+        return Math.max(1,
+                Math.min(columnData.activeColumns(), AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS));
     }
 
     public PackageColor columnColor(int column) {
@@ -172,19 +174,8 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         return PackageColor.byId(columnData.colors().get(column)).orElse(PackageColor.FLUIX);
     }
 
-    public String columnName(int column) {
-        if (column < 0 || column >= columnData.names().size()) {
-            return "";
-        }
-        return columnData.names().get(column);
-    }
-
-    public FakeSlot markerSlot(int column) {
-        return markerSlots[column];
-    }
-
-    public FakeSlot[] markerSlots() {
-        return markerSlots;
+    public FakeSlot[] getAdvancedInputSlots() {
+        return advancedInputSlots;
     }
 
     public void addColumn() {
@@ -204,13 +195,12 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         applyColumnColor(action);
     }
 
-    public void setColumnName(int column, String name) {
-        ColumnNameAction action = new ColumnNameAction(column, name == null ? "" : name);
+    public void clearOrDeleteColumn(int column) {
         if (isClientSide()) {
-            sendClientAction(ACTION_SET_COLUMN_NAME, action);
+            sendClientAction(ACTION_CLEAR_OR_DELETE_COLUMN, column);
             return;
         }
-        applyColumnName(action);
+        applyClearOrDeleteColumn(column);
     }
 
     private void applyAddColumn() {
@@ -228,12 +218,36 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         columnData = ColumnSyncData.from(advancedState());
     }
 
-    private void applyColumnName(ColumnNameAction action) {
-        if (action.column() < 0 || action.column() >= advancedState().activeColumns()) {
+    private void applyClearOrDeleteColumn(Integer column) {
+        if (column == null || column < 0 || column >= advancedState().activeColumns()) {
             return;
         }
-        advancedState().setName(action.column(), action.name());
+        advancedState().clearOrDeleteColumn(column);
         columnData = ColumnSyncData.from(advancedState());
+    }
+
+    @Override
+    public boolean canModifyAmountForSlot(Slot slot) {
+        if (slot != null && slot.hasItem()) {
+            for (FakeSlot advancedInputSlot : advancedInputSlots) {
+                if (advancedInputSlot == slot) {
+                    return true;
+                }
+            }
+        }
+        return super.canModifyAmountForSlot(slot);
+    }
+
+    @Override
+    public boolean isProcessingPatternSlot(Slot slot) {
+        if (slot != null) {
+            for (FakeSlot advancedInputSlot : advancedInputSlots) {
+                if (advancedInputSlot == slot) {
+                    return true;
+                }
+            }
+        }
+        return super.isProcessingPatternSlot(slot);
     }
 
     private AdvancedPatternEncodingState advancedState() {
@@ -243,15 +257,11 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
     public record ColumnColorAction(int column, String color) {
     }
 
-    public record ColumnNameAction(int column, String name) {
-    }
-
-    public record ColumnSyncData(int activeColumns, List<String> colors, List<String> names)
+    public record ColumnSyncData(int activeColumns, List<String> colors)
             implements PacketWritable {
         public ColumnSyncData(FriendlyByteBuf buffer) {
             this(
                     buffer.readVarInt(),
-                    buffer.readList(FriendlyByteBuf::readUtf),
                     buffer.readList(FriendlyByteBuf::readUtf));
         }
 
@@ -259,34 +269,28 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
             activeColumns = Math.max(1,
                     Math.min(activeColumns, AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS));
             colors = List.copyOf(colors);
-            names = List.copyOf(names);
         }
 
         public static ColumnSyncData empty() {
             List<String> colors = new ArrayList<>();
-            List<String> names = new ArrayList<>();
             for (int i = 0; i < AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS; i++) {
                 colors.add(PackageColor.FLUIX.id());
-                names.add("");
             }
-            return new ColumnSyncData(1, colors, names);
+            return new ColumnSyncData(1, colors);
         }
 
         public static ColumnSyncData from(AdvancedPatternEncodingState state) {
             List<String> colors = new ArrayList<>();
-            List<String> names = new ArrayList<>();
             for (int column = 0; column < AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS; column++) {
                 colors.add(state.color(column).id());
-                names.add(state.name(column));
             }
-            return new ColumnSyncData(state.activeColumns(), colors, names);
+            return new ColumnSyncData(state.activeColumns(), colors);
         }
 
         @Override
         public void writeToPacket(FriendlyByteBuf buffer) {
             buffer.writeVarInt(activeColumns);
             buffer.writeCollection(colors, FriendlyByteBuf::writeUtf);
-            buffer.writeCollection(names, FriendlyByteBuf::writeUtf);
         }
     }
 }

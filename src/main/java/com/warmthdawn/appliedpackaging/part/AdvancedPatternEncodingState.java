@@ -1,15 +1,12 @@
 package com.warmthdawn.appliedpackaging.part;
 
-import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
-import appeng.core.definitions.AEItems;
 import appeng.util.ConfigInventory;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
-import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
-import com.warmthdawn.appliedpackaging.item.PackageItem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,21 +22,22 @@ public final class AdvancedPatternEncodingState {
     private static final String COLUMNS = "columns";
     private static final String INDEX = "index";
     private static final String COLOR = "color";
-    private static final String NAME = "name";
-    private static final String MARKERS = "markers";
+    private static final String INPUTS = "inputs";
 
     private final Runnable changeListener;
     private final PackageColor[] colors = new PackageColor[AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS];
-    private final String[] names = new String[AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS];
-    private final ConfigInventory markers;
+    private final ConfigInventory inputs;
     private int activeColumns = 1;
     private boolean loading;
 
     public AdvancedPatternEncodingState(Runnable changeListener) {
         this.changeListener = changeListener;
         Arrays.fill(colors, PackageColor.FLUIX);
-        Arrays.fill(names, "");
-        markers = ConfigInventory.configTypes(this::isAllowedMarker, colors.length, this::changed);
+        inputs = ConfigInventory.configStacks(
+                null,
+                AdvancedProcessingPatternDataStorage.MAX_INPUT_SLOTS,
+                this::changed,
+                true);
     }
 
     public int activeColumns() {
@@ -58,8 +56,55 @@ public final class AdvancedPatternEncodingState {
         if (activeColumns >= colors.length) {
             return false;
         }
+        colors[activeColumns] = PackageColor.FLUIX;
+        clearColumnInputs(activeColumns);
         setActiveColumns(activeColumns + 1);
         return true;
+    }
+
+    /** Clears a non-empty column; an empty column is removed and following columns move left. */
+    public boolean clearOrDeleteColumn(int column) {
+        checkActiveColumn(column);
+        if (columnHasInput(column)) {
+            clearColumnInputs(column);
+            return false;
+        }
+        if (activeColumns == 1) {
+            return false;
+        }
+
+        loading = true;
+        inputs.beginBatch();
+        try {
+            for (int current = column; current < activeColumns - 1; current++) {
+                colors[current] = colors[current + 1];
+                copyColumnInputs(current + 1, current);
+            }
+            int oldLastColumn = activeColumns - 1;
+            colors[oldLastColumn] = PackageColor.FLUIX;
+            int oldLastStart = oldLastColumn * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+            for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
+                inputs.setStack(oldLastStart + row, null);
+            }
+            activeColumns--;
+        } finally {
+            inputs.endBatch();
+            loading = false;
+        }
+        changed();
+        return true;
+    }
+
+    public boolean columnHasInput(int column) {
+        checkColumn(column);
+        int firstSlot = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+        int endSlot = firstSlot + AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+        for (int slot = firstSlot; slot < endSlot; slot++) {
+            if (inputs.getStack(slot) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void reset() {
@@ -78,7 +123,7 @@ public final class AdvancedPatternEncodingState {
     }
 
     public void setColor(int column, PackageColor color) {
-        checkColumn(column);
+        checkActiveColumn(column);
         PackageColor value = color == null ? PackageColor.FLUIX : color;
         if (colors[column] != value) {
             colors[column] = value;
@@ -86,32 +131,20 @@ public final class AdvancedPatternEncodingState {
         }
     }
 
-    public String name(int column) {
-        checkColumn(column);
-        return names[column];
+    public ConfigInventory inputs() {
+        return inputs;
     }
 
-    public void setName(int column, String name) {
-        checkColumn(column);
-        String value = PackageCraftingPatternDataStorage.sanitizePackageName(name);
-        if (!names[column].equals(value)) {
-            names[column] = value;
-            changed();
-        }
-    }
-
-    public ConfigInventory markers() {
-        return markers;
-    }
-
-    public List<AdvancedProcessingPatternDataStorage.PackageColumn> columns() {
+    public List<AdvancedProcessingPatternDataStorage.PackageColumn> columns(GenericStack primaryOutput) {
+        Optional<MarkerSpec> marker = primaryOutput != null && primaryOutput.what() instanceof AEItemKey
+                ? Optional.of(new MarkerSpec(new GenericStack(primaryOutput.what(), 1)))
+                : Optional.empty();
         List<AdvancedProcessingPatternDataStorage.PackageColumn> result = new ArrayList<>(activeColumns);
         for (int column = 0; column < activeColumns; column++) {
             result.add(new AdvancedProcessingPatternDataStorage.PackageColumn(
                     column,
                     colors[column],
-                    names[column],
-                    marker(column)));
+                    marker));
         }
         return List.copyOf(result);
     }
@@ -120,31 +153,36 @@ public final class AdvancedPatternEncodingState {
         loading = true;
         try {
             resetValues();
+            List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(pattern);
+            inputs.beginBatch();
+            try {
+                for (int slot = 0; slot < Math.min(sparseInputs.size(), inputs.size()); slot++) {
+                    inputs.setStack(slot, sparseInputs.get(slot));
+                }
+            } finally {
+                inputs.endBatch();
+            }
+
             Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> encoded =
                     AdvancedProcessingPatternDataStorage.read(pattern);
             if (encoded.isPresent()) {
                 activeColumns = encoded.get().activeColumnCount();
                 for (var column : encoded.get().columns()) {
                     colors[column.index()] = column.color();
-                    names[column.index()] = column.packageName();
-                    column.marker().ifPresent(marker -> markers.setStack(
-                            column.index(),
-                            new GenericStack(marker.stack().what(), 1)));
                 }
             } else {
-                List<GenericStack> sparseInputs =
-                        com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage
-                                .readSparseInputs(pattern);
                 int lastInput = -1;
-                for (int slot = 0; slot < Math.min(sparseInputs.size(),
-                        AdvancedProcessingPatternDataStorage.MAX_INPUT_SLOTS); slot++) {
+                for (int slot = 0; slot < Math.min(sparseInputs.size(), inputs.size()); slot++) {
                     if (sparseInputs.get(slot) != null) {
                         lastInput = slot;
                     }
                 }
-                activeColumns = Math.max(1,
-                        Math.min(colors.length,
-                                lastInput < 0 ? 1
+                activeColumns = Math.max(
+                        1,
+                        Math.min(
+                                colors.length,
+                                lastInput < 0
+                                        ? 1
                                         : lastInput / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE + 1));
             }
         } finally {
@@ -168,9 +206,8 @@ public final class AdvancedPatternEncodingState {
                     continue;
                 }
                 colors[column] = PackageColor.byId(columnTag.getString(COLOR)).orElse(PackageColor.FLUIX);
-                names[column] = PackageCraftingPatternDataStorage.sanitizePackageName(columnTag.getString(NAME));
             }
-            markers.readFromChildTag(state, MARKERS);
+            inputs.readFromChildTag(state, INPUTS);
         } finally {
             loading = false;
         }
@@ -184,40 +221,69 @@ public final class AdvancedPatternEncodingState {
             CompoundTag columnTag = new CompoundTag();
             columnTag.putInt(INDEX, column);
             columnTag.putString(COLOR, colors[column].id());
-            if (!names[column].isBlank()) {
-                columnTag.putString(NAME, names[column]);
-            }
             columns.add(columnTag);
         }
         state.put(COLUMNS, columns);
-        markers.writeToChildTag(state, MARKERS);
+        inputs.writeToChildTag(state, INPUTS);
         data.put(STATE_TAG, state);
     }
 
-    private Optional<MarkerSpec> marker(int column) {
-        var marker = markers.getKey(column);
-        if (!AEItemKey.is(marker)) {
-            return Optional.empty();
+    public void migrateLegacyInputs(ConfigInventory legacyInputs) {
+        if (hasAnyInput() || legacyInputs == null) {
+            return;
         }
-        return Optional.of(new MarkerSpec(new GenericStack(marker, 1)));
+        loading = true;
+        inputs.beginBatch();
+        try {
+            for (int slot = 0; slot < Math.min(legacyInputs.size(), inputs.size()); slot++) {
+                inputs.setStack(slot, legacyInputs.getStack(slot));
+            }
+        } finally {
+            inputs.endBatch();
+            loading = false;
+        }
+        changed();
     }
 
-    private boolean isAllowedMarker(appeng.api.stacks.AEKey key) {
-        if (!(key instanceof AEItemKey itemKey)) {
-            return false;
+    private boolean hasAnyInput() {
+        for (int slot = 0; slot < inputs.size(); slot++) {
+            if (inputs.getStack(slot) != null) {
+                return true;
+            }
         }
-        ItemStack stack = itemKey.toStack();
-        return !stack.isEmpty()
-                && !(stack.getItem() instanceof PackageItem)
-                && !AEItems.BLANK_PATTERN.isSameAs(stack)
-                && !PatternDetailsHelper.isEncodedPattern(stack);
+        return false;
+    }
+
+    private void copyColumnInputs(int sourceColumn, int targetColumn) {
+        int sourceStart = sourceColumn * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+        int targetStart = targetColumn * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+        for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
+            inputs.setStack(targetStart + row, inputs.getStack(sourceStart + row));
+        }
+    }
+
+    private void clearColumnInputs(int column) {
+        int firstSlot = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+        inputs.beginBatch();
+        try {
+            for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
+                inputs.setStack(firstSlot + row, null);
+            }
+        } finally {
+            inputs.endBatch();
+        }
     }
 
     private void resetValues() {
         activeColumns = 1;
         Arrays.fill(colors, PackageColor.FLUIX);
-        Arrays.fill(names, "");
-        markers.clear();
+        inputs.clear();
+    }
+
+    private void checkActiveColumn(int column) {
+        if (column < 0 || column >= activeColumns) {
+            throw new IndexOutOfBoundsException(column);
+        }
     }
 
     private void checkColumn(int column) {

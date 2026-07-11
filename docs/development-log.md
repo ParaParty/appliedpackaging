@@ -2762,10 +2762,247 @@ GameTest：已考虑并运行。本轮改变菜单网络同步边界，属于行
   三种总线已覆盖 REQUIRE_CHANNEL、目标面隔离、Storage Bus 在线重挂载、Export/Unpacking 过滤在线更新、真实 AE Drive 端点与失败恢复。
   全仓 TODO/FIXME/UnsupportedOperationException 扫描未发现新的功能占位；命中的 placeholder 仅为合法输入框文案，return null 仅为无命中/无可编码结果语义。
   docs/05、06、08 已把过期的 112/138 GameTest、6 张截图和 IN-001/IN-002 待输入记录更新为当前 170 个 GameTest、10 张截图与唯一 IN-003 待输入项。
-  当前没有已知未实现的非 UI 项；未完成项明确为 IN-003 正式 UI/模型/动画描述与实现，以及该范围后的 client smoke、最终 dedicated server world-load 和 tag 就绪门禁。
+当前没有已知未实现的非 UI 项；未完成项明确为 IN-003 正式 UI/模型/动画描述与实现，以及该范围后的 client smoke、最终 dedicated server world-load 和 tag 就绪门禁。
 
 验证 .\gradlew.bat compileJava --stacktrace 成功，任务 up-to-date
 首次单独 verify-release 读取 client latest.log 时，仅因 Mojang Realms 对开发占位 token 0 的 SignedJWT 解析异常命中通用 Exception 关键字；资源、模型、jar 和 10 张截图均已通过。
 验证 scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke 成功；dedicated server 进入世界并出现 Done (3.435s)，25565 端口清理完成，刷新后的 release audit、asset audit 和 docs audit 全部通过。
 GameTest：已复查既有覆盖；本轮仅修正收尾文档，不改变样板、总线、事务、网络或物品移动语义，因此不新增 GameTest；最新行为基线仍为 170 个必需 GameTest 全部通过。
 ```
+
+最新进展：
+
+```text
+按用户最终视觉接入 Advanced Pattern Terminal：
+  直接导入 E:\resources\textures\appliedpackaging\ret\adv-pattern-terminal-base.png 与 sprite.png，没有缩放、重绘或清理像素；目标文件 SHA-256 分别保持 660EF8C5379F1131E4D3D773FD43EE9954DE1F0FCE278DF78C30F75D9B5563F6 和 07D81B889A00D2E80113DCEDF58EAB188A694BFB47DB1D2F5B488AF242D901CF。
+  对照本地 AE2 1.21.1 PatternEncodingTermScreen、ProcessingEncodingPanel 与 ScreenStyle JSON，将终端恢复为 195x250、9 列网络库存、AE2 标题/搜索/玩家栏基线；运行时仍保持 AE2 15.4.10 Forge。
+  中间编码区按最终图显示 4 列 x 3 行真实输入和 3 行真实输出；逻辑上的第 4 行由左侧 AE2 Scrollbar 同步滚动输入/输出，底部水平滚动条只滚动最多 17 个包裹列。
+  启用列使用 8x8 颜色 swatch 与编辑按钮，第一未启用列只显示加号，后续列只保留禁用底色；不绘制 processing ghost 物品。编码、清空、网络滚动与左侧工具栏继续复用 AE2 控件/行为。
+  base/sprite atlas 作为 AE2 高版本适配资源标记为 LGPL-3.0-or-later；打包许可证与本地 AE2 1.21.1 LICENSE 的 SHA-256 均为 39676552FD16D3317F6E6AF4CF810778060CDA238F75DAC9B27C0FCBE848D3D4。
+  clientSmoke 视口改为 960x540，使 250px 高主体在 GUI scale 2 下完整显示，不压缩用户提供的 atlas。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；12 张截图全部生成并正常退出，人工检查高级终端主界面完整无裁切，标题、9 列网络库存、输入/输出区、左右滚动语义、样板区与玩家栏对齐最终视觉
+验证编辑层源 PNG 像素正常；图片查看工具显示的顶部/玩家栏黑块不是源截图内容，实际黑色仅为包裹名称输入框
+验证 run/logs/latest.log 按 ERROR|Exception|missing texture|Missing model|Failed to read Screen JSON|Mixin apply failed|InvalidInjectionException|IllegalClassLoadError|Timed out|timeout 扫描无命中
+验证 scripts/verify-assets.ps1 成功，145 个 PNG 通过资源门禁
+验证 scripts/test-assets-audit.ps1 成功，新增错误 advanced base/sprite 尺寸 fixture 均按预期失败
+验证 scripts/verify-docs.ps1 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，170 个 required GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，232 个发布资源与 jar 同步、145 个 PNG 非空、10 张必需截图有效，日志无发布阻断关键字
+GameTest：已考虑并运行。UI 调整本身不需要新增服务端测试；为确认现有高级样板编码、菜单和装配室行为未回归，复跑全部 170 个必需 GameTest。
+未完成项：等待用户对本次高级终端视觉验收；IN-003 其余 UI/模型/动画范围仍等待后续描述，最终 dedicated server world-load 与 tag 门禁继续保留到完整范围冻结后执行。
+```
+
+最新进展：
+
+```text
+按用户最终视觉重做 AE2 原版 Pattern Encoding Terminal 的包裹样板模式：
+  直接导入 E:\resources\textures\appliedpackaging\ret\pattern_mode_packaging.png 到 textures/gui/pattern_mode_packaging.png，没有缩放、重绘或清理像素；源/目标 SHA-256 均为 EC8BCE5C68A1DFB36ADB7A3BA2321600AF189089C87AF9B2CF41ED9D9EB2B9D7。
+  对照 AE2 1.21.1 CraftingEncodingPanel 与 encoding/crafting.json，以 124x66 用户 atlas 替换 1.20.1 的 126x68 crafting panel；3x3 输入、marker 和自动输出分别使用高版本 left/bottom 坐标 15/158、106/155、106/140。
+  主面板删除常驻名称框和整块 17 色色板，只保留 sprite 清空按钮、当前颜色设置按钮、3x3 输入、marker 与自动输出；包裹模式 tab 使用 sprite 中的 12x14 包裹图标。
+  点击颜色设置按钮会打开覆盖同一模式面板的颜色/名称编辑层；打开期间 crafting grid、marker 和输出槽停用，点击、释放、拖拽、滚轮、按键和字符输入全部由编辑层拦截，点击外部只关闭弹层。
+  client smoke 新增 appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png，发布门禁从 10 张必需截图扩展到 11 张。
+  主界面截图从物理坐标 (300,170) 读取 124x66 面板，排除两个动态按钮后与用户 atlas 为 0/8056 像素差异；示例颜色不同仅因为 smoke 固定使用 BLUE。
+  第一次 client smoke 暴露 Mixin 内部 widget 直接加载导致 IllegalClassLoadError；将控件迁到正常 client.widget 包后复跑通过，没有保留失败结构。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；主界面与颜色/名称设置层截图均生成，人工和源 PNG 像素检查通过
+验证 run/logs/latest.log 发布阻断关键字扫描无命中
+验证 scripts/verify-assets.ps1 成功，146 个 PNG 通过资源门禁
+验证 scripts/test-assets-audit.ps1 成功，错误 package pattern mode atlas 尺寸 fixture 按预期失败
+验证 scripts/test-release-audit.ps1 成功，11 张截图正例及现有缺图/资源/元数据负例均按预期通过或失败
+验证 scripts/verify-docs.ps1 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，170 个 required GameTest 全部通过
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，233 个发布资源与 jar 同步、146 个 PNG 非空、11 张必需截图有效、145 个双语 key 对齐，日志无发布阻断关键字
+GameTest：已考虑并运行。本轮只改变客户端面板、控件与事件拦截，不新增服务端行为测试；复跑全部 170 个必需 GameTest，确认 client-only Mixin 不污染服务端加载且既有包裹样板语义无回归。
+未完成项：等待用户对原版终端包裹模式和高级终端视觉验收；IN-003 其余 UI/模型/动画范围仍等待后续描述。
+```
+
+最新进展：
+
+```text
+修正 Advanced Pattern Encoding Terminal 的拉伸、控件样式、列编辑和编码语义：
+  动态终端背景改为 header、首行、重复中间行、末行和固定底部五段组合；重复段不再截取包含下边框的第二行。额外合成六行网络库存预览并人工检查，行间无重复边框或断层。
+  右侧 blank/encoded pattern 槽与 Encode 按钮统一右移 1px，对齐用户 atlas 中的绘制位置；主产物叠加层、滚动 indicator、样板槽背景和 Encode 按钮改用当前 AE2 states atlas，左侧工具栏仍保留 1.20.1 AE2 控件。
+  将当前 AE2 states.png 复制为 advanced_pattern_encoding_terminal_states.png；本地 AE2 1.21.1 参考与官方当前源码资源 SHA-256 均为 0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55。
+  每列编辑区只保留颜色按钮和 X。颜色弹层只修改颜色，不再编辑名称；marker 固定为处理样板主产物，名称固定为空。
+  X 在列有物品时只清空该列；空列再次点击时删除并左移后续列；最后一列始终保留。新增 GameTest 覆盖清空后删除与后续列左移。
+  每列输入容量改为 AE2 默认处理样板上限 81，最多 17 列，共 1377 个配置槽。独立 advanced_processing_pattern 使用自定义 IPatternDetails 解码，避免 AE2 AEProcessingPattern 的 81 个总输入上限截断跨列输入，同时保持 Pattern Provider 与 Crafting CPU 的标准 IPatternDetails 路径。
+  EncodePattern 从扩展输入状态和 4 个处理输出编码独立高级样板物品，并在下方 encoded pattern 槽显示；编码测试覆盖第 81 索引的第二列输入、颜色、空名称、主产物 marker 及未启用列残留忽略。
+  首次 GameTest 复跑暴露旧测试仍把第二列输入写在索引 4；迁移到真实列起点 81 后全部通过，没有放宽断言。
+  首次 client smoke 暴露颜色弹层前后 flush 导致黑色批次块；移除多余 flush 后复跑，主界面与 17 色颜色弹层截图均正常。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runGameTestServer --stacktrace 成功，171 个 required GameTest 全部通过
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；人工检查高级终端主界面、颜色弹层和六行网络库存合成图，确认拉伸、槽位、按钮、滚动 indicator 与高级样板输出正确
+验证 run/logs/latest.log 发布阻断关键字扫描无命中
+验证 scripts/verify-assets.ps1 成功，147 个 PNG 通过资源门禁
+验证 scripts/test-assets-audit.ps1 成功，新增错误 states atlas 尺寸 fixture 按预期失败
+验证 scripts/test-release-audit.ps1 成功
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，234 个发布资源与 jar 同步、147 个 PNG 非空、11 张必需截图有效、144 个双语 key 对齐，日志无发布阻断关键字
+GameTest：已考虑、扩展并运行。本轮改变高级样板容量、解码、编码和列删除语义，新增列清空/删除/左移测试并扩展真实编码与持久化覆盖；全部 171 个必需 GameTest 通过。
+未完成项：等待用户对本轮高级终端视觉与交互验收；IN-003 其余 UI/模型/动画范围仍等待后续描述，最终 dedicated server world-load 与 tag 门禁保留到完整范围冻结后执行。
+```
+
+最新进展：
+
+```text
+继续按用户截图修正 Advanced Pattern Encoding Terminal：
+  两行 base 的 y=17 首行与 y=35 末行都不能整段作为动态中间行。新增 195x18 middle-row strip：取末行顶部 17px 保留中间行上边语义，再接首行最后 1px 去掉末行封底；六行合成图确认四个重复段连续。
+  BLANK_PATTERN 与 ENCODED_PATTERN 的 AppEngSlot 旧 icon 在客户端置空，只保留 copied current-AE2 states atlas 的单层背景图标，消除 1.20.1 与新版 ghost 叠加。
+  父类网络库存 Scrollbar 通过 client accessor 换成 current-AE2 12x15 big scroller；首轮 24x15 atlas 被 1.20.1 Blitter 按 256 图集采样而出现黑块，改为 256x256 兼容 atlas 后复跑消失。
+  右上角 crafting status 隐藏旧 CORNER TabButton 视觉，保留其点击和任务计数逻辑，前景改绘新版 20x20 BOX 背景与新版 hammer icon。
+  覆盖 1.20.1 白色 slot hover，按新版 AE2 绘制淡蓝填充和亮青边线；高级终端页面整体右下移动 1px，底图、slot、widget、文本与交互命中区保持同一坐标系。
+  client smoke 将主产物改为真实包裹，处理输出与下方 encoded pattern 预览中的包裹均位于槽中心。
+
+验证 .\gradlew.bat compileJava --stacktrace 成功
+验证 .\gradlew.bat runClientSmoke --stacktrace 成功；第二轮截图确认网络滚动条黑块消失、样板 ghost 只绘制一层、新版 crafting status 按钮生效、真实包裹输出与样板预览居中
+验证六行动态背景合成图，首行、四个 middle strip、末行和固定 bottom 连续无断层
+验证 scripts/verify-assets.ps1 成功，149 个 PNG 通过资源门禁
+验证 scripts/test-assets-audit.ps1 成功，新增错误 middle-row 与 scrollbar atlas 尺寸 fixture 均按预期失败
+验证 scripts/verify-docs.ps1 成功
+验证 .\gradlew.bat build --stacktrace 成功
+验证 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功，236 个发布资源与 jar 同步、149 个 PNG 非空、11 张必需截图有效、144 个双语 key 对齐，日志无发布阻断关键字
+GameTest：已考虑。本轮仅改变客户端 Screen 绘制、client-only accessor、smoke 取样和 GUI 资源，不改变菜单事务、样板编码或服务端行为，因此不新增或复跑 GameTest；最新行为基线仍为 171 个必需 GameTest 全部通过。
+```
+
+最新进展：
+
+```text
+统一所有包裹颜色拾取控件：
+  新增共享 PackageColorPicker，弹窗不含标题、名称或 marker；Fluix 默认色单独置于最左，其余 16 个染料色在右侧按 8x2 排列。
+  AE2 原版样板终端包裹模式将颜色和名称拆成独立按钮；颜色按钮只打开共享拾色弹窗，名称按钮只打开单行名称输入层，既有包裹名称能力保持不变。
+  Advanced Pattern Terminal、ME Packager、ME Package Assembler、Package Pattern Terminal 和三种 Package Bus 全部迁移到共享弹窗；Package Pattern Terminal 的 9 个逐槽颜色按钮也改为直接打开同一弹窗，右键继续快速清除该槽颜色。
+  颜色格不再注册为 17 个普通 widget，而由弹窗单次绘制；弹窗在父 Screen 的 slot/tooltip 后渲染，打开时取消底层 tooltip 并吞掉点击、释放、拖拽、滚轮、按键和字符输入，消除 tooltip 重复、底层点击穿透和按钮消失。
+  删除旧 PackageColorButton 与旧式常驻 17 色条；新增双语 Fluix 与选色控件文本。
+
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runClientSmoke 成功；人工检查 ae2_pattern_encoding_terminal_settings 与 advanced_pattern_encoding_terminal_editor 截图，确认两个终端弹窗布局一致、无标题、Fluix 位于最左、其余颜色为两行且底层按钮仍可见
+验证 .\gradlew.bat runGameTestServer 成功，171 个 required GameTest 全部通过
+验证 .\gradlew.bat build 成功
+验证 scripts/verify-docs.ps1、scripts/verify-assets.ps1 与 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功；236 个发布资源与 jar 同步、149 个 PNG 非空、11 张必需截图有效、146 个双语 key 对齐，客户端日志无发布阻断关键字
+GameTest：已考虑并运行。本轮唯一服务端改动是 Package Pattern Terminal 菜单新增“输入槽 + 颜色”按钮编号映射，复用既有 setInputSlotColor 语义；不改变编码、事务或物品移动规则。完整 171 个必需 GameTest 全部通过。
+```
+
+最新进展：
+
+```text
+补齐高级样板终端此前遗漏的三项验收：
+  保持整页 background、slot、widget、文本和交互命中区右下各偏移 1px；处理主产物与 encoded pattern 预览的真实包裹继续按槽中心渲染。
+  1.20.1 AE2 的 renderCustomSlotHighlight 注入时机位于 Vanilla 槽位批次内，直接追加新版线框会污染延迟 atlas blit。改为旧注入只取消白色 hover，在 tooltip 前提交背景、绘制 AE2 1.21.1 的 0x669cd3ff 填充与 0xffdaffff 边线，再提交高亮批次。
+  ClientSmokeRunner 原先只调用 GLFW 设置无焦点窗口光标，MouseHandler 坐标仍停在窗口中心，导致截图没有真实 hover。smoke 现在同步调用 Vanilla onMove，并持续悬停第一列空输入槽，截图直接显示新版 hover 且不被 tooltip 遮挡。
+  中间诊断分别复现了槽位批次内绘制和只提交高亮前批次造成的黑色矩形；最终使用高亮前后成对批次边界后，空槽与有 tooltip 槽均不再污染背景。
+
+验证 .\gradlew.bat runClientSmoke 成功；人工检查 advanced_pattern_encoding_terminal 主截图，确认新版 slot hover、两个包裹槽居中、整页右下偏移且无黑块
+GameTest：已考虑。本轮仅修改高级终端客户端 hover 绘制顺序与 client smoke 鼠标定位，不改变菜单、样板编码、事务或服务端行为，因此不新增或复跑 GameTest；最新完整行为基线仍为 171 个必需 GameTest 全部通过。
+```
+
+最新进展：
+
+```text
+纠正两个样板终端的需求归属并补齐数量编辑：
+  确认此前将整页右下 1px、blank/encoded pattern 与 Encode 额外右移归到 Advanced Pattern Terminal 是错误实现；撤回这些高级终端偏移，只保留新版 AE2 slot hover。
+  AE2 原版 Pattern Encoding Terminal 包裹模式的 124x66 背景、3x3 输入、输出、marker、清空/颜色/名称按钮及命中区统一右下移动 1px；普通 crafting 模式继续使用 AE2 15.4.10 原坐标。
+  PackagePattern tab 的 12x14 sprite 改为在 22x22 tab 内按 x+5、y+4 居中。
+  包裹模式 crafting fake slot 显示 GenericStack 数量并允许中键打开 AE2 SetProcessingPatternAmountScreen；退出包裹模式恢复隐藏数量和普通 crafting 不可编辑语义。
+  Advanced Pattern Terminal 输入槽增加同款中键数量编辑子页面，确认后通过 InventoryAction.SET_FILTER 回写对应槽。
+  ClientSmokeRunner 为原版包裹模式预置 Oak Log x4、钻石 marker、BLUE 和名称，截图可直接检查数量、输出与 marker 对齐。
+
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，172 个 required GameTest 全部通过；新增测试覆盖包裹模式 x4、数量显示、中键编辑资格和退出模式恢复，高级编码测试覆盖高级输入中键编辑资格
+验证 .\gradlew.bat runClientSmoke 成功；人工检查 ae2_pattern_encoding_terminal 主截图确认 Oak Log x4 可见、marker/输出落入各自槽框、tab 图标居中，并确认 advanced_pattern_encoding_terminal 保持原页面原点与新版 hover
+```
+
+最新进展：
+
+```text
+按用户复测截图重新推导原版样板终端包裹模式坐标。此前把系统坐标错误当成 1px 微调是误判：124x66 贴图中 marker 是标准 18x18 框，16px slot 原点应为面板内 `(95,7)`；输出是 24x24 框，16px slot 居中原点应为 `(98,31)`，旧实现的输出 Y 仅为 26。PackagePattern 图标也不应裁成 12x14 手摆，现恢复 sprite `(32,0,16,16)` 完整单元并复用 AE2 水平 tab 的 `x+1,y+3` 偏移。没有移动输入格、配置按钮或高级终端。
+
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runClientSmoke 成功；人工检查 ae2_pattern_encoding_terminal 主截图确认三处独立偏移生效且其他布局未变化
+GameTest：已考虑。本轮只改变客户端槽位与图标绘制坐标，不改变菜单、数量编辑、编码或服务端语义，因此沿用上一轮 172 个 required GameTest 全通过的行为基线。
+```
+
+最新进展：
+
+```text
+修正统一拾色弹窗的物品隐藏与层级策略：
+  原版样板终端包裹模式不再因颜色/名称弹层打开而停用 crafting grid、marker 和输出 slot。
+  Advanced Pattern Terminal 不再因列颜色弹窗打开而停用可见 processing input/output slots。
+  PackageColorPicker 在父 Screen 完整绘制 slot、物品和 widget 后，以 z=500 独立 pose 绘制，并在 push/pop 两侧 flush；底层物品继续存在，只在重叠区域被不透明弹窗正常遮挡。
+  既有 modal 输入拦截与底层 tooltip 取消保持不变，避免点击穿透和重复 tooltip。
+
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runClientSmoke 成功；人工检查 ae2_pattern_encoding_terminal_settings，Oak Log x4 保持可见且 marker/输出仍在弹窗下渲染；检查 advanced_pattern_encoding_terminal_editor，处理输入物品保持在底层且不穿透弹窗
+GameTest：已考虑。本轮仅修改客户端 slot 可见性与 picker 绘制层级，不改变菜单、编码或服务端语义，因此沿用 172 个 required GameTest 全通过的行为基线。
+```
+
+最新进展：
+
+```text
+接入用户更新的 pattern_mode_packaging.png：
+  源文件与项目资源 SHA-256 均为 AB254596C0AADE263DFB5816ED4824186BCDE69DCAA8B24CF3C00BF3B7EA6256。
+  新贴图在面板左侧增加滚动条轨道，输入窗口首槽移动到面板内 (16,7)；marker 保持 (95,7)，输出保持 (98,31)。
+  原版 Pattern Encoding Terminal 包裹模式改为复用 AE processing panel 的 81 个 processing input fake slots 与 SMALL scrollbar，显示 3x3 窗口并滚动 27 行；processing output 隐藏，marker 与包裹预览继续使用专属槽和 crafting result。
+  包裹样板输入 NBT 容量从 9 扩展为 81，旧版稀疏 NBT 继续兼容；中键数量编辑改为作用于 processing input。
+  统一拾色弹窗最终使用 z=400、父界面尾部统一批次提交；原版终端只取消底层 tooltip。截图确认原版终端无黑块，高级终端物品不穿透弹窗。
+
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runGameTestServer 成功，172 个 required GameTest 全部通过；真实编码覆盖第 81 个输入槽与数量
+验证 .\gradlew.bat runClientSmoke 成功；人工检查原版终端主界面、设置弹窗与高级终端编辑弹窗截图
+```
+
+最新进展：
+
+```text
+对照 AE2 原版处理样板交互并补齐包裹模式 tooltip：
+  空包裹预览槽新增与 AE2 primary processing result 相同的 18x18 ITooltip 区域，复用原版标题/说明 key 和提示颜色；有预览物品时仍优先显示物品 tooltip。
+  包裹模式输入改由 PatternEncodingTermMenu.isProcessingPatternSlot 识别，不再只特判 canModifyAmountForSlot；因此空槽的物品/流体容器写入和非空槽的中键数量编辑都直接走 AE2 原路径。
+  PackageCraftingPatternDataStorage 与预览编码取消 AEItemKey-only 限制，允许 AEFluidKey 等 AE processing GenericStack；GameTest 增加 1000 mB water 编码与模式退出分类恢复断言。
+  原版终端拾色弹窗改在 ScreenEvent.Render.Post 中绘制，前后提交 item buffer；弹窗使用 Vanilla tooltip 同款 z=400 + GuiGraphics.drawManaged 整批绘制，避免 marker 穿透和高 Z 黑块。
+  ClientSmokeRunner 在最终 Render.Post flush 后截图，并新增 primary_output_tooltip 截图。
+
+验证 .\gradlew.bat compileJava 成功
+验证 .\gradlew.bat runClientSmoke 成功；人工检查设置弹窗无黑块且遮挡重叠 marker，主产物 tooltip 标题和说明完整，高级终端弹窗无回归
+验证 .\gradlew.bat runGameTestServer 成功，172 个 required GameTest 全部通过
+验证 .\gradlew.bat build 成功
+验证 scripts/verify-docs.ps1、scripts/verify-assets.ps1 与 scripts/verify-release.ps1 -RequireClientSmokeScreenshots 成功；236 个发布资源与 jar 同步、149 个 PNG 非空、11 张必需截图有效、146 个双语 key 对齐
+验证 client latest.log 扫描 ERROR、Exception、missing texture、Missing model、Failed to read Screen JSON 无命中；git diff --check 无空白错误
+GameTest：已扩展 patternEncodingTerminalPackageInputsSupportAmountEditing，覆盖 processing slot 分类、AEFluidKey 编码、第 81 个输入及退出模式恢复
+```
+
+### 2026-07-11 机器单槽与有序输出重构
+
+包裹自定义名称能力已整体移除：机器、菜单、样板 NBT、高级样板列元数据、终端按钮和语言 key 均不再读写名称；旧存档中的名称字段仅被忽略。ME Packager 改用单一真实 `heldBox`，由持久化状态区分待拆输入与打包输出。拆包输入先保留到进度结束，最终事务提交失败时保持输入并进入红色阻塞状态，后续定时重新验证，玩家可取回；打包输出不会进入拆包路径。
+
+ME Package Assembler 改为一个真实主输出和一个只读下一包预览，其余高级样板产物保存在严格有序队列中。GUI、玩家、Forge capability 与自动导出每次只取队首一个包裹，自动导出允许同 tick 循环但不跳序。旧版 17 输出槽存档在加载时按原槽位顺序迁移到队列。两台机器的 ScreenStyle 与槽位坐标已按用户更新的 256x256 atlas 重新测量，进度条改用 atlas 右侧 sprite；本次按用户要求不运行 client screenshot smoke，视觉验收由用户执行。
+
+验证 `./gradlew.bat compileJava` 成功；验证 `./gradlew.bat runGameTestServer` 成功，173 个 required GameTest 全部通过；验证 `scripts/verify-assets.ps1`、`scripts/verify-docs.ps1` 与 `git diff --check` 成功。
+
+### 2026-07-11 原版样板终端客户端 Mixin 启动修复
+
+修复 `PatternEncodingTermScreenMixin` 中 `modePanels` 目标字段同时标注 `@Unique` 与 `@Shadow` 导致的客户端启动崩溃。该字段继续以 `@Shadow @Final` 映射 AE2 原字段；全项目扫描未发现其他相同的冲突注解组合。
+
+验证 `.\gradlew.bat compileJava` 成功，Mixin annotation processor 与 refmap 正常生成；验证冲突注解静态扫描无命中，目标文件 `git diff --check` 无空白错误。GameTest 已考虑，但该修复仅影响客户端 Screen Mixin 类加载，GameTest 不加载该 client mixin，故未运行；按当前 UI 验收约束未运行客户端截图冒烟。
+
+### 2026-07-12 打包机 heldBox 与原版终端包裹模式修复
+
+ME Packager 的 heldBox 菜单包装器改为 `IItemHandlerModifiable`，修复 Forge `SlotItemHandler#set` 强转导致的普通 GUI 点击崩溃；客户端菜单同步可写入显示镜像，服务端放入仍先模拟完整拆包事务并只接受一个包裹。左侧红石模式直接控制实际打包逻辑，不再受未显示的红石卡门槛影响；默认仍为高电平，避免拆包完成后立即回流重打包，打包机不再接受无作用的红石卡升级。
+
+AE2 原版样板终端包裹模式统一使用“面板原点 + 贴图内坐标”定位，修复清空/颜色按钮少加面板原点而与第三列输入重叠的问题。菜单在服务端和客户端都明确启用 81 个滚动输入、专属 marker 与唯一自动计算的 crafting result，同时禁用全部 processing output 配置槽；marker 变化会刷新自动输出预览。
+
+验证 `.\gradlew.bat compileJava` 成功。首次 `runGameTestServer` 暴露“无红石卡默认持续工作”会导致拆包后立即重打包，因此未采用该行为；修正为所选模式直接生效后，`.\gradlew.bat runGameTestServer` 成功，175 个 required GameTest 全部通过。新增测试覆盖 heldBox 普通 GUI `safeInsert`、红石设置无隐藏升级门槛、包裹模式 marker/81 输入/唯一自动输出与 processing output 禁用。按用户要求未运行客户端截图冒烟，视觉坐标由用户验收。
+
+### 2026-07-12 原版终端包裹模式新版布局修正
+
+对照 AE2 1.21.1 `ProcessingEncodingPanel` 与 processing ScreenStyle，撤销包裹面板混入的 1.20.1 `(x+9,bottom-164)` 基准，统一改为新版 `(x+8,bottom-165)`；输入首槽改为 screen `(24,bottom-158)`，滚动条改为 `(15,bottom-158)` 并使用项目中已标记来源的新版 small scroller sprite。清空与颜色按钮改到面板内 `(72,7)`、`(82,7)`，在 3x3 输入区右侧保留 2px 边距且相对复测截图整体右移 1px。
+
+包裹模式下停用的 crafting grid、不可见 processing inputs 与全部 processing outputs 现在同时移出渲染区域，避免 Vanilla 容器层继续绘制其 ghost item；marker 与唯一自动包裹预览仍使用专属槽。移除把自动包裹预览错误标记为 processing primary output 的自定义 tooltip，并删除对应的 client smoke tooltip 截图分支。
+
+验证 `.\gradlew.bat compileJava --stacktrace` 成功，Mixin refmap 正常生成；验证 `scripts/verify-docs.ps1` 与 `git diff --check` 成功。该轮只改客户端布局、槽位绘制隔离与错误 tooltip，不改变菜单/编码/服务端行为，因此未重复运行 GameTest；按用户要求未运行客户端截图冒烟，视觉结果由用户验收。
+
+用户复测发现上一轮仍未生效：`AEBaseScreen.render()` 会先执行 Screen 的 `updateBeforeRender()`，再执行 `widgets.updateBeforeRender()`，因此 Screen mixin 写入的新版输入坐标和隐藏输出位置随后被 AE2 15.4.10 `ProcessingEncodingPanel` 恢复为旧 processing 布局，表现为输入进一步右下偏移、processing output ghost 重新覆盖 marker 区。修正后，包裹模式在 `ProcessingEncodingPanel.updateBeforeRender()` 入口直接取消原 processing 更新，只执行包裹模式自己的 81 格输入滚动布局，并在同一最终阶段把全部 processing outputs 移出渲染区；普通 processing 模式保持原逻辑。重新执行 `.\gradlew.bat compileJava` 成功，Mixin refmap 正常生成；仍按用户要求不执行客户端截图冒烟。

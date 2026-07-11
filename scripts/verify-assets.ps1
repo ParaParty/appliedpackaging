@@ -252,7 +252,27 @@ function Get-ExpectedPngSize {
     }
 
     if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png") {
-        return @{ Width = 230; Height = 260; Label = "advanced pattern encoding terminal GUI texture" }
+        return @{ Width = 256; Height = 256; Label = "advanced pattern encoding terminal GUI atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png") {
+        return @{ Width = 256; Height = 256; Label = "advanced pattern encoding terminal sprite atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png") {
+        return @{ Width = 256; Height = 256; Label = "advanced pattern encoding terminal AE2 states atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png") {
+        return @{ Width = 195; Height = 18; Label = "advanced pattern encoding terminal middle row" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png") {
+        return @{ Width = 256; Height = 256; Label = "advanced pattern encoding terminal AE2 scrollbar atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png") {
+        return @{ Width = 256; Height = 256; Label = "package pattern mode GUI atlas" }
     }
 
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/item/", [System.StringComparison]::Ordinal)) {
@@ -324,6 +344,11 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/gui/mepackager.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/auto_export.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/blocking_mode.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/capacity.png",

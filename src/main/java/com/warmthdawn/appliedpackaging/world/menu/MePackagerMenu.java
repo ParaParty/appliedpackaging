@@ -4,6 +4,7 @@ import appeng.core.definitions.AEItems;
 import appeng.menu.SlotSemantics;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.implementations.UpgradeableMenu;
+import appeng.menu.interfaces.IProgressProvider;
 import appeng.menu.slot.OptionalFakeSlot;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
@@ -21,7 +22,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
 
-public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
+public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> implements IProgressProvider {
     public static final int BUTTON_PACK_ONCE = 0;
     public static final int BUTTON_MARKER_MODE = 1;
     public static final int BUTTON_REDSTONE_MODE = 2;
@@ -35,7 +36,6 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
     private static final String ACTION_CYCLE_FILTER = "cycleFilter";
     private static final String ACTION_CYCLE_ACTIVATION = "cycleActivation";
     private static final String ACTION_CYCLE_BLOCKING = "cycleBlocking";
-    private static final String ACTION_SET_NAME = "setName";
 
     @GuiSync(10)
     public PackageColor selectedColor = PackageColor.FLUIX;
@@ -54,14 +54,17 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
     public MePackagerBlockEntity.BlockingMode blockingMode =
             MePackagerBlockEntity.BlockingMode.IGNORE_NETWORK_CONTENTS;
 
-    @GuiSync(15)
-    public String packageName = "";
-
     @GuiSync(16)
     public int workTicksRemaining = 0;
 
     @GuiSync(17)
     public int workingOperation = MePackagerBlockEntity.WorkingOperation.NONE.ordinal();
+
+    @GuiSync(18)
+    public int heldBoxState = MePackagerBlockEntity.HeldBoxState.EMPTY.ordinal();
+
+    @GuiSync(19)
+    public boolean unpackBlocked;
 
     public MePackagerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
@@ -78,15 +81,11 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
         registerClientAction(ACTION_CYCLE_FILTER, this::cycleFilterMode);
         registerClientAction(ACTION_CYCLE_ACTIVATION, this::cycleActivationMode);
         registerClientAction(ACTION_CYCLE_BLOCKING, this::cycleBlockingMode);
-        registerClientAction(ACTION_SET_NAME, String.class, this::setPackageName);
     }
 
     @Override
     protected void setupInventorySlots() {
-        addSlot(
-                new MenuInputPackageSlot(getHost()),
-                SlotSemantics.MACHINE_INPUT);
-        addSlot(new OutputPackageSlot(getHost()), SlotSemantics.MACHINE_OUTPUT);
+        addSlot(new HeldBoxSlot(getHost()), SlotSemantics.MACHINE_OUTPUT);
         addSlot(
                 new SlotItemHandler(getHost().getItems(), MePackagerBlockEntity.SLOT_CAPACITY, 0, 0),
                 SlotSemantics.STORAGE_CELL);
@@ -122,9 +121,10 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
             activationMode = getHost().redstoneMode();
             filterMode = getHost().filterApplicationMode();
             blockingMode = getHost().blockingMode();
-            packageName = getHost().packageName();
             workTicksRemaining = getHost().animationTicks();
             workingOperation = getHost().workingOperation().ordinal();
+            heldBoxState = getHost().heldBoxState().ordinal();
+            unpackBlocked = getHost().unpackBlocked();
         }
         super.broadcastChanges();
     }
@@ -273,17 +273,6 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
         broadcastChanges();
     }
 
-    public void setPackageName(String name) {
-        if (isClientSide()) {
-            sendClientAction(ACTION_SET_NAME, name);
-            return;
-        }
-
-        getHost().setPackageName(name);
-        packageName = getHost().packageName();
-        broadcastChanges();
-    }
-
     public PackageColor selectedColor() {
         return selectedColor == null ? PackageColor.FLUIX : selectedColor;
     }
@@ -310,10 +299,6 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
                 : blockingMode;
     }
 
-    public String packageName() {
-        return packageName == null ? "" : packageName;
-    }
-
     public MePackagerBlockEntity.WorkingOperation workingOperation() {
         MePackagerBlockEntity.WorkingOperation[] values = MePackagerBlockEntity.WorkingOperation.values();
         if (workingOperation < 0 || workingOperation >= values.length) {
@@ -324,6 +309,27 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
 
     public boolean isWorking() {
         return workingOperation() != MePackagerBlockEntity.WorkingOperation.NONE;
+    }
+
+    public MePackagerBlockEntity.HeldBoxState heldBoxState() {
+        MePackagerBlockEntity.HeldBoxState[] values = MePackagerBlockEntity.HeldBoxState.values();
+        return heldBoxState < 0 || heldBoxState >= values.length
+                ? MePackagerBlockEntity.HeldBoxState.EMPTY
+                : values[heldBoxState];
+    }
+
+    public boolean unpackBlocked() {
+        return unpackBlocked;
+    }
+
+    @Override
+    public int getCurrentProgress() {
+        return Math.max(0, MePackagerBlockEntity.ANIMATION_CYCLE_TICKS - workTicksRemaining);
+    }
+
+    @Override
+    public int getMaxProgress() {
+        return MePackagerBlockEntity.ANIMATION_CYCLE_TICKS;
     }
 
     public float workProgress(float partialTicks) {
@@ -350,30 +356,24 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> {
                 || getSlotSemantic(slot) == SlotSemantics.PLAYER_HOTBAR;
     }
 
-    private static final class MenuInputPackageSlot extends SlotItemHandler {
-        private MenuInputPackageSlot(MePackagerBlockEntity blockEntity) {
-            super(blockEntity.getItems(), MePackagerBlockEntity.SLOT_INPUT, -9999, -9999);
+    private static final class HeldBoxSlot extends SlotItemHandler {
+        private final MePackagerBlockEntity blockEntity;
+
+        private HeldBoxSlot(MePackagerBlockEntity blockEntity) {
+            super(blockEntity.getHeldBoxItems(), 0, 0, 0);
+            this.blockEntity = blockEntity;
         }
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return false;
+            return !blockEntity.isWorking()
+                    && PackageDataStorage.read(stack).isPresent()
+                    && blockEntity.canInsertPackageFromMenu(stack);
         }
 
         @Override
-        public boolean mayPickup(Player playerIn) {
-            return false;
-        }
-    }
-
-    private static final class OutputPackageSlot extends SlotItemHandler {
-        private OutputPackageSlot(MePackagerBlockEntity blockEntity) {
-            super(blockEntity.getItems(), MePackagerBlockEntity.SLOT_OUTPUT, 0, 0);
-        }
-
-        @Override
-        public boolean mayPlace(ItemStack stack) {
-            return false;
+        public boolean mayPickup(Player player) {
+            return !blockEntity.isWorking();
         }
     }
 }

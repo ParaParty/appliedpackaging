@@ -140,9 +140,9 @@ GameTest
   me_packager 方块/方块物品/方块实体注册
   水平朝向 blockstate 与可切换 network_side blockstate
   方块掉落表
-  内部输入/输出 item handler；非 network_side 面暴露包裹输入/输出 capability
+  单一 heldBox item handler；非 network_side 面暴露同一包裹 capability，并由状态区分待拆输入与待取输出
   GUI/Menu 改为 AE2 UpgradeableScreen + UpgradeableMenu，主入口为右键打开 GUI
-  GUI 包含 AE2 左工具栏、5 行过滤区、包裹名称、左侧颜色选择小按钮、右侧 marker 槽、包裹输入/输出口、容量元件过滤器槽、右侧 6 格升级面板和玩家背包
+  GUI 包含 AE2 左工具栏、5 行过滤区、颜色选择小按钮、marker 槽、共享 heldBox、容量元件过滤器槽、右侧 6 格升级面板和玩家背包
   非潜行右键保留快速放入包裹与取出输出；无快速动作时打开 GUI
   潜行右键切换 network_side 到被点击面
   未安装红石卡时默认有红石信号打包；安装红石卡后可切换高信号、低信号、总是、脉冲和关闭，红石只控制打包
@@ -226,8 +226,8 @@ GameTest/客户端验证
   装配室输出模式默认 ME_NETWORK，可通过 GUI 左侧 AE2 toolbar 图标循环切换 ME_NETWORK、ADJACENT_BLOCK 和 NONE 并持久化保存
   装配室 server tick 会按输出槽顺序一次导出 1 个包裹；ME_NETWORK 只导出到本机接入的 AE 网络存储服务，ADJACENT_BLOCK 只导出到背面 Forge item handler，NONE 不自动导出
   自动导出失败时保留输出槽包裹，不丢弃、不继续消耗新输入
-  外部 Forge item handler 可见完整机器库存，但只允许按输出槽顺序每次抽取 1 个合法包裹，非输出槽不可抽取
-  包裹名称、颜色和 marker 只在样板或临时 pattern plan 没有对应包裹标记时作为 fallback 生效
+  外部 Forge item handler 可见机器库存，但只允许从主输出按队列顺序每次抽取 1 个合法包裹，非输出槽不可抽取
+  颜色和 marker 只在样板或临时 pattern plan 没有对应包裹标记时作为 fallback 生效
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler GameTest smoke
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler 彩色处理样板 GameTest smoke
   真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider + Package Assembler 自动合成 job smoke
@@ -302,10 +302,11 @@ GameTest/服务器 smoke test
   package_pattern_terminal 在 AE2 blank_pattern 存在处理输出 ghost 时编码 AE2 原版 processing pattern，并附带 packaged_processing_pattern NBT
   package_pattern_terminal 可把空白 packaged_processing_pattern 编码为有序多包裹样板
   advanced_pattern_encoding_terminal 作为 AE2 cable part item 注册，复用原版 Pattern Encoding Terminal part/model/terminal body，只保留 processing mode
-  advanced_pattern_encoding_terminal 中间区显示 4 个可见的 4x1 输入列、4 个垂直输出槽、列头颜色按钮、第一未启用列加号和左侧竖向列滚动条，最多 17 列；主体加宽至 230px，输入列间距为 4px
-  advanced_pattern_encoding_terminal 为每列保存颜色、名称和 marker，并编码独立 advanced_processing_pattern 物品；AE2 原版 processing_pattern 不写也不接受该高级列元数据
-  advanced_pattern_encoding_terminal 按 ConfigInventory type key 读取 marker，并在样板元数据中固定归一为 1 个物品
+  advanced_pattern_encoding_terminal 保持高版本 AE2 的 195px 终端主体与 9 列网络库存；中间区显示 4 个包裹列 x 3 行可见真实输入、3 行可见真实输出，左侧滚动条同步查看第 4 行，底部滚动条水平滚动最多 17 个包裹列；列间距为 1px，启用列显示颜色/编辑按钮，第一未启用列显示加号
+  advanced_pattern_encoding_terminal 为每列保存颜色和完整 81 槽输入矩阵，并编码独立 advanced_processing_pattern 物品；名称固定为空，marker 由主产物归一生成，AE2 原版 processing_pattern 不写也不接受该高级列元数据
+  advanced_pattern_encoding_terminal 的列 X 对非空列先清空、对空列再删除并前移后续列，且最少保留一列
   advanced_pattern_encoding_terminal 列编辑层在 AE 主界面完成渲染后绘制，完整拦截弹层输入且不允许点击透传到底层 RepoSlot/processing slot/编码按钮
+  AE2 原版 Pattern Encoding Terminal 包裹模式使用 124x66 高版本面板、左侧 AE processing scrollbar、3x3 可见输入窗口、81 个 sparse 输入、marker、自动输出、紧凑清空/设置按钮与独立颜色/名称编辑层；编辑层输入不透传
   Package Assembler 按包裹样板、普通处理样板和高级处理样板三路执行；高级样板按列顺序生成多个包裹，普通处理样板固定 Fluix/空名称/空 marker
   packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个处理输出 ghost slots
   处理输出 ghost slots 可从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标清除，且不消耗玩家物品
@@ -375,7 +376,7 @@ runClientSmoke GUI screenshot smoke
   scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke、可选 run-server-smoke、机械发布审计、文档审计、发布清单和发布附件包
   scripts/run-release-checks.ps1 -ReleaseCandidate 已作为最终候选发布预设，自动启用 client smoke、server smoke、manifest 和 bundle 审计
   scripts/verify-release-readiness.ps1 已作为 tag 就绪审计，-RequireReadyForTag 会阻止状态、迁移目标或验证要求仍为待输入、待判定、阻塞或失败的 intake 项创建发布 tag，并要求已填写的迁移目标是仓库内已存在文件的规范相对路径、不包含父级遍历，且与类型目标族匹配：需求类落在 docs/01、02、03、05、06 或 07，材质类落在 docs/04、docs/assets 或 src/main/resources/assets/appliedpackaging；负面 blocker 清除后还要求文档明确记录范围已冻结、最终服务端 world-load 已完成、发布 tag 可创建、目标可以标记完成和 tag 就绪门禁已通过
-  使用 -RunClientSmoke 时会自动审计 10 张必需 client smoke 截图存在、非空且为有效 PNG
+  使用 -RunClientSmoke 时会自动审计 11 张必需 client smoke 截图存在、非空且为有效 PNG
   dedicated server world-load 已在当前基线通过；服务端 latest.log 审计可由 run-server-smoke.ps1 或 run-release-checks.ps1 -RunServerSmoke 刷新后执行
   当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
   当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad

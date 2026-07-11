@@ -22,6 +22,7 @@ import com.warmthdawn.appliedpackaging.world.menu.AdvancedPatternEncodingTermMen
 import java.util.Optional;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -38,8 +39,6 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
     private static final String AP_ACTION_SET_PACKAGE_MODE = "apSetPackageMode";
     @Unique
     private static final String AP_ACTION_SET_PACKAGE_COLOR = "apSetPackageColor";
-    @Unique
-    private static final String AP_ACTION_SET_PACKAGE_NAME = "apSetPackageName";
 
     @Shadow
     @Final
@@ -59,15 +58,20 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
     @GuiSync(88)
     @Unique
     public int appliedpackaging$packageCraftingColor = PackageColor.FLUIX.ordinal();
-    @GuiSync(87)
-    @Unique
-    public String appliedpackaging$packageCraftingName = "";
-
     @Unique
     private FakeSlot appliedpackaging$markerSlot;
 
     @Shadow
     public abstract void setMode(EncodingMode mode);
+
+    @Shadow
+    public abstract FakeSlot[] getCraftingGridSlots();
+
+    @Shadow
+    public abstract FakeSlot[] getProcessingInputSlots();
+
+    @Shadow
+    public abstract FakeSlot[] getProcessingOutputSlots();
 
     @Shadow
     private ItemStack getAndUpdateOutput() {
@@ -98,10 +102,6 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
                 AP_ACTION_SET_PACKAGE_COLOR,
                 String.class,
                 this::appliedpackaging$applyPackageColor);
-        ((AEBaseMenuAccessor) this).appliedpackaging$registerClientAction(
-                AP_ACTION_SET_PACKAGE_NAME,
-                String.class,
-                this::appliedpackaging$applyPackageName);
     }
 
     @Inject(method = "broadcastChanges", at = @At("TAIL"))
@@ -112,17 +112,16 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
         PackageCraftingPatternLogicBridge bridge = (PackageCraftingPatternLogicBridge) encodingLogic;
         this.appliedpackaging$packageCraftingMode = bridge.appliedpackaging$isPackageCraftingMode();
         this.appliedpackaging$packageCraftingColor = bridge.appliedpackaging$getPackageCraftingColor().ordinal();
-        this.appliedpackaging$packageCraftingName = bridge.appliedpackaging$getPackageCraftingName();
         if (this.appliedpackaging$packageCraftingMode && this.mode != EncodingMode.CRAFTING) {
             this.mode = EncodingMode.CRAFTING;
         }
+        appliedpackaging$updatePackageSlotActivity();
     }
 
     @Inject(method = "onServerDataSync", at = @At("TAIL"))
     private void appliedpackaging$updatePackageCraftingSlotVisibility(CallbackInfo ci) {
-        if (appliedpackaging$markerSlot != null) {
-            appliedpackaging$markerSlot.setActive(appliedpackaging$packageCraftingMode);
-        }
+        appliedpackaging$updatePackageSlotActivity();
+        appliedpackaging$setPackageInputAmountsVisible(appliedpackaging$packageCraftingMode);
         if (appliedpackaging$packageCraftingMode) {
             this.craftOutputSlot.setActive(true);
             this.getAndUpdateOutput();
@@ -136,6 +135,21 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
         }
     }
 
+    @Inject(method = "isProcessingPatternSlot", at = @At("HEAD"), cancellable = true)
+    private void appliedpackaging$recognizePackageProcessingInput(
+            Slot slot,
+            CallbackInfoReturnable<Boolean> cir) {
+        if (!appliedpackaging$packageCraftingMode || slot == null) {
+            return;
+        }
+        for (FakeSlot input : getProcessingInputSlots()) {
+            if (input == slot) {
+                cir.setReturnValue(true);
+                return;
+            }
+        }
+    }
+
     @Inject(method = "getAndUpdateOutput", at = @At("HEAD"), cancellable = true)
     private void appliedpackaging$getAndUpdatePackageOutput(CallbackInfoReturnable<ItemStack> cir) {
         if (!appliedpackaging$packageCraftingMode) {
@@ -146,6 +160,13 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
                 .orElse(ItemStack.EMPTY);
         this.craftOutputSlot.setDisplayedCraftingOutput(output);
         cir.setReturnValue(output);
+    }
+
+    @Inject(method = "onSlotChange", at = @At("TAIL"))
+    private void appliedpackaging$updatePackageOutputAfterMarkerChange(Slot slot, CallbackInfo ci) {
+        if (appliedpackaging$packageCraftingMode && slot == appliedpackaging$markerSlot) {
+            getAndUpdateOutput();
+        }
     }
 
     @Inject(method = "encodePattern", at = @At("HEAD"), cancellable = true)
@@ -195,20 +216,6 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
     }
 
     @Override
-    public String appliedpackaging$getPackageCraftingName() {
-        return appliedpackaging$packageCraftingName == null ? "" : appliedpackaging$packageCraftingName;
-    }
-
-    @Override
-    public void appliedpackaging$setPackageCraftingName(String name) {
-        String value = PackageCraftingPatternDataStorage.sanitizePackageName(name);
-        if (((AEBaseMenu) (Object) this).isClientSide()) {
-            ((AEBaseMenuAccessor) this).appliedpackaging$sendClientAction(AP_ACTION_SET_PACKAGE_NAME, value);
-        }
-        appliedpackaging$applyPackageName(value);
-    }
-
-    @Override
     public FakeSlot appliedpackaging$getPackageCraftingMarkerSlot() {
         return appliedpackaging$markerSlot;
     }
@@ -223,10 +230,41 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
             encodingLogic.setMode(EncodingMode.CRAFTING);
             this.mode = EncodingMode.CRAFTING;
         }
-        if (appliedpackaging$markerSlot != null) {
-            appliedpackaging$markerSlot.setActive(value);
-        }
+        appliedpackaging$updatePackageSlotActivity();
+        appliedpackaging$setPackageInputAmountsVisible(value);
         getAndUpdateOutput();
+    }
+
+    @Unique
+    private void appliedpackaging$updatePackageSlotActivity() {
+        boolean crafting = !appliedpackaging$packageCraftingMode && mode == EncodingMode.CRAFTING;
+        boolean processing = !appliedpackaging$packageCraftingMode && mode == EncodingMode.PROCESSING;
+
+        for (FakeSlot slot : getCraftingGridSlots()) {
+            slot.setActive(crafting);
+        }
+        for (FakeSlot slot : getProcessingInputSlots()) {
+            slot.setActive(appliedpackaging$packageCraftingMode || processing);
+        }
+        for (FakeSlot slot : getProcessingOutputSlots()) {
+            slot.setActive(processing);
+        }
+        craftOutputSlot.setActive(appliedpackaging$packageCraftingMode || crafting);
+        if (appliedpackaging$markerSlot != null) {
+            appliedpackaging$markerSlot.setActive(appliedpackaging$packageCraftingMode);
+        }
+    }
+
+    @Unique
+    private void appliedpackaging$setPackageInputAmountsVisible(boolean visible) {
+        for (FakeSlot input : getCraftingGridSlots()) {
+            input.setHideAmount(true);
+        }
+        if (visible) {
+            for (FakeSlot input : getProcessingInputSlots()) {
+                input.setHideAmount(false);
+            }
+        }
     }
 
     @Unique
@@ -238,14 +276,6 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
     }
 
     @Unique
-    private void appliedpackaging$applyPackageName(String name) {
-        String value = PackageCraftingPatternDataStorage.sanitizePackageName(name);
-        this.appliedpackaging$packageCraftingName = value;
-        ((PackageCraftingPatternLogicBridge) encodingLogic).appliedpackaging$setPackageCraftingName(value);
-        getAndUpdateOutput();
-    }
-
-    @Unique
     private Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> appliedpackaging$createPackageCraftingPreview() {
         GenericStack[] sparseInputs = new GenericStack[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT];
         for (int slot = 0; slot < sparseInputs.length; slot++) {
@@ -253,7 +283,7 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
             if (stack == null) {
                 continue;
             }
-            if (!AEItemKey.is(stack.what()) || stack.amount() <= 0) {
+            if (stack.amount() <= 0) {
                 return Optional.empty();
             }
             sparseInputs[slot] = stack;
@@ -261,8 +291,7 @@ public abstract class PatternEncodingTermMenuMixin implements PackageCraftingPat
         return PackageCraftingPatternDataStorage.create(
                 appliedpackaging$getPackageCraftingColor(),
                 sparseInputs,
-                appliedpackaging$markerSpec(),
-                appliedpackaging$getPackageCraftingName());
+                appliedpackaging$markerSpec());
     }
 
     @Unique

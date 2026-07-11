@@ -49,7 +49,6 @@ public class AppliedPackaging {
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
             AdvancedPatternEncodingTermMenu.registerOpener(APMenus.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
-            Upgrades.add(AEItems.REDSTONE_CARD, APBlocks.ME_PACKAGER.get(), 1);
             Upgrades.add(AEItems.CAPACITY_CARD, APBlocks.ME_PACKAGER.get(), 3);
             Upgrades.add(AEItems.SPEED_CARD, APBlocks.ME_PACKAGER.get(), 6);
             Upgrades.add(AEItems.INVERTER_CARD, APBlocks.ME_PACKAGER.get(), 1);

@@ -26,6 +26,9 @@ import appeng.blockentity.storage.DriveBlockEntity;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
+import appeng.menu.me.items.PatternEncodingTermMenu;
+import appeng.menu.SlotSemantics;
+import appeng.parts.encoding.PatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
@@ -51,8 +54,11 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanFailure;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBridge;
+import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternLogicBridge;
 import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
+import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingState;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
@@ -935,8 +941,8 @@ public final class PackageDataGameTests {
         helper.assertTrue(ItemStack.isSameItemSameTags(component, rejected) && rejected.getCount() == component.getCount(),
                 "External package input should reject non-package configuration items");
 
-        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, packageStack.copy());
-        ItemStack extracted = sideHandler.extractItem(1, 1, false);
+        packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, packageStack.copy());
+        ItemStack extracted = sideHandler.extractItem(0, 1, false);
         helper.assertTrue(extracted.is(packageStack.getItem()), "Non-network sides should expose package output");
         helper.succeed();
     }
@@ -970,18 +976,24 @@ public final class PackageDataGameTests {
                     ItemStack remainder = sideHandler.insertItem(0, packageStack.copy(), false);
                     helper.assertTrue(remainder.getCount() == 1,
                             "External insert should consume exactly one accepted package");
-                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
-                            "External insert should not stage the package in the input slot");
-                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
-                            "External unpack should not create an output package");
+                    helper.assertTrue(!packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "External insert should retain the package in heldBox until progress completes");
                     helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.UNPACKING,
                             "External insert should enter unpacking work mode for animation");
-                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
-                            "External insert should immediately unpack into the selected AE network");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
+                            "External insert should not commit before unpacking progress completes");
 
                     ItemStack busyRejected = sideHandler.insertItem(0, packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64)), false);
                     helper.assertTrue(!busyRejected.isEmpty(),
                             "External input should reject new packages while the packager is working");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "Completed unpacking should clear heldBox");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
+                            "Completed unpacking should commit the full package to the selected AE network");
                 })
                 .thenSucceed();
     }
@@ -1010,24 +1022,121 @@ public final class PackageDataGameTests {
                             "Menu shift-click should consume and report exactly one package");
                     helper.assertTrue(player.getInventory().getItem(0).getCount() == 1,
                             "Menu shift-click should leave the second package in the player inventory");
-                    helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
-                            "Menu shift-click should not stage packages in the hidden input slot");
+                    helper.assertTrue(!packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "Menu shift-click should retain one package in heldBox until progress completes");
                     helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.UNPACKING,
                             "Menu shift-click should enter unpacking work mode");
 
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
-                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
-                            "Menu shift-click should immediately unpack the first package into the AE network");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
+                            "Menu shift-click should not commit before unpacking progress completes");
 
                     ItemStack busyMoved = menu.quickMoveStack(player, playerPackageSlot);
                     helper.assertTrue(busyMoved.isEmpty(),
                             "Menu shift-click should reject package input while the packager is working");
                     helper.assertTrue(player.getInventory().getItem(0).getCount() == 1,
                             "Rejected busy shift-click should leave the remaining package untouched");
-                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 128, Actionable.SIMULATE, source) == 64,
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 128, Actionable.SIMULATE, source) == 0,
                             "Rejected busy shift-click should not unpack a second package");
                 })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
+                            "Menu heldBox should commit after unpacking progress completes");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerHeldBoxSlotAcceptsNormalGuiClick(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        FakePlayer player = newFakePlayer(helper);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "heldBox GUI click test");
+                    assertMePackagerReady(helper, packager, "heldBox GUI click test");
+                })
+                .thenExecute(() -> {
+                    MePackagerMenu menu = new MePackagerMenu(11, new Inventory(player), packager);
+                    ItemStack carried = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+                    carried.setCount(2);
+
+                    ItemStack remainder = menu.getSlot(0).safeInsert(carried);
+
+                    helper.assertTrue(remainder.getCount() == 1,
+                            "Normal GUI insertion should consume exactly one package");
+                    helper.assertTrue(packager.getHeldBoxItems() instanceof net.minecraftforge.items.IItemHandlerModifiable,
+                            "heldBox GUI wrapper must support SlotItemHandler#set");
+                    helper.assertTrue(PackageDataStorage.read(menu.getSlot(0).getItem()).isPresent(),
+                            "The heldBox menu slot should immediately expose the inserted package");
+                    helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.UNPACKING,
+                            "Normal GUI insertion should start the unpacking progress");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void mePackagerBlockedHeldBoxRetriesAfterNetworkRecovers(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        packager.setBlockingMode(MePackagerBlockEntity.BlockingMode.BLOCK_UNPACK_WHEN_NETWORK_HAS_ITEMS);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "blocked heldBox retry test");
+                    assertMePackagerReady(helper, packager, "blocked heldBox retry test");
+                })
+                .thenExecute(() -> {
+                    IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+                            .resolve()
+                            .orElseThrow();
+                    ItemStack input = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+                    helper.assertTrue(sideHandler.insertItem(0, input, false).isEmpty(),
+                            "Initially empty network should accept one package into heldBox");
+                    var storage = aeStorage(aeInterface);
+                    long inserted = storage.insert(
+                            AEItemKey.of(Items.COBBLESTONE),
+                            1,
+                            Actionable.MODULATE,
+                            IActionSource.ofMachine(aeInterface));
+                    helper.assertTrue(inserted == 1, "Network change should insert a blocking item during progress");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 3, () -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(packager.unpackBlocked(),
+                            "Failed final unpack commit should mark heldBox blocked");
+                    helper.assertTrue(!packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_HELD_BOX).isEmpty(),
+                            "Blocked unpack should retain the original package");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
+                            "Blocked unpack must not partially insert package contents");
+                    storage.extract(AEItemKey.of(Items.COBBLESTONE), 1, Actionable.MODULATE, source);
+                })
+                .thenExecuteAfter(
+                        MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS
+                                + MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 6,
+                        () -> {
+                            var storage = aeStorage(aeInterface);
+                            var source = IActionSource.ofMachine(aeInterface);
+                            helper.assertFalse(packager.unpackBlocked(),
+                                    "Recovered network should clear the heldBox blocked state");
+                            helper.assertTrue(packager.getItems()
+                                            .getStackInSlot(MePackagerBlockEntity.SLOT_HELD_BOX)
+                                            .isEmpty(),
+                                    "Successful retry should consume the held package");
+                            helper.assertTrue(storage.extract(
+                                            AEItemKey.of(Items.IRON_INGOT),
+                                            64,
+                                            Actionable.SIMULATE,
+                                            source) == 64,
+                                    "Successful retry should insert the complete package contents");
+                        })
                 .thenSucceed();
     }
 
@@ -1300,14 +1409,10 @@ public final class PackageDataGameTests {
                     assertAe2InterfaceReady(helper, aeInterface, "auto-unpack ME Packager test");
                     assertMePackagerReady(helper, packager, "auto-unpack ME Packager test");
                 })
-                .thenExecute(() -> helper.getLevel().setBlock(
-                        helper.absolutePos(packagerPos.above()),
-                        Blocks.REDSTONE_BLOCK.defaultBlockState(),
-                        3))
                 .thenExecute(() -> packager.getItems().setStackInSlot(
                         MePackagerBlockEntity.SLOT_INPUT,
                         packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64))))
-                .thenExecuteAfter(3, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 3, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
@@ -1334,7 +1439,7 @@ public final class PackageDataGameTests {
                 .thenExecute(() -> packager.getItems().setStackInSlot(
                         MePackagerBlockEntity.SLOT_INPUT,
                         packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64))))
-                .thenExecuteAfter(3, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 3, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
@@ -1347,6 +1452,36 @@ public final class PackageDataGameTests {
                 .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () ->
                         helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                                 "Redstone-disabled packing mode should keep automatic packing off"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerRedstoneControlAppliesWithoutUpgradeGate(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "redstone control ME Packager test");
+                    assertMePackagerReady(helper, packager, "redstone control ME Packager test");
+                })
+                .thenExecute(() -> {
+                    helper.assertFalse(packager.getUpgrades().isInstalled(AEItems.REDSTONE_CARD),
+                            "Test packager should not contain a redstone card");
+                    packager.setRedstoneMode(MePackagerBlockEntity.RedstoneMode.ALWAYS);
+                    var storage = aeStorage(aeInterface);
+                    long inserted = storage.insert(
+                            AEItemKey.of(Items.IRON_INGOT),
+                            64,
+                            Actionable.MODULATE,
+                            IActionSource.ofMachine(aeInterface));
+                    helper.assertTrue(inserted == 64,
+                            "No-card redstone test should insert source contents");
+                })
+                .thenExecuteAfter(4, () -> helper.assertTrue(
+                        packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.PACKING,
+                        "The left-side redstone setting should control packing without a hidden upgrade gate"))
                 .thenSucceed();
     }
 
@@ -1855,7 +1990,6 @@ public final class PackageDataGameTests {
         ItemStack pattern = packageCraftingPattern(
                 PackageColor.PURPLE,
                 Optional.of(marker),
-                "Ore Kit",
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
                 new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
 
@@ -1878,8 +2012,8 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.PURPLE).get()),
                 "Computed package output should use the encoded color");
-        helper.assertTrue(output.getHoverName().getString().equals("Ore Kit"),
-                "Computed package output should use the encoded package name");
+        helper.assertFalse(output.hasCustomHoverName(),
+                "Computed package output should retain the package item's default name");
         helper.assertTrue(data.marker().isPresent() && data.marker().orElseThrow().sameAs(marker),
                 "Computed package output should use the encoded marker");
         helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
@@ -1896,7 +2030,6 @@ public final class PackageDataGameTests {
         ItemStack pattern = packageCraftingPattern(
                 PackageColor.RED,
                 Optional.of(marker),
-                "Red Ore Kit",
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
                 new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
@@ -1911,8 +2044,8 @@ public final class PackageDataGameTests {
                 "Assembler should execute an AE2-carried package crafting pattern");
         helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.RED).get()),
                 "Assembler should use the package crafting pattern color");
-        helper.assertTrue(output.getHoverName().getString().equals("Red Ore Kit"),
-                "Assembler should use the package crafting pattern name");
+        helper.assertFalse(output.hasCustomHoverName(),
+                "Assembler should retain the package item's default name");
         helper.assertTrue(outputData.marker().isPresent() && outputData.marker().orElseThrow().sameAs(marker),
                 "Assembler should use the package crafting pattern marker");
         helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 64,
@@ -1984,7 +2117,6 @@ public final class PackageDataGameTests {
         ItemStack pattern = packageCraftingPattern(
                 PackageColor.BLUE,
                 Optional.empty(),
-                "",
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640));
         IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
         helper.assertTrue(details instanceof PackageCraftingPatternDetails,
@@ -2016,8 +2148,7 @@ public final class PackageDataGameTests {
         helper.assertTrue(PackageCraftingPatternDataStorage.create(
                         PackageColor.FLUIX,
                         inputs,
-                        Optional.empty(),
-                        "")
+                        Optional.empty())
                 .isEmpty(), "Package crafting pattern should reject contents beyond package capacity");
         helper.succeed();
     }
@@ -2217,8 +2348,7 @@ public final class PackageDataGameTests {
         boolean accepted = assembler.pushPattern(details, new KeyCounter[] { ironInput, copperInput }, Direction.UP);
         ItemStack firstOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
         PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-        ItemStack secondOutput =
-                assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
+        ItemStack secondOutput = assembler.nextOutputPreview();
         PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
 
         helper.assertTrue(accepted,
@@ -2230,7 +2360,7 @@ public final class PackageDataGameTests {
         helper.assertTrue(firstData.canonicalHash().equals(iron.canonicalHash()),
                 "First packaged-processing output should match the first package");
         helper.assertTrue(!secondOutput.isEmpty(),
-                "Assembler should put the second packaged-processing package in the next output slot");
+                "Assembler should preview the second packaged-processing package from the ordered queue");
         helper.assertTrue(secondData.canonicalHash().equals(copper.canonicalHash()),
                 "Second packaged-processing output should match the second package");
         helper.succeed();
@@ -2280,7 +2410,6 @@ public final class PackageDataGameTests {
         ItemStack pattern = packageCraftingPattern(
                 PackageColor.FLUIX,
                 Optional.empty(),
-                "",
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
                 new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
         IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
@@ -2324,8 +2453,7 @@ public final class PackageDataGameTests {
         boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron }, Direction.UP);
         ItemStack firstOutput = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).copy();
         PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-        ItemStack secondOutput =
-                assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
+        ItemStack secondOutput = assembler.nextOutputPreview();
         PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
 
         helper.assertTrue(accepted, "Assembler should accept colored processing pattern pushes");
@@ -2333,7 +2461,7 @@ public final class PackageDataGameTests {
         helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
                 "First colored package should use the first slot color");
         helper.assertTrue(!secondOutput.isEmpty(),
-                "Assembler should put the second colored package in the next output slot");
+                "Assembler should preview the second colored package from the ordered queue");
         helper.assertTrue(secondOutput.is(APItems.packageItems().get(PackageColor.BLUE).get()),
                 "Second colored package should use the second slot color");
         helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 32,
@@ -2350,7 +2478,6 @@ public final class PackageDataGameTests {
         ItemStack pattern = packageCraftingPattern(
                 PackageColor.FLUIX,
                 Optional.empty(),
-                "",
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64));
         IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
         helper.assertTrue(details instanceof PackageCraftingPatternDetails,
@@ -2494,7 +2621,6 @@ public final class PackageDataGameTests {
     public static void packageAssemblerUsesConfiguredPackageIdentity(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.setSelectedColor(PackageColor.RED);
-        assembler.setPackageName("Assembler Batch");
         PackageData target = ironPackageData(PackageColor.RED, 64);
         ItemStack pattern = new ItemStack(APItems.PACKAGE_PATTERN.get());
         PackagePatternDataStorage.write(pattern, PackageColor.RED, target);
@@ -2511,9 +2637,8 @@ public final class PackageDataGameTests {
                 "Assembler should assemble using configured package identity");
         helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.RED).get()),
                 "Assembler output item should use the selected package color");
-        helper.assertTrue(output.hasCustomHoverName()
-                        && "Assembler Batch".equals(output.getHoverName().getString()),
-                "Assembler output should use the configured package name");
+        helper.assertFalse(output.hasCustomHoverName(),
+                "Assembler output should retain the package item's default name");
         helper.assertTrue(outputData.marker().map(marker -> marker.sameAs(expectedMarker)).orElse(false),
                 "Assembler output should use the configured marker item");
         helper.succeed();
@@ -2545,19 +2670,19 @@ public final class PackageDataGameTests {
                 fifthFilter,
                 fifthFilter.getCount(),
                 false);
-        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1), secondRowPackage);
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, secondRowPackage);
         menu.setScrollOffset(1);
 
         helper.assertTrue(PackageAssemblerMenu.MENU_INPUT_END - PackageAssemblerMenu.MENU_INPUT_START == 16,
                 "Assembler menu should expose a 4x4 visible input window");
-        helper.assertTrue(PackageAssemblerMenu.OUTPUT_END - PackageAssemblerMenu.OUTPUT_START == 4,
-                "Assembler menu should expose four visible output slots");
+        helper.assertTrue(PackageAssemblerMenu.OUTPUT_END - PackageAssemblerMenu.OUTPUT_START == 2,
+                "Assembler menu should expose one real output and one preview slot");
         helper.assertTrue(menu.maxScrollOffset() == PackageAssemblerBlockEntity.OUTPUT_SLOT_COUNT - PackageAssemblerMenu.VISIBLE_ROWS,
                 "Assembler menu scroll range should follow the output rows");
         helper.assertTrue(menu.getSlot(menu.menuInputMenuSlotIndex(0)).getItem().is(fifthFilter.getItem()),
                 "Scrolled 4x4 input window should map its first visible slot to the next input row");
         helper.assertTrue(menu.getSlot(menu.outputMenuSlotIndex(0)).getItem().is(secondRowPackage.getItem()),
-                "Scrolled output window should map its first visible slot to the matching output row");
+                "Assembler main output should remain fixed while input rows scroll");
         helper.succeed();
     }
 
@@ -2582,14 +2707,17 @@ public final class PackageDataGameTests {
         ItemStack second = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 16));
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, first);
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1), second);
-        IItemHandler handler = assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+        CompoundTag saved = assembler.saveWithoutMetadata();
+        PackageAssemblerBlockEntity loaded = newPackageAssembler();
+        loaded.load(saved);
+        IItemHandler handler = loaded.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
                 .orElseThrow(IllegalStateException::new);
 
         ItemStack skipped = handler.extractItem(PackageAssemblerBlockEntity.outputHandlerSlot(1), 64, false);
         ItemStack nonOutput = handler.extractItem(PackageAssemblerBlockEntity.SLOT_PATTERN, 64, false);
         ItemStack firstExtract = handler.extractItem(PackageAssemblerBlockEntity.SLOT_OUTPUT, 64, false);
         ItemStack secondExtract = handler.extractItem(PackageAssemblerBlockEntity.SLOT_OUTPUT, 64, false);
-        ItemStack thirdExtract = handler.extractItem(PackageAssemblerBlockEntity.outputHandlerSlot(1), 64, false);
+        ItemStack thirdExtract = handler.extractItem(PackageAssemblerBlockEntity.SLOT_OUTPUT, 64, false);
 
         helper.assertTrue(skipped.isEmpty(), "External handler should not skip earlier output slots");
         helper.assertTrue(nonOutput.isEmpty(), "External handler should not extract non-output slots");
@@ -2598,7 +2726,7 @@ public final class PackageDataGameTests {
         helper.assertTrue(secondExtract.getCount() == 1 && secondExtract.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
                 "External handler should extract the next package from the first output slot before later slots");
         helper.assertTrue(thirdExtract.getCount() == 1 && thirdExtract.is(APItems.packageItems().get(PackageColor.RED).get()),
-                "External handler should move to the next output slot only after earlier slots are empty");
+                "External handler should promote the next queued package after earlier output is empty");
         helper.succeed();
     }
 
@@ -2829,7 +2957,6 @@ public final class PackageDataGameTests {
                     ItemStack pattern = packageCraftingPattern(
                             PackageColor.FLUIX,
                             Optional.empty(),
-                            "",
                             new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
                             new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
                     provider.getLogic().getPatternInv().addItems(pattern);
@@ -2919,8 +3046,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(!firstOutput.isEmpty(),
                             "First colored package should appear after assembler progress");
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-                    ItemStack secondOutput =
-                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
+                    ItemStack secondOutput = assembler.nextOutputPreview();
                     helper.assertTrue(!secondOutput.isEmpty(),
                             "Second colored package should appear after assembler progress");
                     PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
@@ -3007,8 +3133,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(!firstOutput.isEmpty(),
                             "First packaged-processing package should appear after assembler progress");
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-                    ItemStack secondOutput =
-                            assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1)).copy();
+                    ItemStack secondOutput = assembler.nextOutputPreview();
                     helper.assertTrue(!secondOutput.isEmpty(),
                             "Second packaged-processing package should appear after assembler progress");
                     PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
@@ -3059,7 +3184,6 @@ public final class PackageDataGameTests {
         ItemStack cpuPattern = packageCraftingPattern(
                 PackageColor.FLUIX,
                 Optional.empty(),
-                "",
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64),
                 new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 32));
         ItemStack expectedPackage = PackageCraftingPatternDataStorage.toPackageStack(
@@ -3195,8 +3319,19 @@ public final class PackageDataGameTests {
                     MePackagerBlockEntity.MachineResult unpackResult = packager.runOnce();
                     helper.assertTrue(unpackResult == MePackagerBlockEntity.MachineResult.UNPACKED,
                             "ME Packager should unpack into the adjacent AE2 Interface");
+                    helper.assertTrue(!packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
+                            "ME Packager should retain the input package during unpacking progress");
+                    helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
+                            "AE2 Interface network should not receive iron before progress completes");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                    InterfaceBlockEntity aeInterface =
+                            (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
+                    MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+                    var storage = aeInterface.getMainNode().getGrid().getStorageService().getInventory();
+                    var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
-                            "ME Packager should consume the input package after AE2 Interface unpack");
+                            "ME Packager should consume heldBox after unpacking progress");
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
                             "AE2 Interface network should contain unpacked iron");
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.SIMULATE, source) == 32,
@@ -4254,7 +4389,7 @@ public final class PackageDataGameTests {
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
         var metadata = new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
                 new AdvancedProcessingPatternDataStorage.PackageColumn(
-                        0, PackageColor.FLUIX, "", Optional.empty())));
+                        0, PackageColor.FLUIX, Optional.empty())));
         boolean rejected = false;
         try {
             AdvancedProcessingPatternDataStorage.write(pattern, metadata);
@@ -4275,14 +4410,13 @@ public final class PackageDataGameTests {
 
     @GameTest(template = "empty")
     public static void advancedProcessingPatternMetadataRoundTrips(GameTestHelper helper) {
+        GenericStack[] advancedInputs =
+                new GenericStack[AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE + 1];
+        advancedInputs[0] = new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32);
+        advancedInputs[AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE] =
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16);
         ItemStack pattern = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
-                new GenericStack[] {
-                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
-                        null,
-                        null,
-                        null,
-                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16)
-                },
+                advancedInputs,
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
         MarkerSpec diamond = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
         MarkerSpec emerald = new MarkerSpec(new GenericStack(AEItemKey.of(Items.EMERALD), 1));
@@ -4290,9 +4424,9 @@ public final class PackageDataGameTests {
                 pattern,
                 new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
                         new AdvancedProcessingPatternDataStorage.PackageColumn(
-                                0, PackageColor.RED, "Iron Route", Optional.of(diamond)),
+                                0, PackageColor.RED, Optional.of(diamond)),
                         new AdvancedProcessingPatternDataStorage.PackageColumn(
-                                1, PackageColor.BLUE, "Copper Route", Optional.of(emerald)))));
+                                1, PackageColor.BLUE, Optional.of(emerald)))));
 
         var encoded = AdvancedProcessingPatternDataStorage.read(pattern).orElseThrow();
         helper.assertTrue(pattern.is(APItems.ADVANCED_PROCESSING_PATTERN.get()),
@@ -4301,8 +4435,6 @@ public final class PackageDataGameTests {
                 "Advanced processing pattern should preserve its active column count");
         helper.assertTrue(encoded.column(0).color() == PackageColor.RED,
                 "First advanced package color should round-trip");
-        helper.assertTrue(encoded.column(1).packageName().equals("Copper Route"),
-                "Second advanced package name should round-trip");
         helper.assertTrue(encoded.column(0).marker().orElseThrow().sameAs(diamond),
                 "First advanced package marker should round-trip");
         helper.assertTrue(encoded.column(1).marker().orElseThrow().sameAs(emerald),
@@ -4317,7 +4449,6 @@ public final class PackageDataGameTests {
     public static void packageAssemblerOrdinaryPatternUsesDefaultPackageIdentity(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.setSelectedColor(PackageColor.RED);
-        assembler.setPackageName("Machine Override");
         assembler.getItems().setStackInSlot(
                 PackageAssemblerBlockEntity.SLOT_MARKER,
                 new ItemStack(Items.EMERALD));
@@ -4337,7 +4468,7 @@ public final class PackageDataGameTests {
         helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
                 "Ordinary processing patterns should use the default Fluix package color");
         helper.assertFalse(output.hasCustomHoverName(),
-                "Ordinary processing patterns should leave the package name empty");
+                "Ordinary processing patterns should retain the package item's default name");
         helper.assertTrue(data.marker().isEmpty(),
                 "Ordinary processing patterns should leave the package marker empty");
         helper.succeed();
@@ -4346,14 +4477,13 @@ public final class PackageDataGameTests {
     @GameTest(template = "empty")
     public static void packageAssemblerAdvancedPatternPackagesEachColumnInOrder(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        GenericStack[] advancedInputs =
+                new GenericStack[AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE + 1];
+        advancedInputs[0] = new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32);
+        advancedInputs[AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE] =
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16);
         ItemStack pattern = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
-                new GenericStack[] {
-                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
-                        null,
-                        null,
-                        null,
-                        new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16)
-                },
+                advancedInputs,
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
         MarkerSpec diamond = new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
         MarkerSpec emerald = new MarkerSpec(new GenericStack(AEItemKey.of(Items.EMERALD), 1));
@@ -4361,9 +4491,9 @@ public final class PackageDataGameTests {
                 pattern,
                 new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
                         new AdvancedProcessingPatternDataStorage.PackageColumn(
-                                0, PackageColor.RED, "Iron Route", Optional.of(diamond)),
+                                0, PackageColor.RED, Optional.of(diamond)),
                         new AdvancedProcessingPatternDataStorage.PackageColumn(
-                                1, PackageColor.RED, "Copper Route", Optional.of(emerald)))));
+                                1, PackageColor.RED, Optional.of(emerald)))));
         IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
         KeyCounter iron = new KeyCounter();
         iron.add(AEItemKey.of(Items.IRON_INGOT), 32);
@@ -4374,9 +4504,7 @@ public final class PackageDataGameTests {
         ItemStack firstOutput = assembler.getItems()
                 .getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT)
                 .copy();
-        ItemStack secondOutput = assembler.getItems()
-                .getStackInSlot(PackageAssemblerBlockEntity.outputHandlerSlot(1))
-                .copy();
+        ItemStack secondOutput = assembler.nextOutputPreview();
         PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
         PackageData secondData = PackageDataStorage.read(secondOutput).orElseThrow();
 
@@ -4386,10 +4514,10 @@ public final class PackageDataGameTests {
         helper.assertTrue(firstOutput.is(APItems.packageItems().get(PackageColor.RED).get())
                         && secondOutput.is(APItems.packageItems().get(PackageColor.RED).get()),
                 "Advanced columns with the same color should remain separate packages");
-        helper.assertTrue(firstOutput.getHoverName().getString().equals("Iron Route"),
-                "First package should preserve first-column name and order");
-        helper.assertTrue(secondOutput.getHoverName().getString().equals("Copper Route"),
-                "Second package should preserve second-column name and order");
+        helper.assertFalse(firstOutput.hasCustomHoverName(),
+                "Advanced package output should retain its default item name");
+        helper.assertFalse(secondOutput.hasCustomHoverName(),
+                "Second package should retain its default item name and queue order");
         helper.assertTrue(firstData.marker().orElseThrow().sameAs(diamond),
                 "First package should preserve first-column marker");
         helper.assertTrue(secondData.marker().orElseThrow().sameAs(emerald),
@@ -4421,10 +4549,9 @@ public final class PackageDataGameTests {
                 "Advanced pattern terminal should reuse AE2 pattern terminal part behavior");
         part.getAdvancedPatternState().setActiveColumns(2);
         part.getAdvancedPatternState().setColor(0, PackageColor.GREEN);
-        part.getAdvancedPatternState().setName(1, "Second Route");
-        part.getAdvancedPatternState().markers().setStack(
-                1,
-                new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+        part.getAdvancedPatternState().inputs().setStack(
+                AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE,
+                new GenericStack(AEItemKey.of(Items.DIAMOND), 7));
         CompoundTag saved = new CompoundTag();
         part.writeToNBT(saved);
         part.getAdvancedPatternState().reset();
@@ -4434,10 +4561,92 @@ public final class PackageDataGameTests {
                 "Advanced terminal should persist active columns");
         helper.assertTrue(part.getAdvancedPatternState().color(0) == PackageColor.GREEN,
                 "Advanced terminal should persist column colors");
-        helper.assertTrue(part.getAdvancedPatternState().name(1).equals("Second Route"),
-                "Advanced terminal should persist column names");
-        helper.assertTrue(part.getAdvancedPatternState().markers().getKey(1).equals(AEItemKey.of(Items.DIAMOND)),
-                "Advanced terminal should persist column markers");
+        helper.assertTrue(part.getAdvancedPatternState().inputs()
+                        .getStack(AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE)
+                        .what()
+                        .equals(AEItemKey.of(Items.DIAMOND)),
+                "Advanced terminal should persist its expanded package-column inputs");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void patternEncodingTerminalPackageInputsSupportAmountEditing(GameTestHelper helper) {
+        @SuppressWarnings("unchecked")
+        IPartItem<PatternEncodingTerminalPart> partItem =
+                (IPartItem<PatternEncodingTerminalPart>) AEParts.PATTERN_ENCODING_TERMINAL.asItem();
+        PatternEncodingTerminalPart part = PartHelper.setPart(
+                helper.getLevel(),
+                helper.absolutePos(new BlockPos(2, 2, 1)),
+                Direction.NORTH,
+                null,
+                partItem);
+        helper.assertTrue(part != null, "Pattern encoding terminal should place for package-mode amount testing");
+
+        PackageCraftingPatternLogicBridge logic = (PackageCraftingPatternLogicBridge) part.getLogic();
+        logic.appliedpackaging$setPackageCraftingMode(true);
+        part.getLogic().getEncodedInputInv().setStack(
+                0,
+                new GenericStack(AEItemKey.of(Items.OAK_LOG), 4));
+        part.getLogic().getEncodedInputInv().setStack(
+                PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT - 1,
+                new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 7));
+        part.getLogic().getEncodedInputInv().setStack(
+                1,
+                new GenericStack(AEFluidKey.of(Fluids.WATER), 1000));
+        part.getLogic().getBlankPatternInv().setItemDirect(0, AEItems.BLANK_PATTERN.stack());
+
+        FakePlayer player = newFakePlayer(helper);
+        PatternEncodingTermMenu menu = new PatternEncodingTermMenu(8, new Inventory(player), part);
+        PackageCraftingPatternMenuBridge packageMenu = (PackageCraftingPatternMenuBridge) menu;
+        packageMenu.appliedpackaging$setPackageCraftingMode(true);
+        var input = menu.getProcessingInputSlots()[0];
+        var lastInput = menu.getProcessingInputSlots()[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT - 1];
+        var markerSlot = packageMenu.appliedpackaging$getPackageCraftingMarkerSlot();
+        var automaticOutput = menu.getSlots(SlotSemantics.CRAFTING_RESULT).get(0);
+
+        helper.assertTrue(markerSlot != null && markerSlot.isActive(),
+                "Package mode should expose its dedicated marker slot");
+        helper.assertTrue(automaticOutput.isActive(),
+                "Package mode should expose exactly one automatic package output");
+        helper.assertTrue(PackageDataStorage.read(automaticOutput.getItem()).isPresent(),
+                "The package output should be calculated from configured inputs without an output filter");
+        helper.assertTrue(java.util.Arrays.stream(menu.getProcessingOutputSlots()).noneMatch(slot -> slot.isActive()),
+                "Package mode must not expose any configurable processing output slots");
+        helper.assertTrue(java.util.Arrays.stream(menu.getProcessingInputSlots()).allMatch(slot -> slot.isActive()),
+                "All 81 package inputs should remain available to the scrolling input window");
+        helper.assertFalse(input.isHideAmount(),
+                "Package-mode processing inputs should render configured amounts");
+        helper.assertTrue(menu.isProcessingPatternSlot(input),
+                "Package-mode inputs should use AE2 processing-slot container behavior");
+        helper.assertTrue(menu.canModifyAmountForSlot(input),
+                "Package-mode processing inputs should open AE2 amount editing on middle click");
+        GenericStack configured = GenericStack.fromItemStack(input.getItem());
+        helper.assertTrue(configured != null && configured.amount() == 4,
+                "Package-mode processing inputs should preserve amounts larger than one");
+        helper.assertTrue(menu.canModifyAmountForSlot(lastInput),
+                "The 81st package input should support amount editing");
+
+        menu.encode();
+        ItemStack encodedStack = part.getLogic().getEncodedPatternInv().getStackInSlot(0);
+        var encoded = PackageCraftingPatternDataStorage.read(encodedStack).orElseThrow();
+        GenericStack encodedLast = encoded.sparseInputs()[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT - 1];
+        GenericStack encodedFluid = encoded.sparseInputs()[1];
+        helper.assertTrue(encodedLast != null
+                        && encodedLast.what().equals(AEItemKey.of(Items.GOLD_INGOT))
+                        && encodedLast.amount() == 7,
+                "Package-mode encoding should preserve the 81st scrolled input");
+        helper.assertTrue(encodedFluid != null
+                        && encodedFluid.what().equals(AEFluidKey.of(Fluids.WATER))
+                        && encodedFluid.amount() == 1000,
+                "Package-mode encoding should preserve AE2 processing fluid inputs");
+
+        packageMenu.appliedpackaging$setPackageCraftingMode(false);
+        helper.assertFalse(menu.isProcessingPatternSlot(input),
+                "Normal crafting mode should restore AE2 processing-slot classification");
+        helper.assertFalse(menu.canModifyAmountForSlot(input),
+                "Normal crafting mode should not treat processing inputs as editable package inputs");
+        helper.assertTrue(menu.getCraftingGridSlots()[0].isHideAmount(),
+                "Normal crafting mode should keep AE2's crafting-grid amounts hidden");
         helper.succeed();
     }
 
@@ -4458,18 +4667,14 @@ public final class PackageDataGameTests {
         part.getAdvancedPatternState().setActiveColumns(2);
         part.getAdvancedPatternState().setColor(0, PackageColor.RED);
         part.getAdvancedPatternState().setColor(1, PackageColor.BLUE);
-        part.getAdvancedPatternState().setName(1, "Copper Route");
-        part.getAdvancedPatternState().markers().setStack(
-                1,
-                new GenericStack(AEItemKey.of(Items.EMERALD), 7));
-        part.getLogic().getEncodedInputInv().setStack(
+        part.getAdvancedPatternState().inputs().setStack(
                 0,
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32));
-        part.getLogic().getEncodedInputInv().setStack(
-                4,
+        part.getAdvancedPatternState().inputs().setStack(
+                AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE,
                 new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16));
-        part.getLogic().getEncodedInputInv().setStack(
-                8,
+        part.getAdvancedPatternState().inputs().setStack(
+                AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE * 2,
                 new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 64));
         part.getLogic().getEncodedOutputInv().setStack(
                 0,
@@ -4479,6 +4684,8 @@ public final class PackageDataGameTests {
         FakePlayer player = newFakePlayer(helper);
         AdvancedPatternEncodingTermMenu menu =
                 new AdvancedPatternEncodingTermMenu(7, new Inventory(player), part);
+        helper.assertTrue(menu.canModifyAmountForSlot(menu.getAdvancedInputSlots()[0]),
+                "Advanced terminal inputs should open amount editing on middle click");
         menu.encode();
 
         ItemStack encodedStack = part.getLogic().getEncodedPatternInv().getStackInSlot(0);
@@ -4491,6 +4698,10 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(encodedStack.is(APItems.ADVANCED_PROCESSING_PATTERN.get()),
                 "Advanced terminal should encode the dedicated advanced pattern item");
+        helper.assertTrue(
+                PatternDetailsHelper.decodePattern(encodedStack, helper.getLevel())
+                        instanceof com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDetails,
+                "Advanced terminal output should decode through its expanded processing-pattern details");
         helper.assertTrue(part.getLogic().getBlankPatternInv().getStackInSlot(0).isEmpty(),
                 "Successful advanced encoding should consume one blank pattern");
         helper.assertTrue(encoded.activeColumnCount() == 2,
@@ -4498,17 +4709,57 @@ public final class PackageDataGameTests {
         helper.assertTrue(encoded.column(0).color() == PackageColor.RED
                         && encoded.column(1).color() == PackageColor.BLUE,
                 "Advanced terminal should preserve each active column color");
-        helper.assertTrue(encoded.column(1).packageName().equals("Copper Route"),
-                "Advanced terminal should preserve the configured package name");
-        helper.assertTrue(encoded.column(1).marker().isPresent(),
-                "Advanced terminal should preserve the configured package marker");
-        helper.assertTrue(encoded.column(1).marker().get().stack().amount() == 1,
-                "Advanced package marker metadata must normalize to one item");
+        helper.assertTrue(encoded.column(0).marker().orElseThrow().stack().what().equals(AEItemKey.of(Items.DIAMOND))
+                        && encoded.column(1).marker().orElseThrow().stack().what().equals(AEItemKey.of(Items.DIAMOND)),
+                "Advanced terminal should use the primary output as every package marker");
         helper.assertTrue(sparseInputs.get(0).what().equals(AEItemKey.of(Items.IRON_INGOT))
-                        && sparseInputs.get(4).what().equals(AEItemKey.of(Items.COPPER_INGOT)),
-                "Advanced terminal should preserve inputs in their four-slot package columns");
-        helper.assertTrue(sparseInputs.size() <= 8 || sparseInputs.get(8) == null,
+                        && sparseInputs.get(AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE)
+                                .what()
+                                .equals(AEItemKey.of(Items.COPPER_INGOT)),
+                "Advanced terminal should preserve inputs in full-size AE2 package columns");
+        helper.assertTrue(
+                sparseInputs.size() <= AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE * 2,
                 "Advanced terminal must ignore stale ghost inputs outside active columns");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void advancedPatternTerminalColumnDeleteClearsThenShifts(GameTestHelper helper) {
+        AdvancedPatternEncodingState state = new AdvancedPatternEncodingState(() -> {
+        });
+        state.setActiveColumns(3);
+        state.setColor(0, PackageColor.RED);
+        state.setColor(1, PackageColor.BLUE);
+        state.setColor(2, PackageColor.GREEN);
+        int slotsPerColumn = AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+        state.inputs().setStack(
+                slotsPerColumn,
+                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 16));
+        state.inputs().setStack(
+                slotsPerColumn * 2,
+                new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 8));
+
+        boolean removedWhilePopulated = state.clearOrDeleteColumn(1);
+        helper.assertFalse(removedWhilePopulated,
+                "The first X press should clear a populated package column");
+        helper.assertTrue(state.activeColumns() == 3 && state.inputs().getStack(slotsPerColumn) == null,
+                "Clearing a populated package column should preserve the column itself");
+
+        boolean removedWhileEmpty = state.clearOrDeleteColumn(1);
+        helper.assertTrue(removedWhileEmpty,
+                "The second X press should remove the now-empty package column");
+        helper.assertTrue(state.activeColumns() == 2 && state.color(1) == PackageColor.GREEN,
+                "Removing an empty package column should shift following colors left");
+        helper.assertTrue(state.inputs().getStack(slotsPerColumn).what().equals(AEItemKey.of(Items.GOLD_INGOT)),
+                "Removing an empty package column should shift following inputs left");
+        helper.assertTrue(state.inputs().getStack(slotsPerColumn * 2) == null,
+                "Removing a package column should clear the old final column");
+
+        state.reset();
+        helper.assertFalse(state.clearOrDeleteColumn(0),
+                "The final empty package column must not be removed");
+        helper.assertTrue(state.activeColumns() == 1,
+                "The advanced terminal must always retain one package column");
         helper.succeed();
     }
 
@@ -5277,13 +5528,11 @@ public final class PackageDataGameTests {
     private static ItemStack packageCraftingPattern(
             PackageColor color,
             Optional<MarkerSpec> marker,
-            String packageName,
             GenericStack... inputs) {
         var encoded = PackageCraftingPatternDataStorage.create(
                         color,
                         sparsePackageCraftingInputs(inputs),
-                        marker,
-                        packageName)
+                        marker)
                 .orElseThrow();
         return PackageCraftingPatternDataStorage.encode(encoded);
     }

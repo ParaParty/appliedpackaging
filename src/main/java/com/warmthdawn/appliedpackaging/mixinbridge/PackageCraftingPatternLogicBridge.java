@@ -12,9 +12,5 @@ public interface PackageCraftingPatternLogicBridge {
 
     void appliedpackaging$setPackageCraftingColor(PackageColor color);
 
-    String appliedpackaging$getPackageCraftingName();
-
-    void appliedpackaging$setPackageCraftingName(String name);
-
     InternalInventory appliedpackaging$getPackageCraftingMarkerInv();
 }

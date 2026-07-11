@@ -15,8 +15,13 @@ Sources inspected:
 - `build/asset-reference/ae2/ae2-items-visual.png`
 - `build/asset-reference/ae2/ae2-parts-visual.png`
 - `build/asset-reference/concepts/applied-packaging-ae2-style-board.png`
+- `E:\resources\textures\appliedpackaging\ret\adv-pattern-terminal-base.png`
+- `E:\resources\textures\appliedpackaging\ret\sprite.png`
+- `E:\resources\textures\appliedpackaging\ret\pattern_mode_packaging.png`
+- `build/reference/ae2-1.21.1/src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json`
+- `build/reference/ae2-1.21.1/src/main/java/appeng/client/gui/me/items/ProcessingEncodingPanel.java`
 
-The AE2 sheets and concept board were used only as style/material references. No AE2 texture was copied or traced pixel-for-pixel.
+The original icon-set pass used the AE2 sheets only as style/material references. The later Advanced Pattern Terminal pass is an explicit exception: the user-provided base/sprite atlases contain adapted AE2 high-version GUI pixels for compact controls and scrollers, and are marked separately under `LGPL-3.0-or-later`.
 
 ## Output
 
@@ -45,11 +50,29 @@ Scoped GUI logo file:
 src/main/resources/assets/appliedpackaging/textures/gui/logo.png
 ```
 
+Advanced Pattern Terminal files:
+
+```text
+src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png
+src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png
+src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png
+src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png
+src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png
+src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png
+src/main/resources/META-INF/licenses/ae2-LGPL-3.0-or-later.txt
+```
+
+The four full GUI atlases are 256x256 RGBA PNGs. The advanced terminal effective two-network-row ScreenStyle body is 195x250; the package pattern mode effective panel is 124x66. The base, shared sprite, and package-mode files were copied byte-for-byte from the user-provided `ret` directory; the current package-mode source and project copy share SHA-256 `AB254596C0AADE263DFB5816ED4824186BCDE69DCAA8B24CF3C00BF3B7EA6256`. The states atlas was copied byte-for-byte from AE2 main/1.21.1 (SHA-256 `0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55`) for the latest primary-output, pattern-slot, encode-button, crafting-status, and hover-adjacent pixels. The 195x18 middle-row strip (SHA-256 `74AD33FC264C1251BE97B01731C8C99BAF393BA84630433603434690883F4962`) combines the lower row's first 17px with the upper row's final 1px so tall terminal styles repeat neither endpoint. The 256x256 scrollbar compatibility atlas (SHA-256 `CD278B712C30419ECAC84AC2FF4E27E94A08655552B232DF427270F53F82D53B`) contains the current AE2 12x15 big-scroller enabled and disabled sprites. The bundled LGPL text is byte-identical to the AE2 source checkout license.
+
 The scoped GUI logo is a 128x128 RGBA PNG with transparent background. The existing root `src/main/resources/assets/appliedpackaging/logo.png` was not changed in this pass because it is outside the assigned write scope.
 
 ## Generation Method
 
 Method: deterministic hand-drawn pixel art generated locally with Python and Pillow.
+
+Advanced Pattern Terminal method: direct import of the user-provided final base/sprite atlases, followed by ScreenStyle and runtime-control adaptation. The imported files remain unchanged; only the deterministic middle-row strip and 1.20.1-compatible current-AE2 scrollbar atlas are derived resources.
+
+Package pattern mode method: direct import of the user-provided mode atlas and reuse of the marked shared sprite. No generated resize, recolor, or cleanup was applied.
 
 Built-in ImageGen was not invoked for final pixels because these are 16x16 UI controls; the imagegen skill guidance favors direct native editing for small icon/logo systems that must match existing project assets. The minecraft asset skill contract was inspected manually and the final file set was compared against `conversion_requirements.icon_ids`.
 
@@ -139,4 +162,12 @@ No AE2 pixels were copied into project assets.
 .\gradlew.bat runData succeeded.
 .\gradlew.bat build succeeded.
 .\gradlew.bat runGameTestServer succeeded with 29 required tests passing.
+```
+
+## Advanced Pattern Terminal Integration
+
+```text
+The 195px-wide layout follows the AE2 1.21.1 Pattern Encoding Terminal title, search, 9-column network inventory, player inventory, blank/encoded pattern, and encode-button baselines.
+Four package columns are visible at once and each retains 81 logical AE2 processing-input positions, while only three rows are visible at once; an AE2 Scrollbar using the local high-version sprite scrolls input and output rows together.
+A separate horizontal scrollbar scrolls package columns. Enabled columns use a color swatch plus compact edit button; the first inactive column uses the compact add button; disabled columns contain no ghost item.
 ```

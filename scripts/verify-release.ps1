@@ -758,6 +758,7 @@ if ($RequireClientSmokeScreenshots) {
         "appliedpackaging-client-smoke-package_assembler.png",
         "appliedpackaging-client-smoke-me_packager.png",
         "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png",
+        "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png",
         "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png",
         "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png",
         "appliedpackaging-client-smoke-package_pattern_terminal.png",

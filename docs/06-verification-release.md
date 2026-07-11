@@ -116,11 +116,11 @@ package_pattern_terminal 可把 AE2 原版 blank_pattern 编码为 package_patte
 package_pattern_terminal 可把带处理输出 ghost 的 AE2 原版 blank_pattern 编码为 AE2 encoded processing pattern，并附带 packaged_processing_pattern NBT
 AE2 原版 Pattern Encoding Terminal 可切换到包裹样板模式，编码带颜色、marker 和名称配置的 AE2 crafting_pattern 载体
 AE2 普通 processing_pattern 不写且拒绝 advanced_processing_pattern NBT；独立高级处理样板元数据可完整读写，并可通过 AE2 processing-pattern 解码路径工作
-advanced_pattern_encoding_terminal 是 AE2 part item，可复用 PatternEncodingTerminalPart 行为并保存/读取启用列、颜色、名称和 marker
-advanced_pattern_encoding_terminal 可从真实 AE2 blank pattern 编码独立 advanced_processing_pattern，保留 4 槽列映射、颜色、名称和 marker，忽略未启用列残留输入；CONFIG_TYPES marker 会归一为数量 1
+advanced_pattern_encoding_terminal 是 AE2 part item，可复用 PatternEncodingTerminalPart 行为并保存/读取启用列、颜色和 17x81 个高级输入槽
+advanced_pattern_encoding_terminal 可从真实 AE2 blank pattern 编码独立 advanced_processing_pattern，保留每列 81 槽映射与颜色，名称固定为空、marker 固定取主产物并归一为数量 1，且忽略未启用列残留输入
 advanced_pattern_encoding_terminal 列编辑层覆盖 AE 网络库存前景，底层 RepoSlot/processing slot/编码按钮不可见穿透或接收弹层输入；外部点击只关闭弹层
 装配室执行普通 processing pattern 时固定输出 Fluix、空名称和空 marker，不读取机器身份配置
-装配室执行 advanced processing pattern 时按连续 4 槽列生成有序多包裹，同色列不合并，并严格消费 Pattern Provider 输入
+装配室执行 advanced processing pattern 时按连续 81 槽列生成有序多包裹，同色列不合并，并严格消费 Pattern Provider 输入
 package_pattern_terminal 可用 selectedColor 编码非默认颜色样板
 package_pattern_terminal 可把 marker 槽物品编码为样板 marker
 package_pattern_terminal 可用容量槽编码超过默认容量的样板
@@ -317,7 +317,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
 ```
 
-`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、资产资源审计、文档审计、可选 tag 就绪审计、可选发布清单生成/审计和可选发布附件包生成/审计。它支持 `-ReleaseCandidate`、`-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireClientSmokeScreenshots`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-RequireReadyForTag`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle`、`-RequireReleaseBundle`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-ReleaseCandidate` 时会禁止 `-AuditOnly` 与 skip flags，并自动启用 `-RunClientSmoke`、`-RunServerSmoke`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle` 和 `-RequireReleaseBundle`，用于候选发布技术门禁；最终发布 tag 前推荐与 `-RequireCleanGit -RequireReadyForTag` 一起使用。`scripts/test-release-check-plan.ps1` 会通过 `-PlanOnly` 自测完整候选发布步骤顺序，并确认 `-ReleaseCandidate` 会拒绝所有 skip flags 和 `-AuditOnly`，`-AuditOnly` 会拒绝 `-RunServerSmoke`，普通执行模式下 `-RequireServerWorldLoad` 必须搭配 `-RunServerSmoke`。使用 `-RequireReadyForTag` 时会调用 `scripts/verify-release-readiness.ps1 -RequireReadyForTag`，确认变更接收表没有状态、迁移目标或验证要求仍为待输入、待判定、阻塞或失败的项，确认已填写的迁移目标是仓库内已存在文件的规范相对路径且不包含父级遍历，并确认需求类目标落在 `docs/01`、`02`、`03`、`05`、`06` 或 `07`，材质类目标落在 `docs/04-asset-spec.md`、`docs/assets/` 或 `src/main/resources/assets/appliedpackaging/`，本文件不再标记发布 tag 未完成，并且在没有负面 blocker 后必须存在明确正向发布信号。使用 `-RunClientSmoke` 时会自动要求 10 张必需 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械发布审计、资产资源审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD；修改发布清单生成或审计规则时同步运行 `scripts/test-release-manifest.ps1`。使用 `-WriteReleaseBundle` 时会生成 `build/release/appliedpackaging-<version>-release-bundle.zip`；使用 `-RequireReleaseBundle` 时会复验 zip 只包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且哈希与当前源文件一致，并确认 bundle 内 manifest 的 mod id/version 与 jar SHA-256 一致；使用 `-RequireCleanGit` 时 bundle 审计还会确认 bundle 内 manifest 的 git commit、shortCommit、branch、clean 和 statusPorcelain 与当前干净工作区一致。修改机械发布审计规则时同步运行 `scripts/test-release-audit.ps1`。修改发布 PNG 资源、资产尺寸规则或必需资源清单时同步运行 `scripts/verify-assets.ps1` 和 `scripts/test-assets-audit.ps1`。`scripts/test-release-self-tests.ps1` 会聚合 docs audit、asset audit、release audit、release readiness、release plan、manifest 和 bundle 自测，适合在修改发布脚本或文档门禁后快速验证脚本负路径。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、资产资源审计、文档审计、可选 tag 就绪审计、可选发布清单生成/审计和可选发布附件包生成/审计。它支持 `-ReleaseCandidate`、`-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireClientSmokeScreenshots`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-RequireReadyForTag`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle`、`-RequireReleaseBundle`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-ReleaseCandidate` 时会禁止 `-AuditOnly` 与 skip flags，并自动启用 `-RunClientSmoke`、`-RunServerSmoke`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle` 和 `-RequireReleaseBundle`，用于候选发布技术门禁；最终发布 tag 前推荐与 `-RequireCleanGit -RequireReadyForTag` 一起使用。`scripts/test-release-check-plan.ps1` 会通过 `-PlanOnly` 自测完整候选发布步骤顺序，并确认 `-ReleaseCandidate` 会拒绝所有 skip flags 和 `-AuditOnly`，`-AuditOnly` 会拒绝 `-RunServerSmoke`，普通执行模式下 `-RequireServerWorldLoad` 必须搭配 `-RunServerSmoke`。使用 `-RequireReadyForTag` 时会调用 `scripts/verify-release-readiness.ps1 -RequireReadyForTag`，确认变更接收表没有状态、迁移目标或验证要求仍为待输入、待判定、阻塞或失败的项，确认已填写的迁移目标是仓库内已存在文件的规范相对路径且不包含父级遍历，并确认需求类目标落在 `docs/01`、`02`、`03`、`05`、`06` 或 `07`，材质类目标落在 `docs/04-asset-spec.md`、`docs/assets/` 或 `src/main/resources/assets/appliedpackaging/`，本文件不再标记发布 tag 未完成，并且在没有负面 blocker 后必须存在明确正向发布信号。使用 `-RunClientSmoke` 时会自动要求 11 张必需 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械发布审计、资产资源审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD；修改发布清单生成或审计规则时同步运行 `scripts/test-release-manifest.ps1`。使用 `-WriteReleaseBundle` 时会生成 `build/release/appliedpackaging-<version>-release-bundle.zip`；使用 `-RequireReleaseBundle` 时会复验 zip 只包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且哈希与当前源文件一致，并确认 bundle 内 manifest 的 mod id/version 与 jar SHA-256 一致；使用 `-RequireCleanGit` 时 bundle 审计还会确认 bundle 内 manifest 的 git commit、shortCommit、branch、clean 和 statusPorcelain 与当前干净工作区一致。修改机械发布审计规则时同步运行 `scripts/test-release-audit.ps1`。修改发布 PNG 资源、资产尺寸规则或必需资源清单时同步运行 `scripts/verify-assets.ps1` 和 `scripts/test-assets-audit.ps1`。`scripts/test-release-self-tests.ps1` 会聚合 docs audit、asset audit、release audit、release readiness、release plan、manifest 和 bundle 自测，适合在修改发布脚本或文档门禁后快速验证脚本负路径。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
 
 `scripts/run-server-smoke.ps1` 检查 `run/eula.txt` 已明确 `eula=true`，启动 `.\gradlew.bat runServer --stacktrace`，等待 `run/logs/latest.log` 出现 Applied Packaging 初始化、`Preparing level "world"` 和 `Done (...)! For help, type "help"`，随后终止本脚本启动的 runServer 进程树，并确认 25565 不再监听。脚本产生的 stdout/stderr 记录写入 `build/server-smoke/`，不纳入发布资源。
 
@@ -353,9 +353,9 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-release-self-tests.ps1` 串行运行 `test-docs-audit.ps1`、`test-assets-audit.ps1`、`test-release-audit.ps1`、`test-release-readiness.ps1`、`test-release-check-plan.ps1`、`test-release-manifest.ps1` 和 `test-release-bundle.ps1`。它不运行 Gradle、客户端或服务端，只验证发布脚本自测套件本身；工作区干净时 manifest/bundle 子测试会额外覆盖 clean-git 路径。
 
-`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 client smoke 截图文件、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认本地 `package_pattern` / `packaged_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，且确认 `package_pattern_terminal` 仍注册为 AE2 `PartItem` 而不是 `BlockItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireClientSmokeScreenshots` 时会验证 10 张必需截图存在、非空且有 PNG 签名。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
+`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 client smoke 截图文件、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认本地 `package_pattern` / `packaged_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，且确认 `package_pattern_terminal` 仍注册为 AE2 `PartItem` 而不是 `BlockItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireClientSmokeScreenshots` 时会验证 11 张必需截图存在、非空且有 PNG 签名。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
 
-当前玩家入口产品不变量还要求 `advanced_pattern_encoding_terminal` 出现在创造栏，并继续注册为 AE2 `PartItem`；高级终端 GUI 贴图纳入必需 PNG 与 230x260 尺寸审计，独立 `advanced_processing_pattern` 不得作为配方或创造栏直接产物。
+当前玩家入口产品不变量还要求 `advanced_pattern_encoding_terminal` 出现在创造栏，并继续注册为 AE2 `PartItem`；高级终端 base/sprite atlas 纳入必需 PNG 与 256x256 尺寸审计，独立 `advanced_processing_pattern` 不得作为配方或创造栏直接产物。
 
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1` 成功。
 2026-07-04 执行 `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-release-audit.ps1` 成功，确认新增的 jar 内发布资源缺失和 jar 内发布资源过期 fixture 均按预期失败。
@@ -554,6 +554,9 @@ run/logs/latest.log 按 `ERROR|Exception|missing texture|Missing model|Failed to
 2026-07-10 在三种总线加入 `REQUIRE_CHANNEL`、两个菜单加入 host 驱动 ghost 刷新并修复高级终端 marker 编码后，再次执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。人工复查 Advanced Pattern Terminal、Package Pattern Terminal 和 Package Storage Bus 截图，现有布局与预填状态保持完整；日志发布阻断关键字零命中。
 2026-07-10 修正 Advanced Pattern Terminal 列编辑层层级与事件透传后执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功。runner 在同一菜单依次保存主界面和 `appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png`，并等待每张截图回调完成后才切换 screen；人工检查两张截图均无黑块，弹层不透明覆盖网络库存，底层编码控件未穿出，色板、名称框和 marker 槽位于前景。必需截图清单扩展为 10 张。
 2026-07-10 修正大数量 ghost menu 同步后执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功；标准 Package Bus smoke 夹具仍只显示 RED、钻石 marker 和 2000 mB water，不再为了验证 100000 数量额外显示铁锭。三张总线源 PNG 的玩家物品栏内部抽样均为 `#E8ECEE`，核心 GUI 区域逐像素比较仅保留标题与正常渲染差异。
+2026-07-11 按用户提供的 `adv-pattern-terminal-base.png`、`sprite.png` 与最终视觉重做 Advanced Pattern Terminal；两行网络库存时主体为 195x250、9 列网络库存，中间显示 4 列 x 3 行真实输入与 3 行真实输出，左侧滚动条同步查看第 4 行，底部滚动条水平滚动包裹列。执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功；在 960x540、GUI scale 2 下人工检查主界面完整无裁切，标题、搜索、网络栏、双滚动条、样板区和玩家栏与目标 atlas 对齐；编辑层源 PNG 像素正常。日志按发布阻断关键字扫描无命中。`verify-assets.ps1`、`test-assets-audit.ps1`、`verify-docs.ps1`、170 个必需 GameTest 与 `build` 均通过。
+2026-07-11 修正 Advanced Pattern Terminal 两行 base 的动态拉伸：中间重复段改为末行顶部 17px 加首行底边 1px 的独立 195x18 strip；六行合成图人工检查无首/末行边框重复。样板槽清除 1.20.1 自带 ghost 后只绘制新版背景，网络滚动条、右上角合成状态按钮和所有 slot hover 改为 AE2 1.21.1 样式。执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功；截图以真实包裹作为主产物，样板槽不再双层叠加，滚动条无黑块。该轮误把后续提出的 1px 页面偏移和两个槽位对齐归到高级终端，已在同日归属纠正中撤回这些高级终端偏移。
+2026-07-11 按用户提供的 `pattern_mode_packaging.png` 重做 AE2 原版 Pattern Encoding Terminal 包裹模式；有效 124x66 面板与目标图逐像素核对，在客户端截图物理坐标 `(300,170)` 排除两个动态按钮后为 `0/8056` 像素差异。主界面只保留 sprite 清空按钮、当前颜色设置按钮、3x3 输入、marker 与自动输出；颜色/名称编辑层另存 `appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png`，确认底层槽位不穿出且事件不透传。必需截图清单扩展为 11 张。
 ```
 
 ## 6. Dedicated Server 验证
@@ -641,7 +644,7 @@ R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack
 R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
 R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、4x4 输入与 4 输出可见窗口、17 格输出栏、样板门禁、合成进度、pending queue、输出模式、顺序抽取和客户端 smoke 均已覆盖。
 R7 ME 打包机：已满足，相邻 item/fluid/AE2 storage 端点、红石模式、容量、过滤、marker 和拆包事务均已覆盖。
-R8 样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host、AE2 原版 Pattern Encoding Terminal 的包裹样板模式，以及只保留 processing 模式的 Advanced Pattern Terminal 均已覆盖；高级终端以 4x1 列、左侧竖向列滚动条、列颜色/名称/marker 配置编码独立 advanced_processing_pattern 物品，原版 AE2 processing_pattern 不承载高级列数据，真实编码测试覆盖 marker 与未启用列残留。
+R8 样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host、AE2 原版 Pattern Encoding Terminal 的包裹样板模式，以及只保留 processing 模式的 Advanced Pattern Terminal 均已覆盖；原版终端包裹模式复用 81 个 processing input 与左侧滚动条，显示 3x3 可见窗口；高级终端每列保持 AE2 默认 81 个处理输入槽，按最终视觉使用 4 列 x 3 行可见窗口与左侧行滚动条，底部列滚动条滚动包裹列。高级列只编辑颜色，名称固定为空、marker 固定为主产物，列 X 支持先清空后删除并前移。独立 advanced_processing_pattern 使用自定义处理样板详情突破原版单样板 81 输入总上限，原版 AE2 processing_pattern 不承载高级列数据。
 R9 包裹总线：已满足，Storage/Export/Unpacking Bus 仅处理合法包裹，不暴露内部散装内容；三者要求 AE channel，Storage Bus 在线缓存增删与过滤刷新已有真实网络测试。
 R10 事务性：已满足，打包/拆包模拟失败不提交、完整包裹拆入和容量失败回滚均由 GameTest 覆盖。
 R11 Tooltip：已满足，包裹、样板、AE2 blank_pattern carrier 和 packaged-processing 输出提示已接入。
@@ -653,12 +656,12 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 
 ```text
 正式 UI/模型范围后的 Dedicated server full world-load：未完成。
-原因：2026-07-04 候选发布基线已通过完整 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，并完成 dedicated server world-load smoke；当前非 UI 收尾基线也已通过 170 个必需 GameTest、10 张必需 client smoke 截图、build 和 release audit，但 IN-003 正式 UI/模型范围尚待用户描述与实现。
-需要在 IN-003 实现、验收并提交后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag` 或等价命令，确认专用服务端进入世界加载、无客户端类误加载，且 tag 就绪门禁通过。
+原因：2026-07-04 候选发布基线已通过完整 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit`，并完成 dedicated server world-load smoke；高级样板终端 UI 已通过当前验证，但 IN-003 其余正式 UI/模型/动画范围仍等待用户描述与实现。
+需要在 IN-003 剩余范围实现、验收并提交后重新执行 `run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag` 或等价命令，确认专用服务端进入世界加载、无客户端类误加载，且 tag 就绪门禁通过。
 最终 clean git 发布门禁：未完成。
-原因：当前非 UI 提交基线已通过 clean-git audit；但最终候选发布门禁应在 IN-003 实现、验收且全部文件提交之后重新执行。
+原因：当前非 UI 提交基线已通过 clean-git audit；但最终候选发布门禁应在 IN-003 全部范围实现、验收且全部文件提交之后重新执行。
 最终 tag 就绪门禁：未完成。
-原因：当前 `verify-release-readiness.ps1 -RequireReadyForTag` 会因 IN-003 正式 UI/模型待输入、接收窗口开放和发布 tag 未完成判定而失败；IN-003 冻结并迁移后才能通过。
+原因：当前 `verify-release-readiness.ps1 -RequireReadyForTag` 会因 IN-003 仍有 UI/模型/动画范围待输入、接收窗口开放和发布 tag 未完成判定而失败；IN-003 冻结并迁移后才能通过。
 ```
 
 当前记录的非阻塞发布后增强：
@@ -681,24 +684,66 @@ R13 发布资源与元数据：已满足，jar、recipe、loot table、模型、
 讨论记录：已完成。证据：docs/chat-summary.md 保留历史讨论，并声明不作为最新实现规格。
 AI 指令分离：已完成。证据：AGENTS.md 只放 agent 工作规则，docs/00-document-index.md 声明设计文档不承载 AI 指令。
 Minecraft 1.20.1 优先：已完成。证据：gradle.properties、build.gradle、README.md 和 docs/design.md 均固定 Minecraft 1.20.1 Forge / AE2 15.4.10。
-当前基线资源：已完成。证据：docs/04-asset-spec.md、docs/assets/*、src/main/resources/assets/appliedpackaging 下 PNG/模型/语言文件，以及资源审计记录；IN-003 正式 UI/模型替换不属于已冻结基线。
+当前基线资源：已完成。证据：docs/04-asset-spec.md、docs/assets/*、src/main/resources/assets/appliedpackaging 下 PNG/模型/语言文件，以及资源审计记录；高级样板终端已纳入当前资源基线，IN-003 其余 UI/模型/动画替换尚未冻结。
 功能实现：已完成当前 0.1.0-dev 非 UI 范围。证据：R1-R13 完成度审计均为已满足，170 个必需 GameTest 全部通过。
 Git 初始化和文档管理：已完成。证据：仓库有连续提交记录，文档按 00-07 分类维护，开发流水记录在 docs/development-log.md。
 发布 jar：已完成。证据：build/libs/appliedpackaging-0.1.0-dev.jar 存在，已通过 build、jar 内容审计和 release metadata 审计。
-客户端可用性：当前基线已完成。证据：runClientSmoke 进入真实单人世界，10 张必需截图覆盖世界场景、两种机器、原版/高级/包裹样板终端与三种包裹总线，无 missing model/texture/classloading 关键错误。
+客户端可用性：当前基线已完成。证据：runClientSmoke 进入真实单人世界，11 张必需截图覆盖世界场景、两种机器、原版样板终端包裹模式及设置层、高级/包裹样板终端与三种包裹总线，无 missing model/texture/classloading 关键错误。
 GameTest 验证：已完成。证据：`.\gradlew.bat runGameTestServer` 成功，170 个必需 GameTest 全部通过。
 DataGen 验证：已完成。证据：.\gradlew.bat runData 成功，未写出新的 generated resources 内容。
 Dedicated server EULA 前 classloading smoke：已完成。证据：.\gradlew.bat runServer 到达 EULA gate，未发现客户端类误加载关键字。
 Dedicated server full world-load：当前基线已完成，最终发布前仍需重跑。证据：2026-07-04 runServer 进入 world，latest.log 出现 Done (2.400s)!；`scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` 已通过，除外部 Yggdrasil public-key fetch WARN 外未发现客户端类误加载和关键错误；随后 `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` 自动刷新 latest.log 并出现 Done (2.413s)!，25565 清理完成，`verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad` 通过；最新完整 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` 记录刷新 dedicated server smoke，latest.log 出现 Done (2.471s)! 并通过完整 release audit；最终服务端验收等待 IN-003 正式 UI/模型范围冻结并完成后执行。
-发布 tag：未完成。原因：IN-003 正式 UI/模型范围尚待用户描述，最终 dedicated server full world-load 尚未在该范围后验收；发布 tag 应在 IN-003 完成且服务端验收通过后创建。
-Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：当前非 UI 提交基线已通过 clean-git audit；IN-003 尚待输入，最终冻结并提交后必须重新执行 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag`，同时刷新并复验发布清单与发布附件包。
-Tag 就绪门禁：未完成。证据：当前变更接收表仍包含 IN-003 待输入项，`scripts/verify-release-readiness.ps1 -RequireReadyForTag` 应失败并阻止发布 tag。
+发布 tag：未完成。原因：高级样板终端已实现，但 IN-003 其余正式 UI/模型/动画范围尚待用户描述，最终 dedicated server full world-load 尚未在完整范围后验收；发布 tag 应在 IN-003 完成且服务端验收通过后创建。
+Clean git 发布门禁：当前基线已完成，最终发布前仍需重跑。证据：当前非 UI 提交基线已通过 clean-git audit；IN-003 仍有范围待输入，最终冻结并提交后必须重新执行 `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag`，同时刷新并复验发布清单与发布附件包。
+Tag 就绪门禁：未完成。证据：当前变更接收表仍包含 IN-003 部分待输入项，`scripts/verify-release-readiness.ps1 -RequireReadyForTag` 应失败并阻止发布 tag。
 ```
 
 当前目标完成判定：
 
 ```text
 不能标记完成。
-当前不再是 EULA 或非 UI 功能阻塞；IN-003 正式 UI/模型描述尚待接收，最终发布范围尚未冻结。
+当前不再是 EULA 或非 UI 功能阻塞；高级样板终端 UI 已完成当前实现与验证，IN-003 其余 UI/模型/动画描述尚待接收，最终发布范围尚未冻结。
 发布 tag 应等待 IN-003 完成、重新验证并通过 dedicated server full world-load 与 tag 就绪门禁后再创建。
 ```
+
+### 2026-07-11 统一包裹拾色弹窗
+
+两个样板终端、ME Packager、ME Package Assembler、Package Pattern Terminal 全局/逐槽颜色入口及三种 Package Bus 已统一使用 `PackageColorPicker`。弹窗只包含颜色，无标题、名称或 marker；Fluix 在最左侧独立显示，其余 16 色按 8x2 排列。颜色格不注册为普通 widget，父 Screen 在弹窗打开时取消底层 tooltip 并拦截全部鼠标与键盘输入，因此每次 hover 只绘制一条 tooltip，触发按钮保持可见且点击不会透传。
+
+2026-07-11 层级修正：拾色弹窗打开时不再把原版包裹模式输入/marker/output slots 或高级终端 processing slots 设为 inactive。`PackageColorPicker` 在父 Screen 完整绘制 slot/item 后，以 `z=400` 独立 pose 追加并由父界面统一提交批次；底层物品仍存在，只在与不透明弹窗重叠处被正常遮挡。原版 AE 终端在弹窗打开时只取消底层 tooltip，不取消槽位或物品绘制。重新执行 `compileJava` 与 `runClientSmoke` 成功；人工检查 `appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png` 与 `appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png`，确认两种终端均无黑块、物品不穿透弹窗且没有重复 tooltip。日志无发布阻断关键字。
+
+执行 `.\gradlew.bat compileJava`、`.\gradlew.bat runClientSmoke`、`.\gradlew.bat runGameTestServer` 与 `.\gradlew.bat build` 均成功；171 个 required GameTest 全部通过，客户端生成全部 13 张 smoke 截图。人工检查 `appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png` 与 `appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png`，确认两个终端共享相同的无标题 17 色布局、按钮仍可见且弹窗位于槽位之上。`verify-docs.ps1`、`verify-assets.ps1` 与 `verify-release.ps1 -RequireClientSmokeScreenshots` 均通过：236 个发布资源与 jar 同步、149 个 PNG 非空、11 张必需截图有效、146 个双语 key 对齐，客户端日志无发布阻断关键字。
+
+### 2026-07-11 原版包裹模式归属纠正与数量编辑
+
+重新核对用户截图后确认：此前把“页面右下偏移 1px”和“输出/marker 槽位对齐”归到 Advanced Pattern Terminal 是错误的。已撤回高级终端 `leftPos/topPos` 整页偏移、blank/encoded pattern 与 Encode 按钮的额外右移；高级终端只保留 AE2 1.21.1 的新版 slot hover。1px 偏移改为只作用于 AE2 原版 Pattern Encoding Terminal 的包裹模式背景、3x3 输入、输出、marker、三个配置按钮及命中区；PackagePattern 的 12x14 图标在 22x22 tab 内重新居中。
+
+包裹模式 processing fake slot 现在显示 `GenericStack` 数量并允许大于 1；菜单在包裹模式把 81 个输入识别为 AE2 processing pattern slots，使原版容器写入和中键数量编辑路径同时生效。Advanced Pattern Terminal 输入槽同样加入中键数量编辑页并通过 `SET_FILTER` 回写。执行 `.\gradlew.bat compileJava`、`.\gradlew.bat runGameTestServer` 和 `.\gradlew.bat runClientSmoke` 成功，172 个 required GameTest 全部通过。后续复测确认不是 1px 微调问题，重新按 124x66 贴图推导 marker `(95,7)` 与输出 `(98,31)` 的面板内 slot 原点；PackagePattern 图标恢复完整 16x16 sprite 单元并使用 AE2 水平 tab 的 `x+1,y+3` 偏移，再次执行 client smoke 验证。`appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png` 保持高级终端既有原点和新版 hover。
+
+### 2026-07-11 原版包裹模式滚动输入
+
+用户更新的 `pattern_mode_packaging.png` 已按原始字节覆盖项目资源，源/目标 SHA-256 均为 `AB254596C0AADE263DFB5816ED4824186BCDE69DCAA8B24CF3C00BF3B7EA6256`。有效面板仍为 124x66；新增左侧滚动条轨道，3x3 可见输入窗口首槽移动到面板内 `(16,7)`，marker 与输出分别保持 `(95,7)`、`(98,31)`。
+
+原版 Pattern Encoding Terminal 包裹模式现在复用 AE processing panel 的 81 个 processing input fake slots 与 SMALL scrollbar，显示连续 3 行并可滚动全部 27 行；processing output slots 在该模式隐藏，专属 marker 与 crafting result 继续承担标记和包裹预览。包裹样板 NBT 输入容量同步扩展为 81，旧版少量稀疏槽数据保持可读；GameTest 通过真实 `menu.encode()` 验证第 81 个输入与数量保留。
+
+执行 `.\gradlew.bat compileJava`、`.\gradlew.bat runGameTestServer` 与 `.\gradlew.bat runClientSmoke` 成功，172 个 required GameTest 全部通过。人工检查原版终端主截图确认左侧滚动条、Oak Log x4、marker 与输出对齐；检查原版设置截图和高级终端编辑截图，确认统一拾色弹窗在 `z=400` 时无黑块、底层物品保持存在且不穿透弹窗、底层 tooltip 被抑制。
+
+### 2026-07-11 原版 processing 交互与 tooltip 对齐
+
+对照 AE2 15.4.10 `PatternEncodingTermMenu`、`PatternEncodingTermScreen`、`ProcessingEncodingPanel`，以及 AE2 1.21.1 processing ScreenStyle 后完成复核。包裹模式的 81 个输入现在由 `isProcessingPatternSlot` 识别，因而空槽的物品/流体容器写入、非空槽的中键数量编辑、fake slot 的 `GenericStack` 数量和滚动行为均复用 AE2 原路径；编码数据不再限制为 `AEItemKey`，GameTest 覆盖 1000 mB water 与第 81 个输入的真实编码。空主产物槽注册 AE2 同 key 的 18x18 tooltip 区域，有物品时仍由 AEBaseScreen 的物品 tooltip 优先返回。
+
+颜色弹窗在原版终端的 `ScreenEvent.Render.Post` 阶段绘制，并在前后提交 screen/item buffer；弹窗内部按 Vanilla tooltip 的 `z=400` + `GuiGraphics.drawManaged` 整批提交，避免 marker 穿透、延迟文字、黑块和重复 tooltip。`ClientSmokeRunner` 在 Render.Post 最后 flush 后截图，新增 `appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_primary_output_tooltip.png` 作为人工证据。
+
+### 2026-07-11 ME Packager heldBox 与装配室有序输出
+
+本轮规则取代此前关于包裹名称、打包机隐藏输入/输出双槽和装配室 17 个实体输出槽的记录。包裹不再允许自定义名称；旧名称 NBT 仅忽略。ME Packager 使用单一 heldBox 和持久化状态区分待拆输入/待取输出，拆包在进度终点事务提交，失败保留输入并进入可重试阻塞状态。ME Package Assembler 使用一个主输出、一个只读下一包预览和严格有序持久队列，所有提取每次最多一个包裹。
+
+执行 `./gradlew.bat compileJava` 成功；执行 `./gradlew.bat runGameTestServer` 成功，173 个 required GameTest 全部通过，其中新增网络在拆包进度中变化、heldBox 阻塞保留、网络恢复后重试成功的覆盖。执行 `scripts/verify-assets.ps1` 与 `scripts/verify-docs.ps1` 成功，`git diff --check` 无空白错误。按用户要求，本轮不执行 `runClientSmoke` 或截图验证，GUI 视觉由用户验收。
+
+### 2026-07-12 原版终端包裹模式新版坐标与渲染隔离
+
+包裹模式 panel、3x3 输入与滚动条已从混用的 AE2 15.4.10 坐标统一到 AE2 1.21.1 processing 基准：panel `left=8,bottom=165`，输入首槽 `left=24,bottom=158`，scrollbar `left=15,bottom=158`。滚动条 handle 使用项目内已标记来源的 AE2 1.21.1 small scroller sprite；清空/颜色按钮位于面板内 `(72,7)`、`(82,7)`。停用槽位移出渲染区域，防止 processing outputs 和 crafting grid ghost item 叠入 marker/输出区域。自动包裹预览不再注册 AE2 processing primary-output tooltip，client smoke 也不再生成该错误 tooltip 的截图。
+
+执行 `.\gradlew.bat compileJava --stacktrace` 成功，Mixin refmap 正常生成；执行 `scripts/verify-docs.ps1` 与 `git diff --check` 成功。该轮不改变服务端行为，未重复运行 GameTest；按用户要求不运行客户端截图冒烟，视觉结果由用户验收。
+
+用户复测暴露首次修正写入时机过早：AE2 的 `widgets.updateBeforeRender()` 在 Screen 更新之后再次执行原 processing 槽位定位，导致新版输入坐标和隐藏输出被覆盖。当前实现已在包裹模式下取消原 `ProcessingEncodingPanel.updateBeforeRender()`，改为由包裹布局在 widget 阶段最终定位 81 格滚动输入并彻底移出全部 processing outputs；普通 processing 模式不受影响。重新执行 `.\gradlew.bat compileJava` 成功；按用户要求未运行客户端截图冒烟。

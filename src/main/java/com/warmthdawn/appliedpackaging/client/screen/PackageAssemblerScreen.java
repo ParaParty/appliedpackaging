@@ -1,53 +1,42 @@
 package com.warmthdawn.appliedpackaging.client.screen;
 
+import appeng.client.Point;
 import appeng.client.gui.Icon;
 import appeng.client.gui.implementations.UpgradeableScreen;
 import appeng.client.gui.style.ScreenStyle;
-import appeng.client.gui.widgets.AETextField;
 import appeng.client.gui.widgets.IconButton;
+import appeng.client.gui.widgets.ProgressBar;
+import appeng.client.gui.widgets.ProgressBar.Direction;
+import appeng.client.gui.widgets.Scrollbar;
 import appeng.menu.SlotSemantics;
-import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractButton;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
-import org.lwjgl.glfw.GLFW;
 
 public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMenu> {
-    private static final int COLOR_BUTTON_X = 67;
-    private static final int COLOR_BUTTON_Y = 39;
-    private static final int COLOR_BUTTON_SIZE = 12;
-    private static final int COLOR_POPUP_X = 8;
-    private static final int COLOR_POPUP_Y = 52;
-    private static final int COLOR_POPUP_COLUMNS = 9;
-    private static final int COLOR_POPUP_PADDING = 3;
-    private static final int COLOR_SWATCH_SIZE = 8;
-    private static final int COLOR_SWATCH_STEP = 10;
-    private static final int COLOR_POPUP_BACKGROUND = 0xf0180a1f;
-    private static final int COLOR_POPUP_BORDER = 0xff4d3f5c;
-    private static final int SCROLLBAR_X = 13;
-    private static final int SCROLLBAR_Y = PackageAssemblerMenu.SCROLLED_SLOT_Y;
-    private static final int SCROLLBAR_WIDTH = 4;
-    private static final int SCROLLBAR_HEIGHT = PackageAssemblerMenu.VISIBLE_ROWS * PackageAssemblerMenu.SLOT_STEP - 2;
+    private static final int COLOR_BUTTON_X = 96;
+    private static final int COLOR_BUTTON_Y = 31;
+    private static final int COLOR_BUTTON_SIZE = 8;
+    private static final int SCROLLBAR_Y = 31;
+    private static final int SCROLLBAR_HEIGHT = 72;
     private static final int SCROLLBAR_PANEL_X = 10;
-    private static final int SCROLLBAR_PANEL_WIDTH = 143;
-    private static final int SCROLLBAR_TRACK = 0xff8b93a6;
-    private static final int SCROLLBAR_THUMB = 0xff4a5058;
-    private static final int SCROLLBAR_HIGHLIGHT = 0xffd6dbde;
-    private static final int SLOT_BACKGROUND_TOP = 0xff9a9fb4;
-    private static final int SLOT_BACKGROUND_BODY = 0xffadb0c4;
+    private static final int SCROLLBAR_PANEL_WIDTH = 83;
     private static final int SLOT_DISABLED_OVERLAY = 0x99c7ccd5;
     private static final int SLOT_INVALID_OVERLAY = 0x55ff3333;
     private static final int SLOT_INVALID_BORDER = 0xffff5555;
+    private static final Scrollbar.Style LATEST_SCROLLBAR_STYLE = Scrollbar.Style.create(
+            new ResourceLocation("appliedpackaging", "textures/gui/advanced_pattern_encoding_terminal_sprites.png"),
+            7, 15, 0, 32, 7, 32);
 
     private final OutputModeToolbarButton outputModeButton;
-    private final AETextField packageNameField;
-    private boolean colorPopupOpen;
-    private boolean updatingNameField;
+    private final PackageColorPicker colorPicker = new PackageColorPicker();
+    private final PackageColorPicker.TriggerButton colorButton;
+    private final Scrollbar rowScrollbar;
+    private final ProgressBar progressBar;
 
     public PackageAssemblerScreen(
             PackageAssemblerMenu menu,
@@ -55,46 +44,44 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
             Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
+        colorButton = new PackageColorPicker.TriggerButton(
+                COLOR_BUTTON_SIZE,
+                COLOR_BUTTON_SIZE,
+                menu::selectedColor,
+                this::openColorPicker);
+        rowScrollbar = widgets.addScrollBar("packageQueueScrollbar", LATEST_SCROLLBAR_STYLE);
+        rowScrollbar.setRange(0, menu.maxScrollOffset(), PackageAssemblerMenu.VISIBLE_ROWS);
+        rowScrollbar.setCaptureMouseWheel(false);
+        progressBar = new ProgressBar(menu, style.getImage("progressBar"), Direction.VERTICAL);
+        widgets.add("progressBar", progressBar);
         outputModeButton = addToLeftToolbar(new OutputModeToolbarButton());
 
-        packageNameField = widgets.addTextField("packageName");
-        packageNameField.setMaxLength(50);
-        packageNameField.setPlaceholder(Component.translatable(
-                "gui.appliedpackaging.package_assembler.package_name.placeholder"));
-        packageNameField.setTooltipMessage(java.util.List.of(Component.translatable(
-                "gui.appliedpackaging.package_assembler.package_name")));
-        packageNameField.setResponder(value -> {
-            if (!updatingNameField) {
-                menu.setPackageName(value);
-            }
-        });
     }
 
     @Override
     protected void init() {
         super.init();
 
-        addRenderableWidget(new ColorPickerButton(leftPos + COLOR_BUTTON_X, topPos + COLOR_BUTTON_Y));
+        colorButton.setX(leftPos + COLOR_BUTTON_X);
+        colorButton.setY(topPos + COLOR_BUTTON_Y);
+        addRenderableWidget(colorButton);
     }
 
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
         outputModeButton.setMessage(outputModeMessage());
-        if (!packageNameField.isFocused() && !packageNameField.getValue().equals(menu.packageName())) {
-            updatingNameField = true;
-            try {
-                packageNameField.setValue(menu.packageName());
-            } finally {
-                updatingNameField = false;
-            }
+        colorButton.active = !colorPicker.isOpen();
+        progressBar.visible = menu.isCrafting();
+        if (rowScrollbar.getCurrentScroll() != menu.scrollOffset()) {
+            setScrollOffset(rowScrollbar.getCurrentScroll());
         }
     }
 
     @Override
     public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
-        renderScrolledSlotBackgrounds(graphics, offsetX, offsetY);
+        renderDisabledInputOverlays(graphics, offsetX, offsetY);
         drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.ENCODED_PATTERN, Icon.BACKGROUND_ENCODED_PATTERN);
         drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.STORAGE_CELL, Icon.BACKGROUND_STORAGE_COMPONENT);
     }
@@ -112,56 +99,57 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
-        renderScrollbar(graphics);
-        if (colorPopupOpen) {
-            renderColorPopup(graphics, mouseX, mouseY);
+        if (menu.queuedOutputCount() > 0
+                && mouseX >= leftPos + 149 && mouseX < leftPos + 174
+                && mouseY >= topPos + 80 && mouseY < topPos + 101) {
+            graphics.renderTooltip(
+                    font,
+                    Component.translatable(
+                            "gui.appliedpackaging.package_assembler.remaining_packages",
+                            menu.queuedOutputCount()),
+                    mouseX,
+                    mouseY);
+        }
+        colorPicker.renderLast(graphics, font, mouseX, mouseY);
+    }
+
+    @Override
+    public void drawFG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY) {
+        super.drawFG(graphics, offsetX, offsetY, mouseX, mouseY);
+        if (menu.queuedOutputCount() > 0) {
+            graphics.drawString(font, "+" + menu.queuedOutputCount(), 150, 82, 0x404040, false);
         }
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (colorPopupOpen) {
+        if (colorPicker.mouseScrolled(mouseX, mouseY, delta)) {
             return true;
         }
         if (isOverScrolledPanel(mouseX, mouseY)) {
-            setScrollOffset(menu.scrollOffset() + (delta < 0 ? 1 : -1));
-            return true;
+            boolean changed = rowScrollbar.onMouseWheel(
+                    new Point((int) mouseX - leftPos, (int) mouseY - topPos),
+                    delta);
+            if (changed) {
+                setScrollOffset(rowScrollbar.getCurrentScroll());
+                return true;
+            }
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (colorPopupOpen) {
-            if (isInColorButton(mouseX, mouseY)) {
-                colorPopupOpen = false;
-                return true;
-            }
-
-            PackageColor color = colorAt(mouseX, mouseY);
-            if (color != null) {
-                menu.setSelectedColor(color);
-                colorPopupOpen = false;
-                return true;
-            }
-
-            colorPopupOpen = false;
+        if (colorPicker.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
 
-        if (isOverScrollbar(mouseX, mouseY)) {
-            int relative = (int) (mouseY - topPos - SCROLLBAR_Y);
-            int max = Math.max(1, menu.maxScrollOffset());
-            int next = Math.round(relative / (float) SCROLLBAR_HEIGHT * max);
-            setScrollOffset(next);
-            return true;
-        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (colorPopupOpen) {
+        if (colorPicker.mouseReleased(mouseX, mouseY, button)) {
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
@@ -169,7 +157,7 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (colorPopupOpen) {
+        if (colorPicker.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -177,10 +165,7 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (colorPopupOpen) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-                colorPopupOpen = false;
-            }
+        if (colorPicker.keyPressed(keyCode, scanCode, modifiers)) {
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -188,34 +173,25 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        if (colorPopupOpen) {
-            return true;
-        }
-        return super.charTyped(codePoint, modifiers);
+        return colorPicker.charTyped(codePoint, modifiers) || super.charTyped(codePoint, modifiers);
     }
 
-    private void renderScrolledSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
+    @Override
+    protected void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        if (!colorPicker.isOpen()) {
+            super.renderTooltip(graphics, mouseX, mouseY);
+        }
+    }
+
+    private void renderDisabledInputOverlays(GuiGraphics graphics, int offsetX, int offsetY) {
         for (int index = 0; index < PackageAssemblerMenu.VISIBLE_INPUT_COUNT; index++) {
             int inputSlot = menu.inputSlotForVisibleIndex(index);
-            drawSlotBackground(
-                    graphics,
-                    offsetX,
-                    offsetY,
-                    menu.getSlot(menu.menuInputMenuSlotIndex(index)),
-                    menu.isInputSlotEnabled(inputSlot));
-        }
-        for (int row = 0; row < PackageAssemblerMenu.VISIBLE_ROWS; row++) {
-            drawSlotBackground(graphics, offsetX, offsetY, menu.getSlot(menu.outputMenuSlotIndex(row)), true);
-        }
-    }
-
-    private void drawSlotBackground(GuiGraphics graphics, int offsetX, int offsetY, Slot slot, boolean enabled) {
-        int x = offsetX + slot.x - 1;
-        int y = offsetY + slot.y - 1;
-        graphics.fill(x + 1, y + 1, x + 17, y + 2, SLOT_BACKGROUND_TOP);
-        graphics.fill(x + 1, y + 2, x + 17, y + 17, SLOT_BACKGROUND_BODY);
-        if (!enabled) {
-            graphics.fill(x + 1, y + 1, x + 17, y + 17, SLOT_DISABLED_OVERLAY);
+            if (!menu.isInputSlotEnabled(inputSlot)) {
+                Slot slot = menu.getSlot(menu.menuInputMenuSlotIndex(index));
+                int x = offsetX + slot.x;
+                int y = offsetY + slot.y;
+                graphics.fill(x, y, x + 16, y + 16, SLOT_DISABLED_OVERLAY);
+            }
         }
     }
 
@@ -232,20 +208,6 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
         }
     }
 
-    private void renderScrollbar(GuiGraphics graphics) {
-        int x = leftPos + SCROLLBAR_X;
-        int y = topPos + SCROLLBAR_Y;
-        graphics.fill(x, y, x + SCROLLBAR_WIDTH, y + SCROLLBAR_HEIGHT, SCROLLBAR_TRACK);
-        int max = menu.maxScrollOffset();
-        int thumbHeight = max <= 0
-                ? SCROLLBAR_HEIGHT
-                : Math.max(8, SCROLLBAR_HEIGHT * PackageAssemblerMenu.VISIBLE_ROWS / PackageAssemblerMenu.SCROLLED_ROW_COUNT);
-        int travel = Math.max(0, SCROLLBAR_HEIGHT - thumbHeight);
-        int thumbY = y + (max <= 0 ? 0 : Math.round(travel * (menu.scrollOffset() / (float) max)));
-        graphics.fill(x, thumbY, x + SCROLLBAR_WIDTH, thumbY + thumbHeight, SCROLLBAR_THUMB);
-        graphics.hLine(x, x + SCROLLBAR_WIDTH - 1, thumbY + 1, SCROLLBAR_HIGHLIGHT);
-    }
-
     private boolean isOverScrolledPanel(double mouseX, double mouseY) {
         int x = leftPos + SCROLLBAR_PANEL_X;
         int y = topPos + SCROLLBAR_Y;
@@ -256,18 +218,12 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
     private void setScrollOffset(int offset) {
         int previous = menu.scrollOffset();
         menu.setScrollOffset(offset);
+        rowScrollbar.setCurrentScroll(menu.scrollOffset());
         if (menu.scrollOffset() != previous && minecraft != null && minecraft.gameMode != null) {
             minecraft.gameMode.handleInventoryButtonClick(
                     menu.containerId,
                     PackageAssemblerMenu.BUTTON_SCROLL_BASE + menu.scrollOffset());
         }
-    }
-
-    private boolean isOverScrollbar(double mouseX, double mouseY) {
-        int x = leftPos + SCROLLBAR_X;
-        int y = topPos + SCROLLBAR_Y;
-        return mouseX >= x && mouseX < x + SCROLLBAR_WIDTH
-                && mouseY >= y && mouseY < y + SCROLLBAR_HEIGHT;
     }
 
     private Component outputModeMessage() {
@@ -276,62 +232,15 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
                         + menu.outputMode().id());
     }
 
-    private void renderColorPopup(GuiGraphics graphics, int mouseX, int mouseY) {
-        int panelX = leftPos + COLOR_POPUP_X - COLOR_POPUP_PADDING;
-        int panelY = topPos + COLOR_POPUP_Y - COLOR_POPUP_PADDING;
-        int panelWidth = COLOR_POPUP_COLUMNS * COLOR_SWATCH_STEP + COLOR_POPUP_PADDING * 2;
-        int panelHeight = colorPopupRows() * COLOR_SWATCH_STEP + COLOR_POPUP_PADDING * 2;
-
-        graphics.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, COLOR_POPUP_BACKGROUND);
-        graphics.renderOutline(panelX, panelY, panelWidth, panelHeight, COLOR_POPUP_BORDER);
-
-        PackageColor[] colors = PackageColor.values();
-        for (int index = 0; index < colors.length; index++) {
-            PackageColor color = colors[index];
-            int x = swatchX(index);
-            int y = swatchY(index);
-            boolean selected = menu.selectedColor() == color;
-            boolean hovered = mouseX >= x && mouseX < x + COLOR_SWATCH_SIZE
-                    && mouseY >= y && mouseY < y + COLOR_SWATCH_SIZE;
-            int border = selected ? 0xffffffff : (hovered ? 0xffd6dbde : 0xff2a3036);
-            graphics.fill(x, y, x + COLOR_SWATCH_SIZE, y + COLOR_SWATCH_SIZE, border);
-            graphics.fill(x + 1, y + 1, x + COLOR_SWATCH_SIZE - 1, y + COLOR_SWATCH_SIZE - 1, color.swatchArgb());
-            if (selected) {
-                graphics.renderOutline(x - 1, y - 1, COLOR_SWATCH_SIZE + 2, COLOR_SWATCH_SIZE + 2, 0xff2a3036);
-            }
-        }
-    }
-
-    private boolean isInColorButton(double mouseX, double mouseY) {
-        int x = leftPos + COLOR_BUTTON_X;
-        int y = topPos + COLOR_BUTTON_Y;
-        return mouseX >= x && mouseX < x + COLOR_BUTTON_SIZE
-                && mouseY >= y && mouseY < y + COLOR_BUTTON_SIZE;
-    }
-
-    private PackageColor colorAt(double mouseX, double mouseY) {
-        PackageColor[] colors = PackageColor.values();
-        for (int index = 0; index < colors.length; index++) {
-            int x = swatchX(index);
-            int y = swatchY(index);
-            if (mouseX >= x && mouseX < x + COLOR_SWATCH_SIZE
-                    && mouseY >= y && mouseY < y + COLOR_SWATCH_SIZE) {
-                return colors[index];
-            }
-        }
-        return null;
-    }
-
-    private int swatchX(int index) {
-        return leftPos + COLOR_POPUP_X + (index % COLOR_POPUP_COLUMNS) * COLOR_SWATCH_STEP;
-    }
-
-    private int swatchY(int index) {
-        return topPos + COLOR_POPUP_Y + (index / COLOR_POPUP_COLUMNS) * COLOR_SWATCH_STEP;
-    }
-
-    private static int colorPopupRows() {
-        return (PackageColor.values().length + COLOR_POPUP_COLUMNS - 1) / COLOR_POPUP_COLUMNS;
+    private void openColorPicker() {
+        setFocused(null);
+        colorPicker.openNear(
+                colorButton,
+                width,
+                height,
+                menu::selectedColor,
+                menu::setSelectedColor,
+                () -> colorButton.active = true);
     }
 
     private class OutputModeToolbarButton extends IconButton {
@@ -350,29 +259,4 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
         }
     }
 
-    private class ColorPickerButton extends AbstractButton {
-        private ColorPickerButton(int x, int y) {
-            super(x, y, COLOR_BUTTON_SIZE, COLOR_BUTTON_SIZE,
-                    Component.translatable("gui.appliedpackaging.package_assembler.color"));
-            setTooltip(Tooltip.create(getMessage()));
-        }
-
-        @Override
-        public void onPress() {
-            colorPopupOpen = !colorPopupOpen;
-            if (colorPopupOpen) {
-                packageNameField.setFocused(false);
-            }
-        }
-
-        @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            graphics.fill(getX() + 3, getY() + 3, getX() + 9, getY() + 9, menu.selectedColor().swatchArgb());
-        }
-
-        @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
-        }
-    }
 }

@@ -84,7 +84,8 @@ legacyForge {
         clientSmoke {
             client()
             def smokeWorld = clientSmokeWorld.get()
-            programArguments.addAll "--username", "APSmoke", "--quickPlaySingleplayer", smokeWorld
+            programArguments.addAll "--username", "APSmoke", "--width", "960", "--height", "540",
+                    "--quickPlaySingleplayer", smokeWorld
             systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
             systemProperty 'appliedpackaging.clientSmoke.enabled', 'true'
             systemProperty 'appliedpackaging.clientSmoke.quit', 'true'

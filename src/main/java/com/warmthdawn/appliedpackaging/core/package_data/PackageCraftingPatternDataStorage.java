@@ -1,6 +1,5 @@
 package com.warmthdawn.appliedpackaging.core.package_data;
 
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.core.definitions.AEItems;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
@@ -17,10 +16,9 @@ import net.minecraft.world.item.ItemStack;
 public final class PackageCraftingPatternDataStorage {
     public static final String PATTERN_TAG = "appliedpackaging.package_crafting_pattern";
 
-    public static final int INPUT_SLOT_COUNT = 9;
+    public static final int INPUT_SLOT_COUNT = 9 * 9;
     private static final String VERSION = "version";
     private static final String COLOR = "color";
-    private static final String NAME = "name";
     private static final String INPUTS = "inputs";
     private static final String SLOT = "slot";
     private static final String STACK = "stack";
@@ -78,11 +76,7 @@ public final class PackageCraftingPatternDataStorage {
         if (!hasInput) {
             return Optional.empty();
         }
-        return Optional.of(new EncodedPackageCraftingPattern(
-                color.get(),
-                inputs,
-                data.get(),
-                sanitizePackageName(tag.getString(NAME))));
+        return Optional.of(new EncodedPackageCraftingPattern(color.get(), inputs, data.get()));
     }
 
     public static ItemStack encode(EncodedPackageCraftingPattern pattern) {
@@ -98,9 +92,6 @@ public final class PackageCraftingPatternDataStorage {
         CompoundTag tag = new CompoundTag();
         tag.putInt(VERSION, CURRENT_VERSION);
         tag.putString(COLOR, pattern.color().id());
-        if (!pattern.packageName().isBlank()) {
-            tag.putString(NAME, pattern.packageName());
-        }
         ListTag inputList = new ListTag();
         GenericStack[] sparseInputs = pattern.sparseInputs();
         for (int slot = 0; slot < sparseInputs.length; slot++) {
@@ -121,8 +112,7 @@ public final class PackageCraftingPatternDataStorage {
     public static Optional<EncodedPackageCraftingPattern> create(
             PackageColor color,
             GenericStack[] sparseInputs,
-            Optional<MarkerSpec> marker,
-            String packageName) {
+            Optional<MarkerSpec> marker) {
         if (sparseInputs == null || sparseInputs.length < INPUT_SLOT_COUNT) {
             return Optional.empty();
         }
@@ -132,9 +122,6 @@ public final class PackageCraftingPatternDataStorage {
             GenericStack input = sparseInputs[slot];
             if (input == null || input.amount() <= 0) {
                 continue;
-            }
-            if (!AEItemKey.is(input.what())) {
-                return Optional.empty();
             }
             normalizedInputs[slot] = input;
             contents.add(input);
@@ -153,41 +140,30 @@ public final class PackageCraftingPatternDataStorage {
         return result.data().map(data -> new EncodedPackageCraftingPattern(
                 color == null ? PackageColor.FLUIX : color,
                 normalizedInputs,
-                data,
-                sanitizePackageName(packageName)));
+                data));
     }
 
     public static ItemStack toPackageStack(EncodedPackageCraftingPattern pattern) {
         ItemStack stack = new ItemStack(APItems.packageItems().get(pattern.color()).get());
         PackageDataStorage.write(stack, pattern.data());
-        if (!pattern.packageName().isBlank()) {
-            stack.setHoverName(net.minecraft.network.chat.Component.literal(pattern.packageName()));
-        }
         return stack;
-    }
-
-    public static String sanitizePackageName(String name) {
-        String value = name == null ? "" : name.strip();
-        return value.length() > 50 ? value.substring(0, 50) : value;
     }
 
     public record EncodedPackageCraftingPattern(
             PackageColor color,
             GenericStack[] sparseInputs,
-            PackageData data,
-            String packageName) {
+            PackageData data) {
         public EncodedPackageCraftingPattern {
             if (color == null) {
                 throw new IllegalArgumentException("Package crafting pattern color cannot be null");
             }
             if (sparseInputs == null || sparseInputs.length != INPUT_SLOT_COUNT) {
-                throw new IllegalArgumentException("Package crafting pattern must have nine sparse input slots");
+                throw new IllegalArgumentException("Package crafting pattern must have 81 sparse input slots");
             }
             sparseInputs = Arrays.copyOf(sparseInputs, INPUT_SLOT_COUNT);
             if (data == null) {
                 throw new IllegalArgumentException("Package crafting pattern data cannot be null");
             }
-            packageName = sanitizePackageName(packageName);
         }
 
         public List<GenericStack> denseInputs() {

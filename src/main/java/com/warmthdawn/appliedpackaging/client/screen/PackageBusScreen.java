@@ -1,13 +1,11 @@
 package com.warmthdawn.appliedpackaging.client.screen;
 
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
-import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.ImageButton;
 import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +21,8 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
     private static final int PANEL_DARK = 0xff4a5058;
     private static final int PANEL_MID = 0xff879198;
     private static final int SLOT = 0xffb7c0c5;
+    private final PackageColorPicker colorPicker = new PackageColorPicker();
+    private final PackageColorPicker.TriggerButton colorButton;
 
     public PackageBusScreen(PackageBusMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);
@@ -32,6 +32,7 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
         titleLabelY = 6;
         inventoryLabelX = 8;
         inventoryLabelY = 114;
+        colorButton = new PackageColorPicker.TriggerButton(8, 8, menu::selectedColor, this::openColorPicker);
     }
 
     @Override
@@ -73,13 +74,9 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
         clearButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.package_bus.clear_filter")));
         addRenderableWidget(clearButton);
 
-        for (int index = 0; index < PackageColor.values().length; index++) {
-            PackageColor color = PackageColor.values()[index];
-            addRenderableWidget(new ColorSwatchButton(
-                    leftPos + 10 + index * 9,
-                    topPos + 100,
-                    color));
-        }
+        colorButton.setX(leftPos + 10);
+        colorButton.setY(topPos + 100);
+        addRenderableWidget(colorButton);
     }
 
     @Override
@@ -87,11 +84,37 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderContentAmounts(graphics);
-        renderTooltip(graphics, mouseX, mouseY);
+        if (!colorPicker.isOpen()) {
+            renderTooltip(graphics, mouseX, mouseY);
+        }
+        colorPicker.render(graphics, font, mouseX, mouseY);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (colorPicker.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return colorPicker.mouseReleased(mouseX, mouseY, button)
+                || super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        return colorPicker.mouseDragged(mouseX, mouseY, button, dragX, dragY)
+                || super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (colorPicker.mouseScrolled(mouseX, mouseY, delta)) {
+            return true;
+        }
         int slot = hoveredContentSlot(mouseX, mouseY);
         if (slot >= 0 && minecraft != null && minecraft.gameMode != null) {
             int button = delta > 0
@@ -101,6 +124,17 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        return colorPicker.keyPressed(keyCode, scanCode, modifiers)
+                || super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        return colorPicker.charTyped(codePoint, modifiers) || super.charTyped(codePoint, modifiers);
     }
 
     @Override
@@ -183,36 +217,15 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
         return Integer.toString(amount);
     }
 
-    private class ColorSwatchButton extends AbstractButton {
-        private final PackageColor color;
-
-        private ColorSwatchButton(int x, int y, PackageColor color) {
-            super(x, y, 8, 8, Component.translatable("item.appliedpackaging." + color.id() + "_package"));
-            this.color = color;
-            setTooltip(Tooltip.create(getMessage()));
-        }
-
-        @Override
-        public void onPress() {
-            minecraft.gameMode.handleInventoryButtonClick(
-                    menu.containerId,
-                    PackageBusMenu.BUTTON_COLOR_BASE + color.ordinal());
-        }
-
-        @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            boolean selected = menu.selectedColor() == color;
-            int border = selected ? 0xffffffff : (isHoveredOrFocused() ? 0xffd6dbde : 0xff2a3036);
-            graphics.fill(getX(), getY(), getX() + width, getY() + height, border);
-            graphics.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, color.swatchArgb());
-            if (selected) {
-                graphics.renderOutline(getX() - 1, getY() - 1, width + 2, height + 2, 0xff2a3036);
-            }
-        }
-
-        @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
-        }
+    private void openColorPicker() {
+        colorPicker.openNear(
+                colorButton,
+                width,
+                height,
+                menu::selectedColor,
+                color -> minecraft.gameMode.handleInventoryButtonClick(
+                        menu.containerId,
+                        PackageBusMenu.BUTTON_COLOR_BASE + color.ordinal()),
+                () -> colorButton.active = true);
     }
 }

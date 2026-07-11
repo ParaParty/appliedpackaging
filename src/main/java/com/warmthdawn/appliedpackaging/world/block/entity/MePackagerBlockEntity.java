@@ -56,14 +56,17 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
 
 public class MePackagerBlockEntity extends AENetworkBlockEntity
         implements InventoryDroppingBlockEntity, MenuProvider, IUpgradeableObject {
     public static final PackageCapacityProfile BASE_CAPACITY_PROFILE = PackageCapacityProfile.STORAGE_1K;
-    public static final int SLOT_INPUT = 0;
-    public static final int SLOT_OUTPUT = 1;
+    public static final int SLOT_HELD_BOX = 0;
+    public static final int SLOT_INPUT = SLOT_HELD_BOX;
+    public static final int SLOT_OUTPUT = SLOT_HELD_BOX;
+    private static final int LEGACY_SLOT_OUTPUT = 1;
     public static final int SLOT_CAPACITY = 2;
     public static final int SLOT_FILTER = 3;
     public static final int SLOT_MARKER = 4;
@@ -85,13 +88,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private static final String REDSTONE_MODE_TAG = "redstone_mode";
     private static final String FILTER_APPLICATION_MODE_TAG = "filter_application_mode";
     private static final String BLOCKING_MODE_TAG = "blocking_mode";
-    private static final String PACKAGE_NAME_TAG = "package_name";
     private static final String ANIMATION_TICKS_TAG = "animation_ticks";
     private static final String ANIMATION_INWARD_TAG = "animation_inward";
     private static final String RENDERED_BOX_TAG = "rendered_box";
     private static final String WORKING_OPERATION_TAG = "working_operation";
     private static final String WORKING_STACK_TAG = "working_stack";
     private static final String PENDING_PACK_TRIGGER_TAG = "pending_pack_trigger";
+    private static final String HELD_BOX_STATE_TAG = "held_box_state";
+    private static final String UNPACK_BLOCKED_TAG = "unpack_blocked";
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -99,7 +103,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             if (slot == SLOT_INPUT) {
                 return PackageDataStorage.read(stack).isPresent();
             }
-            if (slot == SLOT_OUTPUT) {
+            if (slot == LEGACY_SLOT_OUTPUT) {
                 return stack.getItem() instanceof PackageItem;
             }
             if (slot == SLOT_CAPACITY) {
@@ -116,7 +120,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
         @Override
         public int getSlotLimit(int slot) {
-            if (slot == SLOT_CAPACITY || slot == SLOT_FILTER || slot == SLOT_MARKER) {
+            if (slot == SLOT_INPUT || slot == LEGACY_SLOT_OUTPUT || slot == SLOT_CAPACITY || slot == SLOT_FILTER
+                    || slot == SLOT_MARKER) {
                 return 1;
             }
             return super.getSlotLimit(slot);
@@ -126,6 +131,65 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         protected void onContentsChanged(int slot) {
             onInventorySlotChanged(slot);
             setChanged();
+        }
+    };
+    private final IItemHandlerModifiable heldBoxItems = new IItemHandlerModifiable() {
+        @Override
+        public int getSlots() {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return slot == 0 ? heldBox() : ItemStack.EMPTY;
+        }
+
+        @Override
+        public void setStackInSlot(int slot, ItemStack stack) {
+            if (slot != 0) {
+                return;
+            }
+
+            ItemStack value = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+            if (level != null && level.isClientSide) {
+                items.setStackInSlot(SLOT_INPUT, value);
+                return;
+            }
+
+            if (value.isEmpty()) {
+                if (!isWorking()) {
+                    items.setStackInSlot(SLOT_INPUT, ItemStack.EMPTY);
+                    heldBoxState = HeldBoxState.EMPTY;
+                    unpackBlocked = false;
+                    renderedBox = ItemStack.EMPTY;
+                    syncVisualState();
+                }
+                return;
+            }
+
+            if (heldBox().isEmpty() && heldBoxState == HeldBoxState.EMPTY) {
+                insertPackageFromExternal(value, false);
+            }
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            return slot == 0 ? insertPackageFromExternal(stack, simulate) : stack;
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return slot == 0 ? extractHeldBox(amount, simulate) : ItemStack.EMPTY;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return slot == 0 ? 1 : 0;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return slot == 0 && PackageDataStorage.read(stack).isPresent();
         }
     };
     private final ConfigInventory contentFilter = ConfigInventory.configStacks(
@@ -140,42 +204,32 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private final IItemHandler externalItems = new IItemHandler() {
         @Override
         public int getSlots() {
-            return 2;
+            return 1;
         }
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            return switch (slot) {
-                case 0 -> items.getStackInSlot(SLOT_INPUT);
-                case 1 -> items.getStackInSlot(SLOT_OUTPUT);
-                default -> ItemStack.EMPTY;
-            };
+            return slot == 0 ? heldBox() : ItemStack.EMPTY;
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (slot != 0) {
-                return stack;
-            }
-            return insertPackageFromExternal(stack, simulate);
+            return slot == 0 ? insertPackageFromExternal(stack, simulate) : stack;
         }
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot != 1) {
-                return ItemStack.EMPTY;
-            }
-            return items.extractItem(SLOT_OUTPUT, amount, simulate);
+            return slot == 0 ? extractHeldBox(amount, simulate) : ItemStack.EMPTY;
         }
 
         @Override
         public int getSlotLimit(int slot) {
-            return 64;
+            return slot == 0 ? 1 : 0;
         }
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return slot == 0 && items.isItemValid(SLOT_INPUT, stack);
+            return slot == 0 && PackageDataStorage.read(stack).isPresent();
         }
     };
     private LazyOptional<IItemHandler> internalItemHandler = createInternalItemHandlerCapability();
@@ -187,12 +241,13 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private ItemStack renderedBox = ItemStack.EMPTY;
     private ItemStack workingStack = ItemStack.EMPTY;
     private WorkingOperation workingOperation = WorkingOperation.NONE;
+    private HeldBoxState heldBoxState = HeldBoxState.EMPTY;
+    private boolean unpackBlocked;
     private PackageColor selectedColor = PackageColor.FLUIX;
     private MarkerMergeMode markerMode = MarkerMergeMode.RETAIN;
     private RedstoneMode redstoneMode = RedstoneMode.HIGH_SIGNAL;
     private FilterApplicationMode filterApplicationMode = FilterApplicationMode.BOTH;
     private BlockingMode blockingMode = BlockingMode.IGNORE_NETWORK_CONTENTS;
-    private String packageName = "";
     private boolean pendingPackTrigger;
 
     public MePackagerBlockEntity(BlockPos pos, BlockState blockState) {
@@ -202,6 +257,10 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     public ItemStackHandler getItems() {
         return items;
+    }
+
+    public IItemHandlerModifiable getHeldBoxItems() {
+        return heldBoxItems;
     }
 
     public ConfigInventory getContentFilter() {
@@ -260,9 +319,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     public RedstoneMode effectiveRedstoneMode() {
-        return getUpgrades().isInstalled(AEItems.REDSTONE_CARD)
-                ? normalizeRedstoneMode(redstoneMode)
-                : RedstoneMode.HIGH_SIGNAL;
+        return normalizeRedstoneMode(redstoneMode);
     }
 
     public FilterApplicationMode filterApplicationMode() {
@@ -293,21 +350,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     public void cycleBlockingMode() {
         BlockingMode[] values = BlockingMode.values();
         setBlockingMode(values[(blockingMode.ordinal() + 1) % values.length]);
-    }
-
-    public String packageName() {
-        return packageName;
-    }
-
-    public void setPackageName(String packageName) {
-        String value = packageName == null ? "" : packageName.strip();
-        if (value.length() > 50) {
-            value = value.substring(0, 50);
-        }
-        if (!this.packageName.equals(value)) {
-            this.packageName = value;
-            setChanged();
-        }
     }
 
     public int unlockedFilterRows() {
@@ -342,11 +384,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             return ActionResult.consumed("message.appliedpackaging.me_packager.input_blocked");
         }
 
-        ItemStack output = items.extractItem(SLOT_OUTPUT, 64, false);
-        if (!output.isEmpty()) {
-            ItemHandlerHelper.giveItemToPlayer(player, output);
+        HeldBoxState previousState = heldBoxState;
+        ItemStack extractedBox = extractHeldBox(1, false);
+        if (!extractedBox.isEmpty()) {
+            ItemHandlerHelper.giveItemToPlayer(player, extractedBox);
             syncVisualState();
-            return ActionResult.consumed("message.appliedpackaging.me_packager.output_taken");
+            return ActionResult.consumed(previousState == HeldBoxState.PACK_OUTPUT
+                    ? "message.appliedpackaging.me_packager.output_taken"
+                    : "message.appliedpackaging.me_packager.input_taken");
         }
 
         return ActionResult.consumed(null);
@@ -359,7 +404,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             redstoneCooldown = 0;
         }
         if (effectiveRedstoneMode() == RedstoneMode.PULSE && nowPowered && !wasPowered
-                && items.getStackInSlot(SLOT_INPUT).isEmpty()) {
+                && heldBoxState == HeldBoxState.EMPTY) {
             if (isWorking()) {
                 pendingPackTrigger = true;
             } else {
@@ -383,13 +428,17 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         if (wasWorking || isWorking()) {
             return;
         }
+        migrateLegacyOutputIfPossible();
         if (pendingPackTrigger) {
             pendingPackTrigger = false;
             runPackOnce();
             return;
         }
-        if (!items.getStackInSlot(SLOT_INPUT).isEmpty()) {
+        if (heldBoxState == HeldBoxState.UNPACK_INPUT && !heldBox().isEmpty()) {
             tickAutomaticUnpack();
+            return;
+        }
+        if (heldBoxState == HeldBoxState.PACK_OUTPUT) {
             return;
         }
         tickAutomaticPack();
@@ -433,9 +482,11 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             return MachineResult.NO_TARGET;
         }
 
-        ItemStack input = items.getStackInSlot(SLOT_INPUT);
-        if (!input.isEmpty()) {
-            return unpackOne(meStorage.get(), input);
+        if (heldBoxState == HeldBoxState.UNPACK_INPUT && !heldBox().isEmpty()) {
+            return unpackOne(meStorage.get(), heldBox());
+        }
+        if (heldBoxState == HeldBoxState.PACK_OUTPUT) {
+            return MachineResult.OUTPUT_BLOCKED;
         }
         return packOne(meStorage.get());
     }
@@ -466,15 +517,15 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         if (meStorage.isEmpty()) {
             return MachineResult.NO_TARGET;
         }
-        ItemStack input = items.getStackInSlot(SLOT_INPUT);
-        if (input.isEmpty()) {
+        ItemStack input = heldBox();
+        if (heldBoxState != HeldBoxState.UNPACK_INPUT || input.isEmpty()) {
             return MachineResult.NO_CONTENTS;
         }
         return unpackOne(meStorage.get(), input);
     }
 
     private MachineResult packOne(MEStorage source) {
-        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+        if (heldBoxState != HeldBoxState.EMPTY || !heldBox().isEmpty()) {
             return MachineResult.OUTPUT_BLOCKED;
         }
         PackageFilter configuredFilter = configuredFilter();
@@ -498,14 +549,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
         ItemStack packageStack = new ItemStack(APItems.packageItems().get(color).get());
         PackageDataStorage.write(packageStack, plan.get().data());
-        if (!packageName.isBlank()) {
-            packageStack.setHoverName(Component.literal(packageName));
-        }
-        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack, true);
-        if (!remainder.isEmpty()) {
-            return MachineResult.OUTPUT_BLOCKED;
-        }
-
         if (!MEStoragePackageTransactions.commitExtract(source, plan.get())) {
             return MachineResult.SOURCE_CHANGED;
         }
@@ -519,14 +562,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         if (validation != MachineResult.UNPACKED) {
             return validation;
         }
-        PackageData data = PackageDataStorage.read(input).orElseThrow();
-        if (!MEStoragePackageTransactions.insertPackageContents(data, target)) {
-            return MachineResult.TARGET_BLOCKED;
-        }
-        ItemStack renderedInput = input.copy();
-        renderedInput.setCount(1);
-        items.extractItem(SLOT_INPUT, 1, false);
-        startWorkingOperation(WorkingOperation.UNPACKING, renderedInput);
+        unpackBlocked = false;
+        startWorkingOperation(WorkingOperation.UNPACKING, input);
         setChanged();
         return MachineResult.UNPACKED;
     }
@@ -535,9 +572,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         if (stack.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        if (isWorking()
-                || !items.getStackInSlot(SLOT_INPUT).isEmpty()
-                || !items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+        if (isWorking() || heldBoxState != HeldBoxState.EMPTY || !heldBox().isEmpty()) {
             return stack;
         }
         Optional<MEStorage> meStorage = findTargetMEStorage();
@@ -555,21 +590,42 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         ItemStack remainder = stack.copy();
         remainder.shrink(1);
         if (!simulate) {
-            PackageData data = PackageDataStorage.read(one).orElseThrow();
-            if (!MEStoragePackageTransactions.insertPackageContents(data, meStorage.get())) {
-                return stack;
-            }
+            heldBoxState = HeldBoxState.UNPACK_INPUT;
+            unpackBlocked = false;
+            items.setStackInSlot(SLOT_INPUT, one);
             startWorkingOperation(WorkingOperation.UNPACKING, one);
             setChanged();
         }
         return remainder.isEmpty() ? ItemStack.EMPTY : remainder;
     }
 
+    private ItemStack heldBox() {
+        return items.getStackInSlot(SLOT_INPUT);
+    }
+
+    private ItemStack extractHeldBox(int amount, boolean simulate) {
+        if (amount <= 0 || isWorking() || heldBoxState == HeldBoxState.EMPTY) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack extracted = items.extractItem(SLOT_INPUT, 1, simulate);
+        if (!simulate && !extracted.isEmpty()) {
+            heldBoxState = HeldBoxState.EMPTY;
+            unpackBlocked = false;
+            renderedBox = ItemStack.EMPTY;
+            syncVisualState();
+        }
+        return extracted;
+    }
+
     private MachineResult validateUnpackInput(MEStorage target, ItemStack input) {
-        if (isWorking()) {
+        return validateUnpackInput(target, input, false);
+    }
+
+    private MachineResult validateUnpackInput(MEStorage target, ItemStack input, boolean allowCurrentWork) {
+        if (isWorking() && !allowCurrentWork) {
             return MachineResult.WORKING;
         }
-        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+        if (heldBoxState == HeldBoxState.PACK_OUTPUT) {
             return MachineResult.OUTPUT_BLOCKED;
         }
         if (filterApplicationMode == FilterApplicationMode.PACK_ONLY) {
@@ -701,7 +757,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         contentFilter.clear();
         items.setStackInSlot(SLOT_FILTER, ItemStack.EMPTY);
         items.setStackInSlot(SLOT_MARKER, ItemStack.EMPTY);
-        setPackageName("");
         setSelectedColor(PackageColor.FLUIX);
         setFilterApplicationMode(FilterApplicationMode.BOTH);
         setBlockingMode(BlockingMode.IGNORE_NETWORK_CONTENTS);
@@ -796,7 +851,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     private LazyOptional<IItemHandler> createInternalItemHandlerCapability() {
-        return LazyOptional.of(() -> items);
+        return LazyOptional.of(() -> heldBoxItems);
     }
 
     private LazyOptional<IItemHandler> createExternalItemHandlerCapability() {
@@ -815,15 +870,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         tag.putString(REDSTONE_MODE_TAG, redstoneMode.name());
         tag.putString(FILTER_APPLICATION_MODE_TAG, filterApplicationMode.name());
         tag.putString(BLOCKING_MODE_TAG, blockingMode.name());
-        if (!packageName.isBlank()) {
-            tag.putString(PACKAGE_NAME_TAG, packageName);
-        }
         tag.putInt(ANIMATION_TICKS_TAG, animationTicks);
         tag.putBoolean(ANIMATION_INWARD_TAG, animationInward);
         if (!renderedBox.isEmpty()) {
             tag.put(RENDERED_BOX_TAG, renderedBox.save(new CompoundTag()));
         }
         tag.putString(WORKING_OPERATION_TAG, workingOperation.name());
+        tag.putString(HELD_BOX_STATE_TAG, heldBoxState.name());
+        tag.putBoolean(UNPACK_BLOCKED_TAG, unpackBlocked);
         if (!workingStack.isEmpty()) {
             tag.put(WORKING_STACK_TAG, workingStack.save(new CompoundTag()));
         }
@@ -844,19 +898,23 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         redstoneMode = RedstoneMode.byName(tag.getString(REDSTONE_MODE_TAG));
         filterApplicationMode = FilterApplicationMode.byName(tag.getString(FILTER_APPLICATION_MODE_TAG));
         blockingMode = BlockingMode.byName(tag.getString(BLOCKING_MODE_TAG));
-        packageName = tag.getString(PACKAGE_NAME_TAG);
         animationTicks = tag.getInt(ANIMATION_TICKS_TAG);
         animationInward = !tag.contains(ANIMATION_INWARD_TAG) || tag.getBoolean(ANIMATION_INWARD_TAG);
         renderedBox = tag.contains(RENDERED_BOX_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? ItemStack.of(tag.getCompound(RENDERED_BOX_TAG))
                 : currentInventoryBox();
         workingOperation = WorkingOperation.byName(tag.getString(WORKING_OPERATION_TAG));
+        heldBoxState = tag.contains(HELD_BOX_STATE_TAG)
+                ? HeldBoxState.byName(tag.getString(HELD_BOX_STATE_TAG))
+                : inferLegacyHeldBoxState();
+        unpackBlocked = tag.getBoolean(UNPACK_BLOCKED_TAG);
         workingStack = tag.contains(WORKING_STACK_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? ItemStack.of(tag.getCompound(WORKING_STACK_TAG))
                 : ItemStack.EMPTY;
         if (workingOperation == WorkingOperation.NONE) {
             workingStack = ItemStack.EMPTY;
         }
+        migrateLegacyOutputIfPossible();
         pendingPackTrigger = tag.getBoolean(PENDING_PACK_TRIGGER_TAG);
     }
 
@@ -934,6 +992,23 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         }
     }
 
+    public enum HeldBoxState {
+        EMPTY,
+        UNPACK_INPUT,
+        PACK_OUTPUT;
+
+        private static HeldBoxState byName(String name) {
+            if (name == null || name.isBlank()) {
+                return EMPTY;
+            }
+            try {
+                return HeldBoxState.valueOf(name);
+            } catch (IllegalArgumentException e) {
+                return EMPTY;
+            }
+        }
+    }
+
     public record ActionResult(boolean consumed, String messageKey) {
         public static ActionResult consumed(String messageKey) {
             return new ActionResult(true, messageKey);
@@ -956,8 +1031,24 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return workingOperation;
     }
 
+    public HeldBoxState heldBoxState() {
+        return heldBoxState;
+    }
+
+    public boolean unpackBlocked() {
+        return unpackBlocked;
+    }
+
     public ItemStack insertPackageFromMenu(ItemStack stack, boolean simulate) {
         return insertPackageFromExternal(stack, simulate);
+    }
+
+    public boolean canInsertPackageFromMenu(ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
+        }
+        ItemStack remainder = insertPackageFromExternal(stack, true);
+        return remainder.getCount() < stack.getCount();
     }
 
     public boolean animationInward() {
@@ -1112,11 +1203,39 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private void onInventorySlotChanged(int slot) {
         if (slot == SLOT_INPUT) {
             redstoneCooldown = 0;
+            if (heldBox().isEmpty() && workingOperation != WorkingOperation.PACKING) {
+                heldBoxState = HeldBoxState.EMPTY;
+                unpackBlocked = false;
+            } else if (!heldBox().isEmpty() && heldBoxState == HeldBoxState.EMPTY) {
+                heldBoxState = HeldBoxState.UNPACK_INPUT;
+            }
         }
-        if ((slot == SLOT_INPUT || slot == SLOT_OUTPUT) && animationTicks == 0) {
+        if (slot == SLOT_HELD_BOX && animationTicks == 0) {
             renderedBox = currentInventoryBox();
             syncVisualState();
         }
+    }
+
+    private HeldBoxState inferLegacyHeldBoxState() {
+        if (!items.getStackInSlot(LEGACY_SLOT_OUTPUT).isEmpty() && heldBox().isEmpty()) {
+            return HeldBoxState.PACK_OUTPUT;
+        }
+        if (!heldBox().isEmpty()) {
+            return HeldBoxState.UNPACK_INPUT;
+        }
+        return HeldBoxState.EMPTY;
+    }
+
+    private void migrateLegacyOutputIfPossible() {
+        ItemStack legacyOutput = items.getStackInSlot(LEGACY_SLOT_OUTPUT);
+        if (legacyOutput.isEmpty() || !heldBox().isEmpty() || isWorking()) {
+            return;
+        }
+        heldBoxState = HeldBoxState.PACK_OUTPUT;
+        items.setStackInSlot(SLOT_INPUT, legacyOutput.copyWithCount(1));
+        items.setStackInSlot(LEGACY_SLOT_OUTPUT, ItemStack.EMPTY);
+        unpackBlocked = false;
+        syncVisualState();
     }
 
     private void onFilterChanged() {
@@ -1189,16 +1308,41 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     private void finishWorkingOperation() {
         if (workingOperation == WorkingOperation.PACKING && !workingStack.isEmpty()) {
-            if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+            if (!heldBox().isEmpty()) {
                 animationTicks = 1;
                 return;
             }
-            ItemStack remainder = items.insertItem(SLOT_OUTPUT, workingStack.copy(), false);
+            heldBoxState = HeldBoxState.PACK_OUTPUT;
+            ItemStack remainder = items.insertItem(SLOT_INPUT, workingStack.copy(), false);
             if (!remainder.isEmpty()) {
+                heldBoxState = HeldBoxState.EMPTY;
                 animationTicks = 1;
                 return;
             }
         } else if (workingOperation == WorkingOperation.UNPACKING) {
+            ItemStack input = heldBox();
+            if (!input.isEmpty()) {
+                Optional<MEStorage> target = findTargetMEStorage();
+                MachineResult validation = target
+                        .map(storage -> validateUnpackInput(storage, input, true))
+                        .orElse(MachineResult.NO_TARGET);
+                if (validation != MachineResult.UNPACKED
+                        || !MEStoragePackageTransactions.insertPackageContents(
+                                PackageDataStorage.read(input).orElseThrow(),
+                                target.orElseThrow())) {
+                    workingOperation = WorkingOperation.NONE;
+                    workingStack = ItemStack.EMPTY;
+                    animationTicks = 0;
+                    unpackBlocked = true;
+                    heldBoxState = HeldBoxState.UNPACK_INPUT;
+                    renderedBox = displayStack(input);
+                    syncVisualState();
+                    return;
+                }
+                items.extractItem(SLOT_INPUT, 1, false);
+            }
+            heldBoxState = HeldBoxState.EMPTY;
+            unpackBlocked = false;
             renderedBox = ItemStack.EMPTY;
         }
         workingOperation = WorkingOperation.NONE;
@@ -1238,10 +1382,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     private ItemStack currentInventoryBox() {
-        ItemStack input = displayStack(items.getStackInSlot(SLOT_INPUT));
-        if (!input.isEmpty()) {
-            return input;
-        }
-        return displayStack(items.getStackInSlot(SLOT_OUTPUT));
+        return displayStack(heldBox());
     }
 }

@@ -31,7 +31,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public static final int BUTTON_SCROLL_BASE = 100;
     private static final String ACTION_CYCLE_OUTPUT_MODE = "cycleOutputMode";
     private static final String ACTION_SET_COLOR = "setColor";
-    private static final String ACTION_SET_NAME = "setName";
 
     public static final int SCROLLED_ROW_COUNT = PackageAssemblerBlockEntity.OUTPUT_SLOT_COUNT;
     public static final int VISIBLE_ROWS = 4;
@@ -43,7 +42,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public static final int CAPACITY_SLOT = PATTERN_SLOT + 1;
     public static final int MARKER_SLOT = CAPACITY_SLOT + 1;
     public static final int OUTPUT_START = MARKER_SLOT + 1;
-    public static final int OUTPUT_END = OUTPUT_START + VISIBLE_ROWS;
+    public static final int OUTPUT_END = OUTPUT_START + 2;
     public static final int HOTBAR_START = OUTPUT_END;
     public static final int HOTBAR_END = HOTBAR_START + Inventory.getSelectionSize();
     public static final int PLAYER_INVENTORY_START = HOTBAR_END;
@@ -63,12 +62,14 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     private final DataSlot outputModeSlot;
     @GuiSync(10)
     public PackageColor selectedColor = PackageColor.FLUIX;
-    @GuiSync(11)
-    public String packageName = "";
     @GuiSync(12)
     public int craftProgress = 0;
+    @GuiSync(13)
+    public int queuedOutputCount = 0;
+    private SimpleContainer previewOutput;
     private int[] menuInputSlotIndexes;
-    private int[] outputSlotIndexes;
+    private int mainOutputSlotIndex;
+    private int previewOutputSlotIndex;
     private int scrollOffset;
 
     public PackageAssemblerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
@@ -93,14 +94,13 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         registerClientAction(ACTION_CYCLE_OUTPUT_MODE, this::cycleOutputMode);
         registerClientAction(ACTION_SET_COLOR, PackageColor.class, this::setSelectedColor);
-        registerClientAction(ACTION_SET_NAME, String.class, this::setPackageName);
         addDataSlot(outputModeSlot);
     }
 
     @Override
     protected void setupInventorySlots() {
+        previewOutput = new SimpleContainer(1);
         menuInputSlotIndexes = new int[VISIBLE_INPUT_COUNT];
-        outputSlotIndexes = new int[VISIBLE_ROWS];
 
         for (int row = 0; row < VISIBLE_ROWS; row++) {
             for (int column = 0; column < VISIBLE_INPUT_COLUMNS; column++) {
@@ -120,10 +120,12 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
                 new SlotItemHandler(getHost().getItems(), PackageAssemblerBlockEntity.SLOT_MARKER, 0, 0),
                 SlotSemantics.BLANK_PATTERN);
 
-        for (int row = 0; row < VISIBLE_ROWS; row++) {
-            Slot slot = addSlot(new DynamicOutputSlot(row), SlotSemantics.PROCESSING_OUTPUTS);
-            outputSlotIndexes[row] = slot.index;
-        }
+        mainOutputSlotIndex = addSlot(
+                new OrderedOutputSlot(getHost()),
+                SlotSemantics.MACHINE_OUTPUT).index;
+        previewOutputSlotIndex = addSlot(
+                new PreviewOutputSlot(previewOutput),
+                SlotSemantics.PROCESSING_OUTPUTS).index;
     }
 
     @Override
@@ -205,8 +207,9 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public void broadcastChanges() {
         if (isServerSide()) {
             selectedColor = getHost().selectedColor();
-            packageName = getHost().packageName();
             craftProgress = getHost().craftingProgress();
+            queuedOutputCount = getHost().queuedOutputCount();
+            previewOutput.setItem(0, getHost().nextOutputPreview());
         }
         super.broadcastChanges();
     }
@@ -246,23 +249,8 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         broadcastChanges();
     }
 
-    public void setPackageName(String name) {
-        if (isClientSide()) {
-            sendClientAction(ACTION_SET_NAME, name);
-            return;
-        }
-
-        getHost().setPackageName(name);
-        packageName = getHost().packageName();
-        broadcastChanges();
-    }
-
     public PackageColor selectedColor() {
         return selectedColor == null ? PackageColor.FLUIX : selectedColor;
-    }
-
-    public String packageName() {
-        return packageName == null ? "" : packageName;
     }
 
     public int scrollOffset() {
@@ -281,10 +269,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         return scrollOffset * VISIBLE_INPUT_COLUMNS + visibleIndex;
     }
 
-    public int outputSlotForVisibleRow(int visibleRow) {
-        return scrollOffset + visibleRow;
-    }
-
     public int menuInputMenuSlotIndex(int visibleIndex) {
         if (visibleIndex < 0 || visibleIndex >= VISIBLE_INPUT_COUNT) {
             throw new IndexOutOfBoundsException(visibleIndex);
@@ -293,10 +277,19 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     }
 
     public int outputMenuSlotIndex(int visibleRow) {
-        if (visibleRow < 0 || visibleRow >= VISIBLE_ROWS) {
-            throw new IndexOutOfBoundsException(visibleRow);
-        }
-        return outputSlotIndexes[visibleRow];
+        return switch (visibleRow) {
+            case 0 -> mainOutputSlotIndex;
+            case 1 -> previewOutputSlotIndex;
+            default -> throw new IndexOutOfBoundsException(visibleRow);
+        };
+    }
+
+    public int queuedOutputCount() {
+        return Math.max(0, queuedOutputCount);
+    }
+
+    public boolean isCrafting() {
+        return craftProgress > 0;
     }
 
     public int hotbarMenuSlotIndex(int hotbarSlot) {
@@ -474,29 +467,20 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         }
     }
 
-    private final class DynamicOutputSlot extends Slot {
-        private DynamicOutputSlot(int row) {
-            super(new SimpleContainer(1), row, 0, 0);
+    private static final class OrderedOutputSlot extends SlotItemHandler {
+        private OrderedOutputSlot(PackageAssemblerBlockEntity blockEntity) {
+            super(blockEntity.getOrderedOutputItems(), 0, 0, 0);
         }
 
         @Override
-        public ItemStack getItem() {
-            return getHost().getItems().getStackInSlot(handlerSlot());
+        public boolean mayPlace(ItemStack stack) {
+            return false;
         }
+    }
 
-        @Override
-        public boolean hasItem() {
-            return !getItem().isEmpty();
-        }
-
-        @Override
-        public ItemStack remove(int amount) {
-            return getHost().getItems().extractItem(handlerSlot(), amount, false);
-        }
-
-        @Override
-        public void set(ItemStack stack) {
-            getHost().getItems().setStackInSlot(handlerSlot(), stack);
+    private static final class PreviewOutputSlot extends Slot {
+        private PreviewOutputSlot(SimpleContainer preview) {
+            super(preview, 0, 0, 0);
         }
 
         @Override
@@ -505,12 +489,8 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         }
 
         @Override
-        public void setChanged() {
-            getHost().setChanged();
-        }
-
-        private int handlerSlot() {
-            return PackageAssemblerBlockEntity.outputHandlerSlot(outputSlotForVisibleRow(getSlotIndex()));
+        public boolean mayPickup(Player player) {
+            return false;
         }
     }
 }

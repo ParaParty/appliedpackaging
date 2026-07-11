@@ -95,12 +95,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private static final String PENDING_PACKAGES_TAG = "pending_packages";
     private static final String PENDING_COLOR_TAG = "color";
     private static final String PENDING_DATA_TAG = "data";
-    private static final String PENDING_HAS_NAME_TAG = "has_name";
-    private static final String PENDING_NAME_TAG = "name";
     private static final String AUTO_EXPORT_TAG = "auto_export";
     private static final String OUTPUT_MODE_TAG = "output_mode";
     private static final String SELECTED_COLOR_TAG = "selected_color";
-    private static final String PACKAGE_NAME_TAG = "package_name";
     private static final String CRAFT_PROGRESS_TAG = "craft_progress";
     private static final String ACTIVE_PACKAGES_TAG = "active_packages";
 
@@ -131,7 +128,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
         @Override
         public int getSlotLimit(int slot) {
-            if (slot == SLOT_CAPACITY || slot == SLOT_PATTERN || slot == SLOT_MARKER) {
+            if (isOutputSlot(slot) || slot == SLOT_CAPACITY || slot == SLOT_PATTERN || slot == SLOT_MARKER) {
                 return 1;
             }
             return super.getSlotLimit(slot);
@@ -145,6 +142,37 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             setChanged();
         }
     };
+    private final IItemHandler orderedOutputItems = new IItemHandler() {
+        @Override
+        public int getSlots() {
+            return 1;
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slot) {
+            return slot == 0 ? items.getStackInSlot(SLOT_OUTPUT) : ItemStack.EMPTY;
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            return stack;
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return slot == 0 ? extractPrimaryOutput(amount, simulate) : ItemStack.EMPTY;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return slot == 0 ? 1 : 0;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return false;
+        }
+    };
     private final RangedWrapper inputView = new RangedWrapper(items, 0, LEGACY_INPUT_SLOT_COUNT);
     private final IUpgradeInventory upgrades = UpgradeInventories.forMachine(
             APBlocks.PACKAGE_ASSEMBLER.get(),
@@ -156,7 +184,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private final List<QueuedPackage> activePackages = new ArrayList<>();
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
     private PackageColor selectedColor = PackageColor.FLUIX;
-    private String packageName = "";
     private OutputMode outputMode = OutputMode.ME_NETWORK;
     private int craftingProgress;
 
@@ -193,6 +220,20 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return items;
     }
 
+    public IItemHandler getOrderedOutputItems() {
+        return orderedOutputItems;
+    }
+
+    public ItemStack nextOutputPreview() {
+        return pendingPackages.isEmpty()
+                ? ItemStack.EMPTY
+                : packageStack(pendingPackages.get(0).color(), pendingPackages.get(0).data());
+    }
+
+    public int queuedOutputCount() {
+        return pendingPackages.size();
+    }
+
     @Override
     public IUpgradeInventory getUpgrades() {
         return upgrades;
@@ -205,21 +246,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     public void setSelectedColor(PackageColor selectedColor) {
         this.selectedColor = selectedColor == null ? PackageColor.FLUIX : selectedColor;
         setChanged();
-    }
-
-    public String packageName() {
-        return packageName;
-    }
-
-    public void setPackageName(String packageName) {
-        String value = packageName == null ? "" : packageName.strip();
-        if (value.length() > 50) {
-            value = value.substring(0, 50);
-        }
-        if (!this.packageName.equals(value)) {
-            this.packageName = value;
-            setChanged();
-        }
     }
 
     public static boolean isPatternSlotItem(ItemStack stack) {
@@ -694,7 +720,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (!ItemPackageTransactions.commitExtract(input, plan.itemPlan())) {
             return AssemblyResult.SOURCE_CHANGED;
         }
-        beginCrafting(List.of(new QueuedPackage(plan.color(), plan.data(), plan.packageNameOverride())));
+        beginCrafting(List.of(new QueuedPackage(plan.color(), plan.data())));
         return AssemblyResult.ASSEMBLED;
     }
 
@@ -707,7 +733,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         } else {
             clearMenuInputs();
         }
-        beginCrafting(List.of(new QueuedPackage(plan.color(), plan.data(), plan.packageNameOverride())));
+        beginCrafting(List.of(new QueuedPackage(plan.color(), plan.data())));
         return AssemblyResult.ASSEMBLED;
     }
 
@@ -783,32 +809,30 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return false;
         }
 
-        Optional<MEStorage> meStorage = Optional.empty();
-        Optional<IItemHandler> itemTarget = Optional.empty();
-        boolean resolvedTargets = false;
-        for (int outputSlot = 0; outputSlot < OUTPUT_SLOT_COUNT; outputSlot++) {
-            int itemSlot = outputHandlerSlot(outputSlot);
-            ItemStack output = items.getStackInSlot(itemSlot);
-            if (output.isEmpty()) {
-                continue;
-            }
-            if (!resolvedTargets) {
-                meStorage = outputMode == OutputMode.ME_NETWORK ? findOutputMEStorage() : Optional.empty();
-                itemTarget = outputMode == OutputMode.ADJACENT_BLOCK ? findOutputItemHandler() : Optional.empty();
-                resolvedTargets = true;
-            }
-            if (meStorage.isPresent() && exportOutputToMEStorage(itemSlot, meStorage.get(), output)) {
-                return true;
-            }
-            if (itemTarget.isPresent() && exportOutputToItemHandler(itemSlot, itemTarget.get(), output)) {
-                return true;
-            }
+        promoteNextOutput();
+        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
+        if (output.isEmpty()) {
+            return false;
+        }
+        Optional<MEStorage> meStorage = outputMode == OutputMode.ME_NETWORK ? findOutputMEStorage() : Optional.empty();
+        Optional<IItemHandler> itemTarget = outputMode == OutputMode.ADJACENT_BLOCK
+                ? findOutputItemHandler()
+                : Optional.empty();
+        if (meStorage.isPresent() && exportOutputToMEStorage(SLOT_OUTPUT, meStorage.get(), output)) {
+            return true;
+        }
+        if (itemTarget.isPresent() && exportOutputToItemHandler(SLOT_OUTPUT, itemTarget.get(), output)) {
+            return true;
         }
         return false;
     }
 
     private boolean exportOutputIfEnabled() {
-        return outputMode != OutputMode.NONE && exportOutputOnce();
+        boolean exported = false;
+        while (outputMode != OutputMode.NONE && exportOutputOnce()) {
+            exported = true;
+        }
+        return exported;
     }
 
     private boolean exportOutputToMEStorage(int itemSlot, MEStorage target, ItemStack output) {
@@ -822,6 +846,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return false;
         }
         items.extractItem(itemSlot, (int) committed, false);
+        promoteNextOutput();
         setChanged();
         return true;
     }
@@ -845,12 +870,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return false;
         }
         items.extractItem(itemSlot, inserted, false);
+        promoteNextOutput();
         setChanged();
         return true;
     }
 
     private AssemblyResult commitAssemblyPlan(IItemHandler input, AssemblyPlan plan) {
-        ItemStack packageStack = packageStack(plan.color(), plan.data(), plan.packageNameOverride());
+        ItemStack packageStack = packageStack(plan.color(), plan.data());
         if (!canInsertOutputPackage(packageStack)) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
@@ -867,7 +893,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private AssemblyResult commitMenuAssemblyPlan(AssemblyPlan plan) {
-        ItemStack packageStack = packageStack(plan.color(), plan.data(), plan.packageNameOverride());
+        ItemStack packageStack = packageStack(plan.color(), plan.data());
         if (!canInsertOutputPackage(packageStack)) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
@@ -897,10 +923,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private AssemblyResult outputPackage(QueuedPackage queuedPackage) {
-        ItemStack packageStack = packageStack(
-                queuedPackage.color(),
-                queuedPackage.data(),
-                queuedPackage.packageNameOverride());
+        ItemStack packageStack = packageStack(queuedPackage.color(), queuedPackage.data());
         if (!canInsertOutputPackage(packageStack)) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
@@ -914,12 +937,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private boolean outputSlotsEmpty() {
-        for (int outputSlot = 0; outputSlot < OUTPUT_SLOT_COUNT; outputSlot++) {
-            if (!items.getStackInSlot(outputHandlerSlot(outputSlot)).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
+        return items.getStackInSlot(SLOT_OUTPUT).isEmpty();
     }
 
     private boolean canInsertOutputPackage(ItemStack packageStack) {
@@ -935,13 +953,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private Optional<Integer> findOutputSlotFor(ItemStack packageStack) {
-        for (int outputSlot = 0; outputSlot < OUTPUT_SLOT_COUNT; outputSlot++) {
-            int itemSlot = outputHandlerSlot(outputSlot);
-            if (items.insertItem(itemSlot, packageStack.copy(), true).isEmpty()) {
-                return Optional.of(itemSlot);
-            }
-        }
-        return Optional.empty();
+        return items.insertItem(SLOT_OUTPUT, packageStack.copy(), true).isEmpty()
+                ? Optional.of(SLOT_OUTPUT)
+                : Optional.empty();
     }
 
     private AssemblyAttempt planAssembly(IItemHandler input) {
@@ -978,10 +992,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             if (exactPlan.isEmpty() || !ItemPackageTransactions.canExtract(input, exactPlan.get())) {
                 return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
             }
-            return AssemblyAttempt.planned(new AssemblyPlan(
-                    packageCraftingPattern.get().color(),
-                    exactPlan.get(),
-                    packageCraftingPattern.get().packageName()));
+            return AssemblyAttempt.planned(new AssemblyPlan(packageCraftingPattern.get().color(), exactPlan.get()));
         }
 
         if (ColoredProcessingPatternDataStorage.hasData(patternStack)) {
@@ -1024,8 +1035,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (packageCraftingPattern.isPresent()) {
             return planMenuExactPackage(
                             packageCraftingPattern.get().color(),
-                            packageCraftingPattern.get().data(),
-                            packageCraftingPattern.get().packageName())
+                            packageCraftingPattern.get().data())
                     .map(AssemblyAttempt::planned)
                     .orElseGet(() -> AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH));
         }
@@ -1042,7 +1052,30 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private Optional<AssemblyPlan> planMenuExactPackage(PackageColor color, PackageData target) {
-        return planMenuExactPackage(color, target, null);
+        if (!menuInputsExactlyMatchFilters(menuInputs, target.contents())) {
+            return Optional.empty();
+        }
+        MenuExactExtraction extraction = extractMenuInputsForTarget(target);
+        if (!extraction.matched()) {
+            return Optional.empty();
+        }
+        MarkerMergeMode markerMode = target.marker().isPresent()
+                ? MarkerMergeMode.OVERRIDE
+                : MarkerMergeMode.CLEAR;
+        PackageCapacityProfile capacityProfile = capacityProfileFor(target).orElse(configuredCapacityProfile());
+        PackagePlanResult result = PackagePlanBuilder.build(
+                color,
+                extraction.looseContents(),
+                extraction.sourcePackages(),
+                markerMode,
+                target.marker(),
+                capacityProfile,
+                target.flags());
+        if (result.data().isEmpty()
+                || !result.data().orElseThrow().canonicalHash().equals(target.canonicalHash())) {
+            return Optional.empty();
+        }
+        return Optional.of(new AssemblyPlan(color, result.data().orElseThrow(), extraction.extractions()));
     }
 
     private Optional<MenuBatchPlan> planMenuAdvancedPattern(ItemStack patternStack) {
@@ -1075,7 +1108,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
             Optional<QueuedPackage> queued = buildPatternPackage(
                     column.color(),
-                    column.packageName(),
                     column.marker(),
                     inputs);
             if (queued.isEmpty()) {
@@ -1087,37 +1119,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return Optional.empty();
         }
         return Optional.of(new MenuBatchPlan(packages, extractions));
-    }
-
-    private Optional<AssemblyPlan> planMenuExactPackage(PackageColor color, PackageData target, String packageNameOverride) {
-        if (!menuInputsExactlyMatchFilters(menuInputs, target.contents())) {
-            return Optional.empty();
-        }
-        MenuExactExtraction extraction = extractMenuInputsForTarget(target);
-        if (!extraction.matched()) {
-            return Optional.empty();
-        }
-        MarkerMergeMode markerMode = target.marker().isPresent()
-                ? MarkerMergeMode.OVERRIDE
-                : MarkerMergeMode.CLEAR;
-        PackageCapacityProfile capacityProfile = capacityProfileFor(target).orElse(configuredCapacityProfile());
-        PackagePlanResult result = PackagePlanBuilder.build(
-                color,
-                extraction.looseContents(),
-                extraction.sourcePackages(),
-                markerMode,
-                target.marker(),
-                capacityProfile,
-                target.flags());
-        if (result.data().isEmpty()
-                || !result.data().orElseThrow().canonicalHash().equals(target.canonicalHash())) {
-            return Optional.empty();
-        }
-        return Optional.of(new AssemblyPlan(
-                color,
-                result.data().orElseThrow(),
-                packageNameOverride,
-                extraction.extractions()));
     }
 
     private MenuExactExtraction extractMenuInputsForTarget(PackageData target) {
@@ -1227,7 +1228,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 || !ItemPackageTransactions.canExtract(input, plan.get())) {
             return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
         }
-        return AssemblyAttempt.planned(new AssemblyPlan(PackageColor.FLUIX, plan.get(), ""));
+        return AssemblyAttempt.planned(new AssemblyPlan(PackageColor.FLUIX, plan.get()));
     }
 
     private AssemblyAttempt planMenuDefaultEncodedPattern(ItemStack patternStack) {
@@ -1250,13 +1251,11 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return AssemblyAttempt.planned(new AssemblyPlan(
                 PackageColor.FLUIX,
                 result.data().orElseThrow(),
-                "",
                 List.of()));
     }
 
     private Optional<QueuedPackage> buildPatternPackage(
             PackageColor color,
-            String packageNameOverride,
             Optional<MarkerSpec> marker,
             List<GenericStack> inputs) {
         List<GenericStack> looseContents = new ArrayList<>();
@@ -1289,7 +1288,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 marker,
                 capacity,
                 0);
-        return result.data().map(data -> new QueuedPackage(color, data, packageNameOverride));
+        return result.data().map(data -> new QueuedPackage(color, data));
     }
 
     private Optional<ColoredProviderPlan> planAdvancedProcessingPush(
@@ -1346,7 +1345,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
             Optional<QueuedPackage> queued = buildPatternPackage(
                     column.color(),
-                    column.packageName(),
                     column.marker(),
                     inputs);
             if (queued.isEmpty()) {
@@ -1383,7 +1381,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         Optional<QueuedPackage> queued = buildPatternPackage(
                 PackageColor.FLUIX,
-                "",
                 Optional.empty(),
                 inputs);
         return queued.map(value -> new ColoredProviderPlan(List.of(value), inputs));
@@ -1463,25 +1460,12 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (packages.isEmpty() || !pendingPackages.isEmpty() || !hasOutputRoom()) {
             return false;
         }
-
-        int nextPackage = 0;
-        while (nextPackage < packages.size()) {
-            QueuedPackage queuedPackage = packages.get(nextPackage);
-            ItemStack packageStack = packageStack(
-                    queuedPackage.color(),
-                    queuedPackage.data(),
-                    queuedPackage.packageNameOverride());
-            if (!canInsertOutputPackage(packageStack)) {
-                break;
-            }
-            insertOutputPackage(packageStack);
-            nextPackage++;
-        }
-        if (nextPackage == 0) {
+        QueuedPackage first = packages.get(0);
+        if (!insertOutputPackage(packageStack(first.color(), first.data())).isEmpty()) {
             return false;
         }
-        if (nextPackage < packages.size()) {
-            pendingPackages.addAll(packages.subList(nextPackage, packages.size()));
+        if (packages.size() > 1) {
+            pendingPackages.addAll(packages.subList(1, packages.size()));
         }
         setChanged();
         return true;
@@ -1699,10 +1683,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 .map(entry -> new GenericStack(entry.getKey(), entry.getValue()))
                 .toList();
         return Optional.of(new PackagedProviderPlan(
-                List.of(new QueuedPackage(
-                        encoded.get().color(),
-                        encoded.get().data(),
-                        encoded.get().packageName())),
+                List.of(new QueuedPackage(encoded.get().color(), encoded.get().data())),
                 consumedInputs));
     }
 
@@ -1796,16 +1777,14 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         tag.putInt(CRAFT_PROGRESS_TAG, craftingProgress);
         tag.putString(OUTPUT_MODE_TAG, outputMode.id());
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
-        if (!packageName.isBlank()) {
-            tag.putString(PACKAGE_NAME_TAG, packageName);
-        }
     }
 
     @Override
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
+        List<QueuedPackage> legacyOutputs = List.of();
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
-            loadItems(tag.getCompound(ITEMS_TAG));
+            legacyOutputs = loadItems(tag.getCompound(ITEMS_TAG));
         }
         upgrades.readFromNBT(tag, UPGRADES_TAG);
         loadMenuInputs(tag);
@@ -1817,19 +1796,45 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     : OutputMode.NONE;
         }
         selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
-        packageName = tag.getString(PACKAGE_NAME_TAG);
         craftingProgress = Math.max(0, Math.min(MAX_CRAFT_PROGRESS, tag.getInt(CRAFT_PROGRESS_TAG)));
         loadQueuedPackages(tag, ACTIVE_PACKAGES_TAG, activePackages);
         loadPendingPackages(tag);
+        if (!legacyOutputs.isEmpty()) {
+            pendingPackages.addAll(0, legacyOutputs);
+        }
+        promoteNextOutput();
     }
 
-    private void loadItems(CompoundTag itemsTag) {
+    private List<QueuedPackage> loadItems(CompoundTag itemsTag) {
         ItemStackHandler loadedItems = new ItemStackHandler(SLOT_COUNT);
         loadedItems.deserializeNBT(itemsTag);
+        List<QueuedPackage> legacyOutputs = new ArrayList<>();
         for (int slot = 0; slot < items.getSlots(); slot++) {
             ItemStack stack = slot < loadedItems.getSlots() ? loadedItems.getStackInSlot(slot) : ItemStack.EMPTY;
-            items.setStackInSlot(slot, stack);
+            if (isOutputSlot(slot)) {
+                if (slot == SLOT_OUTPUT && !stack.isEmpty()) {
+                    ItemStack primary = stack.copyWithCount(1);
+                    items.setStackInSlot(SLOT_OUTPUT, primary);
+                    for (int count = 1; count < stack.getCount(); count++) {
+                        queuedPackage(stack).ifPresent(legacyOutputs::add);
+                    }
+                } else if (slot != SLOT_OUTPUT && !stack.isEmpty()) {
+                    for (int count = 0; count < stack.getCount(); count++) {
+                        queuedPackage(stack).ifPresent(legacyOutputs::add);
+                    }
+                }
+            } else {
+                items.setStackInSlot(slot, stack);
+            }
         }
+        return legacyOutputs;
+    }
+
+    private Optional<QueuedPackage> queuedPackage(ItemStack stack) {
+        if (!(stack.getItem() instanceof PackageItem packageItem)) {
+            return Optional.empty();
+        }
+        return PackageDataStorage.read(stack).map(data -> new QueuedPackage(packageItem.color(), data));
     }
 
     @Override
@@ -1856,10 +1861,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     pos.getX(),
                     pos.getY(),
                     pos.getZ(),
-                    packageStack(
-                            queuedPackage.color(),
-                            queuedPackage.data(),
-                            queuedPackage.packageNameOverride()));
+                    packageStack(queuedPackage.color(), queuedPackage.data()));
         }
         for (QueuedPackage queuedPackage : activePackages) {
             Containers.dropItemStack(
@@ -1867,10 +1869,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     pos.getX(),
                     pos.getY(),
                     pos.getZ(),
-                    packageStack(
-                            queuedPackage.color(),
-                            queuedPackage.data(),
-                            queuedPackage.packageNameOverride()));
+                    packageStack(queuedPackage.color(), queuedPackage.data()));
         }
     }
 
@@ -2040,10 +2039,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             CompoundTag tag = new CompoundTag();
             tag.putString(PENDING_COLOR_TAG, queuedPackage.color().id());
             tag.put(PENDING_DATA_TAG, PackageDataStorage.writeTag(queuedPackage.data()));
-            if (queuedPackage.packageNameOverride() != null) {
-                tag.putBoolean(PENDING_HAS_NAME_TAG, true);
-                tag.putString(PENDING_NAME_TAG, queuedPackage.packageNameOverride());
-            }
             list.add(tag);
         }
         return list;
@@ -2069,24 +2064,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             Optional<PackageData> data = PackageDataStorage.readTag(
                     pendingTag.getCompound(PENDING_DATA_TAG),
                     color.get());
-            String packageNameOverride = pendingTag.getBoolean(PENDING_HAS_NAME_TAG)
-                    ? PackageCraftingPatternDataStorage.sanitizePackageName(pendingTag.getString(PENDING_NAME_TAG))
-                    : null;
-            data.ifPresent(packageData -> target.add(new QueuedPackage(color.get(), packageData, packageNameOverride)));
+            data.ifPresent(packageData -> target.add(new QueuedPackage(color.get(), packageData)));
         }
     }
 
     private ItemStack packageStack(PackageColor color, PackageData data) {
-        return packageStack(color, data, null);
-    }
-
-    private ItemStack packageStack(PackageColor color, PackageData data, String packageNameOverride) {
         ItemStack stack = new ItemStack(APItems.packageItems().get(color).get());
         PackageDataStorage.write(stack, data);
-        String effectivePackageName = packageNameOverride == null ? packageName : packageNameOverride;
-        if (!effectivePackageName.isBlank()) {
-            stack.setHoverName(Component.literal(effectivePackageName));
-        }
         return stack;
     }
 
@@ -2119,14 +2103,27 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         setChanged();
     }
 
-    private int firstNonEmptyOutputHandlerSlot() {
-        for (int outputSlot = 0; outputSlot < OUTPUT_SLOT_COUNT; outputSlot++) {
-            int handlerSlot = outputHandlerSlot(outputSlot);
-            if (!items.getStackInSlot(handlerSlot).isEmpty()) {
-                return handlerSlot;
-            }
+    private ItemStack extractPrimaryOutput(int amount, boolean simulate) {
+        if (amount <= 0) {
+            return ItemStack.EMPTY;
         }
-        return -1;
+        ItemStack extracted = items.extractItem(SLOT_OUTPUT, 1, simulate);
+        if (!simulate && !extracted.isEmpty()) {
+            promoteNextOutput();
+            setChanged();
+        }
+        return extracted;
+    }
+
+    private void promoteNextOutput() {
+        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty() || pendingPackages.isEmpty()) {
+            return;
+        }
+        QueuedPackage next = pendingPackages.remove(0);
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack(next.color(), next.data()), false);
+        if (!remainder.isEmpty()) {
+            pendingPackages.add(0, next);
+        }
     }
 
     private final class ExternalItemHandler implements IItemHandler {
@@ -2137,7 +2134,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            return items.getStackInSlot(slot);
+            return isOutputSlot(slot) && slot != SLOT_OUTPUT ? ItemStack.EMPTY : items.getStackInSlot(slot);
         }
 
         @Override
@@ -2153,14 +2150,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (amount <= 0 || !isOutputSlot(slot) || slot != firstNonEmptyOutputHandlerSlot()) {
+            if (amount <= 0 || slot != SLOT_OUTPUT) {
                 return ItemStack.EMPTY;
             }
-            ItemStack stack = items.getStackInSlot(slot);
-            if (stack.isEmpty() || !(stack.getItem() instanceof PackageItem)) {
-                return ItemStack.EMPTY;
-            }
-            return items.extractItem(slot, 1, simulate);
+            return extractPrimaryOutput(amount, simulate);
         }
 
         @Override
@@ -2178,33 +2171,17 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             PackageColor color,
             PackageData data,
             ItemPackagePlan itemPlan,
-            String packageNameOverride,
             List<MenuInputExtraction> menuExtractions) {
         private AssemblyPlan(PackageColor color, ItemPackagePlan plan) {
-            this(color, plan.data(), plan, null, List.of());
-        }
-
-        private AssemblyPlan(PackageColor color, ItemPackagePlan plan, String packageNameOverride) {
-            this(color, plan.data(), plan, packageNameOverride, List.of());
+            this(color, plan.data(), plan, List.of());
         }
 
         private AssemblyPlan(PackageColor color, PackageData data, List<MenuInputExtraction> menuExtractions) {
-            this(color, data, null, null, menuExtractions);
-        }
-
-        private AssemblyPlan(
-                PackageColor color,
-                PackageData data,
-                String packageNameOverride,
-                List<MenuInputExtraction> menuExtractions) {
-            this(color, data, null, packageNameOverride, menuExtractions);
+            this(color, data, null, menuExtractions);
         }
     }
 
-    private record QueuedPackage(PackageColor color, PackageData data, String packageNameOverride) {
-        private QueuedPackage(PackageColor color, PackageData data) {
-            this(color, data, null);
-        }
+    private record QueuedPackage(PackageColor color, PackageData data) {
     }
 
     private record ColoredProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {

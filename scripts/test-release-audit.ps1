@@ -24,6 +24,7 @@ $clientSmokeScreenshotNames = @(
     "appliedpackaging-client-smoke-package_assembler.png",
     "appliedpackaging-client-smoke-me_packager.png",
     "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png",
+    "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png",
     "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png",
     "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png",
     "appliedpackaging-client-smoke-package_pattern_terminal.png",
@@ -418,7 +419,7 @@ try {
         -RootPath $validScreenshotFixture.RootPath `
         -JarPath $validScreenshotFixture.JarPath `
         -ExpectedExitCode 0 `
-        -ExpectedText "10 client smoke screenshots are present and valid PNG files" `
+        -ExpectedText "11 client smoke screenshots are present and valid PNG files" `
         -RequireClientSmokeScreenshots
 
     $missingEditorScreenshotFixture = New-ReleaseAuditFixture "missing-advanced-editor-screenshot"

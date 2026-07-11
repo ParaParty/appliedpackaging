@@ -2,6 +2,7 @@ package com.warmthdawn.appliedpackaging.core.package_data;
 
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import appeng.crafting.pattern.AEProcessingPattern;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import java.util.ArrayList;
@@ -19,7 +20,7 @@ import net.minecraft.world.item.ItemStack;
 public final class AdvancedProcessingPatternDataStorage {
     public static final String PATTERN_TAG = "appliedpackaging.advanced_processing_pattern";
     public static final int MAX_PACKAGE_COLUMNS = 17;
-    public static final int INPUTS_PER_PACKAGE = 4;
+    public static final int INPUTS_PER_PACKAGE = AEProcessingPattern.MAX_INPUT_SLOTS;
     public static final int MAX_INPUT_SLOTS = MAX_PACKAGE_COLUMNS * INPUTS_PER_PACKAGE;
     public static final int MAX_OUTPUT_SLOTS = 4;
 
@@ -27,7 +28,6 @@ public final class AdvancedProcessingPatternDataStorage {
     private static final String COLUMNS = "columns";
     private static final String INDEX = "index";
     private static final String COLOR = "color";
-    private static final String NAME = "name";
     private static final String MARKER = "marker";
     private static final int CURRENT_VERSION = 1;
 
@@ -73,7 +73,7 @@ public final class AdvancedProcessingPatternDataStorage {
                 }
                 marker = Optional.of(new MarkerSpec(new GenericStack(markerStack.what(), 1)));
             }
-            columns.add(new PackageColumn(index, color.get(), columnTag.getString(NAME), marker));
+            columns.add(new PackageColumn(index, color.get(), marker));
         }
         if (columns.isEmpty()) {
             return Optional.empty();
@@ -98,9 +98,6 @@ public final class AdvancedProcessingPatternDataStorage {
             CompoundTag columnTag = new CompoundTag();
             columnTag.putInt(INDEX, column.index());
             columnTag.putString(COLOR, column.color().id());
-            if (!column.packageName().isBlank()) {
-                columnTag.putString(NAME, column.packageName());
-            }
             column.marker().ifPresent(marker -> columnTag.put(MARKER, GenericStack.writeTag(marker.stack())));
             columns.add(columnTag);
         }
@@ -111,7 +108,6 @@ public final class AdvancedProcessingPatternDataStorage {
     public record PackageColumn(
             int index,
             PackageColor color,
-            String packageName,
             Optional<MarkerSpec> marker) {
         public PackageColumn {
             if (index < 0 || index >= MAX_PACKAGE_COLUMNS) {
@@ -120,7 +116,6 @@ public final class AdvancedProcessingPatternDataStorage {
             if (color == null) {
                 throw new IllegalArgumentException("Advanced package column color cannot be null");
             }
-            packageName = PackageCraftingPatternDataStorage.sanitizePackageName(packageName);
             marker = marker == null ? Optional.empty() : marker;
             if (marker.isPresent() && !AEItemKey.is(marker.get().stack().what())) {
                 throw new IllegalArgumentException("Advanced package markers must be items");

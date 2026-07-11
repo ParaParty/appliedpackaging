@@ -89,7 +89,52 @@ try {
         -Name "bad advanced terminal GUI dimension fixture" `
         -RootPath $badAdvancedTerminalGuiFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "expected 230x260 advanced pattern encoding terminal GUI texture"
+        -ExpectedText "expected 256x256 advanced pattern encoding terminal GUI atlas"
+
+    $badAdvancedTerminalSpriteFixture = New-AssetsFixture "bad-advanced-terminal-sprite-dimension"
+    $badAdvancedTerminalSpritePath = Join-Path $badAdvancedTerminalSpriteFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png"
+    [System.IO.File]::WriteAllBytes($badAdvancedTerminalSpritePath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad advanced terminal sprite atlas dimension fixture" `
+        -RootPath $badAdvancedTerminalSpriteFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 256x256 advanced pattern encoding terminal sprite atlas"
+
+    $badAdvancedTerminalStatesFixture = New-AssetsFixture "bad-advanced-terminal-states-dimension"
+    $badAdvancedTerminalStatesPath = Join-Path $badAdvancedTerminalStatesFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png"
+    [System.IO.File]::WriteAllBytes($badAdvancedTerminalStatesPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad advanced terminal AE2 states atlas dimension fixture" `
+        -RootPath $badAdvancedTerminalStatesFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 256x256 advanced pattern encoding terminal AE2 states atlas"
+
+    $badAdvancedTerminalMiddleRowFixture = New-AssetsFixture "bad-advanced-terminal-middle-row-dimension"
+    $badAdvancedTerminalMiddleRowPath = Join-Path $badAdvancedTerminalMiddleRowFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png"
+    [System.IO.File]::WriteAllBytes($badAdvancedTerminalMiddleRowPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad advanced terminal middle row dimension fixture" `
+        -RootPath $badAdvancedTerminalMiddleRowFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 195x18 advanced pattern encoding terminal middle row"
+
+    $badAdvancedTerminalScrollbarFixture = New-AssetsFixture "bad-advanced-terminal-scrollbar-dimension"
+    $badAdvancedTerminalScrollbarPath = Join-Path $badAdvancedTerminalScrollbarFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png"
+    [System.IO.File]::WriteAllBytes($badAdvancedTerminalScrollbarPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad advanced terminal scrollbar dimension fixture" `
+        -RootPath $badAdvancedTerminalScrollbarFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 256x256 advanced pattern encoding terminal AE2 scrollbar atlas"
+
+    $badPackageModeFixture = New-AssetsFixture "bad-package-pattern-mode-dimension"
+    $badPackageModePath = Join-Path $badPackageModeFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png"
+    [System.IO.File]::WriteAllBytes($badPackageModePath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad package pattern mode GUI atlas dimension fixture" `
+        -RootPath $badPackageModeFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 256x256 package pattern mode GUI atlas"
 
     $badHeaderFixture = New-AssetsFixture "bad-header"
     $badHeaderPath = Join-Path $badHeaderFixture "src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png"
