@@ -29,6 +29,8 @@ public final class AdvancedProcessingPatternDataStorage {
     private static final String INDEX = "index";
     private static final String COLOR = "color";
     private static final String MARKER = "marker";
+    private static final String AE2_PROCESSING_INPUTS = "in";
+    private static final String AE2_PROCESSING_OUTPUTS = "out";
     private static final int CURRENT_VERSION = 1;
 
     private AdvancedProcessingPatternDataStorage() {
@@ -103,6 +105,30 @@ public final class AdvancedProcessingPatternDataStorage {
         }
         tag.put(COLUMNS, columns);
         stack.getOrCreateTag().put(PATTERN_TAG, tag);
+    }
+
+    public static List<GenericStack> readSparseInputs(ItemStack stack) {
+        return readSparseStacks(stack, AE2_PROCESSING_INPUTS);
+    }
+
+    public static List<GenericStack> readSparseOutputs(ItemStack stack) {
+        return readSparseStacks(stack, AE2_PROCESSING_OUTPUTS);
+    }
+
+    private static List<GenericStack> readSparseStacks(ItemStack stack, String key) {
+        if (!stack.hasTag() || !stack.getTag().contains(key, Tag.TAG_LIST)) {
+            return List.of();
+        }
+        List<GenericStack> stacks = new ArrayList<>();
+        for (Tag element : stack.getTag().getList(key, Tag.TAG_COMPOUND)) {
+            if (!(element instanceof CompoundTag entry) || entry.isEmpty()) {
+                stacks.add(null);
+                continue;
+            }
+            GenericStack value = GenericStack.readTag(entry);
+            stacks.add(value != null && value.amount() > 0 ? value : null);
+        }
+        return java.util.Collections.unmodifiableList(stacks);
     }
 
     public record PackageColumn(

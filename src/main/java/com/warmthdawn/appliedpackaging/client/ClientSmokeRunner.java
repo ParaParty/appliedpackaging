@@ -769,7 +769,6 @@ public final class ClientSmokeRunner {
             return;
         }
         if (screen instanceof PackageAssemblerScreen assemblerScreen) {
-            hoverFirstSlot(assemblerScreen, assemblerScreen.getMenu().getSlots(SlotSemantics.BLANK_PATTERN));
         }
     }
 

@@ -21,6 +21,8 @@ $pngBytes = [byte[]]@(
 )
 $clientSmokeScreenshotNames = @(
     "appliedpackaging-client-smoke-world-me_packager.png",
+    "appliedpackaging-client-smoke-world-me_packager_link.png",
+    "appliedpackaging-client-smoke-world-all_machines.png",
     "appliedpackaging-client-smoke-package_assembler.png",
     "appliedpackaging-client-smoke-me_packager.png",
     "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png",
@@ -304,10 +306,6 @@ public final class APItems {
             "package_pattern",
             () -> new Item(new Item.Properties()));
 
-    public static final RegistryObject<Item> PACKAGED_PROCESSING_PATTERN = ITEMS.register(
-            "packaged_processing_pattern",
-            () -> new Item(new Item.Properties()));
-
     public static final RegistryObject<Item> ADVANCED_PROCESSING_PATTERN = ITEMS.register(
             "advanced_processing_pattern",
             () -> new AdvancedProcessingPatternItem(new Item.Properties()));
@@ -423,7 +421,7 @@ try {
         -RootPath $validScreenshotFixture.RootPath `
         -JarPath $validScreenshotFixture.JarPath `
         -ExpectedExitCode 0 `
-        -ExpectedText "9 client smoke screenshots are present and valid PNG files" `
+        -ExpectedText "11 client smoke screenshots are present and valid PNG files" `
         -RequireClientSmokeScreenshots
 
     $missingEditorScreenshotFixture = New-ReleaseAuditFixture "missing-advanced-editor-screenshot"
@@ -603,6 +601,50 @@ public final class APItems {
         -JarPath $terminalBlockItemFixture.JarPath `
         -ExpectedExitCode 1 `
         -ExpectedText "Canceled package pattern terminal and export bus items are not registered"
+
+    $removedPatternItemFixture = New-ReleaseAuditFixture "removed-pattern-item-registration"
+    Add-Content -LiteralPath (Join-Path $removedPatternItemFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Value @"
+
+// Deliberate negative fixture.
+public static final RegistryObject<Item> PACKAGED_PROCESSING_PATTERN = ITEMS.register(
+        "packaged_processing_pattern",
+        () -> new Item(new Item.Properties()));
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "removed packaged processing pattern registration fixture" `
+        -RootPath $removedPatternItemFixture.RootPath `
+        -JarPath $removedPatternItemFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Removed packaged processing pattern item is not registered"
+
+    $legacyBlockFixture = New-ReleaseAuditFixture "legacy-block-registration"
+    Write-Utf8File -Path (Join-Path $legacyBlockFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APBlocks.java") -Text @"
+package com.warmthdawn.appliedpackaging.registry;
+
+public final class APBlocks {
+    public static final RegistryObject<Block> ME_PACKAGER = BLOCKS.register("me_packager", FixtureBlock::new);
+    public static final RegistryObject<Block> PACKAGE_STORAGE_BUS = BLOCKS.register(
+            "package_storage_bus",
+            FixtureBlock::new);
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "legacy standalone block registration fixture" `
+        -RootPath $legacyBlockFixture.RootPath `
+        -JarPath $legacyBlockFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Canceled standalone package bus and package pattern terminal blocks are not registered"
+
+    $stalePartLootFixture = New-ReleaseAuditFixture "stale-part-block-loot"
+    Write-Utf8File `
+        -Path (Join-Path $stalePartLootFixture.RootPath "src/main/resources/data/appliedpackaging/loot_tables/blocks/package_storage_bus.json") `
+        -Text '{"type":"minecraft:block","pools":[]}'
+    Invoke-ReleaseAuditCase `
+        -Name "stale part block loot fixture" `
+        -RootPath $stalePartLootFixture.RootPath `
+        -JarPath $stalePartLootFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "AE2 part item has no stale standalone block loot table: package_storage_bus"
 
     $advancedTerminalBlockItemFixture = New-ReleaseAuditFixture "advanced-terminal-blockitem"
     Write-Utf8File -Path (Join-Path $advancedTerminalBlockItemFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Text @"

@@ -15,7 +15,7 @@ src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/pa
 src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_top.png
 src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_bottom.png
 src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png
-src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png
+src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png
 docs/assets/reports/packages.md
 ```
 
@@ -39,7 +39,7 @@ item 不再有独立平面 PNG，直接渲染模型
 package_pattern:
   空白样板卡片 + 小包裹封印
 
-packaged_processing_pattern:
+advanced_processing_pattern:
   普通处理样板卡片 + 多个小型包裹标记
 ```
 
@@ -59,7 +59,7 @@ package_box 模型使用单个 10x10x8 cuboid；每个 face 绑定独立完整 f
 
 ```text
 17 色包裹都有 item model JSON、package_box model JSON 和五面贴图
-package_pattern 与 packaged_processing_pattern 有 PNG 和 item model JSON
+package_pattern 与 advanced_processing_pattern 有 PNG 和 item model JSON
 17 色包裹在小尺寸下仍能区分
 两个 pattern 物品与包裹明显不同
 docs/assets/reports/packages.md 记录生成提示、修改说明和预览路径

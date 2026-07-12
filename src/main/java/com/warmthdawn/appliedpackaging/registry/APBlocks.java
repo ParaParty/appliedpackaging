@@ -3,8 +3,6 @@ package com.warmthdawn.appliedpackaging.registry;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.PackageAssemblerBlock;
-import com.warmthdawn.appliedpackaging.world.block.PackageBusBlock;
-import com.warmthdawn.appliedpackaging.world.block.PackagePatternTerminalBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -24,23 +22,7 @@ public final class APBlocks {
 
     public static final RegistryObject<Block> PACKAGE_ASSEMBLER = BLOCKS.register(
             "package_assembler",
-            () -> new PackageAssemblerBlock(machineProperties()));
-
-    public static final RegistryObject<Block> PACKAGE_STORAGE_BUS = BLOCKS.register(
-            "package_storage_bus",
-            () -> new PackageBusBlock(partialMachineProperties(), PackageBusBlock.BusKind.STORAGE));
-
-    public static final RegistryObject<Block> PACKAGE_EXPORT_BUS = BLOCKS.register(
-            "package_export_bus",
-            () -> new PackageBusBlock(partialMachineProperties(), PackageBusBlock.BusKind.EXPORT));
-
-    public static final RegistryObject<Block> PACKAGE_UNPACKING_BUS = BLOCKS.register(
-            "package_unpacking_bus",
-            () -> new PackageBusBlock(partialMachineProperties(), PackageBusBlock.BusKind.UNPACKING));
-
-    public static final RegistryObject<Block> PACKAGE_PATTERN_TERMINAL = BLOCKS.register(
-            "package_pattern_terminal",
-            () -> new PackagePatternTerminalBlock(partialMachineProperties()));
+            () -> new PackageAssemblerBlock(cutoutMachineProperties()));
 
     private APBlocks() {
     }
@@ -63,9 +45,4 @@ public final class APBlocks {
                 .isRedstoneConductor((state, level, pos) -> false);
     }
 
-    private static BlockBehaviour.Properties partialMachineProperties() {
-        return machineProperties()
-                .noOcclusion()
-                .isRedstoneConductor((state, level, pos) -> false);
-    }
 }

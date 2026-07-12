@@ -1,5 +1,46 @@
 # Applied Packaging 开发日志
 
+## 2026-07-13 包裹样板独立物品
+
+将普通 AE2 Pattern Encoding Terminal 包裹模式的编码产物切换为独立 `appliedpackaging:package_pattern` 物品；保留旧
+AE2 crafting_pattern + Applied Packaging NBT 的读取与解码兼容，并让新物品直接显示完整包裹样板 tooltip。
+
+## 2026-07-13 包裹装配室透明内腔黑底修复
+
+用户近距离截图显示新版 Molecular Assembler 空心模型会把下方地面顶面剔除，透明内腔因而显示黑色。根因是
+`APBlocks.PACKAGE_ASSEMBLER` 在模型替换后仍使用完整遮挡的 `machineProperties()`。注册改用与 ME Packager 相同的
+`cutoutMachineProperties()`，即 `noOcclusion()` 且 `isRedstoneConductor=false`；保留上游模型的底面 UV/cullface，不以模型补面
+掩盖错误方块属性。
+
+新增 `packageAssemblerDoesNotOccludeItsTransparentChamber` GameTest，直接断言装配室不参与遮挡且不是完整红石导体；
+`runGameTestServer` 成功，175 个 required GameTest 全部通过。隔离世界 `AP Smoke Assembler Occlusion` 的 client smoke
+成功刷新 11 张截图，世界总览中装配室透明内腔下方地面正常显示，未再出现黑底。
+
+## 2026-07-13 两种包裹样板用户材质替换
+
+将普通 Pattern Encoding Terminal 包裹模式产生的 `package_pattern` 图标替换为用户
+`pacakge_pattern.png`，将 Advanced Pattern Encoding Terminal 产生的 `advanced_processing_pattern` 图标替换为用户
+`adv_processing_pattern.png`。后者既有 item model 指向 `packaged_processing_pattern.png`，因此只替换运行时材质，不改变
+注册 ID 或编码逻辑。两张图片均以原字节 16x16 RGBA 接入，资产合同、规格和 `verify-assets.ps1` 同步记录尺寸与 SHA-256。
+
+## 2026-07-13 AE2 v19 总线与包裹装配室模型替换
+
+按用户确认以 AE2 `neoforge/v19.2.17`（Minecraft 1.21.1）为高版本模型来源，固定 commit
+`79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a`。Package Storage Bus 改用新版 Storage Bus part 几何、侧面、
+背面和状态灯并替换用户正面；Package Unpacking Bus 改用新版面板形态 Pattern Provider part 几何，替换用户正反面；
+两者 item model 同步切换。ME Package Assembler 改用新版 Molecular Assembler 13-cuboid cutout 模型、用户完整表面、
+动画发光层，并新增 Forge 1.20.1 BER，在工作期间显示当前包裹和 AE2 原装 crafting particle 动画。动态状态在开始/完成时
+通过 block update 同步客户端。
+
+资产合同记录四张用户 PNG 的 SHA-256、上游 tag/commit/路径和 LGPL 要求。`verify-assets.ps1` 新增新版模型结构、用户图哈希、
+16x16 base 与 16x192 动画灯带尺寸门禁，并将装配室从旧 32x32 opaque 假设迁移为 cutout 模型规则；
+`test-assets-audit.ps1` 的 opaque 负例改由仍为 solid 的 Package Export Bus 承担。
+
+验证：两个 assetgen contract validation 成功；`compileJava processResources`、`build`、完整资产审计负例套件、文档审计、
+带资产合同的机械发布审计均成功。隔离世界 `AP Smoke V19 Models` 的 client smoke 成功生成 11 张界面/世界截图，
+资源加载日志没有 missing model/texture；世界总览确认新版透明装配室模型与两种 cable part 均成功烘焙。
+`runGameTestServer` 成功，174 个 required GameTest 全部通过。
+
 ## 2026-07-02
 
 目标：
@@ -3106,3 +3147,59 @@ Package Bus 错位 hover 的根因是 tooltip 阶段已退出 GUI 局部坐标�
 `.\gradlew.bat compileJava processResources --stacktrace` 成功。为避开用户可能仍在使用的世界，从仓库测试世界复制临时 `AP Smoke Slot Icons`，执行 `.\gradlew.bat runClientSmoke '-Pappliedpackaging.clientSmoke.world=AP Smoke Slot Icons' --stacktrace` 在 41.5 秒内成功，11 张截图全部生成并自动退出，随后验证路径位于 `run/saves` 后删除隔离世界。人工检查两台机器截图，容量元件和已编码样板新版空槽完整显示；两种总线截图确认按钮逻辑上边距为 2px，现有 marker tooltip、hover、七行过滤和升级面板无回归。卸货截图在四图同批查看时出现黑块伪影，单图读取正常。
 
 GameTest 已考虑但未重复运行：本轮不改变菜单、网络、存储、过滤、升级兼容或服务端事务，既有 174 个 required GameTest 已覆盖对应行为。最终 `.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过；237 个 JAR 资源、5 个资产合同、154 张 RGBA PNG 与 153 个双语语言 key/占位符均通过审计。
+
+### 2026-07-13 全仓死代码、临时兼容与事务审查
+
+本轮按“只清理项目自身无意义实现，不追逐 Forge/Minecraft 1.20.1 依赖 API 警告”的边界完成全仓审查。删除三个旧 Package Bus 方块/方块实体实现、独立 Package Pattern Terminal 的方块/方块实体/part/menu/screen、对应注册、语言、模型、贴图和失效 GameTest；Package Storage Bus 与 Package Unpacking Bus 只保留真实 AE2 part，包裹样板编辑只保留 AE2 Pattern Encoding Terminal 包裹模式。另删除 8 张从未被当前模型引用、仅被旧资产清单强制保留的机器方块面贴图，以及两个 part 物品遗留的 block loot table。GameTest 文件同时清理大段注释代码与只覆盖被删方块壳的测试。
+
+事务审查补齐 Forge fluid handler 多项插入失败时的逆序回滚，并让 item/fluid/MEStorage 回滚不完整时留下错误证据；包裹内容归并、容量累计、过滤需求归并和整叠手动拆包增加 `long` 溢出保护。新增真实 Storage Bus part 挂载、流体第二项提交失败回滚、归并溢出拒绝和整叠拆包乘法溢出不消耗测试。发布审计新增旧 block/block entity 注册、part 遗留 block loot 和 11 张 client smoke 截图门禁，相关负例自测均通过。
+
+无法由代码审查单独决定的事项记录在 `docs/09-code-review-audit.md`：Package Assembler 隐藏 legacy 输入路径、ME Packager 旧槽/枚举、其它存档迁移、容量升级与需求范围冲突、通用第三方 handler 的强原子性边界，以及仍在使用的临时 Create Packager 外壳。未据依赖 deprecation/removal 编译警告修改生命周期、资源定位或渲染 API。
+
+验证结果：`.\gradlew.bat build --stacktrace` 与 `runData --stacktrace` 成功；`runGameTestServer --stacktrace` 的 144 个 required GameTest 全部通过；`runClientSmoke --stacktrace` 在历史开发世界完成一次被删 block ID 清理后复跑成功，11 张必需截图全部刷新且第二次日志无 missing registry/model/texture 或客户端类加载阻断项；dedicated server smoke 成功到达完整 world-load。`verify-docs.ps1`、`test-docs-audit.ps1`、`verify-assets.ps1`、`test-assets-audit.ps1`、`verify-release.ps1 -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad`、`test-release-audit.ps1`、`test-release-self-tests.ps1` 与 `git diff --check` 全部通过；最终 JAR 中 215 个 Applied Packaging 发布资源与源码一致、79 个资源 JSON 可解析、140 张 PNG 通过审计，且不包含被删实现的 class/resource 条目。
+
+### 2026-07-13 发布前旧存档与旧样板兼容直接删除
+
+用户明确项目尚未正式发布，不需要开发版存档迁移或旧载体兼容，也不设置保留期限。基于该决定继续删除上一轮审查中暂缓的自有兼容：移除 `packaged_processing_pattern` 注册/物品/模型/语言与 `PackagePatternDataStorage`、`ColoredProcessingPatternDataStorage`、`PackagedProcessingPatternDataStorage`；不再把 AE2 blank/crafting pattern 或带 colored/packaged 扩展 NBT 的 processing pattern 当作包裹载体。正式样板语义只保留独立 `package_pattern`、普通 AE2 processing pattern 与独立 `advanced_processing_pattern`。
+
+Package Assembler 删除 9 格隐藏输入、旧槽位布局迁移、旧 `auto_export` NBT、旧多样板计划和外部输入 capability，内部机器库存压缩为当前 20 槽；外部 item capability 收敛为一个严格有序输出槽，并修复主输出取空后没有从后续内部输出槽提升下一包裹的问题。ME Packager 删除旧 output/filter 槽、旧 held-box 推断和 `DISABLED` / `CYCLIC` 旧红石枚举。PackageEntity 删除旧 `Package` NBT key；高级终端删除旧 AE2 输入迁移。对应旧兼容 GameTest 被删除，发布审计增加旧注册、旧存储类和机器兼容符号不得重新出现的门禁及负例。
+
+第一次 GameTest 与 client smoke 读取历史开发世界时按预期报告已删除 `appliedpackaging:packaged_processing_pattern` registry ID；没有添加 missing-mapping remap，Forge 备份并移除旧 ID。清理后的同一世界再次运行不再出现该缺失映射。最终 `.\gradlew.bat compileJava --rerun-tasks`、`build --stacktrace`、`runData --stacktrace` 成功；`runGameTestServer --stacktrace` 连续两次均为 118/118 required tests 通过；`runClientSmoke --stacktrace` 连续两次完成 11 张截图；dedicated server smoke 到达 world-load。`verify-assets.ps1`、`test-assets-audit.ps1`、`verify-docs.ps1`、`verify-release.ps1 -RequireServerWorldLoad`、`test-release-audit.ps1`、`test-release-self-tests.ps1` 与 `git diff --check` 均通过。编译仍有 25 条 Forge/Minecraft 1.20.1 removal 警告，按用户边界不处理。
+
+最终差异复核发现 Package Assembler 的颜色按钮与 marker 槽在旧彩色/封装载体删除后已没有任何计划路径读取，属于能设置却不产生效果的假功能。同步删除方块实体槽位/字段/NBT、菜单 action/GuiSync、screen 拾色器/marker 绘制、ScreenStyle 槽和专用语言；内部 ItemStackHandler 进一步压缩为 19 槽，输出槽校验同时收紧为必须带有效 PackageData。普通 AE2 processing pattern 测试不再先写入无效机器配置，仍直接验证固定 Fluix、空 marker 语义。发布审计把 `selected_color`、`SLOT_MARKER` 和 `setSelectedColor` 纳入装配室兼容/冗余回归门禁。再次执行 `compileJava` 成功、118/118 GameTest 通过、client smoke 11 张截图完成；人工检查装配室截图，无槽位重叠、黑块或失效控件残留。
+
+仍未由本轮擅自决定的问题继续记录在 `docs/09-code-review-audit.md`：ME Packager 容量升级范围冲突、第三方通用 handler 只能提供 best-effort rollback 的原子性边界，以及临时 Create Packager 外壳尚未替换为正式 AE2 风格模型。
+
+### 2026-07-13 ME Packager 容量升级与 Pattern Provider 式插入
+
+用户确认 ME Packager 容量升级进入正式范围，并明确相邻物品库存不需要自定义“事务”抽象，应采用样板供应器相同的先 simulate、后实际推送逻辑。需求现统一为基础 1k/16 类型，容量槽支持 AE2 16k/64k/256k storage component；4k 与附属大容量兼容继续排除。三档容量元件映射均纳入 GameTest。
+
+运行时 item handler 代码收敛为 `PackageContentsInserter`：先使用累计 `SimulatedItemHandler` 防止多种内容重复占用同一空槽，同时查询真实 handler 的 simulate 结果；全量通过后才按内容调用 `ItemHandlerHelper.insertItemStacked` 提交。删除原 `ItemPackageTransactions` 的逐槽计划、提交记录与反向抽取回滚，卸货总线操作改名为 `PackageUnpackingOperations` 并只保留预留、最终复验和插入。全仓引用检查确认旧 item handler 打包规划、Forge fluid handler 适配、Package Export/即时拆包 API 都只有测试调用，因此连同 `ItemPackagePlan`、`SlotExtraction`、三个 fluid helper 和对应 18 个无效 GameTest 一并删除；GenericStack/AEFluidKey 与 AE2 MEStorage 流体路径不受影响。发布审计新增这些无用源文件不得重新出现的门禁。
+
+GameTest 已按行为变更要求执行：`.\gradlew.bat runGameTestServer --stacktrace` 成功，100/100 required tests 全部通过，保留覆盖整包累计模拟拒绝、held 包裹目标变化重试、真实 Package Unpacking Bus part 和 MEStorage 操作。`.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/test-release-audit.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 均通过。发布 JAR 与 214 个资源一致，78 个 JSON、140 张 PNG、5 个资产合同和 140 个双语 key/占位符通过审计。既有 25 条目标平台 removal 警告未处理。
+
+本轮同时解决审查文档中的容量范围冲突和第三方 handler 强原子性伪问题；`docs/09-code-review-audit.md` 当前只剩 ME Packager 仍使用临时 Create Packager 外壳这一项正式发布前问题。
+
+### 2026-07-14 高级样板终端新版 AE2 控件与包裹预览校正
+
+按用户截图复核高级样板终端四项视觉偏差。左侧工具栏原因是终端仍继承 AE2 15.4.10 `VerticalButtonBar` 的 4px 间距和旧 `IconButton` 16x16 背景；新增仅对 `AdvancedPatternEncodingTermScreen` 生效的客户端适配，使用 current-main 18x20 normal/hover/focus 按钮背景、1px hover 位移、6px 间距及三段式 `vertical_buttons_bg` 外框，不全局覆盖 AE2 15 其它界面。网络库存滚动条 atlas 的既有 UV 保持不变，启用/禁用图块改为官方 current-main `big_scroller.png` 与 `big_scroller_disabled.png` 的 12x15 原样像素，并补充 LGPL 来源记录。
+
+右侧 `BLANK_PATTERN` 和 `ENCODED_PATTERN` 的 bottom anchor 分别由 167/120 改为 166/119，两个槽内物品统一向下 1px。包裹基础与 marker 模型的 GUI transform 从 Y 旋转 225度、缩放 0.5 改为 Y 旋转 135度、缩放 0.6，使正面朝左且预览更大，两种包裹外观保持一致。
+
+`\.\gradlew.bat compileJava processResources --stacktrace` 成功；首次编译发现项目无 JetBrains `Nullable` 依赖后移除非必要注解，复跑成功。`scripts/verify-assets.ps1` 通过，且逐像素比较确认 atlas 两个 12x15 图块与新版 AE2 来源完全一致。`\.\gradlew.bat runClientSmoke --stacktrace` 在 57 秒内成功，11 张必需截图全部刷新；人工检查高级终端截图，新版按钮/外框、滚动条、两个样板槽和包裹预览均已生效，最新日志扫描无 Mixin apply、缺失模型/贴图、`ERROR` 或异常命中。最终 `\.\gradlew.bat build --stacktrace`、`scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1` 与 `git diff --check` 全部通过。GameTest 已考虑但未复跑：本轮只改变客户端 widget、ScreenStyle 坐标、GUI sprite 与物品模型显示变换，不改变菜单、网络、存储或服务端行为。
+
+### 2026-07-14 高级终端工具栏共享实现纠正
+
+用户复测指出高级终端工具栏与主面板之间留有过大空档，并明确要求必须先阅读高版本 AE2 源码、复用其它 GUI 的已有逻辑且不必使用 Mixin。直接比较 `ae2-latest` 与 `forge/v15.4.10` 的 `AEBaseScreen`、`VerticalButtonBar`、`IconButton` 及 `screens/common/common.json` 后确认：高版本公共工具栏锚点已从旧版 `left=-2,top=6` 改为 `left=3,top=1`；上一轮只回移了 18x20 按钮、6px 布局和外框，却仍让高级终端继承旧 ScreenStyle 锚点，因而产生水平 5px 和垂直 5px 的整组偏移。
+
+新增共享 `ModernVerticalToolbar`，逐行对应高版本源码的锚点、margin、可见按钮布局、nine-slice `vertical_buttons_bg` 和 normal/focus/hover 背景；Package Bus 删除本地重复实现并调用该共享类，高级终端复用 AE2 原生按钮的点击、tooltip、图标与 item overlay，只由共享类接管最终布局及新版背景。删除上一轮新增的 `IconButtonMixin` 和 `VerticalButtonBarMixin` 及其配置项，高级终端 ScreenStyle 显式改为 `verticalToolbar left=3,top=1`。
+
+`\.\gradlew.bat compileJava processResources --stacktrace` 成功；`\.\gradlew.bat runClientSmoke --stacktrace` 成功，11 张必需截图全部刷新。人工对比高级终端与 Package Storage Bus 截图，两者的工具栏右边缘均与主面板直接衔接，共享外框、按钮背景及布局一致，旧锚点造成的 5px 空档消失。卸货总线批量图片预览一度显示黑块，单图重新解码正常，确认仍是查看器伪影。最终 `\.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、客户端错误日志扫描和 `git diff --check` 全部通过。GameTest 已考虑但未执行：本轮仅改变客户端工具栏布局和绘制，不改变菜单、按钮 action、网络或服务端行为。
+
+### 2026-07-14 高级终端新版按钮图标与包裹预览二次放大
+
+按用户复测继续补齐共享工具栏：上一轮只替换了 current-main 的 18x20 normal/focus/hover 背景，原生 `IconButton` 仍先绘制 AE2 15.4.10 的旧图标。重新读取高版本 `IconButton` 后，将图标/item overlay 的绘制顺序、hover 下移 1px 和不透明背景覆盖顺序一并回移。按钮对象、动态状态、点击和 tooltip 仍使用 AE2 原对象；仅用 Forge Access Transformer 暴露其既有 `getIcon()` / `getItemOverlay()`，通过启动时一次性绑定的 `MethodHandle` 读取，不增加 `IconButton` / `VerticalButtonBar` Mixin，也不维护第二套按钮状态表。Package Bus 本地按钮继续调用同一 `ModernVerticalToolbar` 渲染入口。
+
+最初尝试把只读桥放进 `appeng.client.gui.widgets` 包，客户端被 Java 模块系统以 split-package `ResolutionException` 正确拒绝；该文件已删除，最终实现不向 AE2 模块包写入类。旧开发客户端随后正常保存退出，以释放 ModDevGradle 重新生成 AT 处理产物所需的 Forge JAR 文件锁。包裹基础模型与 marker 模型的 GUI scale 由 0.6 继续提高到 0.75，Y 旋转保持 135 度，截图中的两个包裹预览均放大且未越出槽框。
+
+`\.\gradlew.bat compileJava processResources --stacktrace`、`\.\gradlew.bat runClientSmoke --stacktrace` 与 `\.\gradlew.bat build --stacktrace` 均成功；11 张必需截图全部刷新并自动退出。人工检查高级终端默认/编辑器截图，左侧按钮背景与图标均来自 current-main `ae2-states.png`，按钮组与主面板无空档，两个 0.75 缩放包裹均保持正面朝左；Package Storage Bus 截图确认共享工具栏无回归。`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1`、两份模型 JSON 解析、JAR 内 AT 配置检查、客户端异常日志扫描与 `git diff --check` 均通过。GameTest 已考虑但未执行：本轮仍只改变客户端表现和物品 GUI display，不改变菜单、按钮 action、网络、存储或服务端行为。

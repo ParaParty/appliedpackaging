@@ -30,7 +30,6 @@ public class AdvancedPatternEncodingTerminalPart extends PatternEncodingTerminal
     public void readFromNBT(CompoundTag data) {
         super.readFromNBT(data);
         advancedPatternState.readFromNBT(data);
-        advancedPatternState.migrateLegacyInputs(getLogic().getEncodedInputInv());
     }
 
     @Override

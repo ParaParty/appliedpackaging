@@ -4,7 +4,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.util.ConfigInventory;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.util.ArrayList;
@@ -153,37 +152,22 @@ public final class AdvancedPatternEncodingState {
         loading = true;
         try {
             resetValues();
-            List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(pattern);
-            inputs.beginBatch();
-            try {
-                for (int slot = 0; slot < Math.min(sparseInputs.size(), inputs.size()); slot++) {
-                    inputs.setStack(slot, sparseInputs.get(slot));
-                }
-            } finally {
-                inputs.endBatch();
-            }
-
             Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> encoded =
                     AdvancedProcessingPatternDataStorage.read(pattern);
             if (encoded.isPresent()) {
+                List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(pattern);
+                inputs.beginBatch();
+                try {
+                    for (int slot = 0; slot < Math.min(sparseInputs.size(), inputs.size()); slot++) {
+                        inputs.setStack(slot, sparseInputs.get(slot));
+                    }
+                } finally {
+                    inputs.endBatch();
+                }
                 activeColumns = encoded.get().activeColumnCount();
                 for (var column : encoded.get().columns()) {
                     colors[column.index()] = column.color();
                 }
-            } else {
-                int lastInput = -1;
-                for (int slot = 0; slot < Math.min(sparseInputs.size(), inputs.size()); slot++) {
-                    if (sparseInputs.get(slot) != null) {
-                        lastInput = slot;
-                    }
-                }
-                activeColumns = Math.max(
-                        1,
-                        Math.min(
-                                colors.length,
-                                lastInput < 0
-                                        ? 1
-                                        : lastInput / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE + 1));
             }
         } finally {
             loading = false;
@@ -226,32 +210,6 @@ public final class AdvancedPatternEncodingState {
         state.put(COLUMNS, columns);
         inputs.writeToChildTag(state, INPUTS);
         data.put(STATE_TAG, state);
-    }
-
-    public void migrateLegacyInputs(ConfigInventory legacyInputs) {
-        if (hasAnyInput() || legacyInputs == null) {
-            return;
-        }
-        loading = true;
-        inputs.beginBatch();
-        try {
-            for (int slot = 0; slot < Math.min(legacyInputs.size(), inputs.size()); slot++) {
-                inputs.setStack(slot, legacyInputs.getStack(slot));
-            }
-        } finally {
-            inputs.endBatch();
-            loading = false;
-        }
-        changed();
-    }
-
-    private boolean hasAnyInput() {
-        for (int slot = 0; slot < inputs.size(); slot++) {
-            if (inputs.getStack(slot) != null) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void copyColumnInputs(int sourceColumn, int targetColumn) {

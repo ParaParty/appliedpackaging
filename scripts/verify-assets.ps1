@@ -295,6 +295,12 @@ function Get-ExpectedPngSize {
         return @{ Width = 21; Height = 26; Label = "package bus current-AE2 vertical button background" }
     }
 
+    if ($RelativePath -in @(
+            "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png",
+            "src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png")) {
+        return @{ Width = 16; Height = 16; Label = "user pattern item texture" }
+    }
+
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/item/", [System.StringComparison]::Ordinal)) {
         return @{ Width = 32; Height = 32; Label = "item texture" }
     }
@@ -320,6 +326,14 @@ function Get-ExpectedPngSize {
             return @{ Width = 16; Height = 16; Label = "Create-style temporary packager detail texture" }
         }
         return @{ Width = 32; Height = 32; Label = "Create-style temporary packager texture" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png") {
+        return @{ Width = 16; Height = 16; Label = "AE2 v19 package assembler user surface" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png") {
+        return @{ Width = 16; Height = 192; Label = "AE2 v19 package assembler animated light strip" }
     }
 
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/block/", [System.StringComparison]::Ordinal)) {
@@ -389,32 +403,15 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/status_ready.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/unpack_filter.png",
     "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png",
-    "src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_back.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_bright.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_colored.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_dark.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_front.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_medium.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_sides.png",
-    "src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_sides_status.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/me_packager_frame.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/me_packager_front.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/me_packager_side.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/me_packager_top.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_frame.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_front.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_side.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_top.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_export_bus_front.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_export_bus_side.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_pattern_terminal_front.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_pattern_terminal_side.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_pattern_terminal_top.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_storage_bus_front.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_storage_bus_side.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_unpacking_bus_front.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_unpacking_bus_side.png"
+    "src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_front.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_back.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_sides.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_front.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_back.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_sides.png",
+    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png",
+    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png"
 )
 
 $packageColors = @(
@@ -448,6 +445,12 @@ foreach ($requiredPath in $requiredPngPaths) {
 }
 
 $bytePreservedPngHashes = [ordered]@{
+    "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png" = "04E0C00E41C68AEA57C1B97CEF6E736F0DB2A75F768B6050BEF48C116F05E349"
+    "src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png" = "084B03A92C440BC7CF675F1C30D3883BC6808F519924C224C1CB8E5D3FAE4FF9"
+    "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_front.png" = "B682F316CB77A407736E4FD73D1CAE5104F679918090F23E1D994F3E63DBA1AB"
+    "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_front.png" = "A6FB292B206693865094DF901A4A0789F051630C14001C9003423F5B3E44E96F"
+    "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_back.png" = "3086B228171D19F1DFB55FDF6384165FDB78CEABB25B09C4706CE2E23599CD07"
+    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png" = "345A070081B556D2EF44AE0DAB65210F7728C33BB7C29FD46B526C607605FCE0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png" = "506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "14D7D26A93BF46D1BA0EF33A5408197718D0AF5BD3ADE662AA8A46E8DE662281"
     "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png" = "0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55"
@@ -541,13 +544,39 @@ foreach ($color in $packageColors) {
     }
 }
 
+$assemblerModelPath = "src/main/resources/assets/appliedpackaging/models/block/package_assembler.json"
+$assemblerLightsModelPath = "src/main/resources/assets/appliedpackaging/models/block/package_assembler_lights.json"
+Assert-True (Test-Path -LiteralPath $assemblerModelPath) "AE2 v19 package assembler model exists"
+Assert-True (Test-Path -LiteralPath $assemblerLightsModelPath) "AE2 v19 package assembler lights model exists"
+if (Test-Path -LiteralPath $assemblerModelPath) {
+    $assemblerModel = Get-JsonFile $assemblerModelPath
+    if ($null -ne $assemblerModel) {
+        Assert-True ($assemblerModel.render_type -eq "cutout") "Package assembler model uses its transparent cutout chamber layer"
+        Assert-True ($assemblerModel.textures.base -eq "appliedpackaging:block/package_assembler") "Package assembler model uses the user surface"
+        Assert-True (@($assemblerModel.elements).Count -eq 13) "Package assembler preserves the AE2 v19 molecular assembler geometry"
+    }
+}
+if (Test-Path -LiteralPath $assemblerLightsModelPath) {
+    $assemblerLightsModel = Get-JsonFile $assemblerLightsModelPath
+    if ($null -ne $assemblerLightsModel) {
+        Assert-True ($assemblerLightsModel.textures.all -eq "appliedpackaging:block/package_assembler_lights") "Package assembler lights model uses the animated light strip"
+    }
+}
+
+$packagePartModels = @(
+    "src/main/resources/assets/appliedpackaging/models/part/package_storage_bus_base.json",
+    "src/main/resources/assets/appliedpackaging/models/part/package_unpacking_bus_base.json",
+    "src/main/resources/assets/appliedpackaging/models/part/package_bus_status_off.json",
+    "src/main/resources/assets/appliedpackaging/models/part/package_bus_status_on.json",
+    "src/main/resources/assets/appliedpackaging/models/part/package_bus_status_has_channel.json"
+)
+foreach ($packagePartModel in $packagePartModels) {
+    Assert-True (Test-Path -LiteralPath $packagePartModel) "AE2 v19 package bus part model exists: $packagePartModel"
+}
+
 $opaqueSolidModelPaths = @(
-    "src/main/resources/assets/appliedpackaging/models/block/package_assembler.json",
-    "src/main/resources/assets/appliedpackaging/models/block/package_export_bus.json",
-    "src/main/resources/assets/appliedpackaging/models/block/package_pattern_terminal.json",
-    "src/main/resources/assets/appliedpackaging/models/block/package_storage_bus.json",
-    "src/main/resources/assets/appliedpackaging/models/block/package_unpacking_bus.json",
-    "src/main/resources/assets/appliedpackaging/models/part/package_pattern_terminal_base.json"
+    "src/main/resources/assets/appliedpackaging/models/part/package_storage_bus_base.json",
+    "src/main/resources/assets/appliedpackaging/models/part/package_unpacking_bus_base.json"
 )
 
 foreach ($opaqueModelPath in $opaqueSolidModelPaths) {

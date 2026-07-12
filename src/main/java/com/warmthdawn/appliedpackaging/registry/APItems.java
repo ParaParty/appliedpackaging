@@ -4,8 +4,8 @@ import appeng.items.parts.PartItem;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.item.AdvancedProcessingPatternItem;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.item.PackageCraftingPatternItem;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
-import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
 import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
@@ -27,11 +27,7 @@ public final class APItems {
 
     public static final RegistryObject<Item> PACKAGE_PATTERN = ITEMS.register(
             "package_pattern",
-            () -> new PackagePatternItem(new Item.Properties().stacksTo(1)));
-
-    public static final RegistryObject<Item> PACKAGED_PROCESSING_PATTERN = ITEMS.register(
-            "packaged_processing_pattern",
-            () -> new PackagePatternItem(new Item.Properties().stacksTo(1)));
+            () -> new PackageCraftingPatternItem(new Item.Properties().stacksTo(1)));
 
     public static final RegistryObject<AdvancedProcessingPatternItem> ADVANCED_PROCESSING_PATTERN = ITEMS.register(
             "advanced_processing_pattern",

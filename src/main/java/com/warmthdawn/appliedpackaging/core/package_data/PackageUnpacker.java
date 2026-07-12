@@ -65,7 +65,12 @@ public final class PackageUnpacker {
                 return Optional.empty();
             }
             AEItemKey key = (AEItemKey) entry.what();
-            long remaining = entry.amount() * (long) packageCount;
+            long remaining;
+            try {
+                remaining = Math.multiplyExact(entry.amount(), (long) packageCount);
+            } catch (ArithmeticException exception) {
+                return Optional.empty();
+            }
             while (remaining > 0) {
                 int amount = (int) Math.min(remaining, key.getMaxStackSize());
                 drops.add(key.toStack(amount));

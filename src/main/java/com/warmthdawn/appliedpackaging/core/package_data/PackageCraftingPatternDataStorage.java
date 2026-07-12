@@ -1,7 +1,6 @@
 package com.warmthdawn.appliedpackaging.core.package_data;
 
 import appeng.api.stacks.GenericStack;
-import appeng.core.definitions.AEItems;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import java.util.ArrayList;
@@ -29,7 +28,7 @@ public final class PackageCraftingPatternDataStorage {
     }
 
     public static boolean canStore(ItemStack stack) {
-        return AEItems.CRAFTING_PATTERN.isSameAs(stack);
+        return stack.is(APItems.PACKAGE_PATTERN.get());
     }
 
     public static boolean hasData(ItemStack stack) {
@@ -80,14 +79,14 @@ public final class PackageCraftingPatternDataStorage {
     }
 
     public static ItemStack encode(EncodedPackageCraftingPattern pattern) {
-        ItemStack stack = AEItems.CRAFTING_PATTERN.stack();
+        ItemStack stack = new ItemStack(APItems.PACKAGE_PATTERN.get());
         write(stack, pattern);
         return stack;
     }
 
     public static void write(ItemStack stack, EncodedPackageCraftingPattern pattern) {
         if (!canStore(stack)) {
-            throw new IllegalArgumentException("Package crafting pattern data can only be written to AE2 crafting patterns");
+            throw new IllegalArgumentException("Package crafting pattern data can only be written to package pattern carriers");
         }
         CompoundTag tag = new CompoundTag();
         tag.putInt(VERSION, CURRENT_VERSION);

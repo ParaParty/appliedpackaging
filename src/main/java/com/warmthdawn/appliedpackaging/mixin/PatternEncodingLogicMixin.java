@@ -13,10 +13,7 @@ import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternLogicBridge;
@@ -74,7 +71,7 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
             if (AdvancedProcessingPatternDataStorage.hasData(pattern)) {
                 setMode(EncodingMode.PROCESSING);
                 encodedInputInv.clear();
-                var outputs = ColoredProcessingPatternDataStorage.readSparseOutputs(pattern);
+                var outputs = AdvancedProcessingPatternDataStorage.readSparseOutputs(pattern);
                 encodedOutputInv.beginBatch();
                 try {
                     encodedOutputInv.clear();
@@ -188,10 +185,7 @@ public abstract class PatternEncodingLogicMixin implements PackageCraftingPatter
                     && !(stack.getItem() instanceof PackageItem)
                     && !AEItems.BLANK_PATTERN.isSameAs(stack)
                     && !PatternDetailsHelper.isEncodedPattern(stack)
-                    && !PackageCraftingPatternDataStorage.hasData(stack)
-                    && PackagePatternDataStorage.read(stack).isEmpty()
-                    && PackagedProcessingPatternDataStorage.read(stack).isEmpty()
-                    && !ColoredProcessingPatternDataStorage.hasData(stack);
+                    && !PackageCraftingPatternDataStorage.hasData(stack);
         }
     }
 }

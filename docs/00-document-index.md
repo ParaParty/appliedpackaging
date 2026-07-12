@@ -12,6 +12,7 @@
 6. [06-verification-release.md](06-verification-release.md)
 7. [07-references.md](07-references.md)
 8. [08-change-intake.md](08-change-intake.md)
+9. [09-code-review-audit.md](09-code-review-audit.md)
 
 `design.md` 只作为入口和当前定案摘要。`chat-summary.md` 是讨论记录，不应被当成最新实现规格。仓库级 agent 操作入口是根目录 `AGENTS.md`。
 
@@ -83,6 +84,15 @@
 发布前新增需求和材质如何暂存
 新增项确认后迁移到哪些正式文档
 新范围冻结前哪些最终验收暂缓
+```
+
+代码审查回答：
+
+```text
+哪些旧实现已删除
+哪些兼容由正式需求要求保留
+哪些临时路径需要存档或产品决策
+哪些设计冲突仍需收口
 ```
 
 ## 维护规则

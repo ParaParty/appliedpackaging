@@ -1,11 +1,9 @@
 package com.warmthdawn.appliedpackaging.item;
 
 import appeng.api.stacks.AmountFormat;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.PackageTooltipBuilder;
-import com.warmthdawn.appliedpackaging.registry.APItems;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
 import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -25,58 +23,44 @@ public class PackagePatternItem extends Item {
     }
 
     public static void appendPackagePatternTooltip(ItemStack stack, List<Component> tooltip, TooltipFlag flag) {
-        PackagedProcessingPatternDataStorage.read(stack).ifPresentOrElse(pattern -> {
-            tooltip.add(Component.translatable("tooltip.appliedpackaging.processing_pattern.encoded")
-                    .withStyle(ChatFormatting.GRAY));
-            tooltip.add(Component.translatable(
-                            "tooltip.appliedpackaging.processing_pattern.package_count",
-                            pattern.packages().size())
-                    .withStyle(ChatFormatting.GRAY));
-            PackageTooltipBuilder.append(stack, pattern.color(), pattern.packages().get(0), tooltip, flag);
-            int hidden = pattern.packages().size() - 1;
-            if (hidden > 0) {
-                tooltip.add(Component.translatable(
-                                "tooltip.appliedpackaging.processing_pattern.more_packages",
-                                hidden)
-                        .withStyle(ChatFormatting.DARK_GRAY));
-            }
-            appendProcessingOutputs(pattern.outputs(), tooltip);
-        }, () -> appendPackagePatternTooltipFallback(stack, tooltip, flag));
+        var craftingPattern = PackageCraftingPatternDataStorage.read(stack);
+        if (craftingPattern.isPresent()) {
+            appendCraftingPatternTooltip(craftingPattern.get(), tooltip);
+        }
     }
 
-    private static void appendPackagePatternTooltipFallback(ItemStack stack, List<Component> tooltip, TooltipFlag flag) {
-        if (stack.is(APItems.PACKAGED_PROCESSING_PATTERN.get())) {
-            tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.blank")
-                    .withStyle(ChatFormatting.DARK_GRAY));
-            return;
+    private static void appendCraftingPatternTooltip(
+            PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern pattern,
+            List<Component> tooltip) {
+        ItemStack output = PackageCraftingPatternDataStorage.toPackageStack(pattern);
+        tooltip.add(Component.translatable("gui.appliedpackaging.package_pattern.crafts")
+                .append(": ")
+                .withStyle(ChatFormatting.GRAY)
+                .append(output.getHoverName()));
+        boolean first = true;
+        for (GenericStack input : pattern.denseInputs()) {
+            Component prefix = Component.translatable(first
+                    ? "gui.appliedpackaging.package_pattern.with"
+                    : "gui.appliedpackaging.package_pattern.and");
+            tooltip.add(prefix.copy()
+                    .append(": ")
+                    .withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(input.what().formatAmount(input.amount(), AmountFormat.FULL) + " x "))
+                    .append(input.what().getDisplayName()));
+            first = false;
         }
-        PackagePatternDataStorage.read(stack).ifPresentOrElse(pattern -> {
-            tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.encoded").withStyle(ChatFormatting.GRAY));
-            PackageTooltipBuilder.append(stack, pattern.color(), pattern.data(), tooltip, flag);
-        }, () -> tooltip.add(Component.translatable("tooltip.appliedpackaging.pattern.blank").withStyle(ChatFormatting.DARK_GRAY)));
+        pattern.data().marker().ifPresent(marker -> {
+            var key = marker.stack().what();
+            tooltip.add(Component.translatable("gui.appliedpackaging.package_pattern.marker")
+                    .append(": ")
+                    .withStyle(ChatFormatting.GRAY)
+                    .append(Component.literal(key.formatAmount(marker.stack().amount(), AmountFormat.FULL) + " x "))
+                    .append(key.getDisplayName()));
+        });
+        if (AEItemKey.of(output) == null) {
+            tooltip.add(Component.translatable("gui.appliedpackaging.package_pattern.invalid")
+                    .withStyle(ChatFormatting.RED));
+        }
     }
 
-    private static void appendProcessingOutputs(List<GenericStack> outputs, List<Component> tooltip) {
-        if (outputs.isEmpty()) {
-            return;
-        }
-        tooltip.add(Component.translatable("tooltip.appliedpackaging.processing_pattern.outputs")
-                .withStyle(ChatFormatting.GRAY));
-        int shown = Math.min(3, outputs.size());
-        for (int index = 0; index < shown; index++) {
-            GenericStack output = outputs.get(index);
-            tooltip.add(Component.translatable(
-                            "tooltip.appliedpackaging.processing_pattern.output_entry",
-                            output.what().getDisplayName(),
-                            output.what().formatAmount(output.amount(), AmountFormat.FULL))
-                    .withStyle(ChatFormatting.DARK_GRAY));
-        }
-        int hidden = outputs.size() - shown;
-        if (hidden > 0) {
-            tooltip.add(Component.translatable(
-                            "tooltip.appliedpackaging.processing_pattern.more_outputs",
-                            hidden)
-                    .withStyle(ChatFormatting.DARK_GRAY));
-        }
-    }
 }

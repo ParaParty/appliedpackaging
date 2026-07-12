@@ -43,94 +43,51 @@ ME Package Assembler / ME 包裹装配室：
 
 ME Packager / ME 打包机：
   类 Create Packager。
-  只通过一个可切换连接面贴着相邻 AE 网络工作，在 MEStorage 内容和包裹之间做事务转换。
+  只通过一个可切换连接面贴着相邻 AE 网络工作，在 MEStorage 内容和包裹之间做整包转换，并支持 16k/64k/256k 容量元件。
 
 Package Buses / 包裹总线家族：
-  Package Storage Bus 与 Package Unpacking Bus 均为 AE2 cable part，只暴露合法包裹或把合法包裹事务拆入目标端点，并各自占用 channel。
+  Package Storage Bus 与 Package Unpacking Bus 均为 AE2 cable part，只暴露合法包裹或在完整模拟通过后把合法包裹内容推入目标端点，并各自占用 channel。
   Package Export Bus 已移除；不再保留独立输出包裹到相邻库存的设备。
 ```
 
 ## 3. 模块划分
 
 ```text
-core.package
-  PackageData
-  PackageDataStorage
-  PackageEntry
-  PackageColor
-  MarkerSpec
-  PackageCanonicalizer
-  PackageCapacityProfile
-  PackageTooltipBuilder
+core.package_data
+  PackageData / PackageDataStorage / PackageCanonicalizer
+  PackagePlanBuilder / PackageCapacityCalculator / PackageFilter
+  package-pattern and advanced-pattern data adapters
 
-core.plan
-  PackagePlan
-  PackagePlanner
-  RepackPlanner
-  CapacityCalculator
-  PackageFilter
-  PackageTransactionResult
+core.item_handler / core.fluid_handler / core.ae2
+  cumulative simulation, commit and rollback helpers
+  MEStorage package planning and package-only storage adapters
 
-ae2
-  AEKeySerializer
-  AEGenericStackAdapter
-  AEStorageEndpoint
-  AEPatternAdapter
-  AECellComponentMatcher
-  AEBusAdapter
-
-registry
-  APItems
-  APBlocks
-  APBlockEntities
-  APMenus
-  APCreativeTabs
-
-machine.assembler
-  PackageAssemblerBlock
+world.block.entity
+  MePackagerBlockEntity
   PackageAssemblerBlockEntity
-  PackageAssemblerMenu
-  PackageAssemblerScreen
 
-machine.packager
-  PackagerBlock
-  PackagerBlockEntity
-  PackagerMenu
-  PackagerScreen
-
-pattern
-  PackagePatternItem
-  PackagedProcessingPatternItem
-  PatternDataStorage
-  PackagePatternTerminalBlock/Menu/Screen
-  AdvancedProcessingPatternDataStorage
+pattern integration
+  AE2 Pattern Encoding Terminal mixins for package mode
   AdvancedPatternEncodingTerminalPart/Menu/Screen
+  read-only compatibility decoders for previously encoded pattern carriers
 
-bus
+part
   PackageStorageBusPart
-  PackageExportBusPart
   PackageUnpackingBusPart
-  PackageBusMenu/Screen
+  shared PackageBusMenu/Screen and filter state
 
-data
-  recipes
-  loot
-  tags
-  models
-  lang
-
-gametest
-  PackageDataTests
-  PackagerTransactionTests
-  FilterTests
+registry / data / gametest
+  Forge registries for the two machines, package entity, parts and menus
+  recipes, loot, tags, models and language resources
+  deterministic transaction, machine, pattern and real AE2-part GameTests
 ```
 
 ## 4. 架构原则
 
 1. `PackageData` 是纯数据，不直接调用 Forge 或 AE2 网络。
 2. `PackageDataStorage` 是 1.20.1 NBT 与未来 Data Component 的唯一读写入口。
-3. 所有会改变世界或库存的行为先生成 `PackagePlan`，再在同一累计快照上模拟，最后提交；提交期间端点发生变化时回滚本次已提交改动。
-4. 打包和拆包以单个包裹为最小事务单位。
+3. 包裹规划与 MEStorage 操作先模拟后提交；Forge item handler 拆包采用 Pattern Provider 式 check-then-push，只在整包累计模拟通过后执行真实插入，不维护自定义跨 handler 回滚层。
+4. 打包和拆包以单个包裹为最小操作单位。
 5. ME 打包机只扫描所选连接面的相邻 AE MEStorage，不扫描自身所在任意 ME 网络，也不回落到 Forge item/fluid handler。
 6. 装配室只处理样板语义，不处理相邻存储打包和拆包。
 7. 总线家族只路由包裹，不暴露包裹内部散装资源。
@@ -183,17 +140,16 @@ redstone/button trigger
 -> insert generated package stack
 ```
 
-ME 打包机/拆包总线拆包：
+ME 打包机拆包：
 
 ```text
 incoming package stack
 -> validate PackageData
 -> apply package filter
 -> expand contents
--> simulate full insert into one cumulative target snapshot
--> accept N whole packages
--> commit insert for accepted packages, rolling back partial target changes on failure
--> return remainder
+-> simulate complete insertion into the adjacent MEStorage
+-> commit the complete package contents
+-> clear the held package only after a successful commit
 ```
 
 包裹卸货总线路由：
@@ -205,8 +161,8 @@ simulate cumulative target capacity and ME source extraction
 extract exactly one matching package from ME storage into the part's persisted held state
 run the same 20-tick unpacking work phase as ME Packager
 revalidate filter and adjacent target at the final tick
-commit all package contents transactionally, then clear held state
-if final validation/commit fails, retain the same held package locally and retry after the speed-card-adjusted interval
+push all package contents after the cumulative simulation succeeds, then clear held state
+if final simulation rejects the package, retain the same held package locally and retry after the speed-card-adjusted interval
 allow idle/blocked GUI recovery and add the held package to part-removal drops
 ```
 
@@ -228,12 +184,12 @@ allow idle/blocked GUI recovery and add the held package to part-removal drops
   重新评估 AE2 API、Forge/NeoForge 分支和菜单/网络 API
 ```
 
-业务逻辑只依赖：
+包裹规划业务逻辑集中在：
 
 ```java
+PackageData
 PackageDataStorage
-AEGenericStackAdapter
-GenericStorageEndpoint
+PackagePlanBuilder
 ```
 
-不直接把 NBT、Data Component 或具体 AE2 runtime API 泄漏到核心规划逻辑中。
+`PackageDataStorage` 隔离 NBT；实际网络读写只在 MEStorage 适配层中调用 AE2 runtime API。项目不保留尚未实现的 `AEGenericStackAdapter` 或 `GenericStorageEndpoint` 抽象。

@@ -7,7 +7,6 @@ import appeng.menu.implementations.UpgradeableMenu;
 import appeng.menu.interfaces.IProgressProvider;
 import appeng.menu.slot.IOptionalSlot;
 import appeng.client.Point;
-import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
@@ -30,7 +29,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public static final int BUTTON_AUTO_EXPORT = BUTTON_OUTPUT_MODE;
     public static final int BUTTON_SCROLL_BASE = 100;
     private static final String ACTION_CYCLE_OUTPUT_MODE = "cycleOutputMode";
-    private static final String ACTION_SET_COLOR = "setColor";
 
     public static final int SCROLLED_ROW_COUNT = PackageAssemblerBlockEntity.OUTPUT_SLOT_COUNT;
     public static final int VISIBLE_ROWS = 4;
@@ -40,8 +38,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public static final int MENU_INPUT_END = MENU_INPUT_START + VISIBLE_INPUT_COUNT;
     public static final int PATTERN_SLOT = MENU_INPUT_END;
     public static final int CAPACITY_SLOT = PATTERN_SLOT + 1;
-    public static final int MARKER_SLOT = CAPACITY_SLOT + 1;
-    public static final int OUTPUT_START = MARKER_SLOT + 1;
+    public static final int OUTPUT_START = CAPACITY_SLOT + 1;
     public static final int OUTPUT_END = OUTPUT_START + 2;
     public static final int HOTBAR_START = OUTPUT_END;
     public static final int HOTBAR_END = HOTBAR_START + Inventory.getSelectionSize();
@@ -60,8 +57,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
     private final ContainerLevelAccess access;
     private final DataSlot outputModeSlot;
-    @GuiSync(10)
-    public PackageColor selectedColor = PackageColor.FLUIX;
     @GuiSync(12)
     public int craftProgress = 0;
     @GuiSync(13)
@@ -93,7 +88,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         };
 
         registerClientAction(ACTION_CYCLE_OUTPUT_MODE, this::cycleOutputMode);
-        registerClientAction(ACTION_SET_COLOR, PackageColor.class, this::setSelectedColor);
         addDataSlot(outputModeSlot);
     }
 
@@ -116,10 +110,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         addSlot(
                 new SlotItemHandler(getHost().getItems(), PackageAssemblerBlockEntity.SLOT_CAPACITY, 0, 0),
                 SlotSemantics.STORAGE_CELL);
-        addSlot(
-                new SlotItemHandler(getHost().getItems(), PackageAssemblerBlockEntity.SLOT_MARKER, 0, 0),
-                SlotSemantics.BLANK_PATTERN);
-
         mainOutputSlotIndex = addSlot(
                 new OrderedOutputSlot(getHost()),
                 SlotSemantics.MACHINE_OUTPUT).index;
@@ -206,7 +196,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     @Override
     public void broadcastChanges() {
         if (isServerSide()) {
-            selectedColor = getHost().selectedColor();
             craftProgress = getHost().craftingProgress();
             queuedOutputCount = getHost().queuedOutputCount();
             previewOutput.setItem(0, getHost().nextOutputPreview());
@@ -236,21 +225,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         getHost().toggleAutoExport();
         broadcastChanges();
-    }
-
-    public void setSelectedColor(PackageColor color) {
-        if (isClientSide()) {
-            sendClientAction(ACTION_SET_COLOR, color);
-            return;
-        }
-
-        getHost().setSelectedColor(color);
-        selectedColor = getHost().selectedColor();
-        broadcastChanges();
-    }
-
-    public PackageColor selectedColor() {
-        return selectedColor == null ? PackageColor.FLUIX : selectedColor;
     }
 
     public int scrollOffset() {

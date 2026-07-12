@@ -22,7 +22,6 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
@@ -66,10 +65,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     public static final int SLOT_HELD_BOX = 0;
     public static final int SLOT_INPUT = SLOT_HELD_BOX;
     public static final int SLOT_OUTPUT = SLOT_HELD_BOX;
-    private static final int LEGACY_SLOT_OUTPUT = 1;
-    public static final int SLOT_CAPACITY = 2;
-    public static final int SLOT_FILTER = 3;
-    public static final int SLOT_MARKER = 4;
+    public static final int SLOT_CAPACITY = 1;
+    public static final int SLOT_MARKER = 2;
     public static final int FILTER_COLUMNS = 9;
     public static final int FILTER_ROWS = 5;
     public static final int BASE_FILTER_ROWS = 2;
@@ -78,7 +75,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     public static final int UPGRADE_SLOT_COUNT = 6;
     public static final int CYCLIC_REDSTONE_INTERVAL_TICKS = 20;
     public static final int ANIMATION_CYCLE_TICKS = 20;
-    private static final int SLOT_COUNT = 5;
+    private static final int SLOT_COUNT = 3;
     private static final String ITEMS_TAG = "items";
     private static final String FILTER_TAG = "content_filter";
     private static final String UPGRADES_TAG = "upgrades";
@@ -103,14 +100,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             if (slot == SLOT_INPUT) {
                 return PackageDataStorage.read(stack).isPresent();
             }
-            if (slot == LEGACY_SLOT_OUTPUT) {
-                return stack.getItem() instanceof PackageItem;
-            }
             if (slot == SLOT_CAPACITY) {
                 return componentCapacityProfileFromItem(stack).isPresent();
-            }
-            if (slot == SLOT_FILTER) {
-                return PackageFilter.fromTemplate(stack).isPresent();
             }
             if (slot == SLOT_MARKER) {
                 return isMarkerItem(stack);
@@ -120,8 +111,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
         @Override
         public int getSlotLimit(int slot) {
-            if (slot == SLOT_INPUT || slot == LEGACY_SLOT_OUTPUT || slot == SLOT_CAPACITY || slot == SLOT_FILTER
-                    || slot == SLOT_MARKER) {
+            if (slot == SLOT_INPUT || slot == SLOT_CAPACITY || slot == SLOT_MARKER) {
                 return 1;
             }
             return super.getSlotLimit(slot);
@@ -300,14 +290,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     public void setRedstoneMode(RedstoneMode redstoneMode) {
-        this.redstoneMode = normalizeRedstoneMode(redstoneMode == null ? RedstoneMode.HIGH_SIGNAL : redstoneMode);
+        this.redstoneMode = redstoneMode == null ? RedstoneMode.HIGH_SIGNAL : redstoneMode;
         this.redstoneCooldown = 0;
         setChanged();
     }
 
     public void cycleRedstoneMode() {
         RedstoneMode[] values = RedstoneMode.uiValues();
-        RedstoneMode current = normalizeRedstoneMode(redstoneMode);
+        RedstoneMode current = redstoneMode;
         int index = 0;
         for (int i = 0; i < values.length; i++) {
             if (values[i] == current) {
@@ -319,7 +309,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     public RedstoneMode effectiveRedstoneMode() {
-        return normalizeRedstoneMode(redstoneMode);
+        return redstoneMode;
     }
 
     public FilterApplicationMode filterApplicationMode() {
@@ -428,7 +418,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         if (wasWorking || isWorking()) {
             return;
         }
-        migrateLegacyOutputIfPossible();
         if (pendingPackTrigger) {
             pendingPackTrigger = false;
             runPackOnce();
@@ -681,14 +670,11 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     private PackageFilter configuredFilter() {
-        PackageFilter legacyFilter = PackageFilter.fromTemplate(items.getStackInSlot(SLOT_FILTER))
-                .orElse(PackageFilter.any());
-        List<GenericStack> requiredContents = new ArrayList<>(legacyFilter.requiredContents());
-        requiredContents.addAll(contentFilterStacks());
-        if (requiredContents.isEmpty() && legacyFilter.color().isEmpty() && legacyFilter.marker().isEmpty()) {
+        List<GenericStack> requiredContents = contentFilterStacks();
+        if (requiredContents.isEmpty()) {
             return PackageFilter.any();
         }
-        return new PackageFilter(legacyFilter.color(), legacyFilter.marker(), requiredContents);
+        return new PackageFilter(Optional.empty(), Optional.empty(), requiredContents);
     }
 
     private PackageFilter configuredPackingFilter(PackageFilter filter) {
@@ -755,7 +741,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     public void clearConfiguration() {
         contentFilter.clear();
-        items.setStackInSlot(SLOT_FILTER, ItemStack.EMPTY);
         items.setStackInSlot(SLOT_MARKER, ItemStack.EMPTY);
         setSelectedColor(PackageColor.FLUIX);
         setFilterApplicationMode(FilterApplicationMode.BOTH);
@@ -904,9 +889,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
                 ? ItemStack.of(tag.getCompound(RENDERED_BOX_TAG))
                 : currentInventoryBox();
         workingOperation = WorkingOperation.byName(tag.getString(WORKING_OPERATION_TAG));
-        heldBoxState = tag.contains(HELD_BOX_STATE_TAG)
-                ? HeldBoxState.byName(tag.getString(HELD_BOX_STATE_TAG))
-                : inferLegacyHeldBoxState();
+        heldBoxState = HeldBoxState.byName(tag.getString(HELD_BOX_STATE_TAG));
         unpackBlocked = tag.getBoolean(UNPACK_BLOCKED_TAG);
         workingStack = tag.contains(WORKING_STACK_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? ItemStack.of(tag.getCompound(WORKING_STACK_TAG))
@@ -914,7 +897,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         if (workingOperation == WorkingOperation.NONE) {
             workingStack = ItemStack.EMPTY;
         }
-        migrateLegacyOutputIfPossible();
         pendingPackTrigger = tag.getBoolean(PENDING_PACK_TRIGGER_TAG);
     }
 
@@ -1092,21 +1074,18 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         LOW_SIGNAL,
         ALWAYS,
         PULSE,
-        NEVER,
-        DISABLED,
-        CYCLIC;
+        NEVER;
 
         public String id() {
             return name().toLowerCase(java.util.Locale.ROOT);
         }
 
         public boolean isActive(boolean powered) {
-            return switch (normalizeRedstoneMode(this)) {
+            return switch (this) {
                 case HIGH_SIGNAL -> powered;
                 case LOW_SIGNAL -> !powered;
                 case ALWAYS -> true;
                 case PULSE, NEVER -> false;
-                case DISABLED, CYCLIC -> false;
             };
         }
 
@@ -1119,7 +1098,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
                 return HIGH_SIGNAL;
             }
             try {
-                return normalizeRedstoneMode(RedstoneMode.valueOf(name));
+                return RedstoneMode.valueOf(name);
             } catch (IllegalArgumentException e) {
                 return HIGH_SIGNAL;
             }
@@ -1185,8 +1164,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     private static boolean isMarkerItem(ItemStack stack) {
         return !stack.isEmpty()
-                && !(stack.getItem() instanceof PackageItem)
-                && !PackagePatternDataStorage.canStore(stack);
+                && !(stack.getItem() instanceof PackageItem);
     }
 
     private static MarkerMergeMode markerModeByName(String name) {
@@ -1216,28 +1194,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         }
     }
 
-    private HeldBoxState inferLegacyHeldBoxState() {
-        if (!items.getStackInSlot(LEGACY_SLOT_OUTPUT).isEmpty() && heldBox().isEmpty()) {
-            return HeldBoxState.PACK_OUTPUT;
-        }
-        if (!heldBox().isEmpty()) {
-            return HeldBoxState.UNPACK_INPUT;
-        }
-        return HeldBoxState.EMPTY;
-    }
-
-    private void migrateLegacyOutputIfPossible() {
-        ItemStack legacyOutput = items.getStackInSlot(LEGACY_SLOT_OUTPUT);
-        if (legacyOutput.isEmpty() || !heldBox().isEmpty() || isWorking()) {
-            return;
-        }
-        heldBoxState = HeldBoxState.PACK_OUTPUT;
-        items.setStackInSlot(SLOT_INPUT, legacyOutput.copyWithCount(1));
-        items.setStackInSlot(LEGACY_SLOT_OUTPUT, ItemStack.EMPTY);
-        unpackBlocked = false;
-        syncVisualState();
-    }
-
     private void onFilterChanged() {
         setChanged();
     }
@@ -1260,16 +1216,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private int redstoneIntervalTicks() {
         int speedCards = getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD);
         return Math.max(2, CYCLIC_REDSTONE_INTERVAL_TICKS - speedCards * 3);
-    }
-
-    private static RedstoneMode normalizeRedstoneMode(RedstoneMode mode) {
-        if (mode == RedstoneMode.DISABLED) {
-            return RedstoneMode.NEVER;
-        }
-        if (mode == RedstoneMode.CYCLIC) {
-            return RedstoneMode.HIGH_SIGNAL;
-        }
-        return mode == null ? RedstoneMode.HIGH_SIGNAL : mode;
     }
 
     private static boolean targetHasContents(MEStorage target) {

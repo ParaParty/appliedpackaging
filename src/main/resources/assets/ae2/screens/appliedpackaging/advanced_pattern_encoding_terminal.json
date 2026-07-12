@@ -16,11 +16,11 @@
     },
     "BLANK_PATTERN": {
       "left": 167,
-      "bottom": 167
+      "bottom": 166
     },
     "ENCODED_PATTERN": {
       "left": 167,
-      "bottom": 120
+      "bottom": 119
     },
     "PLAYER_INVENTORY": {
       "left": 8,
@@ -110,6 +110,10 @@
     }
   },
   "widgets": {
+    "verticalToolbar": {
+      "left": 3,
+      "top": 1
+    },
     "encodePattern": {
       "left": 167,
       "bottom": 146

@@ -39,21 +39,8 @@ public record PackageFilter(
     }
 
     public static Optional<PackageFilter> fromTemplate(ItemStack stack) {
-        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
-                PackagedProcessingPatternDataStorage.read(stack);
-        if (processingPattern.isPresent()) {
-            List<GenericStack> requiredContents = new ArrayList<>();
-            Optional<MarkerSpec> marker = commonMarker(processingPattern.get().packages());
-            for (PackageData data : processingPattern.get().packages()) {
-                requiredContents.addAll(data.contents());
-            }
-            return Optional.of(new PackageFilter(
-                    Optional.of(processingPattern.get().color()),
-                    marker,
-                    PackageData.create(processingPattern.get().color(), requiredContents, Optional.empty(), 0).contents()));
-        }
-
-        Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern = PackagePatternDataStorage.read(stack);
+        Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> pattern =
+                PackageCraftingPatternDataStorage.read(stack);
         if (pattern.isPresent()) {
             PackageData data = pattern.get().data();
             return Optional.of(new PackageFilter(
@@ -192,28 +179,17 @@ public record PackageFilter(
         return false;
     }
 
-    private static Optional<MarkerSpec> commonMarker(List<PackageData> packages) {
-        Optional<MarkerSpec> marker = Optional.empty();
-        for (PackageData data : packages) {
-            if (data.marker().isEmpty()) {
-                return Optional.empty();
-            }
-            if (marker.isEmpty()) {
-                marker = data.marker();
-            } else if (!marker.get().sameAs(data.marker().get())) {
-                return Optional.empty();
-            }
-        }
-        return marker;
-    }
-
     private static List<GenericStack> normalizeRequiredContents(List<GenericStack> contents) {
         Map<AEKey, Long> amounts = new LinkedHashMap<>();
         for (GenericStack stack : contents) {
             if (stack == null || stack.amount() <= 0) {
                 continue;
             }
-            amounts.merge(stack.what(), stack.amount(), Long::sum);
+            try {
+                amounts.merge(stack.what(), stack.amount(), Math::addExact);
+            } catch (ArithmeticException exception) {
+                throw new IllegalArgumentException("Required content amount overflow", exception);
+            }
         }
 
         List<GenericStack> normalized = new ArrayList<>();

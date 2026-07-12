@@ -1,9 +1,0 @@
-{
-  "parent": "ae2:part/display_off",
-  "textures": {
-    "lightsBright": "appliedpackaging:part/package_pattern_terminal_bright",
-    "lightsMedium": "appliedpackaging:part/package_pattern_terminal_medium",
-    "lightsDark": "appliedpackaging:part/package_pattern_terminal_dark"
-  },
-  "render_type": "minecraft:cutout_mipped"
-}

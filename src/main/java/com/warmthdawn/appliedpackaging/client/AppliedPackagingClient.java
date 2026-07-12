@@ -4,13 +4,11 @@ import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.renderer.MePackagerRenderer;
 import com.warmthdawn.appliedpackaging.client.renderer.PackageEntityRenderer;
 import com.warmthdawn.appliedpackaging.client.renderer.PackageMarkerRenderer;
+import com.warmthdawn.appliedpackaging.client.renderer.PackageAssemblerRenderer;
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
-import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
 import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
 import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
@@ -26,9 +24,7 @@ import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.client.gui.screens.MenuScreens;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.client.event.ModelEvent;
-import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
@@ -45,7 +41,6 @@ public final class AppliedPackagingClient {
         PackageUnpackingBusPart.registerModels();
         eventBus.addListener(AppliedPackagingClient::clientSetup);
         eventBus.addListener(AppliedPackagingClient::registerAdditionalModels);
-        MinecraftForge.EVENT_BUS.addListener(AppliedPackagingClient::appendTooltip);
         registerClientSmokeRunner();
     }
 
@@ -69,8 +64,11 @@ public final class AppliedPackagingClient {
                     PackageBusScreen::new,
                     "/screens/appliedpackaging/package_bus.json");
             ItemBlockRenderTypes.setRenderLayer(APBlocks.ME_PACKAGER.get(), RenderType.cutoutMipped());
+            ItemBlockRenderTypes.setRenderLayer(APBlocks.PACKAGE_ASSEMBLER.get(), RenderType.cutout());
             EntityRenderers.register(APEntityTypes.PACKAGE.get(), PackageEntityRenderer::new);
             BlockEntityRenderers.register(APBlockEntities.ME_PACKAGER.get(), MePackagerRenderer::new);
+            BlockEntityRenderers.register(
+                    APBlockEntities.PACKAGE_ASSEMBLER.get(), PackageAssemblerRenderer::new);
             registerPackageItemProperties();
         });
     }
@@ -86,17 +84,7 @@ public final class AppliedPackagingClient {
         event.register(MePackagerRenderer.TRAY_MODEL);
         event.register(MePackagerRenderer.HATCH_CLOSED_MODEL);
         event.register(MePackagerRenderer.HATCH_OPEN_MODEL);
-    }
-
-    private static void appendTooltip(ItemTooltipEvent event) {
-        if (!PackagePatternDataStorage.isAe2BlankPattern(event.getItemStack())) {
-            return;
-        }
-        if (PackagePatternDataStorage.read(event.getItemStack()).isEmpty()
-                && PackagedProcessingPatternDataStorage.read(event.getItemStack()).isEmpty()) {
-            return;
-        }
-        PackagePatternItem.appendPackagePatternTooltip(event.getItemStack(), event.getToolTip(), event.getFlags());
+        event.register(PackageAssemblerRenderer.LIGHTS_MODEL);
     }
 
     private static void registerClientSmokeRunner() {

@@ -15,6 +15,7 @@ import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
 import com.warmthdawn.appliedpackaging.world.menu.AdvancedPatternEncodingTermMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -27,6 +28,10 @@ import org.slf4j.Logger;
 public class AppliedPackaging {
     public static final String MOD_ID = "appliedpackaging";
     public static final Logger LOGGER = LogUtils.getLogger();
+
+    public static ResourceLocation id(String path) {
+        return new ResourceLocation(MOD_ID, path);
+    }
 
     public AppliedPackaging() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();

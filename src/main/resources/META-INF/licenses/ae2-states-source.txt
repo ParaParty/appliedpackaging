@@ -1,4 +1,4 @@
-Applied Energistics 2 Package Bus GUI provenance
+Applied Energistics 2 backported GUI provenance
 
 Repository: https://github.com/AppliedEnergistics/Applied-Energistics-2
 Commit: 45f315517ea346efc0babd02c85c6b9d32dc8acf
@@ -17,6 +17,16 @@ Unmodified copied textures:
 - src/main/resources/assets/ae2/textures/gui/sprites/vertical_buttons_bg.png
   -> assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png
   SHA-256: 62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715
+
+Derived 1.20.1 compatibility atlas:
+
+- src/main/resources/assets/ae2/textures/gui/sprites/big_scroller.png
+  -> assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png at (0,0)
+- src/main/resources/assets/ae2/textures/gui/sprites/big_scroller_disabled.png
+  -> assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png at (12,0)
+
+The two 12x15 sprites are copied pixel-for-pixel into an otherwise transparent
+256x256 atlas because the pinned AE2 15 Scrollbar API addresses atlas UVs.
 
 The files remain independent runtime textures, matching upstream's separate-texture design. No regions are baked into the user-provided Package Bus background or sprite.
 

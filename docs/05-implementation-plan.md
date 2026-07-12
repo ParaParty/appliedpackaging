@@ -69,7 +69,7 @@ unit tests/GameTest
   package plan builder
   marker retain/override/clear plan logic
   package flattening
-  item handler / Forge fluid handler / AE2 MEStorage endpoint 事务接入
+  AE2 MEStorage 打包/拆包适配与 Forge item handler 整包插入
   同内容不同顺序 canonical hash 稳定，并写入可堆叠的规范化 NBT
   颜色、marker、内容差异会产生不同 canonical hash
   PackageData GameTest
@@ -103,11 +103,11 @@ tooltip 显示每包/总计
 已交付当前注册 item 图标和 item model。
 已按 AE2 forge/v15.4.10 reference sheet 交付机器、终端、总线、UI 图标和 logo 二轮生产质量资源。
 已交付资产 reports。
-已交付 me_packager、package_assembler、package_pattern_terminal 和总线基础配方。
-样板相关玩家配方已收敛到 AE2 原版 blank_pattern；本地 package_pattern / packaged_processing_pattern 不再作为普通合成输出。
+已交付 me_packager、package_assembler 和两个 AE2 cable part 总线的基础配方。
+package_pattern 与 advanced_processing_pattern 均只由对应编码终端产出，不作为普通合成输出。
 已交付 me_packager/package_assembler loot table。
 已交付 appliedpackaging:packages item tag。
-终端、总线资源已接入 Java 注册与基础玩法。
+原版样板终端包裹模式、高级样板终端和两个 cable part 总线资源已接入 Java 注册与基础玩法。
 ```
 
 验收：
@@ -125,10 +125,9 @@ runData 成功
 
 ```text
 方块/方块实体/菜单
-相邻 item handler endpoint
-打包事务
-拆包事务
-容量元件
+相邻 AE2 MEStorage endpoint
+打包/拆包模拟与提交
+16k/64k/256k 容量元件
 红石触发
 GameTest
 ```
@@ -151,15 +150,14 @@ GameTest
   容量元件槽读取 AE2 16k/64k/256k storage component；无元件时使用基础 1k 容量与 16 类型上限
   容量卡最多 3 张，每张解锁 1 行过滤槽，默认启用 2 行，最多 5 行
   selectedColor 控制无过滤模板时的输出包裹颜色
-  contentFilter 使用 AE2 GenericStack fake slots；旧过滤槽保留为存档兼容
+  contentFilter 使用 AE2 GenericStack fake slots，不读取隐藏旧过滤槽
   过滤应用模式可在打包拆包都启用、仅打包、仅拆包之间切换
-  marker 槽物品优先作为输出 marker；旧 marker retain/override/clear 状态保留为 NBT 兼容
+  marker 槽物品在 override 模式下优先作为输出 marker；retain/override/clear 是当前正式配置
   阻挡模式可在忽略网络内容与网络内已有物品时禁止拆包之间切换
   所选 network_side 只识别 AE2 MEStorage capability，可接入相邻 ME Interface 暴露的子网存储
-  AE2 MEStorage 打包/拆包事务，支持 GenericStack/AEKey 和源包裹展开
-  item-only GameTest，覆盖显式 marker retain/override/clear
+  AE2 MEStorage 打包/拆包操作，支持 GenericStack/AEKey 和源包裹展开
   MEStorage endpoint GameTest
-  底层 fluid handler transaction GameTest 保留；ME Packager 不以 Forge fluid handler 作为目标
+  已删除无运行时调用的 Forge item handler 打包规划与 Forge fluid handler 适配；ME Packager 只以 AE2 MEStorage 作为目标
   ME Packager 红石模式菜单、红石卡门槛、红石脉冲、高信号持续打包、红石关闭仍允许拆包和容量卡过滤行 GameTest
   ME Packager AE2 GUI client smoke 截图
   真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager 世界内打包/拆包 GameTest smoke
@@ -201,7 +199,7 @@ GameTest/客户端验证
   水平朝向 blockstate
   方块掉落表
   Package Assembler GUI/Menu
-  9 格 legacy 输入缓冲 + 68 格 GUI 真实输入缓冲（17 行 x 4 列）+ 1 格样板槽 + 17 格输出槽 + 1 格容量槽 + 1 格 marker 槽 + 5 格 AE2 加速卡升级槽
+  68 格 GUI 真实输入缓冲（17 行 x 4 列）+ 1 格样板槽 + 17 格输出槽 + 1 格容量槽 + 5 格 AE2 加速卡升级槽
   shift-click 已编码样板进样板槽，AE2 容量元件进容量槽，其它物品只有在样板过滤允许时进入 GUI 真实输入缓冲
   样板槽为空时拒绝本地输入和本地合成，不再自由封装
   输入合法包裹展开后再封装
@@ -210,14 +208,13 @@ GameTest/客户端验证
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
   已编码 package_pattern 走 exact package plan，可重封装大于默认容量的源包裹
   已编码 package_pattern 不消耗，可重复作为本地装配计划
-  已编码 packaged_processing_pattern 保存有序多包裹计划
-  package_assembler 可按 packaged_processing_pattern 逐包生成匹配包裹
+  已编码 advanced_processing_pattern 保存连续列的有序多包裹计划
+  package_assembler 可按 advanced_processing_pattern 逐包生成匹配包裹
   package_assembler 暴露 AE2 ICraftingMachine capability
   Pattern Provider pushPattern 可按分子装配室语义临时使用本次 pattern 规划配方，把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
   空本地样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
   本地样板与 Pattern Provider pushPattern 均使用容量槽档位
   pushPattern 在输出阻挡、输入缓冲非空或规划失败时整批拒绝且不消耗输入；本地样板槽兼容路径遇到无法转成 ItemStack 的 AEKey 时同样拒绝
-  ColoredProcessingPatternDataStorage 可在 AE2 encoded processing pattern 上保存输入槽颜色元数据
   彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
   彩色 Pattern Provider pushPattern 支持流体 AEKey 输入
   同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
@@ -259,13 +256,13 @@ GameTest/客户端验证
 GameTest 与客户端 smoke
 ```
 
-2026-07-12 范围修订：独立 Package Pattern Terminal 与 Package Export Bus 取消；物品注册、配方、创造栏入口、loot 和客户端 smoke 步骤均删除。旧方块/方块实体 id 暂只保留为存档兼容壳，不再提供玩家入口或菜单。
+2026-07-12 范围修订：独立 Package Pattern Terminal 与 Package Export Bus 取消；物品注册、配方、创造栏入口、loot 和客户端 smoke 步骤均删除。2026-07-13 代码审查进一步删除了三个旧 Package Bus 方块/方块实体和独立终端方块/part/菜单的无入口兼容壳，正式实现只保留 AE2 cable part 总线、原版终端包裹模式与高级样板终端。
 
 当前状态：
 
 ```text
 package_storage_bus 使用 AE2 Storage Bus 占位模型并通过 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage
-package_unpacking_bus 使用 AE2 P2P 占位模型；先从 ME 网络预留一个包裹到持久化 held 状态，经过与 ME Packager 相同的 20 tick 拆包进度后才事务性拆入目标面 item handler
+package_unpacking_bus 使用 AE2 P2P 占位模型；先从 ME 网络预留一个包裹到持久化 held 状态，经过与 ME Packager 相同的 20 tick 拆包进度后，对目标面 item handler 做整包累计模拟并在通过后逐项插入
 两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle、左侧设置按钮与右侧 5 格共享升级面板
 七行过滤每行包含动态模糊/反转按钮、颜色选择、marker ghost 和 6 个物品 ghost；行间 OR、行内 AND
 默认解锁底图最上方两行，每张容量卡额外解锁一行，五张容量卡时达到七行上限；未解锁行使用 OptionalFakeSlot 半透明叠加
@@ -280,8 +277,8 @@ runClientSmoke 自动放置两个真实 AE2 part，插入模糊/反转/容量卡
 ```text
 总线只允许包裹通过
 存储总线不暴露包裹内部内容
-卸货总线只做整包事务
-卸货总线在进度完成前不写入目标；最终提交失败时不丢失、不复制且重试同一个包裹
+卸货总线只按整包执行 check-then-push
+卸货总线在进度完成前不写入目标；最终模拟失败时不写入并重试同一个包裹
 取消项不存在玩家入口
 ```
 
@@ -373,5 +370,5 @@ GenericStack 范围风险：
 ```text
 1.0 垂直切片优先验证物品。
 数据模型完整支持 AEKey；对未知 key 保守拒绝拆包，避免吞资源。
-流体 adapter 保留在底层 transaction 与装配室/样板路径中；ME Packager 当前只接入 AE2 MEStorage，不再把 Forge fluid handler 作为世界端点。
+流体内容继续由 `GenericStack` / `AEFluidKey` 数据模型和 AE2 MEStorage 路径承载；没有正式运行时调用的 Forge fluid handler adapter 不纳入发布代码。
 ```

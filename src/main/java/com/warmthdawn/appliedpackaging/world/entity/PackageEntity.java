@@ -35,7 +35,6 @@ public class PackageEntity extends LivingEntity implements IEntityAdditionalSpaw
     public static final float WIDTH = 10.0F / 16.0F;
     public static final float HEIGHT = 8.0F / 16.0F;
     private static final String PACKAGE_ITEM_TAG = "PackageItem";
-    private static final String LEGACY_PACKAGE_TAG = "Package";
 
     private Entity originalEntity;
     private ItemStack packageStack = ItemStack.EMPTY;
@@ -140,10 +139,6 @@ public class PackageEntity extends LivingEntity implements IEntityAdditionalSpaw
         super.readAdditionalSaveData(tag);
         if (tag.contains(PACKAGE_ITEM_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
             setPackageStack(ItemStack.of(tag.getCompound(PACKAGE_ITEM_TAG)));
-            return;
-        }
-        if (tag.contains(LEGACY_PACKAGE_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
-            setPackageStack(ItemStack.of(tag.getCompound(LEGACY_PACKAGE_TAG)));
         }
     }
 

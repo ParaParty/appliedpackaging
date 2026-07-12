@@ -8,18 +8,21 @@ import appeng.api.parts.IPartModel;
 import appeng.api.parts.PartModels;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
-import appeng.core.AppEng;
 import appeng.parts.PartModel;
+import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import net.minecraft.network.chat.Component;
 
 public class PackageStorageBusPart extends AbstractPackageBusPart implements IStorageProvider {
     private static final IPartModel MODELS_OFF = new PartModel(
-            AppEng.makeId("part/storage_bus_base"), AppEng.makeId("part/storage_bus_off"));
+            AppliedPackaging.id("part/package_storage_bus_base"),
+            AppliedPackaging.id("part/package_bus_status_off"));
     private static final IPartModel MODELS_ON = new PartModel(
-            AppEng.makeId("part/storage_bus_base"), AppEng.makeId("part/storage_bus_on"));
+            AppliedPackaging.id("part/package_storage_bus_base"),
+            AppliedPackaging.id("part/package_bus_status_on"));
     private static final IPartModel MODELS_HAS_CHANNEL = new PartModel(
-            AppEng.makeId("part/storage_bus_base"), AppEng.makeId("part/storage_bus_has_channel"));
+            AppliedPackaging.id("part/package_storage_bus_base"),
+            AppliedPackaging.id("part/package_bus_status_has_channel"));
 
     public PackageStorageBusPart(IPartItem<?> partItem) {
         super(partItem);
@@ -28,10 +31,10 @@ public class PackageStorageBusPart extends AbstractPackageBusPart implements ISt
 
     public static void registerModels() {
         PartModels.registerModels(
-                AppEng.makeId("part/storage_bus_base"),
-                AppEng.makeId("part/storage_bus_off"),
-                AppEng.makeId("part/storage_bus_on"),
-                AppEng.makeId("part/storage_bus_has_channel"));
+                AppliedPackaging.id("part/package_storage_bus_base"),
+                AppliedPackaging.id("part/package_bus_status_off"),
+                AppliedPackaging.id("part/package_bus_status_on"),
+                AppliedPackaging.id("part/package_bus_status_has_channel"));
     }
 
     @Override

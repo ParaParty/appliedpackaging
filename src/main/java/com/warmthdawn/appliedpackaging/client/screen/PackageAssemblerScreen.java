@@ -9,7 +9,6 @@ import appeng.client.gui.widgets.ProgressBar.Direction;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.menu.SlotSemantics;
 import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
-import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,9 +18,6 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 
 public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssemblerMenu> {
-    private static final int COLOR_BUTTON_X = 96;
-    private static final int COLOR_BUTTON_Y = 31;
-    private static final int COLOR_BUTTON_SIZE = 8;
     private static final int SCROLLBAR_Y = 31;
     private static final int SCROLLBAR_HEIGHT = 72;
     private static final int SCROLLBAR_PANEL_X = 10;
@@ -34,8 +30,6 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
             7, 15, 0, 32, 7, 32);
 
     private final OutputModeToolbarButton outputModeButton;
-    private final PackageColorPicker colorPicker = new PackageColorPicker();
-    private final PackageColorPicker.TriggerButton colorButton;
     private final Scrollbar rowScrollbar;
     private final ProgressBar progressBar;
 
@@ -45,11 +39,6 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
             Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        colorButton = new PackageColorPicker.TriggerButton(
-                COLOR_BUTTON_SIZE,
-                COLOR_BUTTON_SIZE,
-                menu::selectedColor,
-                this::openColorPicker);
         rowScrollbar = widgets.addScrollBar("packageQueueScrollbar", LATEST_SCROLLBAR_STYLE);
         rowScrollbar.setRange(0, menu.maxScrollOffset(), PackageAssemblerMenu.VISIBLE_ROWS);
         rowScrollbar.setCaptureMouseWheel(false);
@@ -60,19 +49,9 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
     }
 
     @Override
-    protected void init() {
-        super.init();
-
-        colorButton.setX(leftPos + COLOR_BUTTON_X);
-        colorButton.setY(topPos + COLOR_BUTTON_Y);
-        addRenderableWidget(colorButton);
-    }
-
-    @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
         outputModeButton.setMessage(outputModeMessage());
-        colorButton.active = !colorPicker.isOpen();
         progressBar.visible = menu.isCrafting();
         if (rowScrollbar.getCurrentScroll() != menu.scrollOffset()) {
             setScrollOffset(rowScrollbar.getCurrentScroll());
@@ -93,12 +72,6 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
                 offsetX,
                 offsetY,
                 firstSlot(SlotSemantics.STORAGE_CELL));
-        ModernSlotRendering.drawMarkerSlotIcon(
-                graphics,
-                offsetX,
-                offsetY,
-                markerSlot(),
-                1.0f);
     }
 
     @Override
@@ -125,7 +98,6 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
                     mouseX,
                     mouseY);
         }
-        colorPicker.renderLast(graphics, font, mouseX, mouseY);
     }
 
     @Override
@@ -138,9 +110,6 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (colorPicker.mouseScrolled(mouseX, mouseY, delta)) {
-            return true;
-        }
         if (isOverScrolledPanel(mouseX, mouseY)) {
             boolean changed = rowScrollbar.onMouseWheel(
                     new Point((int) mouseX - leftPos, (int) mouseY - topPos),
@@ -153,58 +122,6 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (colorPicker.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (colorPicker.mouseReleased(mouseX, mouseY, button)) {
-            return true;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (colorPicker.mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (colorPicker.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public boolean charTyped(char codePoint, int modifiers) {
-        return colorPicker.charTyped(codePoint, modifiers) || super.charTyped(codePoint, modifiers);
-    }
-
-    @Override
-    protected void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (!colorPicker.isOpen()) {
-            super.renderTooltip(graphics, mouseX, mouseY);
-            Slot markerSlot = markerSlot();
-            if (hoveredSlot == markerSlot) {
-                drawEmptyMarkerTooltip(graphics, mouseX, mouseY, markerSlot);
-            }
-        }
-    }
-
-    private Slot markerSlot() {
-        return firstSlot(SlotSemantics.BLANK_PATTERN);
-    }
 
     private Slot firstSlot(appeng.menu.SlotSemantic semantic) {
         List<Slot> slots = menu.getSlots(semantic);
@@ -245,17 +162,6 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
         return Component.translatable(
                 "gui.appliedpackaging.package_assembler.output_mode."
                         + menu.outputMode().id());
-    }
-
-    private void openColorPicker() {
-        setFocused(null);
-        colorPicker.openNear(
-                colorButton,
-                width,
-                height,
-                menu::selectedColor,
-                menu::setSelectedColor,
-                () -> colorButton.active = true);
     }
 
     private class OutputModeToolbarButton extends IconButton {

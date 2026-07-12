@@ -1,5 +1,22 @@
 # Terminal And Buses Asset Report
 
+## 2026-07-13 AE2 v19 Bus Model Replacement
+
+Package Storage Bus and Package Unpacking Bus now use models extracted from official AE2
+`neoforge/v19.2.17` at commit `79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a`:
+
+- Storage Bus uses `models/part/storage_bus_base.json`, its official sides/back/status materials, and the
+  byte-preserved user front `pacakge_storage_bus.png` (SHA-256
+  `B682F316CB77A407736E4FD73D1CAE5104F679918090F23E1D994F3E63DBA1AB`).
+- Unpacking Bus uses the panel-shaped `models/part/pattern_provider_base.json`, its official side/status materials,
+  and the byte-preserved user front/back textures `unpacking_panel.png` / `unpacking_panel_back.png` (SHA-256
+  `A6FB292B206693865094DF901A4A0789F051630C14001C9003423F5B3E44E96F` and
+  `3086B228171D19F1DFB55FDF6384165FDB78CEABB25B09C4706CE2E23599CD07`).
+- World part models and inventory item models use the same v19 geometry. No global AE2 texture is overridden.
+
+The adapted upstream models and copied official material textures remain covered by the bundled
+`META-INF/licenses/ae2-LGPL-3.0-or-later.txt`.
+
 ## 2026-07-13 Shared Marker Slot And Current Slot Presentation
 
 - ME Packager and ME Package Assembler now render their empty capacity-component slot with the unchanged current-main `ae2-states.png` cell `(240,48,16,16)`; the assembler's empty encoded-pattern slot uses `(240,112,16,16)`. These are runtime atlas slices, not edits or additions to the user sprite.
@@ -91,6 +108,10 @@ Dark endpoint-style full face with purple open port, split package flaps, and co
 
 ## Output Files
 
+The block/terminal paths in this section document the initial asset pass. They were retired on 2026-07-13 when the
+standalone blocks and terminal part were removed; only the current Storage Bus and Unpacking Bus item/part paths remain
+runtime assets. Their obsolete block loot tables were removed with the standalone block registrations.
+
 Textures:
 
 - `src/main/resources/assets/appliedpackaging/textures/block/package_pattern_terminal_front.png`
@@ -117,7 +138,7 @@ Item models:
 - `src/main/resources/assets/appliedpackaging/models/item/package_export_bus.json`
 - `src/main/resources/assets/appliedpackaging/models/item/package_unpacking_bus.json`
 
-AE2 part textures added by the latest main-thread integration pass:
+Retired Package Pattern Terminal part textures from that integration pass:
 
 - `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_front.png`
 - `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_sides.png`
@@ -128,7 +149,7 @@ AE2 part textures added by the latest main-thread integration pass:
 - `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_dark.png`
 - `src/main/resources/assets/appliedpackaging/textures/part/package_pattern_terminal_colored.png`
 
-AE2 part model added by the latest main-thread integration pass:
+Retired Package Pattern Terminal part model from that integration pass:
 
 - `src/main/resources/assets/appliedpackaging/models/part/package_pattern_terminal_base.json`
 
@@ -218,11 +239,10 @@ Latest terminal model pass:
 run/logs/latest.log did not contain ERROR, FATAL, Missing model, Unable to load model, preview_sheet, or mip level entries for the latest smoke.
 ```
 
-Latest AE2 part artwork pass:
+Historical AE2 part artwork pass (retired 2026-07-13):
 
 ```text
-The Package Pattern Terminal player-facing AE2 part now uses Applied Packaging-owned 16x16 body/front/back/sides textures and AP-owned overlay mask textures.
-The new base part model is registered by PackagePatternTerminalPart and combined with the AP-owned off/on overlay models.
+This pass described the former standalone Package Pattern Terminal AE2 part. The part implementation and its dedicated models/textures were removed on 2026-07-13 after the player entry was consolidated into the AE2 Pattern Encoding Terminal package mode. The following lines are retained only as historical validation evidence and are not current runtime claims.
 AE2 15.4.10 assets were inspected only as reference for panel geometry, dark base proportions, and overlay layering. No AE2 pixels were copied into Applied Packaging assets.
 python C:\Users\warmt\.codex\skills\minecraft-mod-asset-generation\scripts\assetgen validate-contract docs\assets\contracts\terminal_and_buses.yaml succeeded.
 60 project PNG files are non-empty and readable; the 8 new part PNG files are 16x16 RGBA.

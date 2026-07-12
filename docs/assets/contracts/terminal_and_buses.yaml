@@ -16,8 +16,8 @@ materials:
   - fluix_core
   - shadow_slot
 required_visual_parts:
-  - package_storage_bus temporary AE2 storage bus part silhouette
-  - package_unpacking_bus temporary AE2 ME P2P tunnel part silhouette
+  - package_storage_bus AE2 neoforge/v19.2.17 storage bus geometry and materials with user front
+  - package_unpacking_bus AE2 neoforge/v19.2.17 panel pattern provider geometry with user front and back
   - separate byte-preserved 256x256 package bus GUI and user sprite textures
   - user-authored marker empty-slot icon at sprite rectangle 32,16,16,16 shared by buses, machines, and package-pattern mode
   - unmodified current-main AE2 states, extra panels, and vertical button background textures with LGPL provenance
@@ -28,6 +28,14 @@ forbidden_visual_parts:
   - full machine body for bus parts
   - brass gears
 conversion_requirements:
+  upstream_tag: neoforge/v19.2.17
+  upstream_commit: 79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a
+  storage_bus_model: src/main/resources/assets/ae2/models/part/storage_bus_base.json
+  unpacking_bus_model: src/main/resources/assets/ae2/models/part/pattern_provider_base.json
+  storage_front_source: E:/resources/textures/appliedpackaging/ret/pacakge_storage_bus.png
+  unpacking_front_source: E:/resources/textures/appliedpackaging/ret/unpacking_panel.png
+  unpacking_back_source: E:/resources/textures/appliedpackaging/ret/unpacking_panel_back.png
+  preserve_lgpl_notice: true
   cuboid_friendly: true
   small_part_readability: true
   keep_bus_family_distinct: true

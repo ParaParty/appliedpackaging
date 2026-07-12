@@ -435,7 +435,6 @@ function Get-TranslationPlaceholders {
 function Test-ProductInvariants {
     $forbiddenLocalPatternItems = @(
         "appliedpackaging:package_pattern",
-        "appliedpackaging:packaged_processing_pattern",
         "appliedpackaging:advanced_processing_pattern"
     )
 
@@ -467,13 +466,19 @@ function Test-ProductInvariants {
             "Canceled recipe is absent: $canceledRecipe"
     }
 
+    foreach ($partOnlyId in @("package_storage_bus", "package_unpacking_bus")) {
+        Assert-True `
+            (-not (Test-Path -LiteralPath "src/main/resources/data/appliedpackaging/loot_tables/blocks/$partOnlyId.json")) `
+            "AE2 part item has no stale standalone block loot table: $partOnlyId"
+    }
+
     $creativeTabPath = "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java"
     if (Test-Path -LiteralPath $creativeTabPath) {
         $creativeTabText = Get-Content -LiteralPath $creativeTabPath -Raw
         $forbiddenCreativeItems = @(
             [regex]::Matches(
                 $creativeTabText,
-                'output\.accept\s*\(\s*APItems\.(PACKAGE_PATTERN|PACKAGED_PROCESSING_PATTERN|ADVANCED_PROCESSING_PATTERN)\.get\s*\(\s*\)\s*\)')
+                'output\.accept\s*\(\s*APItems\.(PACKAGE_PATTERN|ADVANCED_PROCESSING_PATTERN)\.get\s*\(\s*\)\s*\)')
                 | ForEach-Object { $_.Groups[1].Value }
         )
         if ($forbiddenCreativeItems.Count -eq 0) {
@@ -505,6 +510,9 @@ function Test-ProductInvariants {
             ($itemsText -notmatch '(PACKAGE_PATTERN_TERMINAL|PACKAGE_EXPORT_BUS)\s*=\s*ITEMS\.register') `
             "Canceled package pattern terminal and export bus items are not registered"
         Assert-True `
+            ($itemsText -notmatch 'PACKAGED_PROCESSING_PATTERN\s*=\s*ITEMS\.register') `
+            "Removed packaged processing pattern item is not registered"
+        Assert-True `
             ($itemsText -match 'PACKAGE_STORAGE_BUS\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+PartItem\s*<\s*>\s*\(') `
             "Package storage bus item registers as an AE2 PartItem"
         Assert-True `
@@ -518,6 +526,52 @@ function Test-ProductInvariants {
             "Advanced processing pattern registers as a dedicated encoded-pattern item"
     } else {
         Add-Fail "Item registry source exists: $itemsPath"
+    }
+
+    $blocksPath = "src/main/java/com/warmthdawn/appliedpackaging/registry/APBlocks.java"
+    if (Test-Path -LiteralPath $blocksPath) {
+        $blocksText = Get-Content -LiteralPath $blocksPath -Raw
+        Assert-True `
+            ($blocksText -notmatch '(PACKAGE_STORAGE_BUS|PACKAGE_EXPORT_BUS|PACKAGE_UNPACKING_BUS|PACKAGE_PATTERN_TERMINAL)\s*=\s*BLOCKS\.register') `
+            "Canceled standalone package bus and package pattern terminal blocks are not registered"
+    }
+
+    $blockEntitiesPath = "src/main/java/com/warmthdawn/appliedpackaging/registry/APBlockEntities.java"
+    if (Test-Path -LiteralPath $blockEntitiesPath) {
+        $blockEntitiesText = Get-Content -LiteralPath $blockEntitiesPath -Raw
+        Assert-True `
+            ($blockEntitiesText -notmatch '(PACKAGE_STORAGE_BUS|PACKAGE_EXPORT_BUS|PACKAGE_UNPACKING_BUS|PACKAGE_PATTERN_TERMINAL)\s*=\s*BLOCK_ENTITIES\.register') `
+            "Canceled standalone package bus and package pattern terminal block entities are not registered"
+    }
+
+    foreach ($removedSource in @(
+            "src/main/java/com/warmthdawn/appliedpackaging/core/package_data/PackagePatternDataStorage.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/package_data/ColoredProcessingPatternDataStorage.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/package_data/PackagedProcessingPatternDataStorage.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/item_handler/ItemPackageTransactions.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/item_handler/ItemPackagePlan.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/item_handler/SlotExtraction.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/fluid_handler/FluidPackageTransactions.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/fluid_handler/FluidPackagePlan.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/fluid_handler/SimulatedFluidHandler.java",
+            "src/main/java/com/warmthdawn/appliedpackaging/core/ae2/PackageBusTransactions.java")) {
+        Assert-True (-not (Test-Path -LiteralPath $removedSource)) "Removed compatibility or unused source is absent: $removedSource"
+    }
+
+    $assemblerPath = "src/main/java/com/warmthdawn/appliedpackaging/world/block/entity/PackageAssemblerBlockEntity.java"
+    if (Test-Path -LiteralPath $assemblerPath) {
+        $assemblerText = Get-Content -LiteralPath $assemblerPath -Raw
+        Assert-True `
+            ($assemblerText -notmatch '(LEGACY_INPUT|legacyInput|auto_export|selected_color|SLOT_MARKER|setSelectedColor|PackagedProcessingPattern|ColoredProcessingPattern)') `
+            "Package Assembler has no pre-release save or carrier compatibility path"
+    }
+
+    $packagerPath = "src/main/java/com/warmthdawn/appliedpackaging/world/block/entity/MePackagerBlockEntity.java"
+    if (Test-Path -LiteralPath $packagerPath) {
+        $packagerText = Get-Content -LiteralPath $packagerPath -Raw
+        Assert-True `
+            ($packagerText -notmatch '(LEGACY_SLOT|SLOT_FILTER|inferLegacy|RedstoneMode\.(DISABLED|CYCLIC))') `
+            "ME Packager has no pre-release save compatibility path"
     }
 }
 
@@ -770,6 +824,8 @@ if ($emptyPng.Count -eq 0) {
 if ($RequireClientSmokeScreenshots) {
     $expectedClientSmokeScreenshots = @(
         "appliedpackaging-client-smoke-world-me_packager.png",
+        "appliedpackaging-client-smoke-world-me_packager_link.png",
+        "appliedpackaging-client-smoke-world-all_machines.png",
         "appliedpackaging-client-smoke-package_assembler.png",
         "appliedpackaging-client-smoke-me_packager.png",
         "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png",

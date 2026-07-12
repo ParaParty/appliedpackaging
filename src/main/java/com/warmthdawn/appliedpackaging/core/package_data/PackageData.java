@@ -33,6 +33,10 @@ public record PackageData(
     }
 
     public static PackageData create(PackageColor color, List<GenericStack> contents, Optional<MarkerSpec> marker, int flags) {
+        if (color == null) {
+            throw new IllegalArgumentException("Package color cannot be null");
+        }
+        marker = marker == null ? Optional.empty() : marker;
         List<GenericStack> normalized = normalize(contents);
         long usedUnits = PackageCapacityCalculator.usedUnits(normalized);
         int usedTypes = PackageCapacityCalculator.usedTypes(normalized);
@@ -41,9 +45,19 @@ public record PackageData(
     }
 
     private static List<GenericStack> normalize(List<GenericStack> contents) {
+        if (contents == null) {
+            throw new IllegalArgumentException("Package contents cannot be null");
+        }
         Map<AEKey, Long> amounts = new LinkedHashMap<>();
         for (GenericStack stack : contents) {
-            amounts.merge(stack.what(), stack.amount(), Long::sum);
+            if (stack == null || stack.what() == null || stack.amount() <= 0) {
+                throw new IllegalArgumentException("Package entries must be non-null and positive");
+            }
+            try {
+                amounts.merge(stack.what(), stack.amount(), Math::addExact);
+            } catch (ArithmeticException exception) {
+                throw new IllegalArgumentException("Package entry amount overflow", exception);
+            }
         }
 
         List<GenericStack> normalized = new ArrayList<>();

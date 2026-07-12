@@ -17,6 +17,7 @@ docs/05-implementation-plan.md
 docs/06-verification-release.md
 docs/07-references.md
 docs/08-change-intake.md
+docs/09-code-review-audit.md
 docs/development-log.md
 ```
 

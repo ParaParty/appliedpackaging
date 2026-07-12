@@ -1,5 +1,28 @@
 # Machines Asset Report
 
+## 2026-07-13 AE2 v19 Package Assembler Replacement
+
+`package_assembler` now uses the official AE2 `neoforge/v19.2.17` molecular assembler model at commit
+`79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a`, adapted to the Applied Packaging namespace and Forge 1.20.1 model data.
+The complete base surface is the byte-preserved user file `E:/resources/textures/appliedpackaging/ret/package_assembler.png`
+(SHA-256 `345A070081B556D2EF44AE0DAB65210F7728C33BB7C29FD46B526C607605FCE0`). The official animated
+light strip and light model are retained under the bundled AE2 LGPL license. `PackageAssemblerRenderer` follows the
+upstream animation: while crafting it renders the active package in the chamber, the animated full-bright light layer,
+and AE2 crafting particles moving toward the chamber center.
+
+The superseded `package_assembler_front/side/top/frame.png` files were removed on 2026-07-13 because no runtime model
+referenced them. Their historical preview remains under `docs/assets/previews/` only.
+
+Runtime resource paths:
+
+```text
+src/main/resources/assets/appliedpackaging/models/block/package_assembler.json
+src/main/resources/assets/appliedpackaging/models/block/package_assembler_lights.json
+src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png
+src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png
+src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png.mcmeta
+```
+
 ## 2026-07-05 ME Packager 临时 Create 同款替换
 
 本次按用户要求将 `me_packager` 临时切换为 Create Packager 同款模型/贴图资源，等待后续正式打包机模型替换。
@@ -30,7 +53,7 @@ blockstates/me_packager.json 已包含 facing 与 network_side 组合；network_
 ```text
 不再引用 create: namespace。
 保留 Create-style linked 外观作为临时连接方向提示；当前资源只能区分水平/竖直连接，不表达精确单面动画。
-旧 Applied Packaging me_packager_* PNG 暂留在资源树中，等待正式模型替换时清理或复用。
+旧 Applied Packaging `me_packager_front/side/top/frame.png` 已于 2026-07-13 删除；它们没有被当前模型引用，不再作为发布资源或资产门禁输入。历史预览只保留在 `docs/assets/previews/`。
 ```
 
 ## Scope

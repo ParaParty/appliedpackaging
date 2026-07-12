@@ -1,8 +1,19 @@
 # Packages 资产报告
 
+## 2026-07-13 User Pattern Icon Replacement
+
+- `package_pattern.png` now byte-preserves `E:/resources/textures/appliedpackaging/ret/pacakge_pattern.png`
+  (`16x16` RGBA, SHA-256 `04E0C00E41C68AEA57C1B97CEF6E736F0DB2A75F768B6050BEF48C116F05E349`).
+  This is the package pattern produced by the normal AE2 Pattern Encoding Terminal in package mode.
+- `advanced_processing_pattern.png` now byte-preserves
+  `E:/resources/textures/appliedpackaging/ret/adv_processing_pattern.png` (`16x16` RGBA, SHA-256
+  `084B03A92C440BC7CF675F1C30D3883BC6808F519924C224C1CB8E5D3FAE4FF9`). The registered
+  `advanced_processing_pattern` item model already points to this runtime texture, so the icon applies to patterns
+  produced by the Advanced Pattern Encoding Terminal without changing item IDs or encoding behavior.
+
 ## 2026-07-05 package_box_pixel_v7 修复
 
-本次将 17 色包裹从独立平面 item PNG 切换为 3D package_box item/entity 共用模型，未修改 `package_pattern` 与 `packaged_processing_pattern` 图标。
+本次将 17 色包裹从独立平面 item PNG 切换为 3D package_box item/entity 共用模型，未修改 `package_pattern` 与 `advanced_processing_pattern` 图标。
 
 来源：
 
@@ -90,7 +101,7 @@ alpha 只包含 0/255
 每个包裹变体包含可见的精确 palette band color，最少 19 px，white/yellow/light_gray 为 30 px
 16x16 BOX downsample 后仍有清晰非透明覆盖
 最近 palette color 距离为 60.11，brown_package 与 red_package 仍可区分
-package_pattern 与 packaged_processing_pattern 非同图
+package_pattern 与 advanced_processing_pattern 非同图
 ```
 
 抽样视觉检查：
@@ -102,7 +113,7 @@ black_package.png
 white_package.png
 yellow_package.png
 package_pattern.png
-packaged_processing_pattern.png
+advanced_processing_pattern.png
 ```
 
 未运行：
@@ -132,7 +143,7 @@ packaged_processing_pattern.png
 每个变体保留明显彩色束带/封签，并固定小型 Fluix latch。
 black/gray/white/light_gray/yellow 等低对比颜色增加可读高光或阴影。
 package_pattern 绘制为空白 AE2 pattern card + 小包裹封印。
-packaged_processing_pattern 绘制为 processing card + 多个小型包裹标记。
+advanced_processing_pattern 绘制为 processing card + 多个小型包裹标记。
 ```
 
 验证：
@@ -166,7 +177,7 @@ alpha 只包含 0/255
 fluix_package.png
 black_package.png
 package_pattern.png
-packaged_processing_pattern.png
+advanced_processing_pattern.png
 ```
 
 未运行：
@@ -198,7 +209,7 @@ green_package
 red_package
 black_package
 package_pattern
-packaged_processing_pattern
+advanced_processing_pattern
 ```
 
 ## 生成方法
@@ -212,7 +223,7 @@ packaged_processing_pattern
 17 色包裹使用同一 AE2 风格封装数据盒轮廓：浅灰石英盒体、深灰金属角扣、中心 Fluix 菱形封印、一条清晰颜色束带和小型数据封签。
 每个颜色变体只替换束带和小封签颜色。
 package_pattern 是空白样板卡片加小包裹封印。
-packaged_processing_pattern 是处理样板卡片加多个小包裹标记。
+advanced_processing_pattern 是处理样板卡片加多个小包裹标记。
 避免纸箱、文字、数字、箭头、水印和黄铜齿轮。
 ```
 
@@ -239,7 +250,7 @@ src/main/resources/assets/appliedpackaging/textures/item/green_package.png
 src/main/resources/assets/appliedpackaging/textures/item/red_package.png
 src/main/resources/assets/appliedpackaging/textures/item/black_package.png
 src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png
-src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png
+src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png
 ```
 
 模型路径：
@@ -263,7 +274,7 @@ src/main/resources/assets/appliedpackaging/models/item/green_package.json
 src/main/resources/assets/appliedpackaging/models/item/red_package.json
 src/main/resources/assets/appliedpackaging/models/item/black_package.json
 src/main/resources/assets/appliedpackaging/models/item/package_pattern.json
-src/main/resources/assets/appliedpackaging/models/item/packaged_processing_pattern.json
+src/main/resources/assets/appliedpackaging/models/item/advanced_processing_pattern.json
 ```
 
 每个 item model 使用：
@@ -286,7 +297,7 @@ src/main/resources/assets/appliedpackaging/textures/item/fluix_package.png
 src/main/resources/assets/appliedpackaging/textures/item/white_package.png
 src/main/resources/assets/appliedpackaging/textures/item/black_package.png
 src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png
-src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png
+src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png
 ```
 
 主 agent 整合时可在创造栏或物品栏复查 17 色区分度。

@@ -19,20 +19,15 @@ import appeng.api.upgrades.UpgradeInventories;
 import appeng.blockentity.grid.AENetworkBlockEntity;
 import appeng.capabilities.Capabilities;
 import appeng.core.definitions.AEItems;
-import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackagePlan;
-import com.warmthdawn.appliedpackaging.core.item_handler.ItemPackageTransactions;
-import com.warmthdawn.appliedpackaging.core.package_data.ColoredProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
-import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
@@ -68,25 +63,21 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
-import net.minecraftforge.items.wrapper.RangedWrapper;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         implements InventoryDroppingBlockEntity, MenuProvider, ICraftingMachine, IUpgradeableObject {
-    public static final int LEGACY_INPUT_SLOT_COUNT = 9;
-    public static final int INPUT_SLOT_COUNT = LEGACY_INPUT_SLOT_COUNT;
     public static final int OUTPUT_SLOT_COUNT = 17;
     public static final int MENU_INPUT_COLUMNS = 4;
     public static final int MENU_INPUT_SLOT_COUNT = OUTPUT_SLOT_COUNT * MENU_INPUT_COLUMNS;
-    public static final int SLOT_PATTERN = 9;
-    public static final int SLOT_OUTPUT = 10;
-    public static final int SLOT_CAPACITY = 11;
-    public static final int EXTRA_OUTPUT_SLOT_START = 12;
-    public static final int SLOT_MARKER = EXTRA_OUTPUT_SLOT_START + OUTPUT_SLOT_COUNT - 1;
+    public static final int SLOT_PATTERN = 0;
+    public static final int SLOT_OUTPUT = 1;
+    public static final int SLOT_CAPACITY = 2;
+    public static final int EXTRA_OUTPUT_SLOT_START = 3;
     public static final int UPGRADE_SLOT_COUNT = 5;
     public static final int MAX_CRAFT_PROGRESS = 100;
-    private static final int SLOT_COUNT = SLOT_MARKER + 1;
+    private static final int SLOT_COUNT = EXTRA_OUTPUT_SLOT_START + OUTPUT_SLOT_COUNT - 1;
     private static final String ITEMS_TAG = "items";
     private static final String UPGRADES_TAG = "upgrades";
     private static final String MENU_INPUTS_TAG = "menu_inputs";
@@ -96,9 +87,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private static final String PENDING_PACKAGES_TAG = "pending_packages";
     private static final String PENDING_COLOR_TAG = "color";
     private static final String PENDING_DATA_TAG = "data";
-    private static final String AUTO_EXPORT_TAG = "auto_export";
     private static final String OUTPUT_MODE_TAG = "output_mode";
-    private static final String SELECTED_COLOR_TAG = "selected_color";
     private static final String CRAFT_PROGRESS_TAG = "craft_progress";
     private static final String ACTIVE_PACKAGES_TAG = "active_packages";
 
@@ -107,7 +96,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
             if (isOutputSlot(slot)) {
-                return stack.getItem() instanceof PackageItem;
+                return stack.getItem() instanceof PackageItem && PackageDataStorage.read(stack).isPresent();
             }
             if (slot == SLOT_PATTERN) {
                 return isPatternSlotItem(stack);
@@ -115,21 +104,12 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             if (slot == SLOT_CAPACITY) {
                 return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
             }
-            if (slot == SLOT_MARKER) {
-                return isMarkerSlotItem(stack);
-            }
-            if (slot >= 0 && slot < LEGACY_INPUT_SLOT_COUNT) {
-                return isLegacyInputSlotValid(slot, stack);
-            }
-            if (stack.getItem() instanceof PackageItem) {
-                return PackageDataStorage.read(stack).isPresent();
-            }
-            return true;
+            return false;
         }
 
         @Override
         public int getSlotLimit(int slot) {
-            if (isOutputSlot(slot) || slot == SLOT_CAPACITY || slot == SLOT_PATTERN || slot == SLOT_MARKER) {
+            if (isOutputSlot(slot) || slot == SLOT_CAPACITY || slot == SLOT_PATTERN) {
                 return 1;
             }
             return super.getSlotLimit(slot);
@@ -182,7 +162,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return false;
         }
     };
-    private final RangedWrapper inputView = new RangedWrapper(items, 0, LEGACY_INPUT_SLOT_COUNT);
     private final IUpgradeInventory upgrades = UpgradeInventories.forMachine(
             APBlocks.PACKAGE_ASSEMBLER.get(),
             UPGRADE_SLOT_COUNT,
@@ -192,7 +171,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private LazyOptional<ICraftingMachine> craftingMachine = createCraftingMachineCapability();
     private final List<QueuedPackage> activePackages = new ArrayList<>();
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
-    private PackageColor selectedColor = PackageColor.FLUIX;
     private OutputMode outputMode = OutputMode.ME_NETWORK;
     private int craftingProgress;
 
@@ -248,23 +226,11 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return upgrades;
     }
 
-    public PackageColor selectedColor() {
-        return selectedColor;
-    }
-
-    public void setSelectedColor(PackageColor selectedColor) {
-        this.selectedColor = selectedColor == null ? PackageColor.FLUIX : selectedColor;
-        setChanged();
-    }
-
     public static boolean isPatternSlotItem(ItemStack stack) {
         if (stack.isEmpty()) {
             return false;
         }
-        if (PackagePatternDataStorage.read(stack).isPresent()
-                || PackagedProcessingPatternDataStorage.read(stack).isPresent()
-                || PackageCraftingPatternDataStorage.read(stack).isPresent()
-                || ColoredProcessingPatternDataStorage.hasData(stack)
+        if (PackageCraftingPatternDataStorage.read(stack).isPresent()
                 || AdvancedProcessingPatternDataStorage.hasData(stack)
                 || isAe2ProcessingPattern(stack)) {
             return true;
@@ -442,7 +408,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> advancedPattern =
                 AdvancedProcessingPatternDataStorage.read(patternStack);
         if (advancedPattern.isPresent()) {
-            List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(patternStack);
+            List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack);
             int size = advancedPattern.get().activeColumnCount()
                     * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
             List<GenericStack> filters = new ArrayList<>(size);
@@ -451,28 +417,12 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
             return filters;
         }
-        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
-                PackagedProcessingPatternDataStorage.read(patternStack);
-        if (processingPattern.isPresent()) {
-            Map<AEKey, Long> merged = new LinkedHashMap<>();
-            for (PackageData data : processingPattern.get().packages()) {
-                for (GenericStack stack : data.contents()) {
-                    merged.merge(stack.what(), stack.amount(), Long::sum);
-                }
-            }
-            return genericStacksFromMap(merged);
-        }
-        Optional<PackagePatternDataStorage.EncodedPackagePattern> packagePattern =
-                PackagePatternDataStorage.read(patternStack);
-        if (packagePattern.isPresent()) {
-            return packagePattern.get().data().contents();
-        }
         Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> packageCraftingPattern =
                 PackageCraftingPatternDataStorage.read(patternStack);
         if (packageCraftingPattern.isPresent()) {
             return packageCraftingPattern.get().denseInputs();
         }
-        if (ColoredProcessingPatternDataStorage.hasData(patternStack) || isAe2ProcessingPattern(patternStack)) {
+        if (isAe2ProcessingPattern(patternStack)) {
             return decodedPatternInputs(patternStack);
         }
         return List.of();
@@ -595,18 +545,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return actual.equals(expected);
     }
 
-    private boolean isLegacyInputSlotValid(int slot, ItemStack stack) {
-        if (stack.isEmpty() || slot < 0 || slot >= LEGACY_INPUT_SLOT_COUNT) {
-            return false;
-        }
-        List<GenericStack> filters = menuInputFilters();
-        if (slot >= filters.size()) {
-            return false;
-        }
-        GenericStack filter = filters.get(slot);
-        return filter.what().equals(AEItemKey.of(stack)) && stack.getCount() <= filter.amount();
-    }
-
     private static boolean menuInputsFitCapacity(MenuInputEntry[] inputs, PackageCapacityProfile capacityProfile) {
         MenuInputContents contents = menuInputContents(inputs);
         if (contents.isEmpty()) {
@@ -684,12 +622,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
             return commitMenuAssemblyPlan(attempt.plan().orElseThrow());
         }
-        AssemblyAttempt attempt = planAssembly(inputView);
-        if (attempt.plan().isEmpty()) {
-            return attempt.failure();
-        }
-
-        return commitAssemblyPlan(inputView, attempt.plan().orElseThrow());
+        return AssemblyResult.NO_CONTENTS;
     }
 
     private AssemblyResult tryStartAssembly() {
@@ -712,25 +645,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
             return beginMenuAssemblyPlan(attempt.plan().orElseThrow());
         }
-        AssemblyAttempt attempt = planAssembly(inputView);
-        if (attempt.plan().isEmpty()) {
-            return attempt.failure();
-        }
-        return beginAssemblyPlan(inputView, attempt.plan().orElseThrow());
-    }
-
-    private AssemblyResult beginAssemblyPlan(IItemHandler input, AssemblyPlan plan) {
-        if (!outputSlotsEmpty()) {
-            return AssemblyResult.OUTPUT_BLOCKED;
-        }
-        if (!ItemPackageTransactions.canExtract(input, plan.itemPlan())) {
-            return AssemblyResult.SOURCE_CHANGED;
-        }
-        if (!ItemPackageTransactions.commitExtract(input, plan.itemPlan())) {
-            return AssemblyResult.SOURCE_CHANGED;
-        }
-        beginCrafting(List.of(new QueuedPackage(plan.color(), plan.data())));
-        return AssemblyResult.ASSEMBLED;
+        return AssemblyResult.NO_CONTENTS;
     }
 
     private AssemblyResult beginMenuAssemblyPlan(AssemblyPlan plan) {
@@ -754,6 +669,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         activePackages.addAll(packages);
         craftingProgress = 0;
         setChanged();
+        syncClientVisualState();
     }
 
     private void advanceCraftingProgress() {
@@ -778,6 +694,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         craftingProgress = 0;
         commitProviderPackages(packages);
         setChanged();
+        syncClientVisualState();
     }
 
     private int craftingProgressStep() {
@@ -808,6 +725,20 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
     public boolean isCrafting() {
         return !activePackages.isEmpty();
+    }
+
+    public ItemStack activePackageDisplayStack() {
+        if (activePackages.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        QueuedPackage active = activePackages.get(0);
+        return packageStack(active.color(), active.data());
+    }
+
+    private void syncClientVisualState() {
+        if (level != null && !level.isClientSide) {
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 2);
+        }
     }
 
     public boolean exportOutputOnce() {
@@ -884,23 +815,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return true;
     }
 
-    private AssemblyResult commitAssemblyPlan(IItemHandler input, AssemblyPlan plan) {
-        ItemStack packageStack = packageStack(plan.color(), plan.data());
-        if (!canInsertOutputPackage(packageStack)) {
-            return AssemblyResult.OUTPUT_BLOCKED;
-        }
-        if (!ItemPackageTransactions.canExtract(input, plan.itemPlan())) {
-            return AssemblyResult.SOURCE_CHANGED;
-        }
-
-        if (!ItemPackageTransactions.commitExtract(input, plan.itemPlan())) {
-            return AssemblyResult.SOURCE_CHANGED;
-        }
-        insertOutputPackage(packageStack);
-        setChanged();
-        return AssemblyResult.ASSEMBLED;
-    }
-
     private AssemblyResult commitMenuAssemblyPlan(AssemblyPlan plan) {
         ItemStack packageStack = packageStack(plan.color(), plan.data());
         if (!canInsertOutputPackage(packageStack)) {
@@ -967,78 +881,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 : Optional.empty();
     }
 
-    private AssemblyAttempt planAssembly(IItemHandler input) {
-        ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
-        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
-                PackagedProcessingPatternDataStorage.read(patternStack);
-        if (processingPattern.isPresent()) {
-            return planProcessingPattern(input, processingPattern.get());
-        }
-
-        Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern =
-                PackagePatternDataStorage.read(patternStack);
-        if (pattern.isPresent()) {
-            Optional<ItemPackagePlan> exactPlan = ItemPackageTransactions.planExactPackage(
-                    input,
-                    pattern.get().color(),
-                    packageDataWithConfiguredFallbacks(pattern.get().color(), pattern.get().data()));
-            if (exactPlan.isEmpty()) {
-                return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
-            }
-            if (!ItemPackageTransactions.canExtract(input, exactPlan.get())) {
-                return AssemblyAttempt.failed(AssemblyResult.SOURCE_CHANGED);
-            }
-            return AssemblyAttempt.planned(new AssemblyPlan(pattern.get().color(), exactPlan.get()));
-        }
-
-        Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> packageCraftingPattern =
-                PackageCraftingPatternDataStorage.read(patternStack);
-        if (packageCraftingPattern.isPresent()) {
-            Optional<ItemPackagePlan> exactPlan = ItemPackageTransactions.planExactPackage(
-                    input,
-                    packageCraftingPattern.get().color(),
-                    packageCraftingPattern.get().data());
-            if (exactPlan.isEmpty() || !ItemPackageTransactions.canExtract(input, exactPlan.get())) {
-                return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
-            }
-            return AssemblyAttempt.planned(new AssemblyPlan(packageCraftingPattern.get().color(), exactPlan.get()));
-        }
-
-        if (ColoredProcessingPatternDataStorage.hasData(patternStack)) {
-            return planDefaultEncodedPattern(input, patternStack);
-        }
-
-        if (isAe2ProcessingPattern(patternStack)) {
-            return planDefaultEncodedPattern(input, patternStack);
-        }
-
-        return AssemblyAttempt.failed(AssemblyResult.NO_CONTENTS);
-    }
-
     private AssemblyAttempt planMenuAssembly() {
         ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
-        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> processingPattern =
-                PackagedProcessingPatternDataStorage.read(patternStack);
-        if (processingPattern.isPresent()) {
-            for (PackageData target : processingPattern.get().packages()) {
-                Optional<AssemblyPlan> plan = planMenuExactPackage(processingPattern.get().color(), target);
-                if (plan.isPresent()) {
-                    return AssemblyAttempt.planned(plan.get());
-                }
-            }
-            return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
-        }
-
-        Optional<PackagePatternDataStorage.EncodedPackagePattern> pattern =
-                PackagePatternDataStorage.read(patternStack);
-        if (pattern.isPresent()) {
-            return planMenuExactPackage(
-                            pattern.get().color(),
-                            packageDataWithConfiguredFallbacks(pattern.get().color(), pattern.get().data()))
-                    .map(AssemblyAttempt::planned)
-                    .orElseGet(() -> AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH));
-        }
-
         Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> packageCraftingPattern =
                 PackageCraftingPatternDataStorage.read(patternStack);
         if (packageCraftingPattern.isPresent()) {
@@ -1047,10 +891,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                             packageCraftingPattern.get().data())
                     .map(AssemblyAttempt::planned)
                     .orElseGet(() -> AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH));
-        }
-
-        if (ColoredProcessingPatternDataStorage.hasData(patternStack)) {
-            return planMenuDefaultEncodedPattern(patternStack);
         }
 
         if (isAe2ProcessingPattern(patternStack)) {
@@ -1201,45 +1041,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
     }
 
-    private AssemblyAttempt planProcessingPattern(
-            IItemHandler input,
-            PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern pattern) {
-        for (var target : pattern.packages()) {
-            PackageData effectiveTarget = packageDataWithConfiguredFallbacks(pattern.color(), target);
-            Optional<ItemPackagePlan> plan = ItemPackageTransactions.planExactPackage(input, pattern.color(), effectiveTarget);
-            if (plan.isEmpty() || !ItemPackageTransactions.canExtract(input, plan.get())) {
-                continue;
-            }
-            return AssemblyAttempt.planned(new AssemblyPlan(pattern.color(), plan.get()));
-        }
-        return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
-    }
-
-    private AssemblyAttempt planDefaultEncodedPattern(IItemHandler input, ItemStack patternStack) {
-        List<GenericStack> filters = decodedPatternInputs(patternStack);
-        if (filters.isEmpty()) {
-            return AssemblyAttempt.failed(AssemblyResult.NO_CONTENTS);
-        }
-        Optional<ItemPackagePlan> plan = ItemPackageTransactions.planPack(
-                input,
-                PackageColor.FLUIX,
-                configuredCapacityProfile(),
-                new com.warmthdawn.appliedpackaging.core.package_data.PackageFilter(
-                        Optional.of(PackageColor.FLUIX),
-                        Optional.empty(),
-                        filters),
-                MarkerMergeMode.CLEAR,
-                Optional.empty());
-        if (plan.isEmpty()) {
-            return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
-        }
-        if (!packageContentsExactlyMatch(plan.get().data(), filters)
-                || !ItemPackageTransactions.canExtract(input, plan.get())) {
-            return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
-        }
-        return AssemblyAttempt.planned(new AssemblyPlan(PackageColor.FLUIX, plan.get()));
-    }
-
     private AssemblyAttempt planMenuDefaultEncodedPattern(ItemStack patternStack) {
         List<GenericStack> filters = decodedPatternInputs(patternStack);
         if (!menuInputsExactlyMatchFilters(menuInputs, filters)) {
@@ -1300,7 +1101,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return result.data().map(data -> new QueuedPackage(color, data));
     }
 
-    private Optional<ColoredProviderPlan> planAdvancedProcessingPush(
+    private Optional<ProviderPlan> planAdvancedProcessingPush(
             ItemStack definitionStack,
             KeyCounter[] inputHolder) {
         Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> encoded =
@@ -1308,7 +1109,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (encoded.isEmpty()) {
             return Optional.empty();
         }
-        List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(definitionStack);
+        List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(definitionStack);
         int encodedSlots = encoded.get().activeColumnCount()
                 * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
         for (int slot = encodedSlots; slot < sparseInputs.size(); slot++) {
@@ -1364,18 +1165,17 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (packages.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(new ColoredProviderPlan(packages, consumedInputs));
+        return Optional.of(new ProviderPlan(packages, consumedInputs));
     }
 
-    private Optional<ColoredProviderPlan> planOrdinaryProcessingPush(
+    private Optional<ProviderPlan> planOrdinaryProcessingPush(
             ItemStack definitionStack,
             KeyCounter[] inputHolder) {
         if (!isAe2ProcessingPattern(definitionStack)
-                || AdvancedProcessingPatternDataStorage.hasData(definitionStack)
-                || ColoredProcessingPatternDataStorage.hasData(definitionStack)) {
+                || AdvancedProcessingPatternDataStorage.hasData(definitionStack)) {
             return Optional.empty();
         }
-        List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(definitionStack);
+        List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(definitionStack);
         List<GenericStack> inputs = new ArrayList<>();
         Map<AEKey, Long> expected = new LinkedHashMap<>();
         for (GenericStack input : sparseInputs) {
@@ -1392,77 +1192,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 PackageColor.FLUIX,
                 Optional.empty(),
                 inputs);
-        return queued.map(value -> new ColoredProviderPlan(List.of(value), inputs));
-    }
-
-    private Optional<ColoredProviderPlan> planColoredProcessingPush(ItemStack definitionStack, KeyCounter[] inputHolder) {
-        Optional<ColoredProcessingPatternDataStorage.EncodedColoredProcessingPattern> encoded =
-                ColoredProcessingPatternDataStorage.read(definitionStack);
-        if (encoded.isEmpty()) {
-            return Optional.empty();
-        }
-
-        List<GenericStack> sparseInputs = ColoredProcessingPatternDataStorage.readSparseInputs(definitionStack);
-        if (sparseInputs.isEmpty()) {
-            return Optional.empty();
-        }
-        for (int coloredSlot : encoded.get().slotColors().keySet()) {
-            if (coloredSlot >= sparseInputs.size() || sparseInputs.get(coloredSlot) == null) {
-                return Optional.empty();
-            }
-        }
-
-        Optional<Map<AEKey, Long>> availableInputs = aggregateInputs(inputHolder);
-        if (availableInputs.isEmpty()) {
-            return Optional.empty();
-        }
-        Map<AEKey, Long> remainingInputs = new HashMap<>(availableInputs.get());
-        Map<PackageColor, List<GenericStack>> groupedInputs = new LinkedHashMap<>();
-        List<GenericStack> consumedInputs = new ArrayList<>();
-
-        for (int slot = 0; slot < sparseInputs.size(); slot++) {
-            GenericStack sparseInput = sparseInputs.get(slot);
-            if (sparseInput == null || sparseInput.amount() <= 0) {
-                continue;
-            }
-            long available = remainingInputs.getOrDefault(sparseInput.what(), 0L);
-            if (available < sparseInput.amount()) {
-                return Optional.empty();
-            }
-            long remaining = available - sparseInput.amount();
-            if (remaining == 0) {
-                remainingInputs.remove(sparseInput.what());
-            } else {
-                remainingInputs.put(sparseInput.what(), remaining);
-            }
-
-            PackageColor color = encoded.get().colorForSlot(slot);
-            GenericStack consumed = new GenericStack(sparseInput.what(), sparseInput.amount());
-            groupedInputs.computeIfAbsent(color, ignored -> new ArrayList<>()).add(consumed);
-            consumedInputs.add(consumed);
-        }
-
-        if (groupedInputs.isEmpty() || hasRemainingInputs(remainingInputs)) {
-            return Optional.empty();
-        }
-
-        List<QueuedPackage> packages = new ArrayList<>();
-        for (var entry : groupedInputs.entrySet()) {
-            var result = PackagePlanBuilder.build(
-                    entry.getKey(),
-                    entry.getValue(),
-                    List.of(),
-                    configuredMarkerMode(),
-                    configuredMarkerItem(),
-                    configuredCapacityProfile(),
-                    0);
-            if (result.data().isEmpty()) {
-                return Optional.empty();
-            }
-            packages.add(new QueuedPackage(entry.getKey(), result.data().orElseThrow()));
-        }
-
-        return Optional.of(new ColoredProviderPlan(packages, consumedInputs));
+        return queued.map(value -> new ProviderPlan(List.of(value), inputs));
     }
 
     private boolean commitProviderPackages(List<QueuedPackage> packages) {
@@ -1542,7 +1272,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
 
         ItemStack definitionStack = patternDetails.getDefinition().toStack();
-        Optional<PackagedProviderPlan> packageCraftingPlan = planPackageCraftingPush(definitionStack, inputHolder);
+        Optional<ProviderPlan> packageCraftingPlan = planPackageCraftingPush(definitionStack, inputHolder);
         if (packageCraftingPlan.isPresent()) {
             if (!beginProviderCraft(
                     packageCraftingPlan.get().packages(),
@@ -1553,16 +1283,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return true;
         }
 
-        Optional<PackagedProviderPlan> packagedPlan = planPackagedProcessingPush(definitionStack, inputHolder);
-        if (packagedPlan.isPresent()) {
-            if (!beginProviderCraft(packagedPlan.get().packages(), inputHolder, packagedPlan.get().consumedInputs())) {
-                return false;
-            }
-            return true;
-        }
-
         if (AdvancedProcessingPatternDataStorage.hasData(definitionStack)) {
-            Optional<ColoredProviderPlan> advancedPlan = planAdvancedProcessingPush(definitionStack, inputHolder);
+            Optional<ProviderPlan> advancedPlan = planAdvancedProcessingPush(definitionStack, inputHolder);
             if (advancedPlan.isEmpty()
                     || !beginProviderCraft(
                             advancedPlan.get().packages(),
@@ -1573,17 +1295,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return true;
         }
 
-        if (ColoredProcessingPatternDataStorage.hasData(definitionStack)) {
-            Optional<ColoredProviderPlan> coloredPlan = planColoredProcessingPush(definitionStack, inputHolder);
-            if (coloredPlan.isEmpty()
-                    || !beginProviderCraft(coloredPlan.get().packages(), inputHolder, coloredPlan.get().consumedInputs())) {
-                return false;
-            }
-            return true;
-        }
-
         if (isAe2ProcessingPattern(definitionStack)) {
-            Optional<ColoredProviderPlan> ordinaryPlan = planOrdinaryProcessingPush(definitionStack, inputHolder);
+            Optional<ProviderPlan> ordinaryPlan = planOrdinaryProcessingPush(definitionStack, inputHolder);
             if (ordinaryPlan.isEmpty()
                     || !beginProviderCraft(
                             ordinaryPlan.get().packages(),
@@ -1612,51 +1325,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return true;
     }
 
-    private Optional<PackagedProviderPlan> planPackagedProcessingPush(
-            ItemStack definitionStack,
-            KeyCounter[] inputHolder) {
-        Optional<PackagedProcessingPatternDataStorage.EncodedPackagedProcessingPattern> encoded =
-                PackagedProcessingPatternDataStorage.read(definitionStack);
-        if (encoded.isEmpty()) {
-            return Optional.empty();
-        }
-        Optional<Map<AEKey, Long>> availableInputs = aggregateInputs(inputHolder);
-        if (availableInputs.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Map<AEKey, Long> remainingInputs = new HashMap<>(availableInputs.get());
-        Map<AEKey, Long> consumedByKey = new LinkedHashMap<>();
-        List<QueuedPackage> packages = new ArrayList<>();
-        for (PackageData data : encoded.get().packages()) {
-            for (GenericStack stack : data.contents()) {
-                long available = remainingInputs.getOrDefault(stack.what(), 0L);
-                if (available < stack.amount()) {
-                    return Optional.empty();
-                }
-                long remaining = available - stack.amount();
-                if (remaining == 0) {
-                    remainingInputs.remove(stack.what());
-                } else {
-                    remainingInputs.put(stack.what(), remaining);
-                }
-                consumedByKey.merge(stack.what(), stack.amount(), Long::sum);
-            }
-            packages.add(new QueuedPackage(
-                    encoded.get().color(),
-                    packageDataWithConfiguredFallbacks(encoded.get().color(), data)));
-        }
-        if (packages.isEmpty() || hasRemainingInputs(remainingInputs)) {
-            return Optional.empty();
-        }
-
-        List<GenericStack> consumedInputs = consumedByKey.entrySet().stream()
-                .map(entry -> new GenericStack(entry.getKey(), entry.getValue()))
-                .toList();
-        return Optional.of(new PackagedProviderPlan(packages, consumedInputs));
-    }
-
-    private Optional<PackagedProviderPlan> planPackageCraftingPush(
+    private Optional<ProviderPlan> planPackageCraftingPush(
             ItemStack definitionStack,
             KeyCounter[] inputHolder) {
         Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> encoded =
@@ -1691,7 +1360,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         List<GenericStack> consumedInputs = consumedByKey.entrySet().stream()
                 .map(entry -> new GenericStack(entry.getKey(), entry.getValue()))
                 .toList();
-        return Optional.of(new PackagedProviderPlan(
+        return Optional.of(new ProviderPlan(
                 List.of(new QueuedPackage(encoded.get().color(), encoded.get().data())),
                 consumedInputs));
     }
@@ -1699,7 +1368,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     @Override
     public boolean acceptsPlans() {
         return outputSlotsEmpty()
-                && inputBufferIsEmpty()
                 && !hasMenuInputs()
                 && pendingPackages.isEmpty()
                 && activePackages.isEmpty()
@@ -1785,65 +1453,21 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         tag.put(ACTIVE_PACKAGES_TAG, saveQueuedPackages(activePackages));
         tag.putInt(CRAFT_PROGRESS_TAG, craftingProgress);
         tag.putString(OUTPUT_MODE_TAG, outputMode.id());
-        tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
     }
 
     @Override
     public void loadTag(CompoundTag tag) {
         super.loadTag(tag);
-        List<QueuedPackage> legacyOutputs = List.of();
         if (tag.contains(ITEMS_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)) {
-            legacyOutputs = loadItems(tag.getCompound(ITEMS_TAG));
+            items.deserializeNBT(tag.getCompound(ITEMS_TAG));
         }
         upgrades.readFromNBT(tag, UPGRADES_TAG);
         loadMenuInputs(tag);
-        if (tag.contains(OUTPUT_MODE_TAG, Tag.TAG_STRING)) {
-            outputMode = OutputMode.byId(tag.getString(OUTPUT_MODE_TAG)).orElse(OutputMode.ME_NETWORK);
-        } else {
-            outputMode = !tag.contains(AUTO_EXPORT_TAG, Tag.TAG_BYTE) || tag.getBoolean(AUTO_EXPORT_TAG)
-                    ? OutputMode.ME_NETWORK
-                    : OutputMode.NONE;
-        }
-        selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
+        outputMode = OutputMode.byId(tag.getString(OUTPUT_MODE_TAG)).orElse(OutputMode.ME_NETWORK);
         craftingProgress = Math.max(0, Math.min(MAX_CRAFT_PROGRESS, tag.getInt(CRAFT_PROGRESS_TAG)));
         loadQueuedPackages(tag, ACTIVE_PACKAGES_TAG, activePackages);
         loadPendingPackages(tag);
-        if (!legacyOutputs.isEmpty()) {
-            pendingPackages.addAll(0, legacyOutputs);
-        }
         promoteNextOutput();
-    }
-
-    private List<QueuedPackage> loadItems(CompoundTag itemsTag) {
-        ItemStackHandler loadedItems = new ItemStackHandler(SLOT_COUNT);
-        loadedItems.deserializeNBT(itemsTag);
-        List<QueuedPackage> legacyOutputs = new ArrayList<>();
-        for (int slot = 0; slot < items.getSlots(); slot++) {
-            ItemStack stack = slot < loadedItems.getSlots() ? loadedItems.getStackInSlot(slot) : ItemStack.EMPTY;
-            if (isOutputSlot(slot)) {
-                if (slot == SLOT_OUTPUT && !stack.isEmpty()) {
-                    ItemStack primary = stack.copyWithCount(1);
-                    items.setStackInSlot(SLOT_OUTPUT, primary);
-                    for (int count = 1; count < stack.getCount(); count++) {
-                        queuedPackage(stack).ifPresent(legacyOutputs::add);
-                    }
-                } else if (slot != SLOT_OUTPUT && !stack.isEmpty()) {
-                    for (int count = 0; count < stack.getCount(); count++) {
-                        queuedPackage(stack).ifPresent(legacyOutputs::add);
-                    }
-                }
-            } else {
-                items.setStackInSlot(slot, stack);
-            }
-        }
-        return legacyOutputs;
-    }
-
-    private Optional<QueuedPackage> queuedPackage(ItemStack stack) {
-        if (!(stack.getItem() instanceof PackageItem packageItem)) {
-            return Optional.empty();
-        }
-        return PackageDataStorage.read(stack).map(data -> new QueuedPackage(packageItem.color(), data));
     }
 
     @Override
@@ -1970,15 +1594,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
     }
 
-    private boolean inputBufferIsEmpty() {
-        for (int slot = 0; slot < LEGACY_INPUT_SLOT_COUNT; slot++) {
-            if (!items.getStackInSlot(slot).isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private void commitMenuExtractions(List<MenuInputExtraction> extractions) {
         for (MenuInputExtraction extraction : extractions) {
             MenuInputEntry entry = menuInput(extraction.slot());
@@ -2028,14 +1643,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
         }
         return Optional.empty();
-    }
-
-    private PackageData packageDataWithConfiguredFallbacks(PackageColor color, PackageData target) {
-        Optional<MarkerSpec> marker = target.marker().isPresent() ? target.marker() : configuredMarkerItem();
-        if (marker.equals(target.marker())) {
-            return target;
-        }
-        return PackageData.create(color, target.contents(), marker, target.flags());
     }
 
     private ListTag savePendingPackages() {
@@ -2088,26 +1695,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 .orElse(PackageCapacityProfile.DEFAULT);
     }
 
-    private MarkerMergeMode configuredMarkerMode() {
-        return configuredMarkerItem().isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.RETAIN;
-    }
-
-    private Optional<MarkerSpec> configuredMarkerItem() {
-        ItemStack markerStack = items.getStackInSlot(SLOT_MARKER);
-        if (!isMarkerSlotItem(markerStack)) {
-            return Optional.empty();
-        }
-        ItemStack keyStack = markerStack.copy();
-        keyStack.setCount(1);
-        return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
-    }
-
-    public static boolean isMarkerSlotItem(ItemStack stack) {
-        return !stack.isEmpty()
-                && !(stack.getItem() instanceof PackageItem)
-                && !isPatternSlotItem(stack);
-    }
-
     private void onUpgradesChanged() {
         setChanged();
     }
@@ -2125,7 +1712,18 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private void promoteNextOutput() {
-        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty() || pendingPackages.isEmpty()) {
+        if (!items.getStackInSlot(SLOT_OUTPUT).isEmpty()) {
+            return;
+        }
+        for (int outputIndex = 1; outputIndex < OUTPUT_SLOT_COUNT; outputIndex++) {
+            int slot = outputHandlerSlot(outputIndex);
+            ItemStack next = items.extractItem(slot, 1, false);
+            if (!next.isEmpty()) {
+                items.setStackInSlot(SLOT_OUTPUT, next);
+                return;
+            }
+        }
+        if (pendingPackages.isEmpty()) {
             return;
         }
         QueuedPackage next = pendingPackages.remove(0);
@@ -2138,28 +1736,22 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private final class ExternalItemHandler implements IItemHandler {
         @Override
         public int getSlots() {
-            return items.getSlots();
+            return 1;
         }
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            return isOutputSlot(slot) && slot != SLOT_OUTPUT ? ItemStack.EMPTY : items.getStackInSlot(slot);
+            return slot == 0 ? items.getStackInSlot(SLOT_OUTPUT) : ItemStack.EMPTY;
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (stack.isEmpty() || isOutputSlot(slot) || isCrafting()) {
-                return stack;
-            }
-            if (!items.isItemValid(slot, stack)) {
-                return stack;
-            }
-            return items.insertItem(slot, stack, simulate);
+            return stack;
         }
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (amount <= 0 || slot != SLOT_OUTPUT) {
+            if (amount <= 0 || slot != 0) {
                 return ItemStack.EMPTY;
             }
             return extractPrimaryOutput(amount, simulate);
@@ -2167,41 +1759,26 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
         @Override
         public int getSlotLimit(int slot) {
-            return items.getSlotLimit(slot);
+            return slot == 0 ? 1 : 0;
         }
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return !isOutputSlot(slot) && !isCrafting() && items.isItemValid(slot, stack);
+            return false;
         }
     }
 
     private record AssemblyPlan(
             PackageColor color,
             PackageData data,
-            ItemPackagePlan itemPlan,
             List<MenuInputExtraction> menuExtractions) {
-        private AssemblyPlan(PackageColor color, ItemPackagePlan plan) {
-            this(color, plan.data(), plan, List.of());
-        }
-
-        private AssemblyPlan(PackageColor color, PackageData data, List<MenuInputExtraction> menuExtractions) {
-            this(color, data, null, menuExtractions);
-        }
     }
 
     private record QueuedPackage(PackageColor color, PackageData data) {
     }
 
-    private record ColoredProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {
-        private ColoredProviderPlan {
-            packages = List.copyOf(packages);
-            consumedInputs = List.copyOf(consumedInputs);
-        }
-    }
-
-    private record PackagedProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {
-        private PackagedProviderPlan {
+    private record ProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {
+        private ProviderPlan {
             packages = List.copyOf(packages);
             consumedInputs = List.copyOf(consumedInputs);
         }

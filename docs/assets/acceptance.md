@@ -32,7 +32,7 @@ JSON 可解析
 必须满足：
 
 ```text
-package_pattern 与 packaged_processing_pattern 最终 PNG 为 32x32
+package_pattern 与 advanced_processing_pattern 使用用户提供的原字节 16x16 RGBA PNG
 17 色包裹不使用独立平面 item PNG，item model 直接引用 3D package_box 模型
 包裹 front/back/side 贴图为 10x8，top/bottom 贴图为 10x10
 每个 package_box face 使用独立完整贴图，模型 JSON 必须声明 full-face uv [0,0,16,16]
@@ -41,7 +41,8 @@ package_pattern 与 packaged_processing_pattern 最终 PNG 为 32x32
 透明背景
 图标居中，有 1-2 像素安全边距
 17 色包裹只改变束带/封签色，不改变主体轮廓
-package_pattern 与 packaged_processing_pattern 在小尺寸下可区分
+GUI 变换统一为 rotation [30,135,0]、scale [0.75,0.75,0.75]，north/front 面位于屏幕左侧；有无 marker 不得改变大小或朝向
+package_pattern 与 advanced_processing_pattern 在小尺寸下可区分
 ```
 
 路径：
@@ -49,7 +50,7 @@ package_pattern 与 packaged_processing_pattern 在小尺寸下可区分
 ```text
 src/main/resources/assets/appliedpackaging/models/item/<item_id>.json
 src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png
-src/main/resources/assets/appliedpackaging/textures/item/packaged_processing_pattern.png
+src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png
 src/main/resources/assets/appliedpackaging/models/item/package_box/<color>.json
 src/main/resources/assets/appliedpackaging/textures/block/package_box/<color>/package_box_<face>.png
 ```

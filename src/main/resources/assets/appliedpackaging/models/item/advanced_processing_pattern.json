@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "appliedpackaging:item/packaged_processing_pattern"
+    "layer0": "appliedpackaging:item/advanced_processing_pattern"
   }
 }

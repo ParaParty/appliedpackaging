@@ -17,7 +17,11 @@ public final class PackageCapacityCalculator {
     public static long usedUnits(List<GenericStack> contents) {
         long total = 0;
         for (GenericStack stack : contents) {
-            total += usedUnits(stack);
+            try {
+                total = Math.addExact(total, usedUnits(stack));
+            } catch (ArithmeticException exception) {
+                throw new IllegalArgumentException("Package capacity units overflow", exception);
+            }
         }
         return total;
     }
@@ -46,6 +50,6 @@ public final class PackageCapacityCalculator {
     }
 
     private static long divideRoundUp(long value, long divisor) {
-        return (value + divisor - 1) / divisor;
+        return value <= 0 ? 0 : 1 + (value - 1) / divisor;
     }
 }

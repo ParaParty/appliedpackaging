@@ -68,10 +68,10 @@ try {
     $badDimensionPath = Join-Path $badDimensionFixture "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png"
     [System.IO.File]::WriteAllBytes($badDimensionPath, $tinyPngBytes)
     Invoke-AssetsCase `
-        -Name "bad item dimension fixture" `
+        -Name "bad user pattern item dimension fixture" `
         -RootPath $badDimensionFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "expected 32x32 item texture"
+        -ExpectedText "expected 16x16 user pattern item texture"
 
     $badGuiAtlasDimensionFixture = New-AssetsFixture "bad-gui-atlas-dimension"
     $badGuiAtlasDimensionPath = Join-Path $badGuiAtlasDimensionFixture "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png"
@@ -204,7 +204,7 @@ try {
         -ExpectedText "declares the marker custom-render override"
 
     $badOpaqueModelFixture = New-AssetsFixture "bad-opaque-model-render-type"
-    $badOpaqueModelPath = Join-Path $badOpaqueModelFixture "src/main/resources/assets/appliedpackaging/models/block/package_assembler.json"
+    $badOpaqueModelPath = Join-Path $badOpaqueModelFixture "src/main/resources/assets/appliedpackaging/models/part/package_storage_bus_base.json"
     $badOpaqueModel = Get-Content -Raw -LiteralPath $badOpaqueModelPath | ConvertFrom-Json
     $badOpaqueModel | Add-Member -NotePropertyName "render_type" -NotePropertyValue "minecraft:cutout_mipped"
     $badOpaqueModel | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badOpaqueModelPath -Encoding UTF8

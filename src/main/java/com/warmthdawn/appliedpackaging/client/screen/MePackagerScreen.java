@@ -258,11 +258,11 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
         @Override
         protected Icon getIcon() {
             return switch (menu.activationMode()) {
-                case HIGH_SIGNAL, CYCLIC -> Icon.REDSTONE_HIGH;
+                case HIGH_SIGNAL -> Icon.REDSTONE_HIGH;
                 case LOW_SIGNAL -> Icon.REDSTONE_LOW;
                 case ALWAYS -> Icon.REDSTONE_IGNORE;
                 case PULSE -> Icon.REDSTONE_PULSE;
-                case NEVER, DISABLED -> Icon.CLEAR;
+                case NEVER -> Icon.CLEAR;
             };
         }
     }

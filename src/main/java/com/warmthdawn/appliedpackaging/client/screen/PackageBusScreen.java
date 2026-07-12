@@ -34,6 +34,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.ModernUpgradesPanel;
+import com.warmthdawn.appliedpackaging.client.widget.ModernVerticalToolbar;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.mixin.client.SlotAccessor;
 import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
@@ -61,8 +62,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
             AppliedPackaging.MOD_ID, "textures/gui/package-storagebus-sprites.png");
     private static final ResourceLocation LATEST_AE2_STATES = new ResourceLocation(
             AppliedPackaging.MOD_ID, "textures/gui/ae2-states.png");
-    private static final ResourceLocation LATEST_VERTICAL_BUTTONS = new ResourceLocation(
-            AppliedPackaging.MOD_ID, "textures/gui/package_bus_vertical_buttons_bg.png");
 
     // User-provided Package Bus sprites. These coordinates are never baked into
     // or copied over the supplied background texture.
@@ -77,12 +76,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private static final Blitter PRIORITY_TAB = Blitter.texture(LATEST_AE2_STATES).src(160, 192, 20, 20);
     private static final Blitter PRIORITY_TAB_FOCUS =
             Blitter.texture(LATEST_AE2_STATES).src(160, 224, 22, 22);
-    private static final Blitter TOOLBAR_BUTTON =
-            Blitter.texture(LATEST_AE2_STATES).src(176, 128, 18, 20);
-    private static final Blitter TOOLBAR_BUTTON_FOCUS =
-            Blitter.texture(LATEST_AE2_STATES).src(194, 128, 18, 20);
-    private static final Blitter TOOLBAR_BUTTON_HOVER =
-            Blitter.texture(LATEST_AE2_STATES).src(212, 128, 18, 20);
     private static final ResourceLocation STORAGE_BUS_GUIDE = new ResourceLocation(
             "ae2", "items-blocks-machines/storage_bus.md");
 
@@ -93,14 +86,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private static final Blitter PROGRESS_FILL =
             Blitter.texture(BACKGROUND).src(196, 0, 1, 1).colorArgb(0xff6fffe9);
 
-    // AE2 19+ vertical-button background is a 21x26 nine-slice with a 2px
-    // top and 4px bottom border. Blitter does the equivalent three-part draw.
-    private static final Blitter TOOLBAR_TOP = Blitter.texture(LATEST_VERTICAL_BUTTONS, 21, 26).src(0, 0, 21, 2);
-    private static final Blitter TOOLBAR_MIDDLE =
-            Blitter.texture(LATEST_VERTICAL_BUTTONS, 21, 26).src(0, 2, 21, 20);
-    private static final Blitter TOOLBAR_BOTTOM =
-            Blitter.texture(LATEST_VERTICAL_BUTTONS, 21, 26).src(0, 22, 21, 4);
-
     private static final int BUTTON_X_RIGHT = 30;
     private static final int ROW_Y = 29;
     private static final int ROW_STEP = 18;
@@ -108,14 +93,11 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private static final int BUTTON_TOP_MARGIN = 2;
     private static final int PROGRESS_X = 139;
     private static final int WORK_SLOT_Y = 8;
-    private static final int TOOLBAR_POSITION_X = 3;
-    private static final int TOOLBAR_POSITION_Y = 1;
-    private static final int TOOLBAR_MARGIN = 2;
-    private static final int TOOLBAR_SPACING = 6;
 
     private final PackageColorPicker colorPicker = new PackageColorPicker();
     private final List<PackageColorPicker.TriggerButton> colorButtons = new ArrayList<>();
     private final List<Button> toolbarButtons = new ArrayList<>();
+    private final ModernVerticalToolbar modernToolbar = new ModernVerticalToolbar();
     private final SettingToggleButton<AccessRestriction> rwMode;
     private final SettingToggleButton<StorageFilter> storageFilter;
     private final SettingToggleButton<YesNo> filterOnExtract;
@@ -164,6 +146,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         toolbarButtons.add(filterOnExtract);
         toolbarButtons.add(fuzzyMode);
         toolbarButtons.add(rwMode);
+        modernToolbar.setButtons(toolbarButtons);
 
         for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
             final int rowIndex = row;
@@ -214,7 +197,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
             button.visible = menu.isRowEnabled(row);
             button.active = menu.isRowEnabled(row) && !colorPicker.isOpen();
         }
-        layoutModernToolbar();
+        modernToolbar.layout(leftPos, topPos);
     }
 
     @Override
@@ -232,7 +215,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         // has neither facility, so flushing here is the exact layer boundary
         // needed before the following immediate Blitter submissions.
         graphics.flush();
-        drawModernToolbarBackground(graphics, offsetX, offsetY);
+        modernToolbar.drawPanel(graphics, offsetX, offsetY);
         drawFilterSlotBackgrounds(graphics, offsetX, offsetY);
         if (menu.showsWorkingArea()) {
             drawWorkingArea(graphics, offsetX, offsetY);
@@ -360,55 +343,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         }
     }
 
-    private void layoutModernToolbar() {
-        int currentY = topPos + TOOLBAR_POSITION_Y + TOOLBAR_MARGIN;
-        int xEdge = leftPos + TOOLBAR_POSITION_X - TOOLBAR_MARGIN;
-        for (Button button : toolbarButtons) {
-            if (!button.visible) {
-                continue;
-            }
-            button.setX(xEdge - button.getWidth());
-            button.setY(currentY);
-            currentY += button.getHeight() + TOOLBAR_SPACING;
-        }
-    }
-
-    private void drawModernToolbarBackground(GuiGraphics graphics, int offsetX, int offsetY) {
-        int visible = 0;
-        int maxWidth = 0;
-        int totalButtonHeight = 0;
-        for (Button button : toolbarButtons) {
-            if (!button.visible) {
-                continue;
-            }
-            visible++;
-            maxWidth = Math.max(maxWidth, button.getWidth());
-            totalButtonHeight += button.getHeight();
-        }
-        if (visible == 0) {
-            return;
-        }
-
-        int destinationX = offsetX + TOOLBAR_POSITION_X - maxWidth - 2 * TOOLBAR_MARGIN - 2;
-        int destinationY = offsetY + TOOLBAR_POSITION_Y - 1;
-        int destinationWidth = maxWidth + 2 * TOOLBAR_MARGIN + 1;
-        int destinationHeight = 2 * TOOLBAR_MARGIN
-                + totalButtonHeight
-                + visible * TOOLBAR_SPACING
-                + 2;
-        TOOLBAR_TOP.dest(destinationX, destinationY, destinationWidth, 2).blit(graphics);
-        TOOLBAR_MIDDLE.dest(
-                destinationX,
-                destinationY + 2,
-                destinationWidth,
-                destinationHeight - 6).blit(graphics);
-        TOOLBAR_BOTTOM.dest(
-                destinationX,
-                destinationY + destinationHeight - 4,
-                destinationWidth,
-                4).blit(graphics);
-    }
-
     private static final class NewPriorityTabButton extends TabButton {
         private NewPriorityTabButton() {
             super(ItemStack.EMPTY, GuiText.Priority.text(), button -> NetworkHandler.instance()
@@ -434,7 +368,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
         @Override
         public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            renderModernToolbarButton(graphics, this, getIcon());
+            ModernVerticalToolbar.renderButton(graphics, this, getIcon());
         }
     }
 
@@ -445,7 +379,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
         @Override
         public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            renderModernToolbarButton(graphics, this, getIcon());
+            ModernVerticalToolbar.renderButton(graphics, this, getIcon());
         }
     }
 
@@ -457,29 +391,8 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
         @Override
         public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            renderModernToolbarButton(graphics, this, getIcon());
+            ModernVerticalToolbar.renderButton(graphics, this, getIcon());
         }
-    }
-
-    private static void renderModernToolbarButton(GuiGraphics graphics, Button button, Icon icon) {
-        if (!button.visible) {
-            return;
-        }
-
-        int yOffset = button.isHovered() ? 1 : 0;
-        Blitter background = button.isHovered()
-                ? TOOLBAR_BUTTON_HOVER
-                : button.isFocused() ? TOOLBAR_BUTTON_FOCUS : TOOLBAR_BUTTON;
-
-        RenderSystem.disableDepthTest();
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        background.dest(button.getX() - 1, button.getY() + yOffset).blit(graphics);
-        Blitter.texture(LATEST_AE2_STATES)
-                .src(icon.x, icon.y, icon.width, icon.height)
-                .dest(button.getX(), button.getY() + 1 + yOffset)
-                .blit(graphics);
-        RenderSystem.enableDepthTest();
     }
 
     @Override

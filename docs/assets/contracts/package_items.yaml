@@ -31,6 +31,16 @@ conversion_requirements:
   centered_object: true
   transparent_background: true
   keep_readable_at_16x16: true
+  pattern_icons:
+    package_pattern:
+      resolution: [16, 16]
+      source: E:/resources/textures/appliedpackaging/ret/pacakge_pattern.png
+      sha256: 04E0C00E41C68AEA57C1B97CEF6E736F0DB2A75F768B6050BEF48C116F05E349
+    advanced_processing_pattern:
+      runtime_texture: advanced_processing_pattern.png
+      resolution: [16, 16]
+      source: E:/resources/textures/appliedpackaging/ret/adv_processing_pattern.png
+      sha256: 084B03A92C440BC7CF675F1C30D3883BC6808F519924C224C1CB8E5D3FAE4FF9
   package_items_use_3d_model: true
   package_face_sizes:
     front: [10, 8]
@@ -65,7 +75,7 @@ conversion_requirements:
     - red_package
     - black_package
     - package_pattern
-    - packaged_processing_pattern
+    - advanced_processing_pattern
 harness_assumptions:
   output_namespace: appliedpackaging
   texture_dir: src/main/resources/assets/appliedpackaging/textures/item

@@ -4,10 +4,10 @@ import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.parts.PartModels;
-import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
 import appeng.parts.PartModel;
-import com.warmthdawn.appliedpackaging.core.ae2.PackageBusTransactions;
+import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.core.ae2.PackageUnpackingOperations;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
@@ -25,17 +25,14 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
     private static final String UNPACK_BLOCKED_TAG = "unpackBlocked";
 
     private static final IPartModel MODELS_OFF = new PartModel(
-            AppEng.makeId("part/p2p/p2p_tunnel_base"),
-            AppEng.makeId("part/p2p/p2p_tunnel_me"),
-            AppEng.makeId("part/p2p/p2p_tunnel_status_off"));
+            AppliedPackaging.id("part/package_unpacking_bus_base"),
+            AppliedPackaging.id("part/package_bus_status_off"));
     private static final IPartModel MODELS_ON = new PartModel(
-            AppEng.makeId("part/p2p/p2p_tunnel_base"),
-            AppEng.makeId("part/p2p/p2p_tunnel_me"),
-            AppEng.makeId("part/p2p/p2p_tunnel_status_on"));
+            AppliedPackaging.id("part/package_unpacking_bus_base"),
+            AppliedPackaging.id("part/package_bus_status_on"));
     private static final IPartModel MODELS_HAS_CHANNEL = new PartModel(
-            AppEng.makeId("part/p2p/p2p_tunnel_base"),
-            AppEng.makeId("part/p2p/p2p_tunnel_me"),
-            AppEng.makeId("part/p2p/p2p_tunnel_status_has_channel"));
+            AppliedPackaging.id("part/package_unpacking_bus_base"),
+            AppliedPackaging.id("part/package_bus_status_has_channel"));
 
     private final IItemHandlerModifiable heldPackageItems = new IItemHandlerModifiable() {
         @Override
@@ -110,11 +107,10 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
 
     public static void registerModels() {
         PartModels.registerModels(
-                AppEng.makeId("part/p2p/p2p_tunnel_base"),
-                AppEng.makeId("part/p2p/p2p_tunnel_me"),
-                AppEng.makeId("part/p2p/p2p_tunnel_status_off"),
-                AppEng.makeId("part/p2p/p2p_tunnel_status_on"),
-                AppEng.makeId("part/p2p/p2p_tunnel_status_has_channel"));
+                AppliedPackaging.id("part/package_unpacking_bus_base"),
+                AppliedPackaging.id("part/package_bus_status_off"),
+                AppliedPackaging.id("part/package_bus_status_on"),
+                AppliedPackaging.id("part/package_bus_status_has_channel"));
     }
 
     @Override
@@ -157,7 +153,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
             return;
         }
 
-        ItemStack reserved = PackageBusTransactions.reserveOnePackageForUnpacking(
+        ItemStack reserved = PackageUnpackingOperations.reserveOnePackage(
                 storage.get().getInventory(),
                 target.get(),
                 filterSet()::matches,
@@ -176,7 +172,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
         var target = findTargetItemHandler();
         if (target.isEmpty()
                 || !filterSet().matches(heldPackage)
-                || !PackageBusTransactions.canUnpackHeldPackage(heldPackage, target.get())) {
+                || !PackageUnpackingOperations.canUnpack(heldPackage, target.get())) {
             if (!unpackBlocked) {
                 unpackBlocked = true;
                 configurationChanged();
@@ -206,7 +202,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
         var target = findTargetItemHandler();
         boolean committed = target.isPresent()
                 && filterSet().matches(heldPackage)
-                && PackageBusTransactions.unpackHeldPackage(heldPackage, target.get());
+                && PackageUnpackingOperations.unpack(heldPackage, target.get());
         if (!committed) {
             working = false;
             unpackBlocked = true;

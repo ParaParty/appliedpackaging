@@ -28,6 +28,7 @@ Mod 名称：Applied Packaging / 应用封装
 | [06-verification-release.md](06-verification-release.md) | 验证与发布 | JVM 测试、GameTest、客户端/服务端验证和发布标准 |
 | [07-references.md](07-references.md) | 参考来源 | 外部版本、AE2 语义和工具链来源 |
 | [08-change-intake.md](08-change-intake.md) | 变更接收 | 发布前新增需求、材质替换和范围冻结暂存 |
+| [09-code-review-audit.md](09-code-review-audit.md) | 代码审查 | 已清理问题、兼容债务、临时方案和设计冲突 |
 | [chat-summary.md](chat-summary.md) | 讨论记录 | 保留历史命名、美术和玩法讨论，不作为实现源文件 |
 | [development-log.md](development-log.md) | 开发日志 | 记录阶段性决策、命令、结果和下一步 |
 
@@ -56,8 +57,8 @@ ME 打包机：
   不真实嵌套；包裹套包裹时展开后再封装。
 
 样板：
-  AE2 原版 blank pattern 可作为 package_pattern 数据载体。
-  当终端需要多包裹计划时，AE2 原版 blank pattern 也可作为 packaged_processing_pattern 数据载体。
-  当终端配置处理输出 ghost 时，AE2 blank pattern 会编码为 AE2 原版 processing pattern，并附带 packaged_processing_pattern NBT。
-  本地 package_pattern / packaged_processing_pattern 仅保留兼容读取，不作为玩家主入口、创造栏条目、普通合成输出或 Split 正常产物。
+  AE2 原版 Pattern Encoding Terminal 的包裹模式编码独立 package_pattern。
+  AE2 原版 processing pattern 表示单个 Fluix、空 marker 包裹计划。
+  高级样板终端编码独立 advanced_processing_pattern，保存连续包裹列、颜色与主产物 marker。
+  发布前不读取旧 AE2 crafting/blank pattern 包裹载体或旧 colored/packaged processing 扩展 NBT。
 ```

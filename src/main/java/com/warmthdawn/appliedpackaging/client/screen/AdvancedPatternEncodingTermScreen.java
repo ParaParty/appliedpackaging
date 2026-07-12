@@ -21,6 +21,7 @@ import appeng.helpers.InventoryAction;
 import appeng.menu.slot.AppEngSlot;
 import appeng.menu.slot.ResizableSlot;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
+import com.warmthdawn.appliedpackaging.client.widget.ModernVerticalToolbar;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.mixin.client.MEStorageScreenAccessor;
@@ -32,6 +33,7 @@ import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -122,6 +124,7 @@ public class AdvancedPatternEncodingTermScreen
     private final LatestEncodeButton encodeButton = new LatestEncodeButton();
     private final LatestCraftingStatusButton craftingStatusButton = new LatestCraftingStatusButton();
     private final CompactClearButton clearButton = new CompactClearButton();
+    private final ModernVerticalToolbar modernToolbar = new ModernVerticalToolbar();
     private final ActionButton cycleOutputButton;
     private final Scrollbar rowScrollbar;
     private int scrollColumn;
@@ -163,6 +166,10 @@ public class AdvancedPatternEncodingTermScreen
     public void init() {
         super.init();
         replaceCraftingStatusButton();
+        modernToolbar.captureIconButtons(children());
+        for (Renderable renderer : modernToolbar.createIconButtonRenderers()) {
+            addRenderableOnly(renderer);
+        }
         for (ColumnColorButton button : columnColorButtons) {
             addRenderableWidget(button);
         }
@@ -212,6 +219,8 @@ public class AdvancedPatternEncodingTermScreen
             int mouseY,
             float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
+        modernToolbar.layout(offsetX, offsetY);
+        modernToolbar.drawPanel(graphics, offsetX, offsetY);
         drawEncodingSlotBackgrounds(graphics, offsetX, offsetY);
         drawColumnScrollbar(graphics, offsetX, offsetY);
         drawPrimaryOutputOverlay(graphics, offsetX, offsetY);

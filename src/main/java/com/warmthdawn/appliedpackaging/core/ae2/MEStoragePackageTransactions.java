@@ -6,6 +6,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
+import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
@@ -146,7 +147,9 @@ public final class MEStoragePackageTransactions {
                 committed.add(new GenericStack(extraction.what(), extracted));
             }
             if (extracted != extraction.amount()) {
-                rollbackExtractions(source, committed);
+                if (!rollbackExtractions(source, committed)) {
+                    AppliedPackaging.LOGGER.error("ME storage package extraction rollback did not restore all extracted resources");
+                }
                 return false;
             }
         }
@@ -174,25 +177,35 @@ public final class MEStoragePackageTransactions {
                 committed.add(new GenericStack(entry.what(), inserted));
             }
             if (inserted != entry.amount()) {
-                rollbackInsertions(target, committed);
+                if (!rollbackInsertions(target, committed)) {
+                    AppliedPackaging.LOGGER.error("ME storage package insertion rollback did not remove all committed resources");
+                }
                 return false;
             }
         }
         return true;
     }
 
-    private static void rollbackExtractions(MEStorage source, List<GenericStack> committed) {
+    private static boolean rollbackExtractions(MEStorage source, List<GenericStack> committed) {
+        boolean complete = true;
         for (int index = committed.size() - 1; index >= 0; index--) {
             GenericStack extraction = committed.get(index);
-            source.insert(extraction.what(), extraction.amount(), Actionable.MODULATE, IActionSource.empty());
+            long restored = source.insert(
+                    extraction.what(), extraction.amount(), Actionable.MODULATE, IActionSource.empty());
+            complete &= restored == extraction.amount();
         }
+        return complete;
     }
 
-    private static void rollbackInsertions(MEStorage target, List<GenericStack> committed) {
+    private static boolean rollbackInsertions(MEStorage target, List<GenericStack> committed) {
+        boolean complete = true;
         for (int index = committed.size() - 1; index >= 0; index--) {
             GenericStack insertion = committed.get(index);
-            target.extract(insertion.what(), insertion.amount(), Actionable.MODULATE, IActionSource.empty());
+            long removed = target.extract(
+                    insertion.what(), insertion.amount(), Actionable.MODULATE, IActionSource.empty());
+            complete &= removed == insertion.amount();
         }
+        return complete;
     }
 
     private static Optional<PackageData> packageDataFromKey(AEKey key) {

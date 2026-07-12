@@ -56,6 +56,6 @@ storage/unpacking 两种 part 都有可加载的临时模型和报告
 `ae2-states.png`、`package_bus_extra_panels.png` 与 `package_bus_vertical_buttons_bg.png` 保持 AE2 当前 main 原文件字节与 LGPL 来源记录
 空升级槽使用 current-main `BACKGROUND_UPGRADE`；实际卡片若要求新版外观，应单独提供新版 fuzzy/inverter/capacity/speed card 图，不从旧依赖材质冒充
 ME Packager 容量元件空槽和 ME Package Assembler 的已编码样板/容量元件空槽分别使用原样 current-main `ae2-states.png` 的 `(240,48,16,16)`、`(240,112,16,16)` / `(240,48,16,16)`
-总线、ME Packager、ME Package Assembler 与原版样板终端包裹模式的空 marker 槽均显示用户图标，并在可交互状态下提供说明 tooltip
+总线、ME Packager 与原版样板终端包裹模式的空 marker 槽均显示用户图标，并在可交互状态下提供说明 tooltip；ME Package Assembler 不提供 marker fallback 槽
 docs/assets/reports/terminal-and-buses.md 记录生成提示和预览路径
 ```
