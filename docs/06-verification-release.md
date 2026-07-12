@@ -98,6 +98,11 @@ MEStorage 拆包在共享目标容量于提交阶段不足时回滚此前真实�
 包裹总线事务可输出一个已有网络包裹到相邻库存
 包裹总线事务可把一个网络包裹完整拆入相邻库存
 包裹总线在目标无法完整容纳内容时保留网络包裹
+包裹卸货总线事务可把网络包裹预留为本地 held 工作项，预留阶段不提前写入目标
+真实 AE2 Package Unpacking Bus part 在 20 tick 进度完成前保持目标不变，并从 ME 网络排他预留该包裹
+真实 AE2 Package Unpacking Bus part 在最终目标变化时保留同一个 held 包裹、保持全量未提交，并在目标恢复后重新执行完整进度并成功提交
+Package Storage Bus 与 Package Unpacking Bus part 均只暴露 5 个共享升级槽，不按兼容卡种上限扩成 9 格；两者允许 5 格全部安装容量卡，第 6 张拒绝，并按基础 2 行加 5 张容量卡解锁到 7 行
+Package Assembler 有序输出 handler 实现 `IItemHandlerModifiable`，可由 `SlotItemHandler#set` 完成客户端菜单槽同步
 包裹总线目标面不连接 AE 网络，其余面仍可加入 grid
 真实 AE2 Drive 网络上的存储总线只挂载相邻库存中的合法包裹
 真实 AE2 存储总线要求 channel，并会在初始挂载后刷新相邻包裹增删、目标移除/替换、在线过滤启用和过滤清除
@@ -353,7 +358,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-release-self-tests.ps1` 串行运行 `test-docs-audit.ps1`、`test-assets-audit.ps1`、`test-release-audit.ps1`、`test-release-readiness.ps1`、`test-release-check-plan.ps1`、`test-release-manifest.ps1` 和 `test-release-bundle.ps1`。它不运行 Gradle、客户端或服务端，只验证发布脚本自测套件本身；工作区干净时 manifest/bundle 子测试会额外覆盖 clean-git 路径。
 
-`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 client smoke 截图文件、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认本地 `package_pattern` / `packaged_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，且确认 `package_pattern_terminal` 仍注册为 AE2 `PartItem` 而不是 `BlockItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireClientSmokeScreenshots` 时会验证 11 张必需截图存在、非空且有 PNG 签名。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
+`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 client smoke 截图文件、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认本地 `package_pattern` / `packaged_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，确认已取消的 `package_pattern_terminal` / `package_export_bus` 不再注册或进入创造栏，并确认 `package_storage_bus` / `package_unpacking_bus` 与高级样板终端继续注册为 AE2 `PartItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireClientSmokeScreenshots` 时会验证 9 张必需截图存在、非空且有 PNG 签名。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
 
 当前玩家入口产品不变量还要求 `advanced_pattern_encoding_terminal` 出现在创造栏，并继续注册为 AE2 `PartItem`；高级终端 base/sprite atlas 纳入必需 PNG 与 256x256 尺寸审计，独立 `advanced_processing_pattern` 不得作为配方或创造栏直接产物。
 
@@ -645,7 +650,7 @@ R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开
 R6 ME 包裹装配室：已满足，普通/彩色/包裹/封装处理载体、4x4 输入与 4 输出可见窗口、17 格输出栏、样板门禁、合成进度、pending queue、输出模式、顺序抽取和客户端 smoke 均已覆盖。
 R7 ME 打包机：已满足，相邻 item/fluid/AE2 storage 端点、红石模式、容量、过滤、marker 和拆包事务均已覆盖。
 R8 样板终端：已满足，AE2 blank_pattern 载体、colored metadata、packaged-processing、Split、AE2 part host、AE2 原版 Pattern Encoding Terminal 的包裹样板模式，以及只保留 processing 模式的 Advanced Pattern Terminal 均已覆盖；原版终端包裹模式复用 81 个 processing input 与左侧滚动条，显示 3x3 可见窗口；高级终端每列保持 AE2 默认 81 个处理输入槽，按最终视觉使用 4 列 x 3 行可见窗口与左侧行滚动条，底部列滚动条滚动包裹列。高级列只编辑颜色，名称固定为空、marker 固定为主产物，列 X 支持先清空后删除并前移。独立 advanced_processing_pattern 使用自定义处理样板详情突破原版单样板 81 输入总上限，原版 AE2 processing_pattern 不承载高级列数据。
-R9 包裹总线：已满足，Storage/Export/Unpacking Bus 仅处理合法包裹，不暴露内部散装内容；三者要求 AE channel，Storage Bus 在线缓存增删与过滤刷新已有真实网络测试。
+R9 包裹总线：已满足，正式玩家入口只保留 Storage/Unpacking Bus 两个 AE2 cable part，均只处理合法包裹且不把内部内容暴露为 ME 散装库存；两者要求 AE channel，Storage Bus 在线缓存增删与过滤刷新已有真实网络测试。Unpacking Bus 已按 ME Packager 拆包模式接入真实 held 包裹与 20 tick 进度，最终提交失败时保留并重试同一个包裹，NBT、GUI 取回和 part 拆除返还边界已实现。
 R10 事务性：已满足，打包/拆包模拟失败不提交、完整包裹拆入和容量失败回滚均由 GameTest 覆盖。
 R11 Tooltip：已满足，包裹、样板、AE2 blank_pattern carrier 和 packaged-processing 输出提示已接入。
 R12 英文与简体中文语言：已满足，语言 key 与占位符对齐审计通过。
@@ -747,3 +752,75 @@ Tag 就绪门禁：未完成。证据：当前变更接收表仍包含 IN-003 �
 执行 `.\gradlew.bat compileJava --stacktrace` 成功，Mixin refmap 正常生成；执行 `scripts/verify-docs.ps1` 与 `git diff --check` 成功。该轮不改变服务端行为，未重复运行 GameTest；按用户要求不运行客户端截图冒烟，视觉结果由用户验收。
 
 用户复测暴露首次修正写入时机过早：AE2 的 `widgets.updateBeforeRender()` 在 Screen 更新之后再次执行原 processing 槽位定位，导致新版输入坐标和隐藏输出被覆盖。当前实现已在包裹模式下取消原 `ProcessingEncodingPanel.updateBeforeRender()`，改为由包裹布局在 widget 阶段最终定位 81 格滚动输入并彻底移出全部 processing outputs；普通 processing 模式不受影响。重新执行 `.\gradlew.bat compileJava` 成功；按用户要求未运行客户端截图冒烟。
+
+### 2026-07-12 Package Bus AE2 part 与五行 GUI
+
+取消 Package Export Bus 和独立 Package Pattern Terminal 的物品注册、配方、创造栏入口、loot 与 smoke 步骤；Package Storage Bus 与 Package Unpacking Bus 改为真实 AE2 `PartItem`，分别暂用 AE2 Storage Bus 与 P2P Tunnel 模型层。共享 GUI 按新版 AE2 视觉组织五行过滤：默认两行、每张容量卡增加一行、最多五行；模糊/反转按钮按升级卡动态出现，颜色按钮始终与其相邻；未解锁行使用 `OptionalFakeSlot` 半透明状态。卸货总线额外允许四张加速卡，显示右上只读工作槽外观与 15 级进度条；工作包裹物品预览网络同步尚未实现，不记为已完成。
+
+执行 `.\gradlew.bat compileJava`、`.\gradlew.bat runData` 与 `.\gradlew.bat runClientSmoke --stacktrace` 成功；客户端自动放置两个真实 cable part，插入模糊/反转/容量卡（卸货另插加速卡）并生成 `appliedpackaging-client-smoke-package_storage_bus.png`、`appliedpackaging-client-smoke-package_unpacking_bus.png`。人工确认存储总线遮掉右上工作区，卸货总线显示工作槽/进度区，三行已解锁、两行半透明禁用，未解锁行不显示颜色按钮。行为验证执行 167 个必需 GameTest 全部通过。
+
+### 2026-07-12 Package Bus 当前 AE2 源码回移复验
+
+撤销错误的单 atlas 烘焙方案并恢复用户 GUI/sprite 原字节后，以官方 AE2 current-main 提交 `45f315517ea346efc0babd02c85c6b9d32dc8acf` 为客户端视觉基线。`states.png`、`extra_panels.png`、`vertical_buttons_bg.png` 作为独立原样资源加载；Package Bus 回移了新版 Priority tab、toolbar normal/hover/focus 与 6px 间距、连接目标提示、升级面板和禁用槽 0.2 alpha。客户端 smoke 在两个 part 前放置真实 Chest，截图确认两者显示 `Attached to: Chest`，存储总线不显示工作区，拆包总线工作槽/进度条避让 Priority，升级槽按 8+1 分栏。
+
+验证 `.\gradlew.bat build --stacktrace` 成功；`.\gradlew.bat runGameTestServer --stacktrace` 成功，167 个 required GameTest 全部通过；`.\gradlew.bat runClientSmoke --stacktrace` 成功并生成两张 960x540 截图。`scripts/verify-assets.ps1`、`scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 均成功。资产自测包含篡改 `package-storagebus.png` 后必须因 SHA-256 门禁失败的负例。工作包裹物品预览的数据源仍未实现，因此只读槽本轮按空槽验收，不把该功能记为完成。
+
+### 2026-07-13 Package Unpacking Bus held 状态与装配室菜单同步修复
+
+本节取代上一段“工作包裹数据源未实现”的当前状态。Package Unpacking Bus 现在先模拟相邻目标并从 MEStorage 精确抽取一个匹配包裹，将其保存为 part 的真实 `heldPackage`；目标在与 ME Packager 相同的 20 tick 工作进度结束前不获得内容。最终 tick 会重新校验过滤和累计目标容量，成功时全量提交并清空 held 状态；失败时保持同一个包裹、本地阻塞并按 `max(2, 20 - speedCards * 3)` 间隔重新验证，恢复后重新执行完整进度。held 包裹及工作/阻塞/冷却状态写入 NBT，working/blocked 标志同步到菜单；工作中不可取，阻塞时可由菜单取回，并使用与 ME Packager 相同的半透明红底和红框提示，part 拆除时 held 包裹进入额外掉落。
+
+Package Assembler 的有序主输出包装器改为 `IItemHandlerModifiable`，其 `setStackInSlot` 映射真实主输出，修复客户端菜单同步调用 `SlotItemHandler#set` 时的 `ClassCastException`。新增回归直接调用该崩溃路径，并覆盖预留/最终提交分离、目标中途变化、真实带中心线缆的 AE2 part 延迟提交与阻塞恢复，以及 held 包裹 NBT/拆除掉落/清空防复制。首次 GameTest 运行的两项失败来自测试 CableBus 只放侧面 part、遗漏中心玻璃线缆；补齐真实网格夹具后产品逻辑通过。新增持久性测试首次又使用了脱离 host 的裸 `createPart()`，触发 AE2 `UpgradeablePart` 的合法生命周期前置条件；改为真实安装 Part 后复验，`.\gradlew.bat runGameTestServer` 成功，173 个 required GameTest 全部通过。`.\gradlew.bat runClientSmoke` 成功生成全部截图；扫描 `run/logs/latest.log`，`ClassCastException|IItemHandlerModifiable|ERROR|Exception` 无命中，装配室、存储总线和卸货总线截图均成功生成。最终 `.\gradlew.bat build`、`verify-docs.ps1`、`verify-assets.ps1`、`verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。
+
+### 2026-07-13 Package Bus 行原点与升级面板校正
+
+本节取代上一版“拆包总线升级槽按 8+1 分栏”的当前视觉验收。五行 marker/content 槽从底图第一行 `y=29` 开始，默认解锁的第 0、1 行因此显示在最上方两行；8px 模糊/反转/颜色按钮使用 5px 行内上边距。右侧升级面板由 `top=0` 调整为 `top=-1`。对照 AE2 current-main `IOBusPart#getUpgradeSlots()` 的固定 5 格语义，Package Storage Bus 与 Package Unpacking Bus 均改为 5 格共享升级库存；卸货总线仍允许最多 4 张加速卡，但不再把 fuzzy/inverter/capacity/speed 的兼容上限相加成 9 格。
+
+新增 `packageBusPartsUseFiveSharedUpgradeSlots` GameTest，通过真实 Cable Bus host 同时安装两个 part 并断言各自升级库存为 5 格。执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，174 个 required GameTest 全部通过。第一次 `.\gradlew.bat runClientSmoke --stacktrace` 因 IDE 中既有调试客户端占用 `New World` 的 `session.lock` 而无法进入世界；未终止该用户进程，改为复制一个排除锁文件的隔离 smoke 世界后执行 `.\gradlew.bat "-Pappliedpackaging.clientSmoke.world=AP Smoke Isolated" runClientSmoke --stacktrace` 成功，并在退出后删除临时世界。人工检查两张总线截图，确认第一行起始、按钮上边距、升级面板上移、5 格总数及底部无孤立槽块；双图同批预览曾出现查看器黑块伪影，源 PNG ARGB 抽样和单图重新解码均正常。
+
+`.\gradlew.bat compileJava --stacktrace`、`.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。用户提供的 `package-storagebus.png` / `package-storagebus-sprites.png` SHA-256 仍分别为 `7253977C9792F7BB86D1B826688DD067AF5F242E3279A71E7409442428B53EB5` / `14D7D26A93BF46D1BA0EF33A5408197718D0AF5BD3ADE662AA8A46E8DE662281`，本轮未修改材质。
+
+### 2026-07-13 Package Bus 五张容量卡与高级终端槽位/按钮复验
+
+Package Storage Bus 与 Package Unpacking Bus 继续共用 5 格升级库存，但容量卡的单卡种安装上限由 3 调整为 5。扩展既有真实 Cable Bus GameTest，逐个 part 验证前 5 张容量卡均可插入、安装计数为 5、第 6 张被拒绝，并验证 `enabledRows()` 仍封顶 5 行，因此第 4、5 张容量卡不再增加过滤行。执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，174 个 required GameTest 全部通过。
+
+首次把用户截图圈选对象误读为编码按钮，因而只把按钮 widget 从 `left=166` 调整到 `left=167`。用户澄清圈选的是上下两个样板槽后，最终修正为：`BLANK_PATTERN` 从 `(166,166)` 调整到 `(167,167)`，`ENCODED_PATTERN` 从 `(166,119)` 调整到 `(167,120)`；两槽内容各向右、向上 1px。按钮不再继续移动，保持 `left=167,bottom=146`；按钮的 16x16 图标/点击区与两个 16x16 槽内容区共用 `x=167`，18x20 背景按 `x-1` 规则从 `x=166` 开始，与底图的 18px 槽框同轴。执行 `.\gradlew.bat "-Pappliedpackaging.clientSmoke.world=AP Smoke Isolated" runClientSmoke --stacktrace` 成功，11 张截图全部生成并自动退出；人工检查新的 `appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png`，确认两个槽内容已进入槽框中心且按钮仍位于同一竖直中心线。
+
+未修改用户提供的高级终端 base PNG；源文件与运行时文件 SHA-256 均为 `660EF8C5379F1131E4D3D773FD43EE9954DE1F0FCE278DF78C30F75D9B5563F6`。像素复核结论为：顶部 `y=0..51` 与 AE2 current-main `terminal.png` 对应区域逐像素一致，所有不透明颜色也都来自 current-main 调色板，因此不存在整体偏色；截图中的禁用列 `#969CB1` 来自客户端常量而非 PNG，且该色不在用户图或 current-main 不透明调色板中。右侧空白/已编码样板槽框相对 current-main 背景平移为 `(+20,-2)`，修正后的两个逻辑槽使用相同平移，不再保留此前 `(+19,-1)` 导致的物品左 1px、下 1px 偏差。
+
+### 2026-07-13 Package Bus 七行与外围 current-main 复核
+
+本节取代此前“容量卡后两张不增加过滤行”和“升级面板 `top=-1`”的当前结论。Package Storage Bus 与 Package Unpacking Bus 的 `FILTER_ROWS` 改为 7；基础第 0、1 行默认启用，5 张容量卡依次解锁第 2 至第 6 行。扩展既有真实 Cable Bus GameTest，在两个 part 上逐张断言 `enabledRows()` 从 3 增长到 7，5 张均可插入且第 6 张拒绝。执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，174 个 required GameTest 全部通过。
+
+对照 AE2 current-main `StorageBusScreen`、`VerticalButtonBar`、`UpgradesPanel`、`TabButton`、`states.png`、`extra_panels.png`、`vertical_buttons_bg.png` 与 `storagebus.png` 后修正三项代码侧差异：左侧工具栏补回 Help 并保持 6px 间距；升级面板恢复 current-main `right=2,top=0`；空升级槽不再使用依赖 AE2 15.4.10 的灰阶 `BACKGROUND_UPGRADE`，改绘项目内原样 current-main `ae2-states.png` `(240,208,16,16)`。Priority tab 的 `(152,-5,20,20)`、图标偏移、工具栏按钮背景/图标坐标、升级面板 5px padding 和真实升级物品槽偏移均已与 current-main 源码一致。
+
+执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功，11 张截图全部生成并自动退出。存储/卸货总线截图确认 7 行完整显示，当前 1 张容量卡夹具表现为上方 3 行启用、下方 4 行 0.2 alpha 禁用；Help、Priority、5 格升级面板和新版空槽占位均正常。卸货截图并排放置无 marker/带 marker 包裹并在 held 槽放置同一带 marker 包裹，三者在 GUI scale 2 下的槽内非背景像素包围盒均为 `(9..22,11..23)`，证明自定义 package renderer 没有额外 offset。
+
+用户 `package-storagebus.png` 未被修改，源/运行时 SHA-256 仍为 `7253977C9792F7BB86D1B826688DD067AF5F242E3279A71E7409442428B53EB5`。像素审计确认中心外有两类待修图问题：10246 个 current-main `#CBCCD4` 主体像素被画成 `#ADB0C4`，854 个 `#413F54` 最外圈像素被画成 `#CBCCD4`。用户 sprite 的 `SLOT_BACKGROUND` 与 current-main 完全一致，无需重画。实际插入后的 fuzzy/inverter/capacity/speed 卡仍使用 AE2 15.4.10 物品贴图；若要求装卡状态也匹配新版，需另行补充或授权覆盖四张新版 card item texture。
+
+最终 `.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 均通过；5 个资产合同验证成功，jar 内 237 个 Applied Packaging 发布资源与源码一致，154 张 PNG 非空，客户端日志无发布阻断关键字。
+
+### 2026-07-13 Package Bus 更新底图接入
+
+将用户更新的 `E:/resources/textures/appliedpackaging/ret/package-storagebus.png` 原字节复制到运行时资源；两者均为 256x256 RGBA、1583 字节，SHA-256 同为 `506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE`。相对旧图共变化 11262 个主界面像素：10408 个 `#ADB0C4` 恢复为 current-main 主体色 `#CBCCD4`，854 个 `#CBCCD4` 恢复为最外圈 `#413F54`。忽略全透明像素的 RGB 并排除自定义中心 `x=7..168,y=28..154` 后，新图与 AE2 current-main `storagebus.png` 的可见像素差异为 0；七行过滤区、右侧工作槽/进度素材和独立 sprite 保持完整。
+
+第一次使用已被上一轮删除的 `AP Smoke Isolated` 名称运行 client smoke，客户端完成资源加载后等待不存在的 quick-play 世界，244 秒后被工具终止，未生成新截图；只清理了本轮 wrapper/client 进程，未终止用户进程。确认默认 `New World/session.lock` 未被占用后执行 `.\gradlew.bat runClientSmoke --stacktrace` 成功，11 张截图全部生成并自动退出。分别检查 `appliedpackaging-client-smoke-package_storage_bus.png` 与 `appliedpackaging-client-smoke-package_unpacking_bus.png`，确认新版主体/外框颜色、七行过滤、Priority、5 格升级区以及卸货工作区均正常；卸货图在双图同批预览中的黑块再次由单图解码确认只是查看器伪影。
+
+`terminal_and_buses` asset contract、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1` 负例套件、`.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 均通过；负例套件确认把 Package Bus 底图替换为其它 PNG 时仍会被 byte-preserved 哈希门禁拒绝。源图、运行时资源和 JAR 内条目三者 SHA-256 完全一致。GameTest 已考虑；项目已有 `runGameTestServer` 与 Package Bus 行为测试，但本次只替换字节保持的客户端 GUI atlas 并更新哈希/文档，不改变菜单、网络、存储或服务端行为，因此未新增或重复运行 GameTest。
+
+### 2026-07-13 Marker 槽、hover 与升级区统一
+
+Package Bus tooltip 阶段的 current-main 槽位 hover 已从错误的菜单相对坐标改为 `leftPos/topPos` 窗口坐标。ME Packager 与 ME Package Assembler 不再由 AE2 15 `UpgradeableScreen` 自动注入旧版 `UpgradesPanel`，改用共享 `ModernUpgradeableScreen`：槽位 hover 使用 `0x669cd3ff` 填充与 `0xffdaffff` 边线，升级/工具箱面板使用 current-main 布局和独立 `package_bus_extra_panels.png`，空升级槽使用 `ae2-states.png` `(240,208,16,16)`。总线、两台机器和原版 Pattern Encoding Terminal 包裹模式的空 marker 槽统一绘制用户 sprite `(32,16,16,16)`，并在可交互空槽上显示双行双语说明 tooltip；锁定总线行的 marker 图标跟随 `0.2` alpha。
+
+执行 `.\gradlew.bat compileJava processResources --stacktrace` 成功。第一次默认 `runClientSmoke` 因用户既有客户端占用 `New World/session.lock` 未能进入世界；未终止用户进程，终止的仅是本轮 wrapper/client，并从仓库未占用的测试世界复制出隔离世界。执行 `.\gradlew.bat runClientSmoke '-Pappliedpackaging.clientSmoke.world=AP Smoke GUI' --stacktrace` 成功，11 张截图全部生成并自动退出。人工检查 Package Assembler、ME Packager、AE2 Pattern Encoding Terminal、Package Storage Bus 与 Package Unpacking Bus 截图，确认 marker 图标/tooltip、机器新版升级区与 hover 正常，Bus hover 位于第二行 marker 槽而非屏幕左上角；卸货总线单图解码正常，多图黑块是查看器伪影。
+
+GameTest 已考虑。此次只修改客户端 Screen/Widget/Mixin 绘制、ScreenStyle 视觉锚点、语言和 smoke 鼠标定位，不改变菜单槽数量、服务器事务、网络同步、存储、过滤或升级兼容行为；既有 174 个 required GameTest 已覆盖相关服务端行为，因此本轮不新增也不重复运行 GameTest。
+
+最终 `.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1` 与 `scripts/verify-release.ps1 -RequireAssetContracts` 全部通过；237 个 Applied Packaging 发布资源与 JAR 一致，5 个资产合同、154 张 PNG、153 个双语 key 及占位符均通过审计。
+
+### 2026-07-13 新版容量/样板空槽图标与 Bus 2px 按钮边距
+
+ME Packager 与 ME Package Assembler 的容量元件空槽改为从项目内原样 current-main `ae2-states.png` 取样 `(240,48,16,16)`；装配室的已编码样板空槽改用 `(240,112,16,16)`。总线每行的模糊、反转与颜色按钮统一使用固定 `2px` 上边距，绘制原点、widget/点击区域及 hover 外框共用 `rowY + 2`，不再用 `(18-8)/2=5px` 的垂直居中位置。没有修改用户提供的 `package-storagebus.png` 或 `package-storagebus-sprites.png`，也没有修改原样复制的 `ae2-states.png`；其 SHA-256 仍为 `0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55`。
+
+执行 `.\gradlew.bat runClientSmoke '-Pappliedpackaging.clientSmoke.world=AP Smoke Slot Icons' --stacktrace` 成功，隔离世界在退出后安全删除，11 张截图全部刷新。人工检查 ME Packager 与 Package Assembler 截图，两个新版空槽图标完整显示且与槽框对齐；检查 Storage/Unpacking Bus 截图，三枚按钮在 GUI scale 2 下保留 4 个物理像素的行顶间距，等价于逻辑坐标 `2px`，marker tooltip/hover 与七行锁定状态无回归。卸货总线多图查看时的黑块仍只出现在查看器合批结果，单图重新解码完整正常。
+
+GameTest 已考虑但未重复运行：本轮只改变客户端空槽图标切片与按钮视觉/命中 Y 坐标，不改变菜单槽数量、升级卡上限、过滤语义、总线事务、网络同步或服务端状态；既有 174 个 required GameTest 继续覆盖这些行为路径。最终 `.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过；JAR 内 237 个发布资源与源码一致，5 个资产合同、154 张 RGBA PNG、153 个双语 key/占位符均通过审计。

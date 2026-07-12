@@ -46,7 +46,8 @@ ME Packager / ME 打包机：
   只通过一个可切换连接面贴着相邻 AE 网络工作，在 MEStorage 内容和包裹之间做事务转换。
 
 Package Buses / 包裹总线家族：
-  只路由合法包裹，或把合法包裹事务拆入目标端点；三种总线均按 AE2 bus 设备占用 channel。
+  Package Storage Bus 与 Package Unpacking Bus 均为 AE2 cable part，只暴露合法包裹或把合法包裹事务拆入目标端点，并各自占用 channel。
+  Package Export Bus 已移除；不再保留独立输出包裹到相邻库存的设备。
 ```
 
 ## 3. 模块划分
@@ -195,15 +196,18 @@ incoming package stack
 -> return remainder
 ```
 
-包裹输出/拆包总线路由：
+包裹卸货总线路由：
 
 ```text
-all sides except the inventory target face -> AE2 grid connection
-opposite of block FACING -> adjacent Forge item handler only, no AE2 cable connection
-simulate target and ME source
-commit one package from ME source
-commit target insertion
-restore the package to ME source if the target no longer matches simulation
+AE2 cable host -> part grid node
+part mounted side -> adjacent Forge item handler
+simulate cumulative target capacity and ME source extraction
+extract exactly one matching package from ME storage into the part's persisted held state
+run the same 20-tick unpacking work phase as ME Packager
+revalidate filter and adjacent target at the final tick
+commit all package contents transactionally, then clear held state
+if final validation/commit fails, retain the same held package locally and retry after the speed-card-adjusted interval
+allow idle/blocked GUI recovery and add the held package to part-removal drops
 ```
 
 ## 6. 版本适配

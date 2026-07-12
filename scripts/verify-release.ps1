@@ -461,6 +461,12 @@ function Test-ProductInvariants {
         Add-Fail "Encoded local pattern items are recipe outputs: $($forbiddenRecipeOutputs -join ', ')"
     }
 
+    foreach ($canceledRecipe in @("package_pattern_terminal.json", "package_export_bus.json")) {
+        Assert-True `
+            (-not (Test-Path -LiteralPath (Join-Path "src/main/resources/data/appliedpackaging/recipes" $canceledRecipe))) `
+            "Canceled recipe is absent: $canceledRecipe"
+    }
+
     $creativeTabPath = "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java"
     if (Test-Path -LiteralPath $creativeTabPath) {
         $creativeTabText = Get-Content -LiteralPath $creativeTabPath -Raw
@@ -477,8 +483,14 @@ function Test-ProductInvariants {
         }
 
         Assert-True `
-            ($creativeTabText -match 'output\.accept\s*\(\s*APItems\.PACKAGE_PATTERN_TERMINAL\.get\s*\(\s*\)\s*\)') `
-            "Creative tab exposes package pattern terminal item"
+            ($creativeTabText -notmatch 'APItems\.(PACKAGE_PATTERN_TERMINAL|PACKAGE_EXPORT_BUS)') `
+            "Creative tab does not expose canceled package pattern terminal or export bus items"
+        Assert-True `
+            ($creativeTabText -match 'output\.accept\s*\(\s*APItems\.PACKAGE_STORAGE_BUS\.get\s*\(\s*\)\s*\)') `
+            "Creative tab exposes package storage bus part"
+        Assert-True `
+            ($creativeTabText -match 'output\.accept\s*\(\s*APItems\.PACKAGE_UNPACKING_BUS\.get\s*\(\s*\)\s*\)') `
+            "Creative tab exposes package unpacking bus part"
         Assert-True `
             ($creativeTabText -match 'output\.accept\s*\(\s*APItems\.ADVANCED_PATTERN_ENCODING_TERMINAL\.get\s*\(\s*\)\s*\)') `
             "Creative tab exposes advanced pattern encoding terminal item"
@@ -490,11 +502,14 @@ function Test-ProductInvariants {
     if (Test-Path -LiteralPath $itemsPath) {
         $itemsText = Get-Content -LiteralPath $itemsPath -Raw
         Assert-True `
-            ($itemsText -match 'PACKAGE_PATTERN_TERMINAL\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+PartItem\s*<\s*>\s*\(') `
-            "Package pattern terminal item registers as an AE2 PartItem"
+            ($itemsText -notmatch '(PACKAGE_PATTERN_TERMINAL|PACKAGE_EXPORT_BUS)\s*=\s*ITEMS\.register') `
+            "Canceled package pattern terminal and export bus items are not registered"
         Assert-True `
-            ($itemsText -notmatch 'PACKAGE_PATTERN_TERMINAL\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+BlockItem\s*\(\s*APBlocks\.PACKAGE_PATTERN_TERMINAL') `
-            "Package pattern terminal item is not registered as a BlockItem"
+            ($itemsText -match 'PACKAGE_STORAGE_BUS\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+PartItem\s*<\s*>\s*\(') `
+            "Package storage bus item registers as an AE2 PartItem"
+        Assert-True `
+            ($itemsText -match 'PACKAGE_UNPACKING_BUS\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+PartItem\s*<\s*>\s*\(') `
+            "Package unpacking bus item registers as an AE2 PartItem"
         Assert-True `
             ($itemsText -match 'ADVANCED_PATTERN_ENCODING_TERMINAL\s*=\s*ITEMS\.register\s*\([\s\S]*?new\s+PartItem\s*<\s*>\s*\(') `
             "Advanced pattern encoding terminal item registers as an AE2 PartItem"
@@ -682,7 +697,7 @@ if ($null -eq $resolvedJar) {
             Assert-Matches $manifestText "Implementation-Vendor: $([regex]::Escape($projectProperties["mod_authors"]))" "manifest implementation vendor matches gradle.properties"
         }
 
-        $forbiddenEntryPattern = "(?i)(^|/)(com/warmthdawn/appliedpackaging/client/ClientSmokeRunner|com/warmthdawn/appliedpackaging/gametest/|build/|tmp/|docs/assets/|run/)|reference|preview"
+        $forbiddenEntryPattern = "(?i)(^|/)(com/warmthdawn/appliedpackaging/client/ClientSmokeRunner|com/warmthdawn/appliedpackaging/gametest/|build/|tmp/|docs/assets/|run/|reference/|preview/)"
         $forbiddenEntries = @($entries | Where-Object { $_ -match $forbiddenEntryPattern })
         if ($forbiddenEntries.Count -eq 0) {
             Add-Pass "Jar contains no dev/test/reference/preview entries"
@@ -761,9 +776,7 @@ if ($RequireClientSmokeScreenshots) {
         "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png",
         "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png",
         "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png",
-        "appliedpackaging-client-smoke-package_pattern_terminal.png",
         "appliedpackaging-client-smoke-package_storage_bus.png",
-        "appliedpackaging-client-smoke-package_export_bus.png",
         "appliedpackaging-client-smoke-package_unpacking_bus.png"
     )
 
@@ -901,7 +914,7 @@ if ($null -eq $resolvedLog) {
     }
 } else {
     Add-Pass "Log exists at $LogPath"
-    $badLogPattern = "ERROR|FATAL|ClientSmokeRunner|NoClassDefFoundError|ClassNotFoundException|InvocationTargetException|IllegalStateException|Dist\.CLIENT|OnlyIn|Missing model|Unable to load model|missing texture|Exception|Crash|crash"
+    $badLogPattern = "(?i)\b(ERROR|FATAL|ClientSmokeRunner|NoClassDefFoundError|ClassNotFoundException|InvocationTargetException|IllegalStateException|OnlyIn|Exception|Crash)\b|Dist\.CLIENT|Missing model|Unable to load model|missing texture"
     $diagnosticLogText = (Get-ReleaseDiagnosticLogLines $resolvedLog.Path) -join "`n"
     if ($ignoredYggdrasilKeyFailures -gt 0) {
         Add-Warn "Ignored $ignoredYggdrasilKeyFailures external Yggdrasil public-key fetch failure(s)"

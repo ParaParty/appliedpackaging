@@ -1,0 +1,37 @@
+Applied Energistics 2 Package Bus GUI provenance
+
+Repository: https://github.com/AppliedEnergistics/Applied-Energistics-2
+Commit: 45f315517ea346efc0babd02c85c6b9d32dc8acf
+Matching tag assets: neoforge/v19.2.17
+License: LGPL-3.0-or-later
+Bundled license: META-INF/licenses/ae2-LGPL-3.0-or-later.txt
+
+Unmodified copied textures:
+
+- src/main/resources/assets/ae2/textures/guis/states.png
+  -> assets/appliedpackaging/textures/gui/ae2-states.png
+  SHA-256: 0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55
+- src/main/resources/assets/ae2/textures/guis/extra_panels.png
+  -> assets/appliedpackaging/textures/gui/package_bus_extra_panels.png
+  SHA-256: C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0
+- src/main/resources/assets/ae2/textures/gui/sprites/vertical_buttons_bg.png
+  -> assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png
+  SHA-256: 62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715
+
+The files remain independent runtime textures, matching upstream's separate-texture design. No regions are baked into the user-provided Package Bus background or sprite.
+
+User-provided texture integrity records (not copied from the AE2 paths above):
+
+- assets/appliedpackaging/textures/gui/package-storagebus.png
+  SHA-256: 506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE
+- assets/appliedpackaging/textures/gui/package-storagebus-sprites.png
+  SHA-256: 14D7D26A93BF46D1BA0EF33A5408197718D0AF5BD3ADE662AA8A46E8DE662281
+
+Code adaptation references at the commit above:
+
+- src/client/java/appeng/client/gui/AEBaseScreen.java
+- src/client/java/appeng/client/gui/implementations/StorageBusScreen.java
+- src/client/java/appeng/client/gui/widgets/IconButton.java
+- src/client/java/appeng/client/gui/widgets/UpgradesPanel.java
+- src/client/java/appeng/client/gui/widgets/VerticalButtonBar.java
+- src/client/java/appeng/client/gui/style/Blitter.java

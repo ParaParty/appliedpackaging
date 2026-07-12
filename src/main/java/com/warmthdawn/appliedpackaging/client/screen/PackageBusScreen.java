@@ -1,99 +1,514 @@
+/*
+ * Portions of the toolbar, priority-tab, and Storage Bus presentation are
+ * adapted from Applied Energistics 2 commit
+ * 45f315517ea346efc0babd02c85c6b9d32dc8acf (LGPL-3.0-or-later).
+ */
 package com.warmthdawn.appliedpackaging.client.screen;
 
+import appeng.api.config.AccessRestriction;
+import appeng.api.config.ActionItems;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.Settings;
+import appeng.api.config.StorageFilter;
+import appeng.api.config.YesNo;
+import appeng.api.upgrades.Upgrades;
+import appeng.client.gui.AEBaseScreen;
+import appeng.client.gui.Icon;
+import appeng.client.gui.style.Blitter;
+import appeng.client.gui.style.PaletteColor;
+import appeng.client.gui.style.ScreenStyle;
+import appeng.client.gui.widgets.ActionButton;
+import appeng.client.gui.widgets.OpenGuideButton;
+import appeng.client.gui.widgets.ServerSettingToggleButton;
+import appeng.client.gui.widgets.SettingToggleButton;
+import appeng.client.gui.widgets.TabButton;
+import appeng.client.gui.widgets.ToolboxPanel;
+import appeng.core.localization.GuiText;
+import appeng.core.AppEng;
+import appeng.core.sync.network.NetworkHandler;
+import appeng.core.sync.packets.SwitchGuisPacket;
+import appeng.menu.SlotSemantics;
+import appeng.menu.implementations.PriorityMenu;
+import appeng.client.guidebook.PageAnchor;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
+import com.warmthdawn.appliedpackaging.client.widget.ModernUpgradesPanel;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
+import com.warmthdawn.appliedpackaging.mixin.client.SlotAccessor;
+import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.ImageButton;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import org.lwjgl.glfw.GLFW;
 
-public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
-    private static final ResourceLocation SET_FILTER_ICON =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/package_filter.png");
-    private static final ResourceLocation CLEAR_FILTER_ICON =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "textures/gui/icons/marker_clear.png");
-    private static final int PANEL = 0xffd6dbde;
-    private static final int PANEL_DARK = 0xff4a5058;
-    private static final int PANEL_MID = 0xff879198;
-    private static final int SLOT = 0xffb7c0c5;
+/**
+ * Package-bus UI with the current AE2 visual behavior backported to the
+ * project's AE2 15 / Minecraft 1.20.1 baseline.
+ */
+public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
+    private static final ResourceLocation BACKGROUND = new ResourceLocation(
+            AppliedPackaging.MOD_ID, "textures/gui/package-storagebus.png");
+    private static final ResourceLocation SPRITES = new ResourceLocation(
+            AppliedPackaging.MOD_ID, "textures/gui/package-storagebus-sprites.png");
+    private static final ResourceLocation LATEST_AE2_STATES = new ResourceLocation(
+            AppliedPackaging.MOD_ID, "textures/gui/ae2-states.png");
+    private static final ResourceLocation LATEST_VERTICAL_BUTTONS = new ResourceLocation(
+            AppliedPackaging.MOD_ID, "textures/gui/package_bus_vertical_buttons_bg.png");
+
+    // User-provided Package Bus sprites. These coordinates are never baked into
+    // or copied over the supplied background texture.
+    private static final Blitter SLOT_BACKGROUND = Blitter.texture(SPRITES).src(0, 64, 18, 18);
+    private static final Blitter FUZZY_ON = Blitter.texture(SPRITES).src(16, 0, 8, 8);
+    private static final Blitter FUZZY_OFF = Blitter.texture(SPRITES).src(24, 0, 8, 8);
+    private static final Blitter INVERTED_ON = Blitter.texture(SPRITES).src(16, 8, 8, 8);
+    private static final Blitter INVERTED_OFF = Blitter.texture(SPRITES).src(24, 8, 8, 8);
+
+    // Current AE2 assets remain a separate texture, exactly as upstream does.
+    private static final Blitter PRIORITY_ICON = Blitter.texture(LATEST_AE2_STATES).src(144, 64, 16, 16);
+    private static final Blitter PRIORITY_TAB = Blitter.texture(LATEST_AE2_STATES).src(160, 192, 20, 20);
+    private static final Blitter PRIORITY_TAB_FOCUS =
+            Blitter.texture(LATEST_AE2_STATES).src(160, 224, 22, 22);
+    private static final Blitter TOOLBAR_BUTTON =
+            Blitter.texture(LATEST_AE2_STATES).src(176, 128, 18, 20);
+    private static final Blitter TOOLBAR_BUTTON_FOCUS =
+            Blitter.texture(LATEST_AE2_STATES).src(194, 128, 18, 20);
+    private static final Blitter TOOLBAR_BUTTON_HOVER =
+            Blitter.texture(LATEST_AE2_STATES).src(212, 128, 18, 20);
+    private static final ResourceLocation STORAGE_BUS_GUIDE = new ResourceLocation(
+            "ae2", "items-blocks-machines/storage_bus.md");
+
+    // The progress frame is supplied in the unused source area of the original
+    // Package Bus background and sampled in-place at runtime.
+    private static final Blitter WORK_SLOT_BACKGROUND = Blitter.texture(BACKGROUND).src(176, 0, 18, 18);
+    private static final Blitter PROGRESS_FRAME = Blitter.texture(BACKGROUND).src(196, 0, 6, 18);
+    private static final Blitter PROGRESS_FILL =
+            Blitter.texture(BACKGROUND).src(196, 0, 1, 1).colorArgb(0xff6fffe9);
+
+    // AE2 19+ vertical-button background is a 21x26 nine-slice with a 2px
+    // top and 4px bottom border. Blitter does the equivalent three-part draw.
+    private static final Blitter TOOLBAR_TOP = Blitter.texture(LATEST_VERTICAL_BUTTONS, 21, 26).src(0, 0, 21, 2);
+    private static final Blitter TOOLBAR_MIDDLE =
+            Blitter.texture(LATEST_VERTICAL_BUTTONS, 21, 26).src(0, 2, 21, 20);
+    private static final Blitter TOOLBAR_BOTTOM =
+            Blitter.texture(LATEST_VERTICAL_BUTTONS, 21, 26).src(0, 22, 21, 4);
+
+    private static final int BUTTON_X_RIGHT = 30;
+    private static final int ROW_Y = 29;
+    private static final int ROW_STEP = 18;
+    private static final int BUTTON_SIZE = 8;
+    private static final int BUTTON_TOP_MARGIN = 2;
+    private static final int PROGRESS_X = 139;
+    private static final int WORK_SLOT_Y = 8;
+    private static final int TOOLBAR_POSITION_X = 3;
+    private static final int TOOLBAR_POSITION_Y = 1;
+    private static final int TOOLBAR_MARGIN = 2;
+    private static final int TOOLBAR_SPACING = 6;
+
     private final PackageColorPicker colorPicker = new PackageColorPicker();
-    private final PackageColorPicker.TriggerButton colorButton;
+    private final List<PackageColorPicker.TriggerButton> colorButtons = new ArrayList<>();
+    private final List<Button> toolbarButtons = new ArrayList<>();
+    private final SettingToggleButton<AccessRestriction> rwMode;
+    private final SettingToggleButton<StorageFilter> storageFilter;
+    private final SettingToggleButton<YesNo> filterOnExtract;
+    private final SettingToggleButton<FuzzyMode> fuzzyMode;
 
-    public PackageBusScreen(PackageBusMenu menu, Inventory playerInventory, Component title) {
-        super(menu, playerInventory, title);
-        imageWidth = 176;
-        imageHeight = 206;
-        titleLabelX = 8;
-        titleLabelY = 6;
-        inventoryLabelX = 8;
-        inventoryLabelY = 114;
-        colorButton = new PackageColorPicker.TriggerButton(8, 8, menu::selectedColor, this::openColorPicker);
+    public PackageBusScreen(
+            PackageBusMenu menu,
+            Inventory playerInventory,
+            Component title,
+            ScreenStyle style) {
+        super(menu, playerInventory, title, style);
+
+        widgets.add("openPriority", new NewPriorityTabButton());
+        widgets.add(
+                "upgrades",
+                new ModernUpgradesPanel(
+                        menu.getSlots(SlotSemantics.UPGRADE),
+                        () -> {
+                            List<Component> lines = new ArrayList<>();
+                            lines.add(GuiText.CompatibleUpgrades.text());
+                            lines.addAll(Upgrades.getTooltipLinesForMachine(
+                                    menu.getUpgrades().getUpgradableItem()));
+                            return lines;
+                        }));
+        if (menu.getToolbox().isPresent()) {
+            widgets.add("toolbox", new ToolboxPanel(style, menu.getToolbox().getName()));
+        }
+
+        // RestrictedInputSlot comes from the pinned AE2 15 dependency and
+        // therefore carries the old grayscale BACKGROUND_UPGRADE icon. The
+        // panel itself is backported from current main, so suppress the old
+        // icon and draw the matching current-main placeholder in renderSlot.
+        ModernSlotRendering.clearLegacyUpgradeIcons(menu.getSlots(SlotSemantics.UPGRADE));
+
+        // AE2 renamed WRENCH to COG in newer lines; the 15.4.10 action is the
+        // same partition operation and uses the same cog artwork.
+        toolbarButtons.add(new ModernGuideButton());
+        toolbarButtons.add(new ModernActionButton(ActionItems.CLOSE, button -> menu.clear()));
+        toolbarButtons.add(new ModernActionButton(ActionItems.WRENCH, button -> menu.partition()));
+        storageFilter = new ModernServerSettingToggleButton<>(
+                Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
+        filterOnExtract = new ModernServerSettingToggleButton<>(Settings.FILTER_ON_EXTRACT, YesNo.YES);
+        fuzzyMode = new ModernServerSettingToggleButton<>(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        rwMode = new ModernServerSettingToggleButton<>(Settings.ACCESS, AccessRestriction.READ_WRITE);
+        toolbarButtons.add(storageFilter);
+        toolbarButtons.add(filterOnExtract);
+        toolbarButtons.add(fuzzyMode);
+        toolbarButtons.add(rwMode);
+
+        for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
+            final int rowIndex = row;
+            var button = new PackageColorPicker.TriggerButton(
+                    BUTTON_SIZE,
+                    BUTTON_SIZE,
+                    () -> menu.rowColor(rowIndex),
+                    () -> openColorPicker(rowIndex));
+            button.setTooltip(Tooltip.create(Component.translatable(
+                    "gui.appliedpackaging.package_bus.color", rowIndex + 1)));
+            colorButtons.add(button);
+        }
+
     }
 
     @Override
     protected void init() {
         super.init();
-        ImageButton setButton = new ImageButton(
-                leftPos + 54,
-                topPos + 26,
-                16,
-                16,
-                0,
-                0,
-                0,
-                SET_FILTER_ICON,
-                16,
-                16,
-                button -> minecraft.gameMode.handleInventoryButtonClick(
-                        menu.containerId,
-                        PackageBusMenu.BUTTON_SET_FROM_CURSOR),
-                Component.translatable("gui.appliedpackaging.package_bus.set_filter"));
-        setButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.package_bus.set_filter")));
-        addRenderableWidget(setButton);
+        for (Button button : toolbarButtons) {
+            addRenderableWidget(button);
+        }
+        for (var button : colorButtons) {
+            addRenderableWidget(button);
+        }
+    }
 
-        ImageButton clearButton = new ImageButton(
-                leftPos + 106,
-                topPos + 26,
-                16,
-                16,
-                0,
-                0,
-                0,
-                CLEAR_FILTER_ICON,
-                16,
-                16,
-                button -> minecraft.gameMode.handleInventoryButtonClick(
-                        menu.containerId,
-                        PackageBusMenu.BUTTON_CLEAR_FILTER),
-                Component.translatable("gui.appliedpackaging.package_bus.clear_filter"));
-        clearButton.setTooltip(Tooltip.create(Component.translatable("gui.appliedpackaging.package_bus.clear_filter")));
-        addRenderableWidget(clearButton);
+    @Override
+    protected void updateBeforeRender() {
+        super.updateBeforeRender();
+        storageFilter.set(menu.getStorageFilter());
+        filterOnExtract.set(menu.getFilterOnExtract());
+        fuzzyMode.set(menu.getFuzzyMode());
+        fuzzyMode.setVisibility(menu.supportsFuzzySearch());
+        rwMode.set(menu.getReadWriteMode());
 
-        colorButton.setX(leftPos + 10);
-        colorButton.setY(topPos + 100);
-        addRenderableWidget(colorButton);
+        var contentSlots = menu.getSlots(PackageBusMenu.PACKAGE_CONTENTS);
+        for (int index = 0; index < contentSlots.size(); index++) {
+            SlotAccessor accessor = (SlotAccessor) contentSlots.get(index);
+            accessor.appliedpackaging$setX(62 + (index % AbstractPackageBusPart.CONTENTS_PER_ROW) * 18);
+            accessor.appliedpackaging$setY(ROW_Y + (index / AbstractPackageBusPart.CONTENTS_PER_ROW) * ROW_STEP);
+        }
+
+        setSlotsHidden(PackageBusMenu.WORKING_PACKAGE, !menu.showsWorkingArea());
+        for (int row = 0; row < colorButtons.size(); row++) {
+            var button = colorButtons.get(row);
+            button.setX(leftPos + BUTTON_X_RIGHT);
+            button.setY(topPos + rowButtonY(row));
+            button.visible = menu.isRowEnabled(row);
+            button.active = menu.isRowEnabled(row) && !colorPicker.isOpen();
+        }
+        layoutModernToolbar();
+    }
+
+    @Override
+    public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
+        // Legacy Blitter does not reset Minecraft's global ColorModulator.
+        // Current AE2 stores an explicit ARGB color in every BlitRenderState,
+        // so normalize the legacy equivalent before the background itself.
+        graphics.flush();
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
+        // Current AE2 starts a new GUI stratum before/after this layer and
+        // stores an independent TextureSetup per element. GuiGraphics 1.20.1
+        // has neither facility, so flushing here is the exact layer boundary
+        // needed before the following immediate Blitter submissions.
+        graphics.flush();
+        drawModernToolbarBackground(graphics, offsetX, offsetY);
+        drawFilterSlotBackgrounds(graphics, offsetX, offsetY);
+        if (menu.showsWorkingArea()) {
+            drawWorkingArea(graphics, offsetX, offsetY);
+        }
+        for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
+            drawRowModeButtons(graphics, offsetX, offsetY, row, mouseX, mouseY);
+        }
+
+        // GuiGraphics fill/outline is buffered on 1.20.1. Finish this layer
+        // before AE2 draws widgets with immediate Blitter texture changes.
+        graphics.flush();
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        RenderSystem.defaultBlendFunc();
+    }
+
+    @Override
+    public void drawFG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY) {
+        super.drawFG(graphics, offsetX, offsetY, mouseX, mouseY);
+
+        // Current StorageBusScreen still renders the connected-target hint at
+        // this exact position and scale.
+        var poseStack = graphics.pose();
+        poseStack.pushPose();
+        poseStack.translate(10, 17, 0);
+        poseStack.scale(0.6f, 0.6f, 1);
+        int color = style.getColor(PaletteColor.DEFAULT_TEXT_COLOR).toARGB();
+        if (menu.getConnectedTo() != null) {
+            graphics.drawString(font, GuiText.AttachedTo.text(menu.getConnectedTo()), 0, 0, color, false);
+        } else {
+            graphics.drawString(font, GuiText.Unattached.text(), 0, 0, color, false);
+        }
+        poseStack.popPose();
     }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
-        renderContentAmounts(graphics);
         if (!colorPicker.isOpen()) {
-            renderTooltip(graphics, mouseX, mouseY);
+            renderModeTooltip(graphics, mouseX, mouseY);
         }
-        colorPicker.render(graphics, font, mouseX, mouseY);
+        colorPicker.renderLast(graphics, font, mouseX, mouseY);
+    }
+
+    @Override
+    public void renderCustomSlotHighlight(GuiGraphics graphics, int x, int y, int z) {
+        // Suppress the 1.20.1 highlight; the current AE2 treatment is emitted
+        // immediately before tooltips below.
+    }
+
+    @Override
+    protected void renderTooltip(GuiGraphics graphics, int x, int y) {
+        if (colorPicker.isOpen()) {
+            return;
+        }
+        ModernSlotRendering.drawSlotHighlight(graphics, leftPos, topPos, hoveredSlot);
+        super.renderTooltip(graphics, x, y);
+        if (hoveredSlot != null
+                && menu.getSlotSemantic(hoveredSlot) == PackageBusMenu.PACKAGE_MARKERS) {
+            ModernSlotRendering.drawEmptyMarkerTooltip(this, graphics, x, y, hoveredSlot);
+        }
+    }
+
+    private void drawFilterSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
+        List<Slot> markers = menu.getSlots(PackageBusMenu.PACKAGE_MARKERS);
+        List<Slot> contents = menu.getSlots(PackageBusMenu.PACKAGE_CONTENTS);
+        for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
+            float alpha = menu.isRowEnabled(row) ? 1.0f : 0.2f;
+            if (row < markers.size()) {
+                Slot marker = markers.get(row);
+                drawSlotBackground(graphics, marker, offsetX, offsetY, alpha);
+                ModernSlotRendering.drawMarkerSlotIcon(
+                        graphics,
+                        offsetX,
+                        offsetY,
+                        marker,
+                        alpha);
+            }
+            for (int column = 0; column < AbstractPackageBusPart.CONTENTS_PER_ROW; column++) {
+                int index = row * AbstractPackageBusPart.CONTENTS_PER_ROW + column;
+                if (index < contents.size()) {
+                    drawSlotBackground(graphics, contents.get(index), offsetX, offsetY, alpha);
+                }
+            }
+        }
+    }
+
+    private static void drawSlotBackground(
+            GuiGraphics graphics,
+            Slot slot,
+            int offsetX,
+            int offsetY,
+            float alpha) {
+        SLOT_BACKGROUND.copy()
+                .dest(offsetX + slot.x - 1, offsetY + slot.y - 1)
+                .color(1, 1, 1, alpha)
+                .blit(graphics);
+    }
+
+    private void drawWorkingArea(GuiGraphics graphics, int offsetX, int offsetY) {
+        WORK_SLOT_BACKGROUND.dest(offsetX + 119, offsetY + WORK_SLOT_Y).blit(graphics);
+        PROGRESS_FRAME.dest(offsetX + PROGRESS_X, offsetY + WORK_SLOT_Y).blit(graphics);
+
+        int progress = Math.max(0, Math.min(15, menu.progress()));
+        if (progress > 0) {
+            int height = Math.max(1, progress * 16 / 15);
+            PROGRESS_FILL.copy()
+                    .dest(
+                            offsetX + PROGRESS_X + 1,
+                            offsetY + WORK_SLOT_Y + 17 - height,
+                            4,
+                            height)
+                    .blit(graphics);
+        }
+    }
+
+    @Override
+    public void renderSlot(GuiGraphics graphics, Slot slot) {
+        if (menu.getSlotSemantic(slot) == SlotSemantics.UPGRADE) {
+            ModernSlotRendering.drawUpgradeSlotIcon(graphics, slot);
+        }
+        super.renderSlot(graphics, slot);
+        if (menu.unpackBlocked() && menu.getSlotSemantic(slot) == PackageBusMenu.WORKING_PACKAGE) {
+            graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, 0x66ff3333);
+            graphics.renderOutline(slot.x - 1, slot.y - 1, 18, 18, 0xffff5555);
+        }
+    }
+
+    private void layoutModernToolbar() {
+        int currentY = topPos + TOOLBAR_POSITION_Y + TOOLBAR_MARGIN;
+        int xEdge = leftPos + TOOLBAR_POSITION_X - TOOLBAR_MARGIN;
+        for (Button button : toolbarButtons) {
+            if (!button.visible) {
+                continue;
+            }
+            button.setX(xEdge - button.getWidth());
+            button.setY(currentY);
+            currentY += button.getHeight() + TOOLBAR_SPACING;
+        }
+    }
+
+    private void drawModernToolbarBackground(GuiGraphics graphics, int offsetX, int offsetY) {
+        int visible = 0;
+        int maxWidth = 0;
+        int totalButtonHeight = 0;
+        for (Button button : toolbarButtons) {
+            if (!button.visible) {
+                continue;
+            }
+            visible++;
+            maxWidth = Math.max(maxWidth, button.getWidth());
+            totalButtonHeight += button.getHeight();
+        }
+        if (visible == 0) {
+            return;
+        }
+
+        int destinationX = offsetX + TOOLBAR_POSITION_X - maxWidth - 2 * TOOLBAR_MARGIN - 2;
+        int destinationY = offsetY + TOOLBAR_POSITION_Y - 1;
+        int destinationWidth = maxWidth + 2 * TOOLBAR_MARGIN + 1;
+        int destinationHeight = 2 * TOOLBAR_MARGIN
+                + totalButtonHeight
+                + visible * TOOLBAR_SPACING
+                + 2;
+        TOOLBAR_TOP.dest(destinationX, destinationY, destinationWidth, 2).blit(graphics);
+        TOOLBAR_MIDDLE.dest(
+                destinationX,
+                destinationY + 2,
+                destinationWidth,
+                destinationHeight - 6).blit(graphics);
+        TOOLBAR_BOTTOM.dest(
+                destinationX,
+                destinationY + destinationHeight - 4,
+                destinationWidth,
+                4).blit(graphics);
+    }
+
+    private static final class NewPriorityTabButton extends TabButton {
+        private NewPriorityTabButton() {
+            super(ItemStack.EMPTY, GuiText.Priority.text(), button -> NetworkHandler.instance()
+                    .sendToServer(SwitchGuisPacket.openSubMenu(PriorityMenu.TYPE)));
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            if (!visible) {
+                return;
+            }
+            (isFocused() ? PRIORITY_TAB_FOCUS : PRIORITY_TAB)
+                    .dest(getX(), getY())
+                    .blit(graphics);
+            PRIORITY_ICON.dest(getX() + 2, getY() + 1).blit(graphics);
+        }
+    }
+
+    private final class ModernGuideButton extends OpenGuideButton {
+        private ModernGuideButton() {
+            super(button -> AppEng.instance().openGuideAtAnchor(PageAnchor.page(STORAGE_BUS_GUIDE)));
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            renderModernToolbarButton(graphics, this, getIcon());
+        }
+    }
+
+    private static final class ModernActionButton extends ActionButton {
+        private ModernActionButton(ActionItems action, java.util.function.Consumer<ActionItems> onPress) {
+            super(action, onPress);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            renderModernToolbarButton(graphics, this, getIcon());
+        }
+    }
+
+    private static final class ModernServerSettingToggleButton<T extends Enum<T>>
+            extends ServerSettingToggleButton<T> {
+        private ModernServerSettingToggleButton(appeng.api.config.Setting<T> setting, T initialValue) {
+            super(setting, initialValue);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            renderModernToolbarButton(graphics, this, getIcon());
+        }
+    }
+
+    private static void renderModernToolbarButton(GuiGraphics graphics, Button button, Icon icon) {
+        if (!button.visible) {
+            return;
+        }
+
+        int yOffset = button.isHovered() ? 1 : 0;
+        Blitter background = button.isHovered()
+                ? TOOLBAR_BUTTON_HOVER
+                : button.isFocused() ? TOOLBAR_BUTTON_FOCUS : TOOLBAR_BUTTON;
+
+        RenderSystem.disableDepthTest();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        background.dest(button.getX() - 1, button.getY() + yOffset).blit(graphics);
+        Blitter.texture(LATEST_AE2_STATES)
+                .src(icon.x, icon.y, icon.width, icon.height)
+                .dest(button.getX(), button.getY() + 1 + yOffset)
+                .blit(graphics);
+        RenderSystem.enableDepthTest();
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (colorPicker.mouseClicked(mouseX, mouseY, button)) {
             return true;
+        }
+        int colorRow = rowAt(mouseX, mouseY, BUTTON_X_RIGHT);
+        if (colorRow >= 0 && button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            menu.clearColor(colorRow);
+            return true;
+        }
+
+        int x = leftPos + BUTTON_X_RIGHT;
+        if (menu.hasInverterCard()) {
+            x -= BUTTON_SIZE + 2;
+            int row = rowAt(mouseX, mouseY, x - leftPos);
+            if (row >= 0 && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                menu.toggleInverted(row);
+                return true;
+            }
+        }
+        if (menu.hasFuzzyCard()) {
+            x -= BUTTON_SIZE + 2;
+            int row = rowAt(mouseX, mouseY, x - leftPos);
+            if (row >= 0 && button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                menu.toggleFuzzy(row);
+                return true;
+            }
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
@@ -112,18 +527,8 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        if (colorPicker.mouseScrolled(mouseX, mouseY, delta)) {
-            return true;
-        }
-        int slot = hoveredContentSlot(mouseX, mouseY);
-        if (slot >= 0 && minecraft != null && minecraft.gameMode != null) {
-            int button = delta > 0
-                    ? PackageBusMenu.BUTTON_CONTENT_AMOUNT_INCREASE_BASE + slot
-                    : PackageBusMenu.BUTTON_CONTENT_AMOUNT_DECREASE_BASE + slot;
-            minecraft.gameMode.handleInventoryButtonClick(menu.containerId, button);
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return colorPicker.mouseScrolled(mouseX, mouseY, delta)
+                || super.mouseScrolled(mouseX, mouseY, delta);
     }
 
     @Override
@@ -134,98 +539,97 @@ public class PackageBusScreen extends AbstractContainerScreen<PackageBusMenu> {
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        return colorPicker.charTyped(codePoint, modifiers) || super.charTyped(codePoint, modifiers);
+        return colorPicker.charTyped(codePoint, modifiers)
+                || super.charTyped(codePoint, modifiers);
     }
 
-    @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        int x = leftPos;
-        int y = topPos;
-        graphics.fill(x, y, x + imageWidth, y + imageHeight, PANEL);
-        graphics.renderOutline(x, y, imageWidth, imageHeight, PANEL_DARK);
-        graphics.fill(x + 6, y + 18, x + 170, y + 110, 0xffc9d0d4);
-        graphics.renderOutline(x + 6, y + 18, 164, 92, PANEL_MID);
-        renderSlot(graphics, x + 79, y + 24);
-        renderSlot(graphics, x + 34, y + 57);
-        for (int slot = 0; slot < 3; slot++) {
-            renderSlot(graphics, x + 71 + slot * 18, y + 57);
+    private void drawRowModeButtons(
+            GuiGraphics graphics,
+            int offsetX,
+            int offsetY,
+            int row,
+            int mouseX,
+            int mouseY) {
+        if (!menu.isRowEnabled(row)) {
+            return;
         }
-        graphics.fill(x + 8, y + 99, x + 164, y + 110, 0xffaeb7bd);
-        graphics.renderOutline(x + 8, y + 99, 156, 11, PANEL_MID);
-        graphics.hLine(x + 70, x + 78, y + 34, PANEL_DARK);
-        graphics.hLine(x + 100, x + 106, y + 34, PANEL_DARK);
-        graphics.hLine(x + 55, x + 70, y + 67, PANEL_DARK);
-        renderInventorySlots(graphics, x, y);
+        int x = BUTTON_X_RIGHT;
+        int y = rowButtonY(row);
+        if (menu.hasInverterCard()) {
+            x -= BUTTON_SIZE + 2;
+            (menu.isRowInverted(row) ? INVERTED_ON : INVERTED_OFF)
+                    .dest(offsetX + x, offsetY + y)
+                    .blit(graphics);
+            renderHover(graphics, offsetX + x, offsetY + y, mouseX, mouseY);
+        }
+        if (menu.hasFuzzyCard()) {
+            x -= BUTTON_SIZE + 2;
+            (menu.isRowFuzzy(row) ? FUZZY_ON : FUZZY_OFF)
+                    .dest(offsetX + x, offsetY + y)
+                    .blit(graphics);
+            renderHover(graphics, offsetX + x, offsetY + y, mouseX, mouseY);
+        }
     }
 
-    @Override
-    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, title, titleLabelX, titleLabelY, 0xff2a3036, false);
-        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, 0xff2a3036, false);
-    }
-
-    private static void renderSlot(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x, y, x + 20, y + 20, PANEL_DARK);
-        graphics.fill(x + 1, y + 1, x + 19, y + 19, SLOT);
-        graphics.fill(x + 2, y + 2, x + 18, y + 18, 0xffe8ecee);
-    }
-
-    private static void renderInventorySlots(GuiGraphics graphics, int left, int top) {
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 9; column++) {
-                renderSlot(graphics, left + 7 + column * 18, top + 124 + row * 18);
+    private void renderModeTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        int x = leftPos + BUTTON_X_RIGHT;
+        if (menu.hasInverterCard()) {
+            x -= BUTTON_SIZE + 2;
+            int row = rowAt(mouseX, mouseY, x - leftPos);
+            if (row >= 0) {
+                graphics.renderTooltip(font, Component.translatable(
+                        menu.isRowInverted(row)
+                                ? "gui.appliedpackaging.package_bus.inverted_on"
+                                : "gui.appliedpackaging.package_bus.inverted_off"), mouseX, mouseY);
+                return;
             }
         }
-        for (int column = 0; column < 9; column++) {
-            renderSlot(graphics, left + 7 + column * 18, top + 182);
-        }
-    }
-
-    private void renderContentAmounts(GuiGraphics graphics) {
-        for (int slot = 0; slot < 3; slot++) {
-            ItemStack display = menu.contentFilter(slot);
-            int amount = menu.contentFilterAmount(slot);
-            if (!display.isEmpty() && amount > display.getCount()) {
-                renderAmountLabel(graphics, amount, leftPos + 72 + slot * 18, topPos + 58);
+        if (menu.hasFuzzyCard()) {
+            x -= BUTTON_SIZE + 2;
+            int row = rowAt(mouseX, mouseY, x - leftPos);
+            if (row >= 0) {
+                graphics.renderTooltip(font, Component.translatable(
+                        menu.isRowFuzzy(row)
+                                ? "gui.appliedpackaging.package_bus.fuzzy_on"
+                                : "gui.appliedpackaging.package_bus.fuzzy_off"), mouseX, mouseY);
             }
         }
     }
 
-    private void renderAmountLabel(GuiGraphics graphics, int amount, int x, int y) {
-        String label = formatAmount(amount);
-        graphics.drawString(font, label, x + 17 - font.width(label), y + 9, 0xffffffff, true);
+    private void openColorPicker(int row) {
+        var button = colorButtons.get(row);
+        colorPicker.openNear(
+                button,
+                width,
+                height,
+                () -> menu.rowColor(row),
+                color -> menu.setColor(row, color),
+                () -> button.active = menu.isRowEnabled(row));
+        for (var colorButton : colorButtons) {
+            colorButton.active = false;
+        }
     }
 
-    private int hoveredContentSlot(double mouseX, double mouseY) {
-        for (int slot = 0; slot < 3; slot++) {
-            int x = leftPos + 72 + slot * 18;
-            int y = topPos + 58;
-            if (mouseX >= x && mouseX < x + 16 && mouseY >= y && mouseY < y + 16) {
-                return slot;
+    private int rowAt(double mouseX, double mouseY, int relativeX) {
+        for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
+            int x = leftPos + relativeX;
+            int y = topPos + rowButtonY(row);
+            if (menu.isRowEnabled(row)
+                    && mouseX >= x && mouseX < x + BUTTON_SIZE
+                    && mouseY >= y && mouseY < y + BUTTON_SIZE) {
+                return row;
             }
         }
         return -1;
     }
 
-    private static String formatAmount(int amount) {
-        if (amount >= 1000 && amount % 1000 == 0) {
-            return (amount / 1000) + "B";
-        }
-        if (amount >= 10000) {
-            return (amount / 1000) + "k";
-        }
-        return Integer.toString(amount);
+    private static int rowButtonY(int row) {
+        return ROW_Y + row * ROW_STEP + BUTTON_TOP_MARGIN;
     }
 
-    private void openColorPicker() {
-        colorPicker.openNear(
-                colorButton,
-                width,
-                height,
-                menu::selectedColor,
-                color -> minecraft.gameMode.handleInventoryButtonClick(
-                        menu.containerId,
-                        PackageBusMenu.BUTTON_COLOR_BASE + color.ordinal()),
-                () -> colorButton.active = true);
+    private static void renderHover(GuiGraphics graphics, int x, int y, int mouseX, int mouseY) {
+        if (mouseX >= x && mouseX < x + BUTTON_SIZE && mouseY >= y && mouseY < y + BUTTON_SIZE) {
+            graphics.renderOutline(x, y, BUTTON_SIZE, BUTTON_SIZE, 0xffdaffff);
+        }
     }
 }

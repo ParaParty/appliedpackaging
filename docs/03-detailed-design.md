@@ -399,7 +399,7 @@ UI：
 package_assembler 已注册为方块、方块物品和方块实体。
 方块实体提供 9 格 legacy 输入缓冲、68 格 GUI 真实输入缓冲、1 格样板槽、17 格输出槽、1 格容量槽、1 格 marker 槽与 5 格 AE2 speed-card upgrade inventory。
 非潜行右键打开 Package Assembler GUI。
-GUI 接入 AE2 `UpgradeableScreen`、`UpgradeableMenu` 和 `ScreenStyle` 体系；style JSON 位于 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景贴图位于 `assets/appliedpackaging/textures/gui/mepackageassembler.png`。
+GUI 菜单继续使用 AE2 `UpgradeableMenu` 和 `ScreenStyle`，客户端改由 `ModernUpgradeableScreen` 回移 current-main 槽位 hover、升级面板与空升级槽视觉；style JSON 位于 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景贴图位于 `assets/appliedpackaging/textures/gui/mepackageassembler.png`。
 背景 atlas 保持用户提供的 256x256 PNG 原图，ScreenStyle 使用主界面 `srcRect` 176x239；玩家物品栏、hotbar、标题和上半区控件按贴图实测坐标写入 style JSON。
 可见区显示 4x4 输入格和 4 个输出格，左侧滚动条同步浏览全部 17 行；AE2 1.20.1 style grid 没有 4 列枚举，因此 4 行输入槽在菜单中拆成多组 AE2 slot semantics，由 style JSON 分别定位。
 滚动输入/输出槽为真实菜单槽位，不是 fake slot；槽背景由客户端按 AE2 slot background 风格绘制，避免把动态滚动槽全部烘进背景图。
@@ -420,7 +420,7 @@ packaged_processing_pattern 不会被消耗；其它输出槽仍可接收后续�
 普通 Pattern Provider pushPattern 在本地样板槽为空时直接从 KeyCounter 和本次 AE2 pattern 规划一个 Fluix、空名称、空 marker 的包裹，可承载超过 9 个物品栈或流体输入，并受容量档约束。
 输出模式默认 ME_NETWORK，可在装配室 GUI 左侧 AE2 toolbar 中循环切换 ME_NETWORK、ADJACENT_BLOCK 和 NONE，并保存到 NBT。
 自动导出按输出槽顺序一次只处理 1 个包裹；目标拒绝或容量不足时保留输出槽内容，不丢弃、不消耗新的输入。
-右侧升级面板使用 AE2 `UpgradesPanel`；升级兼容性通过 `Upgrades.add(AEItems.SPEED_CARD, package_assembler, 5)` 注册，只允许 5 张加速卡，并由方块实体的真实 upgrade inventory 保存、读取和掉落。
+右侧升级面板使用 current-main `UpgradesPanel` 的 1.20.1 回移实现与 5px padding；空槽从独立原样 `ae2-states.png` 绘制 current-main `BACKGROUND_UPGRADE`，不再混入 AE2 15 灰阶占位。顶部已编码样板槽和容量元件槽不再调用依赖 AE2 15 的 `Icon`，而是分别从同一原样 `ae2-states.png` 绘制 current-main `BACKGROUND_ENCODED_PATTERN (240,112,16,16)` 与 `BACKGROUND_STORAGE_COMPONENT (240,48,16,16)`。升级兼容性通过 `Upgrades.add(AEItems.SPEED_CARD, package_assembler, 5)` 注册，只允许 5 张加速卡，并由方块实体的真实 upgrade inventory 保存、读取和掉落。空 marker 槽从用户 sprite `(32,16,16,16)` 绘制自有图标，hover 使用 current-main 蓝色填充/边线并提供双行说明 tooltip。
 合成进度使用 AE2 分子装配室速度表与能量税率：0/1/2/3/4/5 张加速卡每 tick 分别尝试推进 10/13/17/20/25/50，能量倍率分别为 1.0/1.3/1.7/2.0/2.5/5.0；每 tick 先从本机 AE grid energy service 抽取 AE 能量，网络不可用或能量不足时不推进，最大进度 100。
 ```
 
@@ -548,9 +548,9 @@ AE2 ME Interface adjacent subnet
 me_packager 已注册为方块、方块实体和方块物品。
 方块状态包含水平朝向 facing 与可切换连接面 network_side。
 放置时 network_side 默认设为 facing 的反向；潜行右键任意方块面会把 network_side 切换到被点击面。
-GUI 作为主入口，客户端使用 AE2 `UpgradeableScreen` + `ScreenStyle`，菜单继承 AE2 `UpgradeableMenu`。
+GUI 作为主入口，菜单继承 AE2 `UpgradeableMenu` 并使用 `ScreenStyle`，客户端改由 `ModernUpgradeableScreen` 回移 current-main 槽位 hover、升级面板与空升级槽视觉。
 样式文件位于 `assets/ae2/screens/appliedpackaging/me_packager.json`，背景贴图位于 `assets/appliedpackaging/textures/gui/mepackager.png`。
-右侧升级面板使用 AE2 `UpgradesPanel`；升级兼容性通过 `Upgrades.add` 注册到 ME Packager 方块物品。
+右侧升级面板使用 current-main `UpgradesPanel` 的 1.20.1 回移实现与 5px padding；空升级槽使用独立原样 `ae2-states.png` 的 current-main `BACKGROUND_UPGRADE`。容量元件槽不再调用依赖 AE2 15 的 `Icon.BACKGROUND_STORAGE_COMPONENT`，改从同一原样资源绘制 current-main `(240,48,16,16)`。升级兼容性通过 `Upgrades.add` 注册到 ME Packager 方块物品。空 marker 槽从用户 sprite `(32,16,16,16)` 绘制自有图标，hover 使用 current-main 蓝色填充/边线并提供双行说明 tooltip。
 非潜行右键执行快速交互：
   手持合法包裹时走与外部 capability 相同的立即拆包输入规则。
   空手或非包裹物品时先尝试取出输出槽。
@@ -703,7 +703,7 @@ AE2 原版 Pattern Encoding Terminal 通过 mixin 增加包裹样板模式 tab�
 包裹样板模式编码时输出 AE2 crafting_pattern 物品，并写入 appliedpackaging.package_crafting_pattern NBT；AE2 tooltip、pattern decoder、Pattern Provider 和 Crafting CPU 通过该 NBT 识别输出包裹，装配室之外的机器不会把它当作可执行的分子装配室 crafting pattern。
 包裹模式复用 AE2 的 81 个 processing input fake slot 与 processing scrollbar，按每行 3 格显示连续 3 行；滚动范围覆盖 27 行。scrollbar handle 使用已复制并标记来源的 AE2 1.21.1 small scroller sprite，而不是 1.20.1 `Scrollbar.SMALL` 图形。processing output slots 在该模式隐藏并移出渲染区域，包裹 marker 使用专属 marker slot，包裹预览继续使用 crafting result slot；非当前滚动窗口的 processing input 与停用的 crafting grid 同样移出渲染区域，避免其 ghost item 被容器层继续绘制。输入保留 AE2 `ConfigInventory`/`GenericStack` sparse 数据与数量显示，数量可大于 1，并允许 AEItemKey、AEFluidKey 等 AE processing input 类型。`PatternEncodingTermMenu.isProcessingPatternSlot` 在包裹模式识别全部 81 个 processing input，使原版 `getEmptyingAction` 支持物品/流体容器写入，原版 `canModifyAmountForSlot` 对非空输入开放中键 `SetProcessingPatternAmountScreen`。退出包裹模式时恢复原 processing/crafting 槽位分类、可见性、数量和编辑语义。自动包裹预览不是 processing primary output，空槽不注册 `primary_processing_result_tooltip`；存在包裹时只显示物品自身 tooltip。
 高级样板终端注册为 AE2 cable part item，part 继承 AE2 PatternEncodingTerminalPart，复用原版静态模型、网络终端库存、搜索栏、AE 左侧工具栏和右侧 view-cell 区域；菜单继承 PatternEncodingTermMenu 并强制保持 PROCESSING 模式。
-高级样板终端 GUI 使用 AE2 ScreenStyle/MEStorageScreen；两行网络库存时主体宽 195px、高 250px，顶部网络库存为 9 列，标题、搜索、网络滚动条、玩家栏与样板编码区按 AE2 高版本 Pattern Encoding Terminal 基线布局。动态加高时首行和中间重复行使用 atlas 第一网络行，末行只使用 atlas 第二网络行，避免重复第二行造成接缝。中间编码区为 4 个可见包裹列，每列拥有 81 个真实 processing input 槽但只同时显示 3 行，列之间保留 1px 间距；右侧 4 个真实 processing output 槽同样只显示 3 行。左侧使用 AE2 高版本小滚动 indicator 同步滚动输入/输出，底部水平滚动条只滚动包裹列；第一未启用列显示加号，后续列显示禁用背景且无颜色按钮/无 ghost 物品。高级终端保持其贴图和 ScreenStyle 原坐标，不继承原版终端包裹模式的 1px 偏移。高级输入 fake slot 允许修改数量；中键打开复用 AE2 数量输入 style 和包语义的 `AdvancedSetPatternAmountScreen`，确认后通过 `InventoryAction.SET_FILTER` 回写对应真实菜单槽。
+高级样板终端 GUI 使用 AE2 ScreenStyle/MEStorageScreen；两行网络库存时主体宽 195px、高 250px，顶部网络库存为 9 列，标题、搜索、网络滚动条、玩家栏与样板编码区按 AE2 高版本 Pattern Encoding Terminal 基线布局。动态加高时首行和中间重复行使用 atlas 第一网络行，末行只使用 atlas 第二网络行，避免重复第二行造成接缝。中间编码区为 4 个可见包裹列，每列拥有 81 个真实 processing input 槽但只同时显示 3 行，列之间保留 1px 间距；右侧 4 个真实 processing output 槽同样只显示 3 行。左侧使用 AE2 高版本小滚动 indicator 同步滚动输入/输出，底部水平滚动条只滚动包裹列；第一未启用列显示加号，后续列显示禁用背景且无颜色按钮/无 ghost 物品。右侧 `BLANK_PATTERN` 与 `ENCODED_PATTERN` 逻辑槽分别使用 `left=167,bottom=167` 和 `left=167,bottom=120`，使槽内物品相对用户底图槽框各向右、向上 1px。编码按钮 widget 保持 `left=167,bottom=146`：两个 16px 槽内容区、16px 图标和 16px 点击区共用 `x=167` 中心线，按钮 18px 新版背景从 `x=166` 开始，与 18px 槽框同轴；其它控件不继承原版终端包裹模式的 1px 偏移。高级输入 fake slot 允许修改数量；中键打开复用 AE2 数量输入 style 和包语义的 `AdvancedSetPatternAmountScreen`，确认后通过 `InventoryAction.SET_FILTER` 回写对应真实菜单槽。
 
 高级终端覆盖 1.20.1 AE2 的白色槽位 hover。旧 `renderCustomSlotHighlight` 注入只取消旧效果，不在 Vanilla 尚未结束的槽位批次中追加绘制；在 AE tooltip 阶段前先提交背景纹理批次，再按 AE2 1.21.1 使用 `0x669cd3ff` 淡蓝填充和 `0xffdaffff` 四边高亮，随后提交高亮批次并继续 tooltip。该顺序同时适用于空槽和有物品槽，避免旧版延迟 blit 出现黑色矩形。
 每个启用列上方包含颜色按钮和 X 按钮。颜色按钮只打开统一拾色弹窗，不提供名称或 marker 编辑；X 在列非空时清空该列，在列为空时删除该列并让后续输入与颜色前移，最后一列不会删除。弹窗在 `super.render(...)` 完成后作为不透明高 Z 前景绘制；可见 processing input/output slots 保持 active，物品继续在弹窗下方渲染。打开时按钮保持可见但停用，鼠标点击/释放/拖拽/滚轮、键盘与字符输入均不会透传到底层 AE 网络库存、processing slots 或编码按钮，点击外部只关闭弹层。
@@ -731,34 +731,23 @@ Split 会把已编码 packaged_processing_pattern 拆回多个由 AE2 原版 bla
 不拆包
 ```
 
-包裹输出总线：
+包裹卸货总线：
 
 ```text
-从 AE 网络取已有包裹
-按颜色/marker/内容过滤输出到相邻库存
-不把散装物品打成包裹
-不请求自动合成
-不拆包
-```
-
-包裹拆包总线：
-
-```text
-网络尝试插入包裹
-总线过滤包裹
-展开包裹内容
+从 ME 网络选择匹配包裹
 模拟完整插入相邻目标
-成功才接受包裹
-提交后目标得到散装内容
+从网络抽取一个包裹并保存在本地 heldPackage
+播放与 ME 打包机拆包模式相同的工作进度
+进度结束时重新验证过滤与目标容量
+成功时一次性提交全部散装内容并清空 heldPackage
+失败时保留同一个 heldPackage，进入阻塞并定时重试
 ```
 
-当前基础实现：
+目标实现：
 
 ```text
-总线家族当前实现为 AE2 可连接方块端点，而不是 cable part。
-三种总线均注册为水平朝向方块、方块物品、方块实体、配方、loot table 和 blockstate。
-方块实体继承 AE2 AENetworkBlockEntity，持有 IManagedGridNode，并设置 `GridFlags.REQUIRE_CHANNEL`；与 AE2 Storage/Export Bus 一样，只有获得 channel 且节点在线时才挂载或执行路由。
-方块 `FACING` 的反向面是相邻 Forge item handler 目标端点；该面从 grid connectable sides 中移除并返回 `AECableType.NONE`，只允许其它面连接 AE 网络。方块旋转后立即刷新可连接面。
+Package Storage Bus 与 Package Unpacking Bus 的玩家入口均为 AE2 `PartItem`，安装在 cable bus 面上并各自要求一个 channel；part 安装面指向相邻 Forge item handler。旧方块只允许作为迁移期兼容实现存在，不进入配方、创造栏或正式模型验收。
+Package Export Bus 与独立 Package Pattern Terminal 已从正式范围删除，不保留玩家注册、配方、创造栏入口或客户端界面。
 
 package_storage_bus:
   作为 IStorageProvider 挂载 PackageItemStorage。
@@ -769,33 +758,22 @@ package_storage_bus:
   服务端每 10 tick 请求重新挂载 IStorageProvider；相邻 handler 中包裹增删、目标方块移除/替换或运行中修改过滤器后，AE storage cache 会刷新可见 key，并卸载旧目标留下的 key。
   不暴露包裹内部内容。
 
-package_export_bus:
-  周期性从 AE 网络缓存中选择合法包裹。
-  设置过滤模板后，只选择匹配过滤的包裹。
-  只输出已有包裹到目标面库存。
-  目标插入和源抽取均先模拟；提交源抽取后目标状态若发生变化，则尝试把该包裹恢复到原 AE 存储。
-  不把散装库存自动打成包裹。
-
 package_unpacking_bus:
   周期性从 AE 网络选择合法包裹。
   设置过滤模板后，只选择匹配过滤的包裹。
-  先在同一累计快照中模拟完整拆入目标面库存，成功后才从网络抽取 1 个包裹并提交散装插入。
-  目标提交中途失败时回滚已插入内容；包裹仍可恢复时写回原 AE 存储。
+  首次选择时先在同一累计快照中模拟完整拆入目标面库存，再从网络精确抽取 1 个包裹并转移到 part 自己的 `heldPackage`；此时目标仍不获得任何内容。
+  `heldPackage`、工作态、剩余工作 tick、阻塞态和重试冷却写入 part NBT；工作槽直接同步该真实 held 状态，不再使用空预览占位。
+  工作周期固定复用 ME 打包机的 20 tick 拆包进度。进度结束时重新校验当前过滤规则、目标存在性和累计容量，全部通过后才事务性写入全部内容并清空 held 状态。
+  最终提交失败时不把包裹写回 ME 网络，也不切换到其它包裹；保持同一个 `heldPackage`，清空进度并进入阻塞态，等待下一次重新验证后从完整 20 tick 进度重新开始。
+  加速卡与 ME 打包机一致只缩短扫描/阻塞重试间隔：`max(2, 20 - speedCards * 3)`；不缩短 20 tick 工作动画本身。
+  工作中拒绝玩家取出 held 包裹；阻塞或其它空闲 held 状态允许从 GUI 工作槽取回。part 被拆除时 held 包裹作为额外掉落返还，`clearContent` 同步清空，避免复制或丢失。
   不接受部分拆包。
 
-过滤模板当前为 ghost 配置：手持已编码 package_pattern、packaged_processing_pattern 或合法包裹右键总线写入模板；
-潜行空手右键清除模板；模板物品不被消耗，也不会作为实体库存掉落。
-普通空手右键打开共享 Package Bus 配置 UI；UI 显示当前 ghost 模板，支持从光标物品复制模板、清除模板，以及从玩家背包 shift-click 有效模板复制为 ghost filter。
-UI 仍复用 PackageFilter.fromTemplate，因此 package_pattern、packaged_processing_pattern 和合法包裹的颜色、marker、内容过滤语义与右键快捷配置完全一致。
-Package Bus 配置 UI 也支持手工过滤器编辑：统一拾色弹窗设置颜色过滤，marker ghost 槽从光标复制 1 个物品作为 marker，3 个 required content ghost 槽从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标点击清除；这些 ghost 编辑不消耗玩家物品。若 required content 光标物品是 Forge 流体容器，则过滤器保存对应 AEFluidKey 与流体数量，例如水桶保存 1000 mB water。鼠标悬停 required content ghost 槽并滚轮调整数量时，流体每步调整 1000 mB，物品/其它已存在 key 每步调整 1；数量不会降到小于一个调整步长。
-手工过滤器以 PackageFilter NBT 保存到总线方块实体，保留旧 filter_template 读取兼容；复制真实模板时仍保存 ghost 模板物品用于显示，手工编辑后清除模板来源显示但保留实际过滤条件。
-Package Bus 与 Package Pattern Terminal 的整数状态使用服务端权威 `DataSlot#get` 和客户端菜单本地缓存 `DataSlot#set`；客户端缓存从 0 开始，只接受菜单包更新，不从可能陈旧的本地 block entity/part host 预填。Minecraft 1.20.1 的 `ClientboundContainerSetDataPacket` 以 signed short 传输每个 `DataSlot` 值，因此可超过 32767 的 required-content amount 与 processing-output amount 必须分别同步低 16 位和高 16 位，客户端按 unsigned word 重组为非负 int，不能直接用单个 `DataSlot`。服务端菜单每次 `broadcastChanges()` 前还会从 host 重建 marker/content/processing-output ghost display，因此另一菜单或外部逻辑修改配置时，已打开菜单不会停留在旧图标。
-
-过滤器变化时只有注册了 `IStorageProvider` 的 Package Storage Bus 请求重新挂载；Package Export Bus 与 Package Unpacking Bus 只保存新过滤器并在后续路由 tick 使用，不得向 AE2 请求不存在的 storage provider 刷新。
-
-Package Pattern Terminal 的 Forge item handler 与 AE2 原版 Pattern Encoding Terminal 保持同一自动化边界：只暴露空白样板槽；预览输入、编码输出、容量和 marker 均不暴露。AE2 part 拆除时旧 `LazyOptional` 必须失效，兼容方块在 capability revive 后重建同一受限视图。
-
-包裹总线家族当前不含批量 required content 编辑、任意 AEKey 直接手工过滤输入，也不提供 AE2 cable part 形态；Package Pattern Terminal 已单独实现为 AE2 cable part item。
+两个总线共用 7 行 `PackageBusFilterRule`。每行保存颜色是否启用及颜色值、marker item key、6 个普通 item key、模糊开关和反转开关；空行不参与匹配，所有非空行按 OR 合并。内容过滤在反转关闭时要求包裹内容均属于该行白名单，在反转开启时要求包裹内容不属于该行列表；模糊开启时使用 AE2 `FuzzyMode` 比较物品 key。
+基础启用第 0、1 行；它们在 GUI 中对应底图最上方 `y=29`、`y=47` 两行。5 张容量卡依次启用第 2、3、4、5、6 行，第 5 张达到 7 行过滤容量上限。移除容量卡时被锁定行必须清空，菜单使用 `OptionalFakeSlot`/`IOptionalSlot` 提供禁用状态，并按 AE2 新版风格对正常 slot background 使用透明叠加，不制作独立 disabled-slot 贴图。
+模糊卡与反转卡各最多 1 张。对应按钮只在卡存在时显示；两者都存在时顺序为模糊、反转、颜色，只存在一个时该按钮紧靠颜色。模糊、反转、颜色三个 8px 按钮在每个 18px 过滤行内统一使用固定 2px 上边距，不按行高垂直居中。按钮分别保存每一行状态，绿色表示启用、红色表示停用。颜色按钮始终存在；右键颜色按钮清除该行颜色约束。
+两个界面保留用户提供的 `package-storagebus.png` 与 `package-storagebus-sprites.png` 为两张独立、字节不变的运行时纹理；工作槽与空进度框从背景文件 `[176,0,18,18]` / `[196,0,6,18]` 取样到 `(119,8)` / `(139,8)`，Package Storage Bus 不提交该工作区。过滤槽和模糊/反转按钮来自用户 sprite，其中锁定行使用 `SLOT_BACKGROUND` 的 `0.2` alpha；同一用户 sprite 的 `(32,16,16,16)` 是自绘 marker 空槽图标，空 marker 过滤槽按所在行透明度绘制，已解锁槽 hover 时显示双行说明 tooltip。新版 `states.png`、`extra_panels.png` 与 `vertical_buttons_bg.png` 作为三张未修改的 LGPL 资源独立加载，分别承担新版 toolbar 按钮/优先级标签、升级与工具箱面板、竖向按钮组外框；不向用户原图烘入任何 AE2 像素。AE2 当前 main 的 `Blitter` 为每个元素提交独立 `TextureSetup`/ARGB render state；1.20.1 回移使用立即式 `Blitter`，在 ScreenStyle 背景与自定义层之间 `GuiGraphics.flush()` 并复位混合/颜色状态，达到等价的跨纹理隔离。两者均在右上角 `(152,-5)` 放置 `20x20` 新版优先级标签并打开 AE2 Priority 子菜单；左侧工具栏包含 Storage Bus Help、清除、分区和四个设置按钮，使用新版 toolbar normal/hover/focus 背景、新版状态图标及 6px 间距，并保留新版 Storage Bus 的连接目标提示。右侧升级面板相对主界面使用 current-main 的 `top=0` 与 5px padding；旧依赖的灰色空升级槽图标被禁用，空槽改绘 `ae2-states.png` 的 current-main `BACKGROUND_UPGRADE` `(240,208,16,16)`。两个 part 都只提供 5 格共享升级库存，并允许这 5 格全部装入 capacity card。卸货总线在同一库存中额外接受最多 4 张 speed card，不把 fuzzy/inverter/capacity/speed 的兼容上限相加成更多物理槽。tooltip 阶段绘制 hover 时必须把菜单内相对槽坐标转换为 `leftPos/topPos` 窗口坐标，防止高亮落到屏幕左上角。
+过滤器变化时 Package Storage Bus 请求重新挂载；Package Unpacking Bus 在首次预留、最终提交和阻塞重试时都使用当前规则。过滤变化不会把 held 包裹替换成另一个包裹；不再匹配时保持阻塞，玩家可以取回。两者均保留整包事务边界，不能部分暴露或拆出包裹内容。
 ```
 
 ## 11. 过滤规则

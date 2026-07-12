@@ -7,6 +7,8 @@ import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.menu.SlotSemantics;
+import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
+import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBridge;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageProcessingPanelBridge;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
@@ -122,6 +124,15 @@ public abstract class ProcessingEncodingPanelMixin implements PackageProcessingP
         AP_PACKAGE_MODE_BACKGROUND
                 .dest(bounds.getX() + 8, bounds.getY() + bounds.getHeight() - 165)
                 .blit(graphics);
+        var markerSlot = ((PackageCraftingPatternMenuBridge) (Object)
+                ((EncodingModePanelAccessor) (Object) this).appliedpackaging$getMenu())
+                .appliedpackaging$getPackageCraftingMarkerSlot();
+        ModernSlotRendering.drawMarkerSlotIcon(
+                graphics,
+                bounds.getX(),
+                bounds.getY(),
+                markerSlot,
+                1.0f);
         ci.cancel();
     }
 

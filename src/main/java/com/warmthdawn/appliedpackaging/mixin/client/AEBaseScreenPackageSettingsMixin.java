@@ -1,6 +1,8 @@
 package com.warmthdawn.appliedpackaging.mixin.client;
 
 import appeng.client.gui.AEBaseScreen;
+import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
+import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBridge;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternScreenBridge;
 import net.minecraft.world.inventory.Slot;
 import org.spongepowered.asm.mixin.Mixin;
@@ -45,6 +47,21 @@ public abstract class AEBaseScreenPackageSettingsMixin {
             appliedpackaging$savedHoveredSlot = null;
             appliedpackaging$hoveredSlotSuppressed = false;
         }
+        appliedpackaging$drawEmptyMarkerTooltip(graphics, mouseX, mouseY);
+    }
+
+    @Inject(method = "renderCustomSlotHighlight", at = @At("HEAD"), cancellable = true)
+    private void appliedpackaging$renderCurrentMarkerSlotHighlight(
+            net.minecraft.client.gui.GuiGraphics graphics,
+            int x,
+            int y,
+            int z,
+            CallbackInfo ci) {
+        if (appliedpackaging$isHoveredPackageMarker()) {
+            Slot markerSlot = appliedpackaging$packageMarkerSlot();
+            ModernSlotRendering.drawSlotHighlightAt(graphics, x, y, markerSlot);
+            ci.cancel();
+        }
     }
 
     @ModifyVariable(method = "renderTooltips", at = @At("HEAD"), argsOnly = true, ordinal = 0)
@@ -64,6 +81,44 @@ public abstract class AEBaseScreenPackageSettingsMixin {
             return -1;
         }
         return coordinate;
+    }
+
+    @Unique
+    private void appliedpackaging$drawEmptyMarkerTooltip(
+            net.minecraft.client.gui.GuiGraphics graphics,
+            int mouseX,
+            int mouseY) {
+        if (!appliedpackaging$isHoveredPackageMarker()) {
+            return;
+        }
+        AEBaseScreen<?> screen = (AEBaseScreen<?>) (Object) this;
+        ModernSlotRendering.drawEmptyMarkerTooltip(
+                screen,
+                graphics,
+                mouseX,
+                mouseY,
+                appliedpackaging$packageMarkerSlot());
+    }
+
+    @Unique
+    private boolean appliedpackaging$isHoveredPackageMarker() {
+        if (!((Object) this instanceof PackageCraftingPatternScreenBridge screenBridge)
+                || screenBridge.appliedpackaging$isPackageSettingsOpen()) {
+            return false;
+        }
+        Slot markerSlot = appliedpackaging$packageMarkerSlot();
+        return markerSlot != null
+                && ((AbstractContainerScreenAccessor) this).appliedpackaging$getHoveredSlot() == markerSlot;
+    }
+
+    @Unique
+    private Slot appliedpackaging$packageMarkerSlot() {
+        AEBaseScreen<?> screen = (AEBaseScreen<?>) (Object) this;
+        if (!(screen.getMenu() instanceof PackageCraftingPatternMenuBridge menuBridge)
+                || !menuBridge.appliedpackaging$isPackageCraftingMode()) {
+            return null;
+        }
+        return menuBridge.appliedpackaging$getPackageCraftingMarkerSlot();
     }
 
     @Inject(method = "mouseReleased", at = @At("HEAD"), cancellable = true)

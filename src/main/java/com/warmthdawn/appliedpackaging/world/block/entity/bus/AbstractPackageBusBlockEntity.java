@@ -96,7 +96,7 @@ public abstract class AbstractPackageBusBlockEntity extends AENetworkBlockEntity
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        return new PackageBusMenu(containerId, playerInventory, this);
+        return null;
     }
 
     protected Optional<IItemHandler> findTargetItemHandler() {

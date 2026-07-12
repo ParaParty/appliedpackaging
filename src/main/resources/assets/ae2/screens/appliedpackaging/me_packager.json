@@ -11,7 +11,8 @@
     "PLAYER_HOTBAR": { "left": 8, "top": 227, "grid": "HORIZONTAL" },
     "MACHINE_OUTPUT": { "left": 81, "top": 28 },
     "STORAGE_CELL": { "left": 151, "top": 8 },
-    "BLANK_PATTERN": { "left": 31, "top": 29 }
+    "BLANK_PATTERN": { "left": 31, "top": 29 },
+    "TOOLBOX": { "bottom": 84, "right": 1, "grid": "BREAK_AFTER_3COLS" }
   },
   "text": {
     "dialog_title": {
@@ -36,10 +37,18 @@
     "unpackingProgress": {
       "texture": "appliedpackaging:textures/gui/mepackager.png",
       "srcRect": [176, 32, 6, 18]
+    },
+    "toolbox": {
+      "texture": "appliedpackaging:textures/gui/package_bus_extra_panels.png",
+      "textureWidth": 128,
+      "textureHeight": 128,
+      "srcRect": [69, 62, 59, 66]
     }
   },
   "widgets": {
     "packingProgress": { "left": 103, "top": 27 },
-    "unpackingProgress": { "left": 103, "top": 27 }
+    "unpackingProgress": { "left": 103, "top": 27 },
+    "upgrades": { "right": 2, "top": 0 },
+    "toolbox": { "right": 2, "bottom": 90, "width": 59, "height": 66 }
   }
 }

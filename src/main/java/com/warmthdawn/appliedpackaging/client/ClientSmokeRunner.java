@@ -8,6 +8,7 @@ import appeng.api.util.AEColor;
 import appeng.client.gui.me.items.PatternEncodingTermScreen;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
+import appeng.menu.SlotSemantics;
 import appeng.menu.MenuOpener;
 import appeng.menu.locator.MenuLocators;
 import appeng.parts.encoding.PatternEncodingTerminalPart;
@@ -15,15 +16,15 @@ import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
-import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
 import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
-import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
+import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
+import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBridge;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternLogicBridge;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternScreenBridge;
@@ -32,10 +33,9 @@ import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
-import com.warmthdawn.appliedpackaging.world.block.entity.bus.AbstractPackageBusBlockEntity;
-import com.warmthdawn.appliedpackaging.world.block.entity.terminal.PackagePatternTerminalBlockEntity;
 import com.warmthdawn.appliedpackaging.world.entity.PackageEntity;
-import com.warmthdawn.appliedpackaging.world.menu.PackagePatternTerminalMenu;
+import com.warmthdawn.appliedpackaging.registry.APMenus;
+import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -106,10 +106,8 @@ public final class ClientSmokeRunner {
             SmokeStep.advancedPatternEncodingTerminal(
                     "advanced_pattern_encoding_terminal",
                     AdvancedPatternEncodingTermScreen.class),
-            SmokeStep.part("package_pattern_terminal", PackagePatternTerminalScreen.class),
-            SmokeStep.block("package_storage_bus", APBlocks.PACKAGE_STORAGE_BUS, PackageBusScreen.class),
-            SmokeStep.block("package_export_bus", APBlocks.PACKAGE_EXPORT_BUS, PackageBusScreen.class),
-            SmokeStep.block("package_unpacking_bus", APBlocks.PACKAGE_UNPACKING_BUS, PackageBusScreen.class)
+            SmokeStep.part("package_storage_bus", PackageBusScreen.class),
+            SmokeStep.part("package_unpacking_bus", PackageBusScreen.class)
     };
 
     private static final ClientSmokeRunner INSTANCE = new ClientSmokeRunner();
@@ -260,29 +258,53 @@ public final class ClientSmokeRunner {
                                 (PackageCraftingPatternLogicBridge) part.getLogic();
                         packageLogic.appliedpackaging$setPackageCraftingMode(true);
                         packageLogic.appliedpackaging$setPackageCraftingColor(PackageColor.BLUE);
-                        packageLogic.appliedpackaging$getPackageCraftingMarkerInv()
-                                .setItemDirect(0, new ItemStack(Items.DIAMOND));
                         part.getLogic().getEncodedInputInv().setStack(
                                 0,
                                 new GenericStack(AEItemKey.of(Items.OAK_LOG), 4));
                     } else if (step.isPart()) {
-                        PackagePatternTerminalPart part = PartHelper.setPart(
+                        AbstractPackageBusPart part = PartHelper.setPart(
                                 level,
                                 pos,
                                 Direction.NORTH,
                                 serverPlayer,
-                                packagePatternTerminalPartItem());
+                                packageBusPartItem(step));
                         if (part == null) {
-                            throw new IllegalStateException("Could not place package pattern terminal part at " + pos);
+                            throw new IllegalStateException("Could not place package bus part at " + pos);
                         }
-                        part.setSelectedColor(PackageColor.BLUE);
-                        part.setInputSlotColor(0, PackageColor.RED);
-                        part.getItems().setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 32));
-                        part.getItems().setStackInSlot(
-                                PackagePatternTerminalBlockEntity.SLOT_BLANK_PATTERN,
-                                AEItems.BLANK_PATTERN.stack());
-                        part.setProcessingOutputFromGhostStack(0, new ItemStack(Items.DIAMOND, 64), false);
-                        part.adjustProcessingOutputAmount(0, true);
+                        // Exercise the current StorageBusScreen connected-target hint instead of
+                        // only validating the unattached fallback text.
+                        level.setBlock(
+                                pos.relative(Direction.NORTH),
+                                Blocks.CHEST.defaultBlockState(),
+                                3);
+                        part.getUpgrades().addItems(AEItems.FUZZY_CARD.stack());
+                        part.getUpgrades().addItems(AEItems.INVERTER_CARD.stack());
+                        part.getUpgrades().addItems(AEItems.CAPACITY_CARD.stack());
+                        if (step.id().equals("package_unpacking_bus")) {
+                            part.getUpgrades().addItems(AEItems.SPEED_CARD.stack());
+                        }
+                        part.setRowColor(0, PackageColor.RED);
+                        part.toggleRowFuzzy(0);
+                        part.toggleRowInverted(1);
+                        part.markerFilters().setStack(
+                                0,
+                                new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
+                        part.contentFilters().setStack(
+                                0,
+                                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1));
+                        if (part instanceof PackageUnpackingBusPart unpackingPart) {
+                            // Keep marked and unmarked variants adjacent so the
+                            // smoke screenshot exposes any BEWLR GUI offset.
+                            part.contentFilters().setStack(
+                                    1,
+                                    new GenericStack(AEItemKey.of(smokePackage(PackageColor.FLUIX, false)), 1));
+                            part.contentFilters().setStack(
+                                    2,
+                                    new GenericStack(AEItemKey.of(smokePackage(PackageColor.FLUIX, true)), 1));
+                            unpackingPart.getHeldPackageItems().setStackInSlot(
+                                    0,
+                                    smokePackage(PackageColor.FLUIX, true));
+                        }
                     } else {
                         var state = step.block().defaultBlockState()
                                 .setValue(AbstractHorizontalMachineBlock.FACING, Direction.NORTH);
@@ -294,11 +316,6 @@ public final class ClientSmokeRunner {
                                 && level.getBlockEntity(pos) instanceof MePackagerBlockEntity packager) {
                             ItemStack packageStack = smokePackage(PackageColor.FLUIX, true);
                             primeMePackagerSmokeAnimation(packager, packageStack);
-                        } else if (level.getBlockEntity(pos) instanceof AbstractPackageBusBlockEntity bus) {
-                            bus.setManualFilterColor(PackageColor.RED);
-                            bus.setManualFilterMarker(new ItemStack(Items.DIAMOND));
-                            bus.setManualFilterContentFromGhostStack(0, new ItemStack(Items.WATER_BUCKET), false);
-                            bus.adjustManualFilterContentAmount(0, true);
                         }
                     }
                 }
@@ -550,27 +567,27 @@ public final class ClientSmokeRunner {
                 return;
             }
             if (step.isPart()) {
-                PackagePatternTerminalPart part = PartHelper.getPart(
-                        packagePatternTerminalPartItem(),
+                AbstractPackageBusPart part = PartHelper.getPart(
+                        packageBusPartItem(step),
                         serverPlayer.serverLevel(),
                         pos,
                         Direction.NORTH);
                 if (part == null) {
-                    setupFailure = new IllegalStateException("Expected package pattern terminal part at " + pos);
+                    setupFailure = new IllegalStateException("Expected package bus part at " + pos);
                     return;
                 }
-                NetworkHooks.openScreen(serverPlayer, part,
-                        buffer -> PackagePatternTerminalMenu.writePartHost(buffer, pos, Direction.NORTH));
+                if (!MenuOpener.open(APMenus.PACKAGE_BUS.get(), serverPlayer, MenuLocators.forPart(part))) {
+                    setupFailure = new IllegalStateException("Could not open package bus at " + pos);
+                } else if (!(serverPlayer.containerMenu instanceof PackageBusMenu)) {
+                    setupFailure = new IllegalStateException(
+                            "Package bus opener left server menu as "
+                                    + serverPlayer.containerMenu.getClass().getName());
+                }
                 return;
             }
             BlockEntity blockEntity = serverPlayer.serverLevel().getBlockEntity(pos);
             if (!(blockEntity instanceof MenuProvider provider)) {
                 setupFailure = new IllegalStateException("Expected menu provider for " + step.id() + " at " + pos);
-                return;
-            }
-            if (blockEntity instanceof PackagePatternTerminalBlockEntity) {
-                NetworkHooks.openScreen(serverPlayer, provider,
-                        buffer -> PackagePatternTerminalMenu.writeBlockHost(buffer, pos));
                 return;
             }
             NetworkHooks.openScreen(serverPlayer, provider, pos);
@@ -597,11 +614,10 @@ public final class ClientSmokeRunner {
             return;
         }
 
-        if (step.isAdvancedPatternEncodingTerminalPart()
-                && !screenCaptureRequested
+        if (!screenCaptureRequested
                 && !advancedEditorCapturePending
-                && minecraft.screen instanceof AdvancedPatternEncodingTermScreen advancedScreen) {
-            hoverAdvancedInputSlot(advancedScreen);
+                && !packageSettingsCapturePending) {
+            hoverSmokeTarget(minecraft.screen, step);
         }
         if (screenCaptureRequested) {
             screenTicks++;
@@ -723,6 +739,46 @@ public final class ClientSmokeRunner {
         hoverSlot(screen.getGuiLeft(), screen.getGuiTop(), slot);
     }
 
+    private static void hoverSmokeTarget(Screen screen, SmokeStep step) {
+        if (step.isAdvancedPatternEncodingTerminalPart()
+                && screen instanceof AdvancedPatternEncodingTermScreen advancedScreen) {
+            hoverAdvancedInputSlot(advancedScreen);
+            return;
+        }
+        if (step.isAe2PatternEncodingTerminalPart()
+                && screen instanceof PatternEncodingTermScreen<?> patternScreen) {
+            Slot markerSlot = ((PackageCraftingPatternMenuBridge) patternScreen.getMenu())
+                    .appliedpackaging$getPackageCraftingMarkerSlot();
+            if (markerSlot != null) {
+                hoverSlot(patternScreen.getGuiLeft(), patternScreen.getGuiTop(), markerSlot);
+            }
+            return;
+        }
+        if (screen instanceof PackageBusScreen packageBusScreen) {
+            List<Slot> markerSlots = packageBusScreen.getMenu().getSlots(PackageBusMenu.PACKAGE_MARKERS);
+            if (!markerSlots.isEmpty()) {
+                hoverSlot(
+                        packageBusScreen.getGuiLeft(),
+                        packageBusScreen.getGuiTop(),
+                        markerSlots.get(Math.min(1, markerSlots.size() - 1)));
+            }
+            return;
+        }
+        if (screen instanceof MePackagerScreen mePackagerScreen) {
+            hoverFirstSlot(mePackagerScreen, mePackagerScreen.getMenu().getSlots(SlotSemantics.BLANK_PATTERN));
+            return;
+        }
+        if (screen instanceof PackageAssemblerScreen assemblerScreen) {
+            hoverFirstSlot(assemblerScreen, assemblerScreen.getMenu().getSlots(SlotSemantics.BLANK_PATTERN));
+        }
+    }
+
+    private static void hoverFirstSlot(appeng.client.gui.AEBaseScreen<?> screen, List<Slot> slots) {
+        if (!slots.isEmpty()) {
+            hoverSlot(screen.getGuiLeft(), screen.getGuiTop(), slots.get(0));
+        }
+    }
+
     private static void hoverSlot(int guiLeft, int guiTop, Slot slot) {
         Minecraft minecraft = Minecraft.getInstance();
         double scale = minecraft.getWindow().getGuiScale();
@@ -824,8 +880,10 @@ public final class ClientSmokeRunner {
     }
 
     @SuppressWarnings("unchecked")
-    private static IPartItem<PackagePatternTerminalPart> packagePatternTerminalPartItem() {
-        return (IPartItem<PackagePatternTerminalPart>) APItems.PACKAGE_PATTERN_TERMINAL.get();
+    private static IPartItem<AbstractPackageBusPart> packageBusPartItem(SmokeStep step) {
+        return (IPartItem<AbstractPackageBusPart>) (IPartItem<?>) (step.id().equals("package_storage_bus")
+                ? APItems.PACKAGE_STORAGE_BUS.get()
+                : APItems.PACKAGE_UNPACKING_BUS.get());
     }
 
     @SuppressWarnings("unchecked")

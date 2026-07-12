@@ -77,6 +77,27 @@ AE2 1.21.1 Pattern Encoding Terminal UI reference
 许可证：LGPL-3.0-or-later；本地适配 atlas 的许可证文本打包至 META-INF/licenses/ae2-LGPL-3.0-or-later.txt。
 ```
 
+AE2 current main Storage Bus GUI reference
+
+```text
+官方仓库：https://github.com/AppliedEnergistics/Applied-Energistics-2
+本地源码：build/reference/ae2-latest
+固定提交：45f315517ea346efc0babd02c85c6b9d32dc8acf
+主要文件：src/client/java/appeng/client/gui/AEBaseScreen.java
+             src/client/java/appeng/client/gui/implementations/StorageBusScreen.java
+             src/client/java/appeng/client/gui/widgets/IconButton.java
+             src/client/java/appeng/client/gui/widgets/UpgradesPanel.java
+             src/client/java/appeng/client/gui/widgets/VerticalButtonBar.java
+             src/client/java/appeng/client/gui/style/Blitter.java
+             src/main/resources/assets/ae2/screens/storage_bus.json
+             src/main/resources/assets/ae2/textures/guis/states.png
+             src/main/resources/assets/ae2/textures/guis/extra_panels.png
+             src/main/resources/assets/ae2/textures/gui/sprites/vertical_buttons_bg.png
+用途：Package Bus 的独立纹理渲染、0.2 alpha 可选槽、6px toolbar 间距、按钮 normal/hover/focus、连接目标提示、5px upgrade panel 和 (152,-5,20,20) Priority tab。
+版本边界：仅回移客户端表现与布局；运行时依赖仍是 AE2 15.4.10 Forge。当前 main 使用每元素 TextureSetup/ARGB render state，1.20.1 通过立即式 Blitter 与明确 flush/state 边界实现等价隔离，不进行运行时合图。
+资源核验：states、extra_panels、vertical_buttons_bg 与 neoforge/v19.2.17 对应文件 SHA-256 分别相同；复制文件保持原字节并按 LGPL-3.0-or-later 记录来源。
+```
+
 AE2 1.20.1 Pattern Provider 指南
 
 ```text

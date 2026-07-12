@@ -8,7 +8,7 @@ style:
   name: ae2_fluix_packaging
   palette_reference: docs/assets/palette.md
 asset_brief:
-  summary: Package pattern terminal and package-only AE2 bus family.
+  summary: Package-only AE2 storage and unpacking bus parts with a shared seven-row GUI.
   source_brief: docs/assets/asset-briefs/terminal-and-buses.md
 materials:
   - quartz_panel
@@ -16,10 +16,11 @@ materials:
   - fluix_core
   - shadow_slot
 required_visual_parts:
-  - package_pattern_terminal screen with colored package cards
-  - package_storage_bus sealed package storage symbol
-  - package_export_bus package output flow form
-  - package_unpacking_bus opened seal form
+  - package_storage_bus temporary AE2 storage bus part silhouette
+  - package_unpacking_bus temporary AE2 ME P2P tunnel part silhouette
+  - separate byte-preserved 256x256 package bus GUI and user sprite textures
+  - user-authored marker empty-slot icon at sprite rectangle 32,16,16,16 shared by buses, machines, and package-pattern mode
+  - unmodified current-main AE2 states, extra panels, and vertical button background textures with LGPL provenance
 forbidden_visual_parts:
   - text labels
   - arrows with text
@@ -32,7 +33,7 @@ conversion_requirements:
   keep_bus_family_distinct: true
 harness_assumptions:
   output_namespace: appliedpackaging
-  texture_dir: src/main/resources/assets/appliedpackaging/textures/block
-  block_model_dir: src/main/resources/assets/appliedpackaging/models/block
+  texture_dir: src/main/resources/assets/appliedpackaging/textures/gui
+  block_model_dir: src/main/resources/assets/appliedpackaging/models/part
   item_model_dir: src/main/resources/assets/appliedpackaging/models/item
   report_path: docs/assets/reports/terminal-and-buses.md

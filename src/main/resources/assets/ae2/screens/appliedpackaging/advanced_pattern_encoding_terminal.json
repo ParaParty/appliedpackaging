@@ -15,12 +15,12 @@
       "grid": "VERTICAL"
     },
     "BLANK_PATTERN": {
-      "left": 166,
-      "bottom": 166
+      "left": 167,
+      "bottom": 167
     },
     "ENCODED_PATTERN": {
-      "left": 166,
-      "bottom": 119
+      "left": 167,
+      "bottom": 120
     },
     "PLAYER_INVENTORY": {
       "left": 8,
@@ -111,7 +111,7 @@
   },
   "widgets": {
     "encodePattern": {
-      "left": 166,
+      "left": 167,
       "bottom": 146
     },
     "processingPatternModeScrollbar": {

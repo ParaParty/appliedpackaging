@@ -7,11 +7,12 @@ import com.warmthdawn.appliedpackaging.client.renderer.PackageMarkerRenderer;
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
-import com.warmthdawn.appliedpackaging.client.screen.PackagePatternTerminalScreen;
 import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
+import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
+import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APEntityTypes;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
@@ -40,6 +41,8 @@ public final class AppliedPackagingClient {
     }
 
     public static void register(IEventBus eventBus) {
+        PackageStorageBusPart.registerModels();
+        PackageUnpackingBusPart.registerModels();
         eventBus.addListener(AppliedPackagingClient::clientSetup);
         eventBus.addListener(AppliedPackagingClient::registerAdditionalModels);
         MinecraftForge.EVENT_BUS.addListener(AppliedPackagingClient::appendTooltip);
@@ -61,8 +64,10 @@ public final class AppliedPackagingClient {
                     APMenus.ADVANCED_PATTERN_ENCODING_TERMINAL.get(),
                     AdvancedPatternEncodingTermScreen::new,
                     "/screens/appliedpackaging/advanced_pattern_encoding_terminal.json");
-            MenuScreens.register(APMenus.PACKAGE_PATTERN_TERMINAL.get(), PackagePatternTerminalScreen::new);
-            MenuScreens.register(APMenus.PACKAGE_BUS.get(), PackageBusScreen::new);
+            InitScreens.register(
+                    APMenus.PACKAGE_BUS.get(),
+                    PackageBusScreen::new,
+                    "/screens/appliedpackaging/package_bus.json");
             ItemBlockRenderTypes.setRenderLayer(APBlocks.ME_PACKAGER.get(), RenderType.cutoutMipped());
             EntityRenderers.register(APEntityTypes.PACKAGE.get(), PackageEntityRenderer::new);
             BlockEntityRenderers.register(APBlockEntities.ME_PACKAGER.get(), MePackagerRenderer::new);

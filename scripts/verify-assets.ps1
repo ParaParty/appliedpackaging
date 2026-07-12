@@ -275,6 +275,26 @@ function Get-ExpectedPngSize {
         return @{ Width = 256; Height = 256; Label = "package pattern mode GUI atlas" }
     }
 
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png") {
+        return @{ Width = 256; Height = 256; Label = "package bus GUI atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png") {
+        return @{ Width = 256; Height = 256; Label = "package bus user sprite atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png") {
+        return @{ Width = 256; Height = 256; Label = "package bus AE2 states source atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png") {
+        return @{ Width = 128; Height = 128; Label = "package bus current-AE2 extra panels texture" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png") {
+        return @{ Width = 21; Height = 26; Label = "package bus current-AE2 vertical button background" }
+    }
+
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/item/", [System.StringComparison]::Ordinal)) {
         return @{ Width = 32; Height = 32; Label = "item texture" }
     }
@@ -349,6 +369,11 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/auto_export.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/blocking_mode.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/capacity.png",
@@ -420,6 +445,22 @@ foreach ($color in $packageColors) {
 
 foreach ($requiredPath in $requiredPngPaths) {
     Assert-True (Test-Path -LiteralPath $requiredPath) "Required PNG exists: $requiredPath"
+}
+
+$bytePreservedPngHashes = [ordered]@{
+    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png" = "506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE"
+    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "14D7D26A93BF46D1BA0EF33A5408197718D0AF5BD3ADE662AA8A46E8DE662281"
+    "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png" = "0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55"
+    "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png" = "C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0"
+    "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png" = "62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715"
+}
+foreach ($entry in $bytePreservedPngHashes.GetEnumerator()) {
+    if (Test-Path -LiteralPath $entry.Key) {
+        $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $entry.Key).Hash
+        Assert-True `
+            ($actualHash -eq $entry.Value) `
+            "Byte-preserved PNG keeps its source hash: $($entry.Key)"
+    }
 }
 
 foreach ($color in $packageColors) {

@@ -27,9 +27,7 @@ $clientSmokeScreenshotNames = @(
     "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png",
     "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png",
     "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png",
-    "appliedpackaging-client-smoke-package_pattern_terminal.png",
     "appliedpackaging-client-smoke-package_storage_bus.png",
-    "appliedpackaging-client-smoke-package_export_bus.png",
     "appliedpackaging-client-smoke-package_unpacking_bus.png"
 )
 
@@ -278,7 +276,6 @@ harness_assumptions:
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/en_us.json") -Text $fixtureEnLangText
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/lang/zh_cn.json") -Text $fixtureZhLangText
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/models/item/release_audit_fixture.json") -Text $fixtureModelText
-    Write-Utf8File -Path (Join-Path $caseRoot "src/main/resources/data/appliedpackaging/recipes/package_pattern_terminal.json") -Text $fixtureRecipeText
     Write-Utf8File -Path (Join-Path $caseRoot "src/main/java/com/warmthdawn/appliedpackaging/registry/APCreativeTabs.java") -Text @"
 package com.warmthdawn.appliedpackaging.registry;
 
@@ -289,7 +286,8 @@ public final class APCreativeTabs {
     public static void build(FixtureOutput output) {
         output.accept(APItems.ME_PACKAGER.get());
         output.accept(APItems.PACKAGE_ASSEMBLER.get());
-        output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
+        output.accept(APItems.PACKAGE_STORAGE_BUS.get());
+        output.accept(APItems.PACKAGE_UNPACKING_BUS.get());
         output.accept(APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
     }
 }
@@ -314,12 +312,19 @@ public final class APItems {
             "advanced_processing_pattern",
             () -> new AdvancedProcessingPatternItem(new Item.Properties()));
 
-    public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
-            "package_pattern_terminal",
+    public static final RegistryObject<Item> PACKAGE_STORAGE_BUS = ITEMS.register(
+            "package_storage_bus",
             () -> new PartItem<>(
                     new Item.Properties(),
-                    PackagePatternTerminalPart.class,
-                    PackagePatternTerminalPart::new));
+                    PackageStorageBusPart.class,
+                    PackageStorageBusPart::new));
+
+    public static final RegistryObject<Item> PACKAGE_UNPACKING_BUS = ITEMS.register(
+            "package_unpacking_bus",
+            () -> new PartItem<>(
+                    new Item.Properties(),
+                    PackageUnpackingBusPart.class,
+                    PackageUnpackingBusPart::new));
 
     public static final RegistryObject<Item> ADVANCED_PATTERN_ENCODING_TERMINAL = ITEMS.register(
             "advanced_pattern_encoding_terminal",
@@ -353,7 +358,6 @@ public final class APItems {
         Add-ZipEntryText -Zip $zip -EntryName "assets/appliedpackaging/lang/zh_cn.json" -Text $fixtureZhLangText
         Add-ZipEntryText -Zip $zip -EntryName "assets/appliedpackaging/models/item/release_audit_fixture.json" -Text $fixtureModelText
         Add-ZipEntryBytes -Zip $zip -EntryName "assets/appliedpackaging/textures/item/release_audit_fixture.png" -Bytes $pngBytes
-        Add-ZipEntryText -Zip $zip -EntryName "data/appliedpackaging/recipes/package_pattern_terminal.json" -Text $fixtureRecipeText
     } finally {
         $zip.Dispose()
     }
@@ -419,7 +423,7 @@ try {
         -RootPath $validScreenshotFixture.RootPath `
         -JarPath $validScreenshotFixture.JarPath `
         -ExpectedExitCode 0 `
-        -ExpectedText "11 client smoke screenshots are present and valid PNG files" `
+        -ExpectedText "9 client smoke screenshots are present and valid PNG files" `
         -RequireClientSmokeScreenshots
 
     $missingEditorScreenshotFixture = New-ReleaseAuditFixture "missing-advanced-editor-screenshot"
@@ -550,7 +554,9 @@ package com.warmthdawn.appliedpackaging.registry;
 
 public final class APCreativeTabs {
     public static void build(FixtureOutput output) {
-        output.accept(APItems.PACKAGE_PATTERN_TERMINAL.get());
+        output.accept(APItems.PACKAGE_STORAGE_BUS.get());
+        output.accept(APItems.PACKAGE_UNPACKING_BUS.get());
+        output.accept(APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
         output.accept(APItems.ADVANCED_PROCESSING_PATTERN.get());
     }
 }
@@ -566,13 +572,29 @@ public final class APCreativeTabs {
     Write-Utf8File -Path (Join-Path $terminalBlockItemFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Text @"
 package com.warmthdawn.appliedpackaging.registry;
 
-import net.minecraft.world.item.BlockItem;
+import appeng.items.parts.PartItem;
 import net.minecraft.world.item.Item;
 
 public final class APItems {
+    public static final RegistryObject<Item> ADVANCED_PROCESSING_PATTERN = ITEMS.register(
+            "advanced_processing_pattern",
+            () -> new AdvancedProcessingPatternItem(new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGE_STORAGE_BUS = ITEMS.register(
+            "package_storage_bus",
+            () -> new PartItem<>(new Item.Properties(), PackageStorageBusPart.class, PackageStorageBusPart::new));
+
+    public static final RegistryObject<Item> PACKAGE_UNPACKING_BUS = ITEMS.register(
+            "package_unpacking_bus",
+            () -> new PartItem<>(new Item.Properties(), PackageUnpackingBusPart.class, PackageUnpackingBusPart::new));
+
     public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
             "package_pattern_terminal",
-            () -> new BlockItem(APBlocks.PACKAGE_PATTERN_TERMINAL.get(), new Item.Properties()));
+            () -> new Item(new Item.Properties()));
+
+    public static final RegistryObject<Item> ADVANCED_PATTERN_ENCODING_TERMINAL = ITEMS.register(
+            "advanced_pattern_encoding_terminal",
+            () -> new PartItem<>(new Item.Properties(), AdvancedPatternEncodingTerminalPart.class, AdvancedPatternEncodingTerminalPart::new));
 }
 "@
     Invoke-ReleaseAuditCase `
@@ -580,7 +602,7 @@ public final class APItems {
         -RootPath $terminalBlockItemFixture.RootPath `
         -JarPath $terminalBlockItemFixture.JarPath `
         -ExpectedExitCode 1 `
-        -ExpectedText "Package pattern terminal item registers as an AE2 PartItem"
+        -ExpectedText "Canceled package pattern terminal and export bus items are not registered"
 
     $advancedTerminalBlockItemFixture = New-ReleaseAuditFixture "advanced-terminal-blockitem"
     Write-Utf8File -Path (Join-Path $advancedTerminalBlockItemFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/registry/APItems.java") -Text @"
@@ -591,12 +613,17 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 
 public final class APItems {
-    public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
-            "package_pattern_terminal",
-            () -> new PartItem<>(
-                    new Item.Properties(),
-                    PackagePatternTerminalPart.class,
-                    PackagePatternTerminalPart::new));
+    public static final RegistryObject<Item> ADVANCED_PROCESSING_PATTERN = ITEMS.register(
+            "advanced_processing_pattern",
+            () -> new AdvancedProcessingPatternItem(new Item.Properties()));
+
+    public static final RegistryObject<Item> PACKAGE_STORAGE_BUS = ITEMS.register(
+            "package_storage_bus",
+            () -> new PartItem<>(new Item.Properties(), PackageStorageBusPart.class, PackageStorageBusPart::new));
+
+    public static final RegistryObject<Item> PACKAGE_UNPACKING_BUS = ITEMS.register(
+            "package_unpacking_bus",
+            () -> new PartItem<>(new Item.Properties(), PackageUnpackingBusPart.class, PackageUnpackingBusPart::new));
 
     public static final RegistryObject<Item> ADVANCED_PATTERN_ENCODING_TERMINAL = ITEMS.register(
             "advanced_pattern_encoding_terminal",

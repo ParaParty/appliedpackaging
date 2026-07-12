@@ -3,7 +3,6 @@ package com.warmthdawn.appliedpackaging.client.screen;
 import appeng.api.config.ActionItems;
 import appeng.client.gui.Icon;
 import appeng.client.guidebook.PageAnchor;
-import appeng.client.gui.implementations.UpgradeableScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.IconButton;
@@ -11,6 +10,7 @@ import appeng.client.gui.widgets.ProgressBar;
 import appeng.client.gui.widgets.ProgressBar.Direction;
 import appeng.menu.SlotSemantics;
 import appeng.menu.slot.IOptionalSlot;
+import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
@@ -20,7 +20,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 
-public class MePackagerScreen extends UpgradeableScreen<MePackagerMenu> {
+public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
     private static final int COLOR_BUTTON_X = 18;
     private static final int COLOR_BUTTON_Y = 28;
     private static final int COLOR_BUTTON_SIZE = 8;
@@ -96,7 +96,17 @@ public class MePackagerScreen extends UpgradeableScreen<MePackagerMenu> {
     public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
         drawOptionalConfigSlotBackgrounds(graphics, offsetX, offsetY);
-        drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.STORAGE_CELL, Icon.BACKGROUND_STORAGE_COMPONENT);
+        ModernSlotRendering.drawStorageComponentSlotIcon(
+                graphics,
+                offsetX,
+                offsetY,
+                firstSlot(SlotSemantics.STORAGE_CELL));
+        ModernSlotRendering.drawMarkerSlotIcon(
+                graphics,
+                offsetX,
+                offsetY,
+                markerSlot(),
+                1.0f);
     }
 
     @Override
@@ -164,20 +174,20 @@ public class MePackagerScreen extends UpgradeableScreen<MePackagerMenu> {
     protected void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!colorPicker.isOpen()) {
             super.renderTooltip(graphics, mouseX, mouseY);
+            Slot markerSlot = markerSlot();
+            if (hoveredSlot == markerSlot) {
+                drawEmptyMarkerTooltip(graphics, mouseX, mouseY, markerSlot);
+            }
         }
     }
 
-    private void drawSlotIcon(GuiGraphics graphics, int offsetX, int offsetY, appeng.menu.SlotSemantic semantic, Icon icon) {
+    private Slot markerSlot() {
+        return firstSlot(SlotSemantics.BLANK_PATTERN);
+    }
+
+    private Slot firstSlot(appeng.menu.SlotSemantic semantic) {
         List<Slot> slots = menu.getSlots(semantic);
-        if (slots.isEmpty()) {
-            return;
-        }
-        Slot slot = slots.get(0);
-        if (!slot.hasItem()) {
-            icon.getBlitter()
-                    .dest(offsetX + slot.x, offsetY + slot.y)
-                    .blit(graphics);
-        }
+        return slots.isEmpty() ? null : slots.get(0);
     }
 
     private void drawOptionalConfigSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {

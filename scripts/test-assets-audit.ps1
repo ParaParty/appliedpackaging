@@ -136,6 +136,16 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "expected 256x256 package pattern mode GUI atlas"
 
+    $modifiedPackageBusSourceFixture = New-AssetsFixture "modified-package-bus-source"
+    $modifiedPackageBusSourcePath = Join-Path $modifiedPackageBusSourceFixture "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png"
+    $alternatePackageBusSourcePath = Join-Path $modifiedPackageBusSourceFixture "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png"
+    Copy-Item -LiteralPath $alternatePackageBusSourcePath -Destination $modifiedPackageBusSourcePath -Force
+    Invoke-AssetsCase `
+        -Name "modified byte-preserved Package Bus texture fixture" `
+        -RootPath $modifiedPackageBusSourceFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png"
+
     $badHeaderFixture = New-AssetsFixture "bad-header"
     $badHeaderPath = Join-Path $badHeaderFixture "src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png"
     [System.IO.File]::WriteAllBytes($badHeaderPath, [byte[]]@(1, 2, 3, 4))

@@ -2,22 +2,23 @@ package com.warmthdawn.appliedpackaging.client.screen;
 
 import appeng.client.Point;
 import appeng.client.gui.Icon;
-import appeng.client.gui.implementations.UpgradeableScreen;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.ProgressBar;
 import appeng.client.gui.widgets.ProgressBar.Direction;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.menu.SlotSemantics;
+import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
+import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 
-public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMenu> {
+public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssemblerMenu> {
     private static final int COLOR_BUTTON_X = 96;
     private static final int COLOR_BUTTON_Y = 31;
     private static final int COLOR_BUTTON_SIZE = 8;
@@ -82,8 +83,22 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
     public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
         renderDisabledInputOverlays(graphics, offsetX, offsetY);
-        drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.ENCODED_PATTERN, Icon.BACKGROUND_ENCODED_PATTERN);
-        drawSlotIcon(graphics, offsetX, offsetY, SlotSemantics.STORAGE_CELL, Icon.BACKGROUND_STORAGE_COMPONENT);
+        ModernSlotRendering.drawEncodedPatternSlotIcon(
+                graphics,
+                offsetX,
+                offsetY,
+                firstSlot(SlotSemantics.ENCODED_PATTERN));
+        ModernSlotRendering.drawStorageComponentSlotIcon(
+                graphics,
+                offsetX,
+                offsetY,
+                firstSlot(SlotSemantics.STORAGE_CELL));
+        ModernSlotRendering.drawMarkerSlotIcon(
+                graphics,
+                offsetX,
+                offsetY,
+                markerSlot(),
+                1.0f);
     }
 
     @Override
@@ -180,7 +195,20 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
     protected void renderTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         if (!colorPicker.isOpen()) {
             super.renderTooltip(graphics, mouseX, mouseY);
+            Slot markerSlot = markerSlot();
+            if (hoveredSlot == markerSlot) {
+                drawEmptyMarkerTooltip(graphics, mouseX, mouseY, markerSlot);
+            }
         }
+    }
+
+    private Slot markerSlot() {
+        return firstSlot(SlotSemantics.BLANK_PATTERN);
+    }
+
+    private Slot firstSlot(appeng.menu.SlotSemantic semantic) {
+        List<Slot> slots = menu.getSlots(semantic);
+        return slots.isEmpty() ? null : slots.get(0);
     }
 
     private void renderDisabledInputOverlays(GuiGraphics graphics, int offsetX, int offsetY) {
@@ -192,19 +220,6 @@ public class PackageAssemblerScreen extends UpgradeableScreen<PackageAssemblerMe
                 int y = offsetY + slot.y;
                 graphics.fill(x, y, x + 16, y + 16, SLOT_DISABLED_OVERLAY);
             }
-        }
-    }
-
-    private void drawSlotIcon(GuiGraphics graphics, int offsetX, int offsetY, appeng.menu.SlotSemantic semantic, Icon icon) {
-        java.util.List<Slot> slots = menu.getSlots(semantic);
-        if (slots.isEmpty()) {
-            return;
-        }
-        Slot slot = slots.get(0);
-        if (!slot.hasItem()) {
-            icon.getBlitter()
-                    .dest(offsetX + slot.x, offsetY + slot.y)
-                    .blit(graphics);
         }
     }
 

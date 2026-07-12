@@ -6,8 +6,9 @@ import com.warmthdawn.appliedpackaging.item.AdvancedProcessingPatternItem;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.item.PackagePatternItem;
-import com.warmthdawn.appliedpackaging.part.PackagePatternTerminalPart;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
+import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
+import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
@@ -46,22 +47,17 @@ public final class APItems {
 
     public static final RegistryObject<Item> PACKAGE_STORAGE_BUS = ITEMS.register(
             "package_storage_bus",
-            () -> new BlockItem(APBlocks.PACKAGE_STORAGE_BUS.get(), new Item.Properties()));
-
-    public static final RegistryObject<Item> PACKAGE_EXPORT_BUS = ITEMS.register(
-            "package_export_bus",
-            () -> new BlockItem(APBlocks.PACKAGE_EXPORT_BUS.get(), new Item.Properties()));
+            () -> new PartItem<>(
+                    new Item.Properties(),
+                    PackageStorageBusPart.class,
+                    PackageStorageBusPart::new));
 
     public static final RegistryObject<Item> PACKAGE_UNPACKING_BUS = ITEMS.register(
             "package_unpacking_bus",
-            () -> new BlockItem(APBlocks.PACKAGE_UNPACKING_BUS.get(), new Item.Properties()));
-
-    public static final RegistryObject<Item> PACKAGE_PATTERN_TERMINAL = ITEMS.register(
-            "package_pattern_terminal",
             () -> new PartItem<>(
                     new Item.Properties(),
-                    PackagePatternTerminalPart.class,
-                    PackagePatternTerminalPart::new));
+                    PackageUnpackingBusPart.class,
+                    PackageUnpackingBusPart::new));
 
     public static final RegistryObject<Item> ADVANCED_PATTERN_ENCODING_TERMINAL = ITEMS.register(
             "advanced_pattern_encoding_terminal",

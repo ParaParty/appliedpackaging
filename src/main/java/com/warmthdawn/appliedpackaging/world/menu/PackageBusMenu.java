@@ -1,314 +1,379 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
-import appeng.api.stacks.GenericStack;
-import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
+import appeng.api.config.AccessRestriction;
+import appeng.api.config.Settings;
+import appeng.api.config.StorageFilter;
+import appeng.api.config.YesNo;
+import appeng.core.definitions.AEItems;
+import appeng.menu.MenuOpener;
+import appeng.menu.SlotSemantic;
+import appeng.menu.SlotSemantics;
+import appeng.menu.guisync.GuiSync;
+import appeng.menu.implementations.UpgradeableMenu;
+import appeng.menu.locator.MenuLocator;
+import appeng.menu.locator.MenuLocators;
+import appeng.menu.slot.FakeSlot;
+import appeng.menu.slot.OptionalFakeSlot;
+import appeng.util.ConfigInventory;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
+import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
-import com.warmthdawn.appliedpackaging.world.block.entity.bus.AbstractPackageBusBlockEntity;
-import java.util.List;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.SimpleContainer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.DataSlot;
-import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.items.IItemHandlerModifiable;
+import net.minecraftforge.items.ItemStackHandler;
+import net.minecraftforge.items.SlotItemHandler;
+import net.minecraftforge.network.NetworkHooks;
 
-public class PackageBusMenu extends AbstractContainerMenu {
-    public static final int BUTTON_SET_FROM_CURSOR = 0;
-    public static final int BUTTON_CLEAR_FILTER = 1;
-    public static final int BUTTON_COLOR_BASE = 10;
-    public static final int BUTTON_CONTENT_AMOUNT_INCREASE_BASE = 40;
-    public static final int BUTTON_CONTENT_AMOUNT_DECREASE_BASE =
-            BUTTON_CONTENT_AMOUNT_INCREASE_BASE + AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT;
-    public static final int FILTER_DISPLAY_SLOT = 0;
-    public static final int MARKER_FILTER_SLOT = 1;
-    public static final int CONTENT_FILTER_START = 2;
-    public static final int CONTENT_FILTER_END =
-            CONTENT_FILTER_START + AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT;
-    public static final int PLAYER_INVENTORY_START = CONTENT_FILTER_END;
-    public static final int PLAYER_INVENTORY_END = PLAYER_INVENTORY_START + 27;
-    public static final int HOTBAR_START = PLAYER_INVENTORY_END;
-    public static final int HOTBAR_END = HOTBAR_START + 9;
+public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
+    public static final SlotSemantic PACKAGE_MARKERS =
+            SlotSemantics.register("APPLIEDPACKAGING_PACKAGE_MARKERS", false);
+    public static final SlotSemantic PACKAGE_CONTENTS =
+            SlotSemantics.register("APPLIEDPACKAGING_PACKAGE_CONTENTS", false);
+    public static final SlotSemantic WORKING_PACKAGE =
+            SlotSemantics.register("APPLIEDPACKAGING_WORKING_PACKAGE", false);
 
-    private final AbstractPackageBusBlockEntity blockEntity;
-    private final SimpleContainer filterDisplay = new SimpleContainer(1);
-    private final SimpleContainer markerDisplay = new SimpleContainer(1);
-    private final SimpleContainer contentDisplay =
-            new SimpleContainer(AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT);
-    private final boolean clientSide;
-    private int syncedSelectedColor;
-    private final DataSlot selectedColorSlot;
-    private final SplitIntDataSlots[] contentAmountSlots =
-            new SplitIntDataSlots[AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT];
+    private static final String ACTION_CLEAR = "apPackageBusClear";
+    private static final String ACTION_PARTITION = "apPackageBusPartition";
+    private static final String ACTION_TOGGLE_FUZZY = "apPackageBusToggleFuzzy";
+    private static final String ACTION_TOGGLE_INVERTED = "apPackageBusToggleInverted";
+    private static final String ACTION_SET_COLOR = "apPackageBusSetColor";
+    private static final String ACTION_CLEAR_COLOR = "apPackageBusClearColor";
 
-    public PackageBusMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
-        this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
-    }
+    private final int[] rowStates = new int[AbstractPackageBusPart.FILTER_ROWS];
+    private final IItemHandlerModifiable workingPackage;
+    private int syncedProgress;
+    private int syncedWorkState;
 
-    public PackageBusMenu(int containerId, Inventory playerInventory, AbstractPackageBusBlockEntity blockEntity) {
-        super(APMenus.PACKAGE_BUS.get(), containerId);
-        this.blockEntity = blockEntity;
-        this.clientSide = playerInventory.player.level().isClientSide;
-        this.syncedSelectedColor = blockEntity.filterColor().ordinal();
-        this.selectedColorSlot = new DataSlot() {
+    @GuiSync(40)
+    public AccessRestriction rwMode = AccessRestriction.READ_WRITE;
+    @GuiSync(41)
+    public StorageFilter storageFilter = StorageFilter.EXTRACTABLE_ONLY;
+    @GuiSync(42)
+    public YesNo filterOnExtract = YesNo.YES;
+    @GuiSync(43)
+    public Component connectedTo;
+
+    public PackageBusMenu(int id, Inventory inventory, AbstractPackageBusPart host) {
+        super(APMenus.PACKAGE_BUS.get(), id, inventory, host);
+        registerClientAction(ACTION_CLEAR, this::applyClear);
+        registerClientAction(ACTION_PARTITION, this::applyPartition);
+        registerClientAction(ACTION_TOGGLE_FUZZY, Integer.class, this::applyToggleFuzzy);
+        registerClientAction(ACTION_TOGGLE_INVERTED, Integer.class, this::applyToggleInverted);
+        registerClientAction(ACTION_SET_COLOR, RowColorAction.class, this::applySetColor);
+        registerClientAction(ACTION_CLEAR_COLOR, Integer.class, this::applyClearColor);
+        PackageUnpackingBusPart unpackingBus = host instanceof PackageUnpackingBusPart part ? part : null;
+        workingPackage = unpackingBus == null ? new ItemStackHandler(1) : unpackingBus.getHeldPackageItems();
+        addSlot(new HeldPackageSlot(workingPackage, unpackingBus), WORKING_PACKAGE);
+        connectedTo = host.getConnectedToDescription();
+
+        for (int row = 0; row < rowStates.length; row++) {
+            final int rowIndex = row;
+            addDataSlot(new DataSlot() {
+                @Override
+                public int get() {
+                    if (isClientSide()) {
+                        return rowStates[rowIndex];
+                    }
+                    int flags = host.isRowColorEnabled(rowIndex) ? 1 : 0;
+                    flags |= host.isRowFuzzy(rowIndex) ? 2 : 0;
+                    flags |= host.isRowInverted(rowIndex) ? 4 : 0;
+                    flags |= host.rowColor(rowIndex).ordinal() << 3;
+                    return flags;
+                }
+
+                @Override
+                public void set(int value) {
+                    rowStates[rowIndex] = value;
+                }
+            });
+        }
+        addDataSlot(new DataSlot() {
             @Override
             public int get() {
-                return clientSide ? syncedSelectedColor : blockEntity.filterColor().ordinal();
+                return isClientSide() ? syncedProgress : host.progress();
             }
 
             @Override
             public void set(int value) {
-                PackageColor[] values = PackageColor.values();
-                if (value >= 0 && value < values.length) {
-                    syncedSelectedColor = value;
+                syncedProgress = value;
+            }
+        });
+        addDataSlot(new DataSlot() {
+            @Override
+            public int get() {
+                if (isClientSide()) {
+                    return syncedWorkState;
                 }
-            }
-        };
-        updateFilterDisplays();
-        addSlot(new GhostDisplaySlot(filterDisplay, 0, 80, 25));
-        addSlot(new GhostDisplaySlot(markerDisplay, 0, 35, 58));
-        for (int slot = 0; slot < AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT; slot++) {
-            addSlot(new GhostDisplaySlot(contentDisplay, slot, 72 + slot * 18, 58));
-        }
-        addPlayerInventory(playerInventory);
-        addDataSlot(selectedColorSlot);
-        addContentAmountSlots();
-    }
-
-    @Override
-    public boolean clickMenuButton(Player player, int id) {
-        if (id >= BUTTON_COLOR_BASE && id < BUTTON_COLOR_BASE + PackageColor.values().length) {
-            if (!player.level().isClientSide) {
-                blockEntity.setManualFilterColor(PackageColor.values()[id - BUTTON_COLOR_BASE]);
-                updateFilterDisplays();
-                broadcastChanges();
-            }
-            return true;
-        }
-        if (id == BUTTON_SET_FROM_CURSOR) {
-            if (!player.level().isClientSide) {
-                ItemStack carried = getCarried();
-                if (blockEntity.setFilterTemplate(carried)) {
-                    updateFilterDisplays();
-                    broadcastChanges();
-                    player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_set"), true);
-                } else {
-                    player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_invalid"), true);
+                if (!(host instanceof PackageUnpackingBusPart unpackingBus)) {
+                    return 0;
                 }
+                int state = unpackingBus.isWorking() ? 1 : 0;
+                return state | (unpackingBus.unpackBlocked() ? 2 : 0);
             }
-            return true;
-        }
-        if (id == BUTTON_CLEAR_FILTER) {
-            if (!player.level().isClientSide) {
-                blockEntity.clearFilterTemplate();
-                updateFilterDisplays();
-                broadcastChanges();
-                player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_cleared"), true);
+
+            @Override
+            public void set(int value) {
+                syncedWorkState = value;
             }
-            return true;
-        }
-        if (id >= BUTTON_CONTENT_AMOUNT_INCREASE_BASE
-                && id < BUTTON_CONTENT_AMOUNT_INCREASE_BASE + AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT) {
-            if (!player.level().isClientSide) {
-                blockEntity.adjustManualFilterContentAmount(id - BUTTON_CONTENT_AMOUNT_INCREASE_BASE, true);
-                updateFilterDisplays();
-                broadcastChanges();
-            }
-            return true;
-        }
-        if (id >= BUTTON_CONTENT_AMOUNT_DECREASE_BASE
-                && id < BUTTON_CONTENT_AMOUNT_DECREASE_BASE + AbstractPackageBusBlockEntity.REQUIRED_CONTENT_SLOT_COUNT) {
-            if (!player.level().isClientSide) {
-                blockEntity.adjustManualFilterContentAmount(id - BUTTON_CONTENT_AMOUNT_DECREASE_BASE, false);
-                updateFilterDisplays();
-                broadcastChanges();
-            }
-            return true;
-        }
-        return false;
+        });
     }
 
-    @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        if (slotId == MARKER_FILTER_SLOT) {
-            clickMarkerFilter(clickType, player);
-            return;
+    public static PackageBusMenu fromNetwork(int id, Inventory inventory, FriendlyByteBuf buffer) {
+        MenuLocator locator = MenuLocators.readFromPacket(buffer);
+        AbstractPackageBusPart host = locator.locate(inventory.player, AbstractPackageBusPart.class);
+        if (host == null) {
+            throw new IllegalStateException("Could not locate package bus at " + locator);
         }
-        if (slotId >= CONTENT_FILTER_START && slotId < CONTENT_FILTER_END) {
-            clickContentFilter(slotId - CONTENT_FILTER_START, button, clickType, player);
-            return;
-        }
-        super.clicked(slotId, button, clickType, player);
+        PackageBusMenu menu = new PackageBusMenu(id, inventory, host);
+        menu.setReturnedFromSubScreen(buffer.readBoolean());
+        return menu;
     }
 
-    @Override
-    public ItemStack quickMoveStack(Player player, int index) {
-        if (index < PLAYER_INVENTORY_START || index >= slots.size()) {
-            return ItemStack.EMPTY;
-        }
-        Slot slot = slots.get(index);
-        if (!slot.hasItem()) {
-            return ItemStack.EMPTY;
-        }
-        ItemStack source = slot.getItem();
-        if (PackageFilter.fromTemplate(source).isEmpty()) {
-            return ItemStack.EMPTY;
-        }
-        if (!player.level().isClientSide && blockEntity.setFilterTemplate(source)) {
-            updateFilterDisplays();
-            broadcastChanges();
-            player.displayClientMessage(Component.translatable("message.appliedpackaging.package_bus.filter_set"), true);
-        }
-        return ItemStack.EMPTY;
+    public static void registerOpener(MenuType<PackageBusMenu> menuType) {
+        MenuOpener.addOpener(menuType, PackageBusMenu::open);
     }
 
-    @Override
-    public boolean stillValid(Player player) {
-        if (blockEntity.getLevel() == null || blockEntity.isRemoved()) {
+    private static boolean open(Player player, MenuLocator locator, boolean fromSubMenu) {
+        if (!(player instanceof ServerPlayer serverPlayer)) {
             return false;
         }
-        BlockPos pos = blockEntity.getBlockPos();
-        return player.distanceToSqr(
-                pos.getX() + 0.5D,
-                pos.getY() + 0.5D,
-                pos.getZ() + 0.5D) <= 64.0D;
+        AbstractPackageBusPart host = locator.locate(player, AbstractPackageBusPart.class);
+        if (host == null) {
+            return false;
+        }
+        Component title = Component.translatable(host.showsWorkingArea()
+                ? "item.appliedpackaging.package_unpacking_bus"
+                : "item.appliedpackaging.package_storage_bus");
+        var provider = new SimpleMenuProvider((id, inventory, ignored) -> {
+            PackageBusMenu menu = new PackageBusMenu(id, inventory, host);
+            menu.setLocator(locator);
+            return menu;
+        }, title);
+        NetworkHooks.openScreen(serverPlayer, provider, buffer -> {
+            MenuLocators.writeToPacket(buffer, locator);
+            buffer.writeBoolean(fromSubMenu);
+        });
+        return true;
+    }
+
+    @Override
+    protected void setupConfig() {
+        addFilterSlots(getHost().markerFilters(), true);
+        addFilterSlots(getHost().contentFilters(), false);
+    }
+
+    private void addFilterSlots(ConfigInventory inventory, boolean markers) {
+        var wrapper = inventory.createMenuWrapper();
+        int columns = markers ? 1 : AbstractPackageBusPart.CONTENTS_PER_ROW;
+        for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
+            for (int column = 0; column < columns; column++) {
+                int index = row * columns + column;
+                if (row < AbstractPackageBusPart.BASE_FILTER_ROWS) {
+                    addSlot(new FakeSlot(wrapper, index), markers ? PACKAGE_MARKERS : PACKAGE_CONTENTS);
+                } else {
+                    var slot = new OptionalFakeSlot(
+                            wrapper,
+                            this,
+                            index,
+                            row - AbstractPackageBusPart.BASE_FILTER_ROWS);
+                    // PackageBusScreen draws the current AE2 0.2-alpha slot
+                    // overlay from the user-supplied sprite. Suppress AE2 15's
+                    // automatic 0.4-alpha background from its own states.png.
+                    slot.setRenderDisabled(false);
+                    addSlot(slot, markers ? PACKAGE_MARKERS : PACKAGE_CONTENTS);
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean isSlotEnabled(int index) {
+        return getUpgrades().getInstalledUpgrades(AEItems.CAPACITY_CARD) > index;
+    }
+
+    @Override
+    protected void loadSettingsFromHost(appeng.api.util.IConfigManager manager) {
+        setFuzzyMode(manager.getSetting(Settings.FUZZY_MODE));
+        rwMode = manager.getSetting(Settings.ACCESS);
+        storageFilter = manager.getSetting(Settings.STORAGE_FILTER);
+        filterOnExtract = manager.getSetting(Settings.FILTER_ON_EXTRACT);
     }
 
     @Override
     public void broadcastChanges() {
-        if (!clientSide) {
-            updateFilterDisplays();
+        if (isServerSide()) {
+            connectedTo = getHost().getConnectedToDescription();
         }
         super.broadcastChanges();
     }
 
-    public ItemStack filterTemplate() {
-        return filterDisplay.getItem(0).copy();
-    }
-
-    public PackageColor selectedColor() {
-        PackageColor[] values = PackageColor.values();
-        int index = selectedColorSlot.get();
-        if (index < 0 || index >= values.length) {
-            return PackageColor.FLUIX;
+    public void clear() {
+        if (isClientSide()) {
+            sendClientAction(ACTION_CLEAR);
+        } else {
+            applyClear();
         }
-        return values[index];
     }
 
-    public ItemStack markerFilter() {
-        return markerDisplay.getItem(0).copy();
-    }
-
-    public ItemStack contentFilter(int slot) {
-        if (slot < 0 || slot >= contentDisplay.getContainerSize()) {
-            return ItemStack.EMPTY;
+    public void partition() {
+        if (isClientSide()) {
+            sendClientAction(ACTION_PARTITION);
+        } else {
+            applyPartition();
         }
-        return contentDisplay.getItem(slot).copy();
     }
 
-    public int contentFilterAmount(int slot) {
-        if (slot < 0 || slot >= contentAmountSlots.length) {
-            return 0;
+    public void toggleFuzzy(int row) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_TOGGLE_FUZZY, row);
+        } else {
+            applyToggleFuzzy(row);
         }
-        return contentAmountSlots[slot].get();
     }
 
-    private void clickMarkerFilter(ClickType clickType, Player player) {
-        if (clickType != ClickType.PICKUP) {
+    public void toggleInverted(int row) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_TOGGLE_INVERTED, row);
+        } else {
+            applyToggleInverted(row);
+        }
+    }
+
+    public void setColor(int row, PackageColor color) {
+        RowColorAction action = new RowColorAction(row, color.ordinal());
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_COLOR, action);
+        } else {
+            applySetColor(action);
+        }
+    }
+
+    public void clearColor(int row) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_CLEAR_COLOR, row);
+        } else {
+            applyClearColor(row);
+        }
+    }
+
+    private void applyClear() {
+        getHost().clearFilters();
+    }
+
+    private void applyPartition() {
+        getHost().partitionFromTarget();
+    }
+
+    private void applyToggleFuzzy(Integer row) {
+        getHost().toggleRowFuzzy(row == null ? -1 : row);
+    }
+
+    private void applyToggleInverted(Integer row) {
+        getHost().toggleRowInverted(row == null ? -1 : row);
+    }
+
+    private void applySetColor(RowColorAction action) {
+        if (action == null || action.color() < 0 || action.color() >= PackageColor.values().length) {
             return;
         }
-        if (!player.level().isClientSide) {
-            ItemStack carried = getCarried();
-            if (carried.isEmpty()) {
-                blockEntity.clearManualFilterMarker();
-            } else {
-                blockEntity.setManualFilterMarker(carried);
-            }
-            updateFilterDisplays();
-            broadcastChanges();
-        }
+        getHost().setRowColor(action.row(), PackageColor.values()[action.color()]);
     }
 
-    private void clickContentFilter(int contentSlot, int button, ClickType clickType, Player player) {
-        if (clickType != ClickType.PICKUP) {
-            return;
-        }
-        if (!player.level().isClientSide) {
-            ItemStack carried = getCarried();
-            if (carried.isEmpty()) {
-                blockEntity.clearManualFilterContent(contentSlot);
-            } else {
-                blockEntity.setManualFilterContentFromGhostStack(contentSlot, carried, button == 1);
-            }
-            updateFilterDisplays();
-            broadcastChanges();
-        }
+    private void applyClearColor(Integer row) {
+        getHost().clearRowColor(row == null ? -1 : row);
     }
 
-    private void updateFilterDisplays() {
-        filterDisplay.setItem(0, blockEntity.getFilterTemplate());
-        markerDisplay.setItem(0, blockEntity.filterMarker()
-                .map(marker -> displayStack(marker.stack()))
-                .orElse(ItemStack.EMPTY));
-
-        List<GenericStack> requiredContents = blockEntity.filterRequiredContents();
-        for (int slot = 0; slot < contentDisplay.getContainerSize(); slot++) {
-            contentDisplay.setItem(slot, slot < requiredContents.size()
-                    ? displayStack(requiredContents.get(slot))
-                    : ItemStack.EMPTY);
-        }
+    public boolean showsWorkingArea() {
+        return getHost().showsWorkingArea();
     }
 
-    private void addPlayerInventory(Inventory playerInventory) {
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 9; column++) {
-                addSlot(new Slot(playerInventory, column + row * 9 + 9, 8 + column * 18, 125 + row * 18));
-            }
-        }
-        for (int column = 0; column < 9; column++) {
-            addSlot(new Slot(playerInventory, column, 8 + column * 18, 183));
-        }
+    public int progress() {
+        return syncedProgress;
     }
 
-    private void addContentAmountSlots() {
-        for (int slot = 0; slot < contentAmountSlots.length; slot++) {
-            final int contentSlot = slot;
-            SplitIntDataSlots amountSlots = new SplitIntDataSlots(
-                    clientSide,
-                    () -> blockEntity.filterRequiredContentAmountForDisplay(contentSlot));
-            contentAmountSlots[contentSlot] = amountSlots;
-            addDataSlot(amountSlots.lowWordSlot());
-            addDataSlot(amountSlots.highWordSlot());
+    public boolean isWorking() {
+        if (isClientSide()) {
+            return (syncedWorkState & 1) != 0;
         }
+        return getHost() instanceof PackageUnpackingBusPart unpackingBus && unpackingBus.isWorking();
     }
 
-    private static ItemStack displayStack(GenericStack stack) {
-        ItemStack display = stack.what().wrapForDisplayOrFilter();
-        if (display.isEmpty()) {
-            return ItemStack.EMPTY;
+    public boolean unpackBlocked() {
+        if (isClientSide()) {
+            return (syncedWorkState & 2) != 0;
         }
-        int count = (int) Math.max(1L, Math.min(stack.amount(), display.getMaxStackSize()));
-        display.setCount(count);
-        return display;
+        return getHost() instanceof PackageUnpackingBusPart unpackingBus && unpackingBus.unpackBlocked();
     }
 
-    private static AbstractPackageBusBlockEntity getBlockEntity(Inventory inventory, BlockPos pos) {
-        BlockEntity blockEntity = inventory.player.level().getBlockEntity(pos);
-        if (blockEntity instanceof AbstractPackageBusBlockEntity bus) {
-            return bus;
-        }
-        throw new IllegalStateException("Expected Package Bus block entity at " + pos);
+    public boolean hasFuzzyCard() {
+        return hasUpgrade(AEItems.FUZZY_CARD);
     }
 
-    private static final class GhostDisplaySlot extends Slot {
-        private GhostDisplaySlot(SimpleContainer container, int slot, int x, int y) {
-            super(container, slot, x, y);
+    public boolean hasInverterCard() {
+        return hasUpgrade(AEItems.INVERTER_CARD);
+    }
+
+    public boolean isRowEnabled(int row) {
+        return row >= 0 && row < getHost().enabledRows();
+    }
+
+    public boolean isRowColorEnabled(int row) {
+        return row >= 0 && row < rowStates.length && (rowStates[row] & 1) != 0;
+    }
+
+    public boolean isRowFuzzy(int row) {
+        return row >= 0 && row < rowStates.length && (rowStates[row] & 2) != 0;
+    }
+
+    public boolean isRowInverted(int row) {
+        return row >= 0 && row < rowStates.length && (rowStates[row] & 4) != 0;
+    }
+
+    public PackageColor rowColor(int row) {
+        int ordinal = row >= 0 && row < rowStates.length ? rowStates[row] >>> 3 : 0;
+        return ordinal >= 0 && ordinal < PackageColor.values().length
+                ? PackageColor.values()[ordinal]
+                : PackageColor.FLUIX;
+    }
+
+    public AccessRestriction getReadWriteMode() {
+        return rwMode;
+    }
+
+    public StorageFilter getStorageFilter() {
+        return storageFilter;
+    }
+
+    public YesNo getFilterOnExtract() {
+        return filterOnExtract;
+    }
+
+    public Component getConnectedTo() {
+        return connectedTo;
+    }
+
+    public boolean supportsFuzzySearch() {
+        return hasFuzzyCard();
+    }
+
+    public record RowColorAction(int row, int color) {
+    }
+
+    private final class HeldPackageSlot extends SlotItemHandler {
+        private final PackageUnpackingBusPart unpackingBus;
+
+        private HeldPackageSlot(IItemHandlerModifiable handler, PackageUnpackingBusPart unpackingBus) {
+            super(handler, 0, 0, 0);
+            this.unpackingBus = unpackingBus;
         }
 
         @Override
@@ -318,7 +383,8 @@ public class PackageBusMenu extends AbstractContainerMenu {
 
         @Override
         public boolean mayPickup(Player player) {
-            return false;
+            return unpackingBus != null && !PackageBusMenu.this.isWorking() && hasItem();
         }
     }
+
 }

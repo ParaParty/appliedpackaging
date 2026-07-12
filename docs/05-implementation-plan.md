@@ -249,96 +249,30 @@ GameTest/客户端验证
 
 ## 阶段 6：终端与总线
 
-交付：
+当前交付：
 
 ```text
-包裹样板终端
-包裹存储总线
-包裹输出总线
-包裹拆包总线
-过滤 UI
-AE2 网络集成
-GameTest/服务器 smoke test
+高级样板终端与原版样板终端包裹模式
+包裹存储总线 AE2 cable part
+包裹卸货总线 AE2 cable part
+七行包裹过滤 UI 与 AE2 网络集成
+GameTest 与客户端 smoke
 ```
+
+2026-07-12 范围修订：独立 Package Pattern Terminal 与 Package Export Bus 取消；物品注册、配方、创造栏入口、loot 和客户端 smoke 步骤均删除。旧方块/方块实体 id 暂只保留为存档兼容壳，不再提供玩家入口或菜单。
 
 当前状态：
 
 ```text
-已实现：
-  package_storage_bus/package_export_bus/package_unpacking_bus 方块、方块物品、方块实体注册
-  三种总线 blockstate、item model、loot table、recipe、语言文件
-  AE2 可连接方块端点：AENetworkBlockEntity + IManagedGridNode + REQUIRE_CHANNEL
-  package_storage_bus 通过 IStorageProvider 挂载 PackageItemStorage
-  PackageItemStorage 只暴露、插入、抽取合法包裹
-  PackageItemStorage 支持 PackageFilter 限制可见、可插入、可抽取包裹
-  PackageItemStorage 模拟插入使用累计库存快照，避免多个包裹重复预占同一 slot 容量
-  package_storage_bus 每 10 tick 重新请求 provider mount，联网后相邻库存增删与过滤修改会刷新 AE storage cache
-  package_export_bus 只从 AE 网络输出已有合法包裹
-  package_unpacking_bus 整包事务性拆入目标面库存
-  总线目标面只暴露相邻 Forge item handler，并从 AE grid 连接面与线缆渲染中排除；其它面连接 AE 网络
-  输出/拆包事务统一由 PackageBusTransactions 执行源/目标双向模拟、顺序提交与失败恢复
-  总线支持手持已编码样板/合法包裹设置 ghost 过滤模板，潜行空手清除
-  总线提供共享 Package Bus 配置 UI，可显示 ghost filter、从光标复制模板、清除模板、shift-click 背包模板设置 ghost filter
-  Package Bus 配置 UI 不消耗玩家光标或背包中的模板物品
-  Package Bus 配置 UI 支持手工编辑颜色、marker ghost 和 3 个 required content ghost slots
-  Package Bus required content ghost slots 可从 Forge 流体容器编码 AEFluidKey 过滤条件
-  手工 Package Bus 过滤器以 PackageFilter NBT 保存，并兼容旧 filter_template 读取
-  Package Bus 与 Package Pattern Terminal 的颜色/数量 DataSlot 使用服务端权威值和客户端菜单缓存同步，ghost display 在服务端 broadcast 前从 host 刷新
-  runClientSmoke 可 quick-play 单人世界、摆放关键方块与 AE2 terminal parts、打开真实菜单、截图 Package Assembler/ME Packager/原版 Pattern Encoding Terminal/Advanced Pattern Terminal/Package Pattern Terminal/Package Storage Bus/Package Export Bus/Package Unpacking Bus 后退出
-  PackageItemStorage/总线过滤 GameTest
-  PackageItemStorage 累计容量、总线真实 AE 网络导出/拆包、目标不足保持原包裹、源变化与目标部分提交回滚 GameTest
-  package_pattern_terminal AE2 cable part item、part host、兼容方块、方块实体、菜单、客户端 screen
-  package_pattern_terminal 物品 id 改为 AE2 part item，不新增重复终端物品；既有方块路径保留给兼容/测试
-  Package Pattern Terminal 菜单通过 PackagePatternTerminalHost 同时支持方块 host 与 AE2 part host
-  Package Pattern Terminal AE2 part 可通过 PartHelper 放置到 cable bus 侧面，并保存/读取终端库存、颜色和处理输出 ghost
-  package_pattern_terminal 可从 9 格预览输入编码 package_pattern
-  package_pattern_terminal 支持 17 色 swatch 选择，编码样板颜色跟随 selectedColor
-  package_pattern_terminal 支持 9 个输入槽颜色色标，并保存/同步槽位颜色
-  package_pattern_terminal 支持 marker 槽与容量槽编码 package_pattern
-  package_pattern_terminal 可把 AE2 encoded processing pattern 克隆为带 colored_processing_pattern 元数据的彩色处理样板
-  package_pattern_terminal 在未逐槽设色时可把 selectedColor 应用到 AE2 processing pattern 全部非空输入槽
-  package_pattern_terminal 可把 AE2 原版 blank_pattern 编码为带 package_pattern NBT 的封装样板载体，并保留 AE2 物品类型
-  package_pattern_terminal 在 AE2 blank_pattern 存在多包裹计划且无处理输出 ghost 时写入 packaged_processing_pattern NBT，并保留 AE2 物品类型
-  package_pattern_terminal 在 AE2 blank_pattern 存在处理输出 ghost 时编码 AE2 原版 processing pattern，并附带 packaged_processing_pattern NBT
-  package_pattern_terminal 可把空白 packaged_processing_pattern 编码为有序多包裹样板
-  advanced_pattern_encoding_terminal 作为 AE2 cable part item 注册，复用原版 Pattern Encoding Terminal part/model/terminal body，只保留 processing mode
-  advanced_pattern_encoding_terminal 保持高版本 AE2 的 195px 终端主体与 9 列网络库存；中间区显示 4 个包裹列 x 3 行可见真实输入、3 行可见真实输出，左侧滚动条同步查看第 4 行，底部滚动条水平滚动最多 17 个包裹列；列间距为 1px，启用列显示颜色/编辑按钮，第一未启用列显示加号
-  advanced_pattern_encoding_terminal 为每列保存颜色和完整 81 槽输入矩阵，并编码独立 advanced_processing_pattern 物品；名称固定为空，marker 由主产物归一生成，AE2 原版 processing_pattern 不写也不接受该高级列元数据
-  advanced_pattern_encoding_terminal 的列 X 对非空列先清空、对空列再删除并前移后续列，且最少保留一列
-  advanced_pattern_encoding_terminal 列编辑层在 AE 主界面完成渲染后绘制，完整拦截弹层输入且不允许点击透传到底层 RepoSlot/processing slot/编码按钮
-  AE2 原版 Pattern Encoding Terminal 包裹模式使用 124x66 高版本面板、左侧 AE processing scrollbar、3x3 可见输入窗口、81 个 sparse 输入、marker、自动输出、紧凑清空/设置按钮与独立颜色/名称编辑层；编辑层输入不透传
-  Package Assembler 按包裹样板、普通处理样板和高级处理样板三路执行；高级样板按列顺序生成多个包裹，普通处理样板固定 Fluix/空名称/空 marker
-  packaged_processing_pattern NBT 支持可选 outputs[]，终端提供 3 个处理输出 ghost slots
-  处理输出 ghost slots 可从光标复制物品/流体容器，右键复制 1 个物品或 1 个容器量，空光标清除，且不消耗玩家物品
-  处理输出 ghost slots 可把 Forge 流体容器编码为 AEFluidKey 输出，例如水桶编码为 1000 mB water
-  packaged_processing_pattern tooltip 显示已编码处理输出
-  已编码 AE2 blank_pattern 通过客户端 tooltip hook 显示 package_pattern 或 packaged_processing_pattern 内容，未编码 AE2 blank_pattern 保持原版 tooltip
-  package_pattern_terminal 已调整为 AE2 风格薄面板 block model，并提供按朝向旋转的薄面板 VoxelShape
-  package_pattern_terminal AE2 part 已使用 Applied Packaging 自有 body/front/back/sides/overlay mask 材质和 base part model，不再依赖 AE2 pattern terminal 纹理层
-  Package Pattern Terminal 处理输出 ghost 槽支持滚轮调整已设置 key 的数量，流体每步 1000 mB
-  Package Bus required content ghost 槽支持滚轮调整已设置 key 的数量，流体每步 1000 mB
-  package_pattern_terminal 可通过 Split 按钮把已编码 packaged_processing_pattern 拆回 AE2 blank_pattern 承载的 package_pattern 数据
-  package_pattern_terminal Split pending queue 会保存/读取，输出槽清空后可继续吐出后续 AE2 blank_pattern carrier
-  package_pattern_terminal 输入槽颜色支持右键清除
-  package_pattern / packaged_processing_pattern tooltip 显示空白或已编码包裹内容
-  装配室可读取 package_pattern_terminal 产出的已编码 package_pattern
-  装配室可读取 AE2 blank_pattern 承载的 package_pattern NBT，样板槽和 shift-click 验证共用统一载体判断
-  装配室可读取 AE2 blank_pattern 承载的 packaged_processing_pattern NBT，并逐包输出
-  装配室可接受 AE2 encoded processing pattern 承载的 packaged_processing_pattern Pattern Provider push，并逐包输出
-  装配室可接受带流体内容的 packaged_processing_pattern Pattern Provider push，并逐包输出
-  真实 AE2 Pattern Provider 可解码并推送带 packaged_processing_pattern NBT 的 AE2 encoded processing pattern
-  装配室可读取 packaged_processing_pattern 并逐包输出
-  已编码 packaged_processing_pattern 不会被终端当空白样板覆盖
-
-非 UI 收尾状态（2026-07-11）：
-  Package Pattern Terminal 的编码/拆分、AE2 part 持久化、受限自动化 capability 与失效/恢复生命周期已有实现和回归测试。
-  Storage/Export/Unpacking Bus 的 channel 门禁、目标面边界、在线缓存刷新、过滤持久化和单包裹事务已有实现和真实 AE 端点测试。
-  当前没有已知未实现的非 UI 项；后续仅接收 IN-003 正式 UI/模型范围，不在用户描述前推测新资产用途。
-
-发布后增强，不阻塞 0.1.0-dev 发布：
-  彩色处理样板更完整的处理输出 UI
-  封装处理样板任意 AEKey 处理输出 ghost editor
-  批量 required content / 任意 AEKey 高级过滤器编辑器
+package_storage_bus 使用 AE2 Storage Bus 占位模型并通过 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage
+package_unpacking_bus 使用 AE2 P2P 占位模型；先从 ME 网络预留一个包裹到持久化 held 状态，经过与 ME Packager 相同的 20 tick 拆包进度后才事务性拆入目标面 item handler
+两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle、左侧设置按钮与右侧 5 格共享升级面板
+七行过滤每行包含动态模糊/反转按钮、颜色选择、marker ghost 和 6 个物品 ghost；行间 OR、行内 AND
+默认解锁底图最上方两行，每张容量卡额外解锁一行，五张容量卡时达到七行上限；未解锁行使用 OptionalFakeSlot 半透明叠加
+模糊/反转按钮仅在对应升级卡存在时显示并始终紧邻颜色按钮，模糊/反转/颜色三个 8px 按钮在 18px 行内统一使用固定 2px 上边距；卸货总线在同一 5 格升级库存中额外接受最多 4 张加速卡
+存储总线遮掉右上工作区；卸货总线工作槽同步真实 held 包裹并显示 15 级进度条，工作中不可取、阻塞时可由玩家取回
+最终目标变化时保留原 held 包裹并阻塞重试；held 状态写入 Part NBT，拆除 part 时作为额外掉落返还
+runClientSmoke 自动放置两个真实 AE2 part，插入模糊/反转/容量卡（卸货再插加速卡），打开菜单并截图
 ```
 
 验收：
@@ -346,8 +280,9 @@ GameTest/服务器 smoke test
 ```text
 总线只允许包裹通过
 存储总线不暴露包裹内部内容
-输出总线不把散装库存自动打成包裹
-拆包总线只做整包事务
+卸货总线只做整包事务
+卸货总线在进度完成前不写入目标；最终提交失败时不丢失、不复制且重试同一个包裹
+取消项不存在玩家入口
 ```
 
 ## 阶段 7：发布

@@ -65,6 +65,7 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
 import net.minecraftforge.items.wrapper.RangedWrapper;
@@ -142,7 +143,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             setChanged();
         }
     };
-    private final IItemHandler orderedOutputItems = new IItemHandler() {
+    private final IItemHandlerModifiable orderedOutputItems = new IItemHandlerModifiable() {
         @Override
         public int getSlots() {
             return 1;
@@ -151,6 +152,14 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         @Override
         public ItemStack getStackInSlot(int slot) {
             return slot == 0 ? items.getStackInSlot(SLOT_OUTPUT) : ItemStack.EMPTY;
+        }
+
+        @Override
+        public void setStackInSlot(int slot, ItemStack stack) {
+            if (slot != 0) {
+                throw new IndexOutOfBoundsException(slot);
+            }
+            items.setStackInSlot(SLOT_OUTPUT, stack);
         }
 
         @Override
@@ -220,7 +229,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return items;
     }
 
-    public IItemHandler getOrderedOutputItems() {
+    public IItemHandlerModifiable getOrderedOutputItems() {
         return orderedOutputItems;
     }
 

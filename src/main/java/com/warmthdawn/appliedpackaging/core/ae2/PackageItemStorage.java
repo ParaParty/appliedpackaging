@@ -12,6 +12,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import java.util.Optional;
+import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -21,6 +22,9 @@ public class PackageItemStorage implements MEStorage {
     private final IItemHandler itemHandler;
     private final Component description;
     private final PackageFilter filter;
+    private final Predicate<ItemStack> stackFilter;
+    private final boolean allowInsertion;
+    private final boolean allowExtraction;
 
     public PackageItemStorage(IItemHandler itemHandler, Component description) {
         this(itemHandler, description, PackageFilter.any());
@@ -30,11 +34,28 @@ public class PackageItemStorage implements MEStorage {
         this.itemHandler = itemHandler;
         this.description = description;
         this.filter = filter == null ? PackageFilter.any() : filter;
+        this.stackFilter = null;
+        this.allowInsertion = true;
+        this.allowExtraction = true;
+    }
+
+    public PackageItemStorage(
+            IItemHandler itemHandler,
+            Component description,
+            Predicate<ItemStack> stackFilter,
+            boolean allowInsertion,
+            boolean allowExtraction) {
+        this.itemHandler = itemHandler;
+        this.description = description;
+        this.filter = PackageFilter.any();
+        this.stackFilter = stackFilter;
+        this.allowInsertion = allowInsertion;
+        this.allowExtraction = allowExtraction;
     }
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (!isPackageKey(what) || amount <= 0 || !matchesFilter(((AEItemKey) what).toStack())) {
+        if (!allowInsertion || !isPackageKey(what) || amount <= 0 || !matchesFilter(((AEItemKey) what).toStack())) {
             return 0;
         }
 
@@ -60,7 +81,7 @@ public class PackageItemStorage implements MEStorage {
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (!isPackageKey(what) || amount <= 0) {
+        if (!allowExtraction || !isPackageKey(what) || amount <= 0) {
             return 0;
         }
 
@@ -110,6 +131,9 @@ public class PackageItemStorage implements MEStorage {
     }
 
     private boolean matchesFilter(ItemStack stack) {
+        if (stackFilter != null) {
+            return stackFilter.test(stack);
+        }
         Optional<PackageData> data = PackageDataStorage.read(stack);
         if (data.isEmpty()) {
             return false;

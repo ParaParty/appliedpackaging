@@ -1,5 +1,48 @@
 # Terminal And Buses Asset Report
 
+## 2026-07-13 Shared Marker Slot And Current Slot Presentation
+
+- ME Packager and ME Package Assembler now render their empty capacity-component slot with the unchanged current-main `ae2-states.png` cell `(240,48,16,16)`; the assembler's empty encoded-pattern slot uses `(240,112,16,16)`. These are runtime atlas slices, not edits or additions to the user sprite.
+- The Package Bus fuzzy, inverter, and color buttons now share a fixed `2px` top margin inside every `18px` filter row. Their sprites, click rectangles, and hover outlines use the same `rowY + 2` origin instead of the previous vertically centered `5px` origin.
+- An isolated-world `runClientSmoke` refreshed all 11 screenshots. The machine captures show both current-main empty-slot cells aligned in their frames, and both bus captures show the fixed 2px logical button margin while retaining marker tooltip/hover behavior. `build`, asset audit, documentation audit, release audit with asset contracts, and `git diff --check` all pass; GameTest was not repeated because this change is client-only.
+- The user clarified that the empty marker-slot artwork is their own sprite, not an AE2 source asset. Runtime now samples `package-storagebus-sprites.png` at `(32,16,16,16)` for empty marker slots in Package Storage/Unpacking Bus rows, ME Packager, ME Package Assembler, and the package mode added to AE2 Pattern Encoding Terminal.
+- The supplied source `E:/resources/textures/appliedpackaging/ret/sprite.png` and runtime copy remain byte-identical with SHA-256 `14D7D26A93BF46D1BA0EF33A5408197718D0AF5BD3ADE662AA8A46E8DE662281`. No source PNG was edited, no AE2 pixels were baked into the user sprite, and the marker cell is explicitly excluded from AE2 provenance in `LICENSE.md`.
+- Interactive empty marker slots show a bilingual two-line tooltip. Locked Package Bus rows render both the slot background and marker icon at the same `0.2` opacity and do not expose an interactive tooltip.
+- ME Packager and ME Package Assembler now use a shared 1.20.1 backport of current-main slot hover, upgrade panel, toolbox panel, and empty-upgrade placeholder. The copied `ae2-states.png` and `package_bus_extra_panels.png` remain unchanged at SHA-256 `0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55` and `C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0`.
+- Package Bus hover was corrected from menu-relative coordinates to window coordinates by applying the GUI origin before the tooltip-stage current-main highlight. The smoke cursor targets the second, empty default row; the screenshot shows the highlight on that marker slot instead of the screen's upper-left corner.
+- `compileJava processResources` and an isolated-world `runClientSmoke` completed successfully. All 11 screenshots were captured; the two machines, original pattern terminal, and both buses show the user marker icon and tooltip, while machine/bus upgrade placeholders and current blue hover render correctly. The multi-image viewer again produced a black-block artifact for the Unpacking Bus, but decoding that PNG alone showed a complete normal frame.
+- Final verification passed: `build`, `verify-assets.ps1`, `verify-docs.ps1`, and `verify-release.ps1 -RequireAssetContracts`. The release audit matched 237 runtime resources to the JAR, validated five asset contracts, confirmed 154 non-empty PNGs, and matched all 153 bilingual language keys/placeholders.
+
+## 2026-07-13 Updated Package Bus Background Integration
+
+- The updated user source `E:/resources/textures/appliedpackaging/ret/package-storagebus.png` was copied byte-for-byte to the runtime resource. Both files are 256x256 RGBA, 1583 bytes, with SHA-256 `506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE`.
+- Relative to the prior runtime atlas, 11262 pixels changed inside the main `176x253` GUI: 10408 `#ADB0C4` pixels became current-main body color `#CBCCD4`, and 854 `#CBCCD4` pixels became current-main outer border `#413F54`.
+- Ignoring RGB values under fully transparent pixels and excluding the custom center rectangle (`x=7..168`, `y=28..154`), the updated main GUI has zero visible-pixel differences from AE2 current-main `textures/guis/storagebus.png`.
+- The work-slot source `[176,0,18,18]` and progress-frame source `[196,0,6,18]` are pixel-identical to the previous atlas. All seven filter rows remain present at `y=29,47,65,83,101,119,137`; `package-storagebus-sprites.png` and the three copied AE2 GUI textures were not changed.
+- The `terminal_and_buses` asset contract, `verify-assets.ps1`, the full `test-assets-audit.ps1` negative-fixture suite, `runClientSmoke`, `build`, documentation audit, and release audit all pass. Both 960x540 Package Bus screenshots were inspected independently: the corrected body/border colors render normally, seven filter rows remain aligned, Storage Bus still omits the work area, and Unpacking Bus still renders it. GameTest was considered and skipped for this byte-only GUI texture replacement because no menu, network, storage, or server behavior changed.
+
+## 2026-07-13 Current-Main Outer-Chrome Pixel Audit (Superseded)
+
+- At the time of this diagnostic audit, the runtime `package-storagebus.png` remained byte-identical to the previous user source (`7253977C9792F7BB86D1B826688DD067AF5F242E3279A71E7409442428B53EB5`). This section is retained as the diagnosis that motivated the updated atlas above.
+- Against AE2 current-main `textures/guis/storagebus.png`, the area outside the custom center rectangle (`x=7..168`, `y=28..154`) has exactly two systematic substitutions: 10246 current-main body pixels `#CBCCD4` became `#ADB0C4`, and 854 current-main outer-border pixels `#413F54` became `#CBCCD4`. This explains the darker body and missing dark outline in the in-game comparison.
+- The remaining outer colors (`#F2F2F2`, `#9A9FB4`, `#ADB0C4`, `#878FA5`) are correct where they occur. The user sprite's `(0,64,18,18)` slot background is pixel-identical to current-main `states.png` `(192,192,18,18)`.
+- `package_bus_extra_panels.png`, `package_bus_vertical_buttons_bg.png`, and `ae2-states.png` remain byte-identical to current main. The code-side mismatches were instead the `top=-1` upgrade anchor, the missing Help button, and the old AE2 15 grayscale empty-upgrade icon. These were corrected without changing the supplied PNGs.
+- Filled upgrade cards still use the pinned AE2 15.4.10 item textures. Current-main `card_capacity.png`, `card_fuzzy.png`, `card_inverter.png`, and `card_speed.png` all differ from the old versions; they were not copied or globally overridden in this pass.
+- The custom center contains seven 18px filter rows starting at `y=29`. Runtime behavior now uses the full seven rows: two base rows plus five capacity-card rows.
+- A client-smoke fixture rendered an unmarked package, a marked package, and the same marked package in the held-work slot. At GUI scale 2, all three item silhouettes had the same slot-relative bounding box `(9..22,11..23)`; the marker changed three pixels but introduced no rendering offset.
+- Verification passed: `runGameTestServer` (174/174), `runClientSmoke`, `build`, `verify-assets.ps1`, `verify-docs.ps1`, and `verify-release.ps1 -RequireAssetContracts`.
+
+## 2026-07-12 GUI And Part Migration
+
+- Package Export Bus and the standalone Package Pattern Terminal were removed from the current player-facing scope.
+- Package Storage Bus now uses the AE2 Storage Bus item/part silhouette as a temporary model.
+- Package Unpacking Bus now uses the AE2 ME P2P Tunnel item/part silhouette as a temporary model.
+- At this initial migration point, the user-provided GUI and sprite were separate, byte-identical 256x256 RGBA files. Their then-current project hashes were `7253977C9792F7BB86D1B826688DD067AF5F242E3279A71E7409442428B53EB5` for `package-storagebus.png` and `14D7D26A93BF46D1BA0EF33A5408197718D0AF5BD3ADE662AA8A46E8DE662281` for `package-storagebus-sprites.png`; no pixels were baked into either file.
+- AE2 current-main commit `45f315517ea346efc0babd02c85c6b9d32dc8acf` was read before the correction. Its `states.png`, `extra_panels.png`, and `vertical_buttons_bg.png` remain independent runtime textures, exactly as upstream does. They were copied byte-for-byte with hashes `0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55`, `C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0`, and `62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715`; the same bytes are present in `neoforge/v19.2.17`.
+- The priority tab uses the current Storage Bus anchor `(152,-5,20,20)`. Unpacking Bus draws the supplied work-slot and progress-frame source regions at `(119,8)` and `(139,8)`; Storage Bus omits that layer. Disabled filter rows draw the supplied slot background at 0.2 alpha.
+- The current `IconButton`, `VerticalButtonBar`, `UpgradesPanel`, and `StorageBusScreen` visual behavior was backported: 6px toolbar spacing, normal/hover/focus button sprites, current state icons, 5px upgrade-panel padding, and the connected-target hint. On the 1.20.1 renderer, explicit flush/state boundaries provide the independent-texture isolation that current AE2 obtains from per-element render states.
+- Source inputs: `E:/resources/textures/appliedpackaging/ret/package-storagebus.png`, `E:/resources/textures/appliedpackaging/ret/sprite.png`, and the official AE2 checkout under `build/reference/ae2-latest`.
+
 ## Scope
 
 Revised block texture resources for:

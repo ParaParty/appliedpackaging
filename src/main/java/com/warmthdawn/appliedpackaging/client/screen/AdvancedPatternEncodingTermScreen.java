@@ -63,7 +63,7 @@ public class AdvancedPatternEncodingTermScreen
     private static final int COLUMN_SCROLLBAR_TRACK_WIDTH = 75;
     private static final int CLEAR_BUTTON_X = 99;
     private static final int CLEAR_BUTTON_BOTTOM = 177;
-    private static final int ENCODE_BUTTON_X = 166;
+    private static final int ENCODE_BUTTON_X = 167;
     private static final int ENCODE_BUTTON_BOTTOM = 146;
     private static final int ENABLED_SLOT_BODY = 0xffadb0c4;
     private static final int DISABLED_SLOT_BODY = 0xff969cb1;
