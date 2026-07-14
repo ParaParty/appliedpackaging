@@ -6,9 +6,11 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.math.Axis;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.world.block.AbstractHorizontalMachineBlock;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
@@ -20,6 +22,8 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.resources.model.ModelManager;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.client.model.data.ModelData;
@@ -27,16 +31,36 @@ import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
 public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEntity> {
-    public static final ResourceLocation TRAY_MODEL =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "block/me_packager_create/tray");
-    public static final ResourceLocation HATCH_CLOSED_MODEL =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "block/me_packager_create/hatch_closed");
-    public static final ResourceLocation HATCH_OPEN_MODEL =
-            new ResourceLocation(AppliedPackaging.MOD_ID, "block/me_packager_create/hatch_open");
+    public static final ResourceLocation BELT_MODEL =
+            AppliedPackaging.id("block/me_packager/belt");
+    public static final ResourceLocation CURTAIN_FLAP_MODEL =
+            AppliedPackaging.id("block/me_packager/curtain_flap");
+    private static final ResourceLocation BELT_TEXTURE =
+            AppliedPackaging.id("block/me_packager/belt_scroll");
+
+    private static final int CURTAIN_FLAP_COUNT = 4;
+    private static final float CURTAIN_FLAP_STEP = 3.0F / 16.0F;
+    private static final float CURTAIN_PIVOT_X = 4.0F / 16.0F;
+    private static final float CURTAIN_PIVOT_Y = 14.0F / 16.0F;
+    private static final float CURTAIN_PIVOT_Z = 3.5F / 16.0F;
+    private static final float CURTAIN_MAX_ANGLE = 28.0F;
+    private static final float BELT_TEXTURE_WIDTH_PIXELS = 32.0F;
+    private static final float BELT_PIXELS_PER_TICK = 1.0F;
+    private static final float PACKAGE_INSIDE_X = 2.5F / 16.0F;
+    private static final float PACKAGE_FRONT_CENTER_X = 10.0F / 16.0F;
+    private static final float PACKAGE_RENDER_SCALE = 1.49F;
+    private static final float PACKAGE_FIXED_SCALE = 0.5F;
+    private static final float PACKAGE_MODEL_MIN_Y = 1.0F / 16.0F;
+    private static final float BELT_TOP_Y = 2.0F / 16.0F;
+    private static final float PACKAGE_RENDER_Y = BELT_TOP_Y
+            + PACKAGE_RENDER_SCALE * PACKAGE_FIXED_SCALE * (0.5F - PACKAGE_MODEL_MIN_Y);
+
     private static final int STENCIL_REF = 1;
     private static final int STENCIL_MASK = 0xFF;
-    private static final float CLIP_BOX_MIN = -0.001F;
-    private static final float CLIP_BOX_MAX = 1.001F;
+    private static final float CLIP_LOCAL_MIN_X = 1.0F / 16.0F;
+    private static final float CLIP_LOCAL_MAX_X = 1.0F;
+    private static final float CLIP_LOCAL_MIN_YZ = 0.0F;
+    private static final float CLIP_LOCAL_MAX_YZ = 1.0F;
 
     private final BlockRenderDispatcher blockRenderer;
     private final ModelManager modelManager;
@@ -54,50 +78,99 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
             MultiBufferSource bufferSource,
             int packedLight,
             int packedOverlay) {
-        Direction side = packageAnimationSide(packager);
-        float trayOffset = packager.getTrayOffset(partialTick);
+        Direction facing = packager.getBlockState().getValue(AbstractHorizontalMachineBlock.FACING);
 
-        renderPartial(
-                packager,
-                packager.isHatchOpen() ? HATCH_OPEN_MODEL : HATCH_CLOSED_MODEL,
-                side,
-                0.49999F,
-                RenderType.solid(),
-                true,
-                poseStack,
-                bufferSource,
-                packedLight,
-                packedOverlay);
-
-        if (packager.animationTicks() > 0 && renderClippedTrayAndPackage(
-                packager,
-                side,
-                trayOffset,
-                partialTick,
-                poseStack,
-                packedLight,
-                packedOverlay)) {
-            return;
+        renderBelt(packager, facing, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
+        if (!renderClippedCurtains(packager, facing, partialTick, poseStack, packedLight, packedOverlay)) {
+            renderCurtains(packager, facing, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
         }
 
-        renderPartial(
-                packager,
-                TRAY_MODEL,
-                side,
-                trayOffset,
-                RenderType.cutoutMipped(),
-                false,
-                poseStack,
-                bufferSource,
-                packedLight,
-                packedOverlay);
-        renderPackage(packager, side, trayOffset, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
+        if (renderClippedPackage(packager, facing, partialTick, poseStack, packedLight, packedOverlay)) {
+            return;
+        }
+        renderPackage(packager, facing, partialTick, poseStack, bufferSource, packedLight, packedOverlay);
     }
 
-    private boolean renderClippedTrayAndPackage(
+    private void renderBelt(
             MePackagerBlockEntity packager,
-            Direction side,
-            float trayOffset,
+            Direction facing,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
+        float phasePixels = packager.beltScrollPixels();
+        if (packager.animationTicks() > 0) {
+            float direction = packager.animationInward() ? 1.0F : -1.0F;
+            phasePixels = Mth.positiveModulo(
+                    phasePixels + direction * partialTick * BELT_PIXELS_PER_TICK,
+                    MePackagerBlockEntity.BELT_SCROLL_PERIOD_PIXELS);
+        }
+
+        var sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(BELT_TEXTURE);
+        float modelUvOffset = phasePixels * 16.0F / BELT_TEXTURE_WIDTH_PIXELS;
+        float atlasUOffset = sprite.getU(modelUvOffset) - sprite.getU(0.0F);
+        VertexConsumer offsetBuffer = new UvOffsetVertexConsumer(
+                bufferSource.getBuffer(RenderType.cutoutMipped()), atlasUOffset);
+        renderModel(
+                packager,
+                BELT_MODEL,
+                facing,
+                RenderType.cutoutMipped(),
+                offsetBuffer,
+                poseStack,
+                packedLight,
+                packedOverlay);
+    }
+
+    private void renderCurtains(
+            MePackagerBlockEntity packager,
+            Direction facing,
+            float partialTick,
+            PoseStack poseStack,
+            MultiBufferSource bufferSource,
+            int packedLight,
+            int packedOverlay) {
+        float pulse = curtainPulse(packager.getAnimationProgress(partialTick));
+        float direction = packager.animationInward() ? -1.0F : 1.0F;
+        float[] weights = {0.78F, 1.0F, 1.0F, 0.78F};
+        var model = modelManager.getModel(CURTAIN_FLAP_MODEL);
+        var renderType = RenderType.cutoutMipped();
+        var buffer = bufferSource.getBuffer(renderType);
+
+        poseStack.pushPose();
+        rotateMachineToFacing(poseStack, facing);
+        for (int flap = 0; flap < CURTAIN_FLAP_COUNT; flap++) {
+            poseStack.pushPose();
+            poseStack.translate(0.0F, 0.0F, flap * CURTAIN_FLAP_STEP);
+            poseStack.translate(CURTAIN_PIVOT_X, CURTAIN_PIVOT_Y, CURTAIN_PIVOT_Z);
+            poseStack.mulPose(Axis.ZP.rotationDegrees(direction * pulse * CURTAIN_MAX_ANGLE * weights[flap]));
+            poseStack.translate(-CURTAIN_PIVOT_X, -CURTAIN_PIVOT_Y, -CURTAIN_PIVOT_Z);
+            blockRenderer.getModelRenderer().renderModel(
+                    poseStack.last(),
+                    buffer,
+                    packager.getBlockState(),
+                    model,
+                    1.0F,
+                    1.0F,
+                    1.0F,
+                    packedLight,
+                    packedOverlay,
+                    ModelData.EMPTY,
+                    renderType);
+            poseStack.popPose();
+        }
+        poseStack.popPose();
+    }
+
+    private static float curtainPulse(float progress) {
+        float window = Mth.clamp((progress - 0.12F) / 0.76F, 0.0F, 1.0F);
+        return Mth.sin((float) Math.PI * window);
+    }
+
+    private boolean renderClippedCurtains(
+            MePackagerBlockEntity packager,
+            Direction facing,
             float partialTick,
             PoseStack poseStack,
             int packedLight,
@@ -107,22 +180,11 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
             return false;
         }
 
-        beginBlockStencilClip(poseStack);
+        beginMachineStencilClip(poseStack, facing);
         MultiBufferSource.BufferSource animationBuffer =
                 MultiBufferSource.immediate(new BufferBuilder(RenderType.TRANSIENT_BUFFER_SIZE));
         try {
-            renderPartial(
-                    packager,
-                    TRAY_MODEL,
-                    side,
-                    trayOffset,
-                    RenderType.cutoutMipped(),
-                    false,
-                    poseStack,
-                    animationBuffer,
-                    packedLight,
-                    packedOverlay);
-            renderPackage(packager, side, trayOffset, partialTick, poseStack, animationBuffer, packedLight, packedOverlay);
+            renderCurtains(packager, facing, partialTick, poseStack, animationBuffer, packedLight, packedOverlay);
             animationBuffer.endBatch();
         } finally {
             endBlockStencilClip();
@@ -130,36 +192,46 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         return true;
     }
 
-    private void renderPartial(
+    private boolean renderClippedPackage(
             MePackagerBlockEntity packager,
-            ResourceLocation modelLocation,
-            Direction side,
-            float offset,
-            RenderType renderType,
-            boolean hatch,
+            Direction facing,
+            float partialTick,
             PoseStack poseStack,
-            MultiBufferSource bufferSource,
             int packedLight,
             int packedOverlay) {
-        var model = modelManager.getModel(modelLocation);
-        var blockState = packager.getBlockState();
-        var buffer = bufferSource.getBuffer(renderType);
-
-        poseStack.pushPose();
-        poseStack.translate(
-                side.getStepX() * offset,
-                side.getStepY() * offset,
-                side.getStepZ() * offset);
-        if (hatch) {
-            rotateHatchToSide(poseStack, side);
-        } else {
-            rotateHorizontalToSide(poseStack, side);
+        RenderTarget target = Minecraft.getInstance().getMainRenderTarget();
+        if (!target.isStencilEnabled()) {
+            return false;
         }
+
+        beginMachineStencilClip(poseStack, facing);
+        MultiBufferSource.BufferSource animationBuffer =
+                MultiBufferSource.immediate(new BufferBuilder(RenderType.TRANSIENT_BUFFER_SIZE));
+        try {
+            renderPackage(packager, facing, partialTick, poseStack, animationBuffer, packedLight, packedOverlay);
+            animationBuffer.endBatch();
+        } finally {
+            endBlockStencilClip();
+        }
+        return true;
+    }
+
+    private void renderModel(
+            MePackagerBlockEntity packager,
+            ResourceLocation modelLocation,
+            Direction facing,
+            RenderType renderType,
+            VertexConsumer buffer,
+            PoseStack poseStack,
+            int packedLight,
+        int packedOverlay) {
+        poseStack.pushPose();
+        rotateMachineToFacing(poseStack, facing);
         blockRenderer.getModelRenderer().renderModel(
                 poseStack.last(),
                 buffer,
-                blockState,
-                model,
+                packager.getBlockState(),
+                modelManager.getModel(modelLocation),
                 1.0F,
                 1.0F,
                 1.0F,
@@ -172,8 +244,7 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
 
     private void renderPackage(
             MePackagerBlockEntity packager,
-            Direction side,
-            float trayOffset,
+            Direction facing,
             float partialTick,
             PoseStack poseStack,
             MultiBufferSource bufferSource,
@@ -184,15 +255,11 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
             return;
         }
 
+        float packageX = packageX(packager, partialTick);
         poseStack.pushPose();
-        poseStack.translate(
-                side.getStepX() * trayOffset,
-                side.getStepY() * trayOffset,
-                side.getStepZ() * trayOffset);
-        poseStack.translate(0.5F, 0.5F, 0.5F);
-        rotateHorizontalAroundCenter(poseStack, side);
-        poseStack.translate(0.0F, 2.0F / 16.0F, 0.0F);
-        poseStack.scale(1.49F, 1.49F, 1.49F);
+        rotateMachineToFacing(poseStack, facing);
+        poseStack.translate(packageX, PACKAGE_RENDER_Y, 0.5F);
+        poseStack.scale(PACKAGE_RENDER_SCALE, PACKAGE_RENDER_SCALE, PACKAGE_RENDER_SCALE);
         Minecraft.getInstance().getItemRenderer().renderStatic(
                 renderedBox,
                 ItemDisplayContext.FIXED,
@@ -205,25 +272,36 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         poseStack.popPose();
     }
 
-    private static void rotateHatchToSide(PoseStack poseStack, Direction side) {
+    private static float packageX(MePackagerBlockEntity packager, float partialTick) {
+        if (packager.animationTicks() <= 0) {
+            return PACKAGE_FRONT_CENTER_X;
+        }
+        float progress = packager.getAnimationProgress(partialTick);
+        if (packager.animationInward()) {
+            return Mth.lerp(
+                    Mth.clamp(progress * 2.0F, 0.0F, 1.0F),
+                    PACKAGE_FRONT_CENTER_X,
+                    PACKAGE_INSIDE_X);
+        }
+        return Mth.lerp(
+                Mth.clamp((progress - 0.5F) * 2.0F, 0.0F, 1.0F),
+                PACKAGE_INSIDE_X,
+                PACKAGE_FRONT_CENTER_X);
+    }
+
+    private static void rotateMachineToFacing(PoseStack poseStack, Direction facing) {
         poseStack.translate(0.5F, 0.5F, 0.5F);
-        poseStack.mulPose(Axis.YP.rotationDegrees(horizontalAngle(side)));
-        poseStack.mulPose(Axis.XP.rotationDegrees(verticalAngle(side)));
+        switch (facing) {
+            case SOUTH -> poseStack.mulPose(Axis.YP.rotationDegrees(270.0F));
+            case WEST -> poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
+            case NORTH -> poseStack.mulPose(Axis.YP.rotationDegrees(90.0F));
+            default -> {
+            }
+        }
         poseStack.translate(-0.5F, -0.5F, -0.5F);
     }
 
-    private static void rotateHorizontalToSide(PoseStack poseStack, Direction side) {
-        poseStack.translate(0.5F, 0.5F, 0.5F);
-        rotateHorizontalAroundCenter(poseStack, side);
-        poseStack.translate(-0.5F, -0.5F, -0.5F);
-    }
-
-    private static void rotateHorizontalAroundCenter(PoseStack poseStack, Direction side) {
-        poseStack.mulPose(Axis.YP.rotationDegrees(horizontalAngle(side)));
-    }
-
-    private static void beginBlockStencilClip(PoseStack poseStack) {
-        // Clip rasterized animation pixels to the block volume without changing the Create partial geometry.
+    private static void beginMachineStencilClip(PoseStack poseStack, Direction facing) {
         GL11.glEnable(GL11.GL_STENCIL_TEST);
         RenderSystem.stencilMask(STENCIL_MASK);
         RenderSystem.clearStencil(0);
@@ -237,7 +315,7 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         RenderSystem.stencilFunc(GL11.GL_ALWAYS, STENCIL_REF, STENCIL_MASK);
         RenderSystem.stencilOp(GL11.GL_KEEP, GL11.GL_KEEP, GL11.GL_REPLACE);
         RenderSystem.setShader(GameRenderer::getPositionShader);
-        drawClipBox(poseStack);
+        drawClipBox(poseStack, facing);
 
         RenderSystem.enableCull();
         RenderSystem.colorMask(true, true, true, true);
@@ -262,16 +340,18 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         RenderSystem.enableCull();
     }
 
-    private static void drawClipBox(PoseStack poseStack) {
+    private static void drawClipBox(PoseStack poseStack, Direction facing) {
+        poseStack.pushPose();
+        rotateMachineToFacing(poseStack, facing);
         Matrix4f pose = poseStack.last().pose();
         BufferBuilder builder = new BufferBuilder(256);
         builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
-        float minX = CLIP_BOX_MIN;
-        float minY = CLIP_BOX_MIN;
-        float minZ = CLIP_BOX_MIN;
-        float maxX = CLIP_BOX_MAX;
-        float maxY = CLIP_BOX_MAX;
-        float maxZ = CLIP_BOX_MAX;
+        float minX = CLIP_LOCAL_MIN_X;
+        float minY = CLIP_LOCAL_MIN_YZ;
+        float minZ = CLIP_LOCAL_MIN_YZ;
+        float maxX = CLIP_LOCAL_MAX_X;
+        float maxY = CLIP_LOCAL_MAX_YZ;
+        float maxZ = CLIP_LOCAL_MAX_YZ;
 
         quad(builder, pose, minX, minY, minZ, maxX, minY, minZ, maxX, maxY, minZ, minX, maxY, minZ);
         quad(builder, pose, maxX, minY, maxZ, minX, minY, maxZ, minX, maxY, maxZ, maxX, maxY, maxZ);
@@ -281,6 +361,7 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         quad(builder, pose, minX, minY, maxZ, maxX, minY, maxZ, maxX, minY, minZ, minX, minY, minZ);
 
         BufferUploader.drawWithShader(builder.end());
+        poseStack.popPose();
     }
 
     private static void quad(
@@ -306,23 +387,5 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
 
     private static void vertex(BufferBuilder builder, Matrix4f pose, float x, float y, float z) {
         builder.vertex(pose, x, y, z).endVertex();
-    }
-
-    private static float horizontalAngle(Direction side) {
-        return side.getAxis().isVertical() ? 0.0F : side.toYRot();
-    }
-
-    private static float verticalAngle(Direction side) {
-        if (side == Direction.UP) {
-            return -90.0F;
-        }
-        if (side == Direction.DOWN) {
-            return 90.0F;
-        }
-        return 0.0F;
-    }
-
-    private static Direction packageAnimationSide(MePackagerBlockEntity packager) {
-        return packager.networkSide();
     }
 }

@@ -41,6 +41,7 @@ import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -78,6 +79,8 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
             Blitter.texture(LATEST_AE2_STATES).src(160, 224, 22, 22);
     private static final ResourceLocation STORAGE_BUS_GUIDE = new ResourceLocation(
             "ae2", "items-blocks-machines/storage_bus.md");
+    private static final ResourceLocation PATTERN_PROVIDER_GUIDE = new ResourceLocation(
+            "ae2", "items-blocks-machines/pattern_provider.md");
 
     // The progress frame is supplied in the unused source area of the original
     // Package Bus background and sampled in-place at runtime.
@@ -102,6 +105,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private final SettingToggleButton<StorageFilter> storageFilter;
     private final SettingToggleButton<YesNo> filterOnExtract;
     private final SettingToggleButton<FuzzyMode> fuzzyMode;
+    private final SettingToggleButton<YesNo> blockingMode;
 
     public PackageBusScreen(
             PackageBusMenu menu,
@@ -134,18 +138,29 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
         // AE2 renamed WRENCH to COG in newer lines; the 15.4.10 action is the
         // same partition operation and uses the same cog artwork.
-        toolbarButtons.add(new ModernGuideButton());
+        toolbarButtons.add(new ModernGuideButton(
+                menu.isUnpackingBus() ? PATTERN_PROVIDER_GUIDE : STORAGE_BUS_GUIDE));
         toolbarButtons.add(new ModernActionButton(ActionItems.CLOSE, button -> menu.clear()));
-        toolbarButtons.add(new ModernActionButton(ActionItems.WRENCH, button -> menu.partition()));
-        storageFilter = new ModernServerSettingToggleButton<>(
-                Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
-        filterOnExtract = new ModernServerSettingToggleButton<>(Settings.FILTER_ON_EXTRACT, YesNo.YES);
-        fuzzyMode = new ModernServerSettingToggleButton<>(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
-        rwMode = new ModernServerSettingToggleButton<>(Settings.ACCESS, AccessRestriction.READ_WRITE);
-        toolbarButtons.add(storageFilter);
-        toolbarButtons.add(filterOnExtract);
-        toolbarButtons.add(fuzzyMode);
-        toolbarButtons.add(rwMode);
+        if (menu.isUnpackingBus()) {
+            blockingMode = new ModernServerSettingToggleButton<>(Settings.BLOCKING_MODE, YesNo.NO);
+            toolbarButtons.add(blockingMode);
+            storageFilter = null;
+            filterOnExtract = null;
+            fuzzyMode = null;
+            rwMode = null;
+        } else {
+            toolbarButtons.add(new ModernActionButton(ActionItems.WRENCH, button -> menu.partition()));
+            storageFilter = new ModernServerSettingToggleButton<>(
+                    Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
+            filterOnExtract = new ModernServerSettingToggleButton<>(Settings.FILTER_ON_EXTRACT, YesNo.YES);
+            fuzzyMode = new ModernServerSettingToggleButton<>(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+            rwMode = new ModernServerSettingToggleButton<>(Settings.ACCESS, AccessRestriction.READ_WRITE);
+            toolbarButtons.add(storageFilter);
+            toolbarButtons.add(filterOnExtract);
+            toolbarButtons.add(fuzzyMode);
+            toolbarButtons.add(rwMode);
+            blockingMode = null;
+        }
         modernToolbar.setButtons(toolbarButtons);
 
         for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
@@ -153,9 +168,13 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
             var button = new PackageColorPicker.TriggerButton(
                     BUTTON_SIZE,
                     BUTTON_SIZE,
-                    () -> menu.rowColor(rowIndex),
-                    () -> openColorPicker(rowIndex));
-            button.setTooltip(Tooltip.create(Component.translatable(
+                    true,
+                    () -> menu.isRowColorEnabled(rowIndex)
+                            ? Optional.of(menu.rowColor(rowIndex))
+                            : Optional.empty(),
+                    () -> openColorPicker(rowIndex),
+                    () -> menu.clearColor(rowIndex));
+            button.setIdleTooltip(Tooltip.create(Component.translatable(
                     "gui.appliedpackaging.package_bus.color", rowIndex + 1)));
             colorButtons.add(button);
         }
@@ -176,11 +195,16 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
-        storageFilter.set(menu.getStorageFilter());
-        filterOnExtract.set(menu.getFilterOnExtract());
-        fuzzyMode.set(menu.getFuzzyMode());
-        fuzzyMode.setVisibility(menu.supportsFuzzySearch());
-        rwMode.set(menu.getReadWriteMode());
+        if (blockingMode != null) {
+            blockingMode.set(menu.getBlockingMode());
+        }
+        if (storageFilter != null) {
+            storageFilter.set(menu.getStorageFilter());
+            filterOnExtract.set(menu.getFilterOnExtract());
+            fuzzyMode.set(menu.getFuzzyMode());
+            fuzzyMode.setVisibility(menu.supportsFuzzySearch());
+            rwMode.set(menu.getReadWriteMode());
+        }
 
         var contentSlots = menu.getSlots(PackageBusMenu.PACKAGE_CONTENTS);
         for (int index = 0; index < contentSlots.size(); index++) {
@@ -362,8 +386,8 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     }
 
     private final class ModernGuideButton extends OpenGuideButton {
-        private ModernGuideButton() {
-            super(button -> AppEng.instance().openGuideAtAnchor(PageAnchor.page(STORAGE_BUS_GUIDE)));
+        private ModernGuideButton(ResourceLocation guide) {
+            super(button -> AppEng.instance().openGuideAtAnchor(PageAnchor.page(guide)));
         }
 
         @Override
@@ -400,12 +424,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         if (colorPicker.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        int colorRow = rowAt(mouseX, mouseY, BUTTON_X_RIGHT);
-        if (colorRow >= 0 && button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            menu.clearColor(colorRow);
-            return true;
-        }
-
         int x = leftPos + BUTTON_X_RIGHT;
         if (menu.hasInverterCard()) {
             x -= BUTTON_SIZE + 2;
@@ -515,8 +533,13 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
                 button,
                 width,
                 height,
-                () -> menu.rowColor(row),
-                color -> menu.setColor(row, color),
+                true,
+                () -> menu.isRowColorEnabled(row)
+                        ? Optional.of(menu.rowColor(row))
+                        : Optional.empty(),
+                color -> color.ifPresentOrElse(
+                        selected -> menu.setColor(row, selected),
+                        () -> menu.clearColor(row)),
                 () -> button.active = menu.isRowEnabled(row));
         for (var colorButton : colorButtons) {
             colorButton.active = false;

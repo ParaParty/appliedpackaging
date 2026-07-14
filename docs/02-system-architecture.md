@@ -157,10 +157,12 @@ incoming package stack
 ```text
 AE2 cable host -> part grid node
 part mounted side -> adjacent Forge item handler
-simulate cumulative target capacity and ME source extraction
-extract exactly one matching package from ME storage into the part's persisted held state
+mount a Formation-Plane-style insertion-only MEStorage at the exact player-configured priority, default 0
+use the same player-configured priority shown by the top-right Priority submenu; at an equal value, the unpacking sink enters AE2's preferred-storage pass before PackageItemStorage
+accept at most one network-routed package only after filter, Pattern Provider blocking and cumulative target simulation pass
+move the accepted package directly into the part's persisted held state without exposing storage or extraction
 run the same 20-tick unpacking work phase as ME Packager
-revalidate filter and adjacent target at the final tick
+revalidate filter, blocking and adjacent target capacity at the final tick
 push all package contents after the cumulative simulation succeeds, then clear held state
 if final simulation rejects the package, retain the same held package locally and retry after the speed-card-adjusted interval
 allow idle/blocked GUI recovery and add the held package to part-removal drops

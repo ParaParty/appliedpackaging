@@ -6,11 +6,17 @@ import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.parts.PartModels;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.parts.PartModel;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.item.PackageItem;
+import java.util.HashSet;
+import java.util.Set;
 import net.minecraft.network.chat.Component;
 
 public class PackageStorageBusPart extends AbstractPackageBusPart implements IStorageProvider {
@@ -26,6 +32,9 @@ public class PackageStorageBusPart extends AbstractPackageBusPart implements ISt
 
     public PackageStorageBusPart(IPartItem<?> partItem) {
         super(partItem);
+        getConfigManager().registerSetting(Settings.ACCESS, AccessRestriction.READ_WRITE);
+        getConfigManager().registerSetting(Settings.STORAGE_FILTER, appeng.api.config.StorageFilter.EXTRACTABLE_ONLY);
+        getConfigManager().registerSetting(Settings.FILTER_ON_EXTRACT, appeng.api.config.YesNo.YES);
         getMainNode().addService(IStorageProvider.class, this);
     }
 
@@ -61,6 +70,55 @@ public class PackageStorageBusPart extends AbstractPackageBusPart implements ISt
     protected void configurationChanged() {
         super.configurationChanged();
         IStorageProvider.requestUpdate(getMainNode());
+    }
+
+    /**
+     * Rebuilds the visible package rules from packages currently present in the attached inventory.
+     * One distinct package fills one enabled rule row, in target-slot order.
+     */
+    public void partitionFromTarget() {
+        var target = findTargetItemHandler();
+        if (target.isEmpty()) {
+            return;
+        }
+
+        clearFilters();
+        Set<AEItemKey> seenPackages = new HashSet<>();
+        int row = 0;
+        for (int slot = 0; slot < target.get().getSlots() && row < enabledRows(); slot++) {
+            var stack = target.get().getStackInSlot(slot);
+            if (!PackageItemStorage.isLegalPackageStack(stack) || !(stack.getItem() instanceof PackageItem packageItem)) {
+                continue;
+            }
+            AEItemKey packageKey = AEItemKey.of(stack);
+            if (!seenPackages.add(packageKey)) {
+                continue;
+            }
+            var data = PackageDataStorage.read(stack);
+            if (data.isEmpty()) {
+                continue;
+            }
+
+            int currentRow = row;
+            setRowColor(currentRow, packageItem.color());
+            data.get().marker().ifPresent(marker -> markerFilters().setStack(currentRow, marker.stack()));
+
+            var itemContents = data.get().contents().stream()
+                    .filter(content -> content.what() instanceof AEItemKey)
+                    .toList();
+            // A row has six content slots. If the sampled package cannot be represented completely,
+            // retain its color/marker partition instead of creating a rule that rejects the sample itself.
+            if (itemContents.size() == data.get().contents().size()
+                    && itemContents.size() <= CONTENTS_PER_ROW) {
+                for (int column = 0; column < itemContents.size(); column++) {
+                    contentFilters().setStack(
+                            currentRow * CONTENTS_PER_ROW + column,
+                            new GenericStack(itemContents.get(column).what(), 1));
+                }
+            }
+            row++;
+        }
+        configurationChanged();
     }
 
     @Override

@@ -14,15 +14,19 @@ import appeng.menu.SlotSemantics;
 import appeng.menu.implementations.UpgradeableMenu;
 import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.ModernUpgradesPanel;
+import com.warmthdawn.appliedpackaging.client.widget.ModernVerticalToolbar;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 
 /** Backports current AE2 slot and upgrade visuals without changing the pinned menu API. */
 public abstract class ModernUpgradeableScreen<T extends UpgradeableMenu<?>> extends AEBaseScreen<T> {
+    private final ModernVerticalToolbar modernToolbar = new ModernVerticalToolbar();
+
     protected ModernUpgradeableScreen(
             T menu,
             Inventory playerInventory,
@@ -39,6 +43,28 @@ public abstract class ModernUpgradeableScreen<T extends UpgradeableMenu<?>> exte
             widgets.add("toolbox", new ToolboxPanel(style, menu.getToolbox().getName()));
         }
         ModernSlotRendering.clearLegacyUpgradeIcons(menu.getSlots(SlotSemantics.UPGRADE));
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        modernToolbar.captureIconButtons(children());
+        for (Renderable renderer : modernToolbar.createIconButtonRenderers()) {
+            addRenderableOnly(renderer);
+        }
+    }
+
+    @Override
+    public void drawBG(
+            GuiGraphics graphics,
+            int offsetX,
+            int offsetY,
+            int mouseX,
+            int mouseY,
+            float partialTicks) {
+        super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
+        modernToolbar.layout(offsetX, offsetY);
+        modernToolbar.drawPanel(graphics, offsetX, offsetY);
     }
 
     @Override

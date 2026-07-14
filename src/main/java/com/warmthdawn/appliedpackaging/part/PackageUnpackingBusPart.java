@@ -1,22 +1,34 @@
 package com.warmthdawn.appliedpackaging.part;
 
+import appeng.api.config.Actionable;
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
+import appeng.api.networking.security.IActionSource;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.parts.PartModels;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
+import appeng.api.storage.IStorageMounts;
+import appeng.api.storage.IStorageProvider;
+import appeng.api.storage.MEStorage;
 import appeng.core.definitions.AEItems;
 import appeng.parts.PartModel;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageUnpackingOperations;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandlerModifiable;
 
-public class PackageUnpackingBusPart extends AbstractPackageBusPart {
+public class PackageUnpackingBusPart extends AbstractPackageBusPart implements IStorageProvider {
     public static final int ANIMATION_CYCLE_TICKS = MePackagerBlockEntity.ANIMATION_CYCLE_TICKS;
+    public static final int DEFAULT_PRIORITY = 0;
 
     private static final String HELD_PACKAGE_TAG = "heldPackage";
     private static final String WORKING_TAG = "unpackWorking";
@@ -33,6 +45,26 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
     private static final IPartModel MODELS_HAS_CHANNEL = new PartModel(
             AppliedPackaging.id("part/package_unpacking_bus_base"),
             AppliedPackaging.id("part/package_bus_status_has_channel"));
+
+    /**
+     * Formation-Plane-style network input: it accepts one package for output work but never exposes inventory.
+     */
+    private final MEStorage packageInput = new MEStorage() {
+        @Override
+        public boolean isPreferredStorageFor(AEKey what, IActionSource source) {
+            return PackageItemStorage.isPackageKey(what);
+        }
+
+        @Override
+        public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+            return insertPackageFromNetwork(what, amount, mode);
+        }
+
+        @Override
+        public Component getDescription() {
+            return Component.translatable("item.appliedpackaging.package_unpacking_bus");
+        }
+    };
 
     private final IItemHandlerModifiable heldPackageItems = new IItemHandlerModifiable() {
         @Override
@@ -102,7 +134,9 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
     private int retryCooldown;
 
     public PackageUnpackingBusPart(IPartItem<?> partItem) {
-        super(partItem);
+        super(partItem, DEFAULT_PRIORITY);
+        getConfigManager().registerSetting(Settings.BLOCKING_MODE, YesNo.NO);
+        getMainNode().addService(IStorageProvider.class, this);
     }
 
     public static void registerModels() {
@@ -137,42 +171,45 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
             return;
         }
 
-        if (heldPackage.isEmpty()) {
-            reserveAndStartUnpacking();
-        } else {
+        if (!heldPackage.isEmpty()) {
             retryHeldPackage();
+            retryCooldown = retryIntervalTicks();
         }
-        retryCooldown = retryIntervalTicks();
     }
 
-    private void reserveAndStartUnpacking() {
-        var storage = storageService();
+    private long insertPackageFromNetwork(AEKey what, long amount, Actionable mode) {
+        if (amount <= 0
+                || !getMainNode().isOnline()
+                || !heldPackage.isEmpty()
+                || working
+                || !PackageItemStorage.isPackageKey(what)) {
+            return 0;
+        }
+
+        ItemStack packageStack = ((AEItemKey) what).toStack();
+        packageStack.setCount(1);
         var target = findTargetItemHandler();
-        if (storage.isEmpty() || target.isEmpty()) {
-            clearHeldPackageState();
-            return;
+        if (target.isEmpty()
+                || !filterSet().matches(packageStack)
+                || !PackageUnpackingOperations.canUnpack(packageStack, target.get(), isBlockingMode())) {
+            return 0;
         }
 
-        ItemStack reserved = PackageUnpackingOperations.reserveOnePackage(
-                storage.get().getInventory(),
-                target.get(),
-                filterSet()::matches,
-                actionSource());
-        if (reserved.isEmpty()) {
-            return;
+        if (!mode.isSimulate()) {
+            setHeldPackage(packageStack);
+            unpackBlocked = false;
+            retryCooldown = 0;
+            startWorkingOperation();
+            configurationChanged();
         }
-
-        setHeldPackage(reserved);
-        unpackBlocked = false;
-        startWorkingOperation();
-        configurationChanged();
+        return 1;
     }
 
     private void retryHeldPackage() {
         var target = findTargetItemHandler();
         if (target.isEmpty()
                 || !filterSet().matches(heldPackage)
-                || !PackageUnpackingOperations.canUnpack(heldPackage, target.get())) {
+                || !PackageUnpackingOperations.canUnpack(heldPackage, target.get(), isBlockingMode())) {
             if (!unpackBlocked) {
                 unpackBlocked = true;
                 configurationChanged();
@@ -202,7 +239,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
         var target = findTargetItemHandler();
         boolean committed = target.isPresent()
                 && filterSet().matches(heldPackage)
-                && PackageUnpackingOperations.unpack(heldPackage, target.get());
+                && PackageUnpackingOperations.unpack(heldPackage, target.get(), isBlockingMode());
         if (!committed) {
             working = false;
             unpackBlocked = true;
@@ -220,6 +257,23 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart {
     private int retryIntervalTicks() {
         int speedCards = getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD);
         return Math.max(2, MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS - speedCards * 3);
+    }
+
+    public boolean isBlockingMode() {
+        return getConfigManager().getSetting(Settings.BLOCKING_MODE) == YesNo.YES;
+    }
+
+    @Override
+    protected void configurationChanged() {
+        super.configurationChanged();
+        IStorageProvider.requestUpdate(getMainNode());
+    }
+
+    @Override
+    public void mountInventories(IStorageMounts mounts) {
+        if (getMainNode().isOnline()) {
+            mounts.mount(packageInput, getPriority());
+        }
     }
 
     @Override

@@ -315,17 +315,16 @@ function Get-ExpectedPngSize {
         }
     }
 
-    if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/block/me_packager_create/", [System.StringComparison]::Ordinal)) {
-        $leaf = Split-Path -Leaf $RelativePath
-        if ($leaf -in @(
-                "factory_panel_packager_mode.png",
-                "packager_iris_closed.png",
-                "packager_iris_open.png",
-                "packager_particle.png",
-                "vault_front_small.png")) {
-            return @{ Width = 16; Height = 16; Label = "Create-style temporary packager detail texture" }
-        }
-        return @{ Width = 32; Height = 32; Label = "Create-style temporary packager texture" }
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/block/me_packager/base.png") {
+        return @{ Width = 64; Height = 64; Label = "ME Packager body atlas" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/block/me_packager/curtain.png") {
+        return @{ Width = 16; Height = 16; Label = "ME Packager curtain texture" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/block/me_packager/belt_scroll.png") {
+        return @{ Width = 32; Height = 32; Label = "ME Packager two-period scrolling belt texture" }
     }
 
     if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png") {
@@ -410,6 +409,9 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_front.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_back.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_sides.png",
+    "src/main/resources/assets/appliedpackaging/textures/block/me_packager/base.png",
+    "src/main/resources/assets/appliedpackaging/textures/block/me_packager/curtain.png",
+    "src/main/resources/assets/appliedpackaging/textures/block/me_packager/belt_scroll.png",
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png",
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png"
 )
@@ -447,12 +449,15 @@ foreach ($requiredPath in $requiredPngPaths) {
 $bytePreservedPngHashes = [ordered]@{
     "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png" = "04E0C00E41C68AEA57C1B97CEF6E736F0DB2A75F768B6050BEF48C116F05E349"
     "src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png" = "084B03A92C440BC7CF675F1C30D3883BC6808F519924C224C1CB8E5D3FAE4FF9"
+    "src/main/resources/assets/appliedpackaging/textures/block/me_packager/base.png" = "C98E01D32207CD77D50C1B5AEE5176FBD40264E16BADF2569737003A7DD6385E"
+    "src/main/resources/assets/appliedpackaging/textures/block/me_packager/curtain.png" = "D4A4BCC86B497CAD066F364CE8E187D616283925FE6D58140934B9EBE1893F02"
+    "src/main/resources/assets/appliedpackaging/textures/block/me_packager/belt_scroll.png" = "EDD93FF96C09554B23B5B70266F5D2320C2A19AAC6F66445F8A4B9240379BA04"
     "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_front.png" = "B682F316CB77A407736E4FD73D1CAE5104F679918090F23E1D994F3E63DBA1AB"
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_front.png" = "A6FB292B206693865094DF901A4A0789F051630C14001C9003423F5B3E44E96F"
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_back.png" = "3086B228171D19F1DFB55FDF6384165FDB78CEABB25B09C4706CE2E23599CD07"
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png" = "345A070081B556D2EF44AE0DAB65210F7728C33BB7C29FD46B526C607605FCE0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png" = "506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE"
-    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "14D7D26A93BF46D1BA0EF33A5408197718D0AF5BD3ADE662AA8A46E8DE662281"
+    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635"
     "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png" = "0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png" = "C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png" = "62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715"
@@ -463,6 +468,59 @@ foreach ($entry in $bytePreservedPngHashes.GetEnumerator()) {
         Assert-True `
             ($actualHash -eq $entry.Value) `
             "Byte-preserved PNG keeps its source hash: $($entry.Key)"
+    }
+}
+
+$mePackagerItemModelPath = "src/main/resources/assets/appliedpackaging/models/block/me_packager/item.json"
+$mePackagerBlockstatePath = "src/main/resources/assets/appliedpackaging/blockstates/me_packager.json"
+Assert-True (Test-Path -LiteralPath $mePackagerItemModelPath) "ME Packager complete item model exists"
+Assert-True (Test-Path -LiteralPath $mePackagerBlockstatePath) "ME Packager directional blockstate exists"
+
+if (Test-Path -LiteralPath $mePackagerItemModelPath) {
+    $mePackagerItemModel = Get-JsonFile $mePackagerItemModelPath
+    if ($null -ne $mePackagerItemModel) {
+        Assert-True `
+            ($mePackagerItemModel.parent -eq "minecraft:block/block") `
+            "ME Packager item model inherits standard block display transforms"
+        Assert-True `
+            (@($mePackagerItemModel.elements).Count -eq 11) `
+            "ME Packager item model preserves all 11 source cubes"
+    }
+}
+
+if (Test-Path -LiteralPath $mePackagerBlockstatePath) {
+    $mePackagerBlockstate = Get-JsonFile $mePackagerBlockstatePath
+    if ($null -ne $mePackagerBlockstate) {
+        $expectedFacingRotations = [ordered]@{
+            north = 270
+            east = 0
+            south = 90
+            west = 180
+        }
+        $networkSides = @("north", "east", "south", "west", "up", "down")
+        foreach ($facingEntry in $expectedFacingRotations.GetEnumerator()) {
+            foreach ($networkSide in $networkSides) {
+                $variantKey = "facing=$($facingEntry.Key),network_side=$networkSide"
+                $variantProperty = $mePackagerBlockstate.variants.PSObject.Properties[$variantKey]
+                Assert-True ($null -ne $variantProperty) "ME Packager blockstate declares $variantKey"
+                if ($null -eq $variantProperty) {
+                    continue
+                }
+
+                $variant = $variantProperty.Value
+                $actualRotation = if ($variant.PSObject.Properties.Name -contains "y") {
+                    [int] $variant.y
+                } else {
+                    0
+                }
+                Assert-True `
+                    ($variant.model -eq "appliedpackaging:block/me_packager/body") `
+                    "ME Packager $variantKey always renders the upright body"
+                Assert-True `
+                    ($actualRotation -eq $facingEntry.Value) `
+                    "ME Packager $variantKey orientation is controlled only by facing"
+            }
+        }
     }
 }
 

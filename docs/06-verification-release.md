@@ -80,10 +80,13 @@ item handler 拆包累计模拟会拒绝多种内容共同超过同一 slot 容�
 MEStorage 打包提交遇到源库存变化时回滚此前真实抽取
 MEStorage 拆包在共享目标容量于提交阶段不足时回滚此前真实插入
 包裹总线可保存、拒绝非法项并清除 ghost 过滤模板
-包裹卸货总线可把网络包裹预留为本地 held 工作项，预留阶段不提前写入目标
-真实 AE2 Package Unpacking Bus part 在 20 tick 进度完成前保持目标不变，并从 ME 网络排他预留该包裹
-真实 AE2 Package Unpacking Bus part 在最终目标变化时保留同一个 held 包裹、保持全量未提交，并在目标恢复后重新执行完整进度并成功提交
+包裹卸货总线以 Formation Plane 式只写入 IStorageProvider 直接接收网络路由包裹，接收阶段不提前写入目标，held 工作项不可从网络枚举或抽取
+真实 AE2 Package Unpacking Bus 与 Package Storage Bus part 的默认优先级都为 0；在 20 tick 进度完成前保持目标不变，不扫描或抽取已有 ME 存储
+两个 part 使用右上角 Priority 子菜单对应的同一 `IPriorityHost` 数值；数值不同时由较高值先接收，同值时 Package Unpacking Bus 先接收，拆包忙碌/拒绝时才回落到 Package Storage Bus
+Package Unpacking Bus 的 Pattern Provider 阻挡模式会在目标已有任一包裹内容物类型时拒绝网络接收；阻挡清除后直接接收并开始 held 工作
+真实 AE2 Package Unpacking Bus part 在最终目标变化或阻挡恢复时保留同一个 held 包裹、保持全量未提交，并在条件恢复后重新执行完整进度并成功提交
 Package Storage Bus 与 Package Unpacking Bus part 均只暴露 5 个共享升级槽，不按兼容卡种上限扩成 9 格；两者允许 5 格全部安装容量卡，第 6 张拒绝，并按基础 2 行加 5 张容量卡解锁到 7 行
+两个 Package Bus 的颜色空模式不限制包裹颜色；Package Storage Bus 的 Partition Storage 从相邻容器中的不同合法包裹生成多行过滤、跳过散装物品并在没有包裹时清空过滤
 真实 AE2 Package Storage Bus part 只挂载相邻合法包裹，可从网络抽取包裹但不暴露同一库存中的散装物品
 Package Assembler 有序输出 handler 实现 `IItemHandlerModifiable`，可由 `SlotItemHandler#set` 完成客户端菜单槽同步
 package_pattern 数据可读写
@@ -101,13 +104,14 @@ PackageFilter 可按流体 key 匹配内容 allowlist
 ME Packager 可识别 AE2 16k/64k/256k storage component 并映射到对应包裹容量档
 包裹物品丢出后替换为 appliedpackaging:package 实体并保留包裹数据
 ME Packager 基础容量固定为 1k/16 类型
-ME Packager 非 network_side 面暴露包裹输入/输出 capability，network_side 不暴露普通 item capability；外部输入在无 AE 目标或不可完整拆包时拒绝
+ME Packager 非 AE 连接面暴露包裹输入/输出 capability，network_side 与机器背面不暴露普通 item capability；外部输入在无 AE 目标或不可完整拆包时拒绝
 ME Packager 外部 capability 接受包裹时直接提交拆包、保持 inputSlot 为空并进入 unpacking 工作态
 ME Packager 菜单 shift-click 玩家背包包裹时每次只直接拆包 1 个，保持 inputSlot 为空，并在 working 期间拒绝继续输入
 ME Packager 外部 capability 输入同时校验当前非默认颜色、marker 槽、内容 allowlist 和目标可接收性
 ME Packager 安装反转卡后反转内容过滤，但不反转颜色或 marker 门禁
-ME Packager 可从可切换顶面 network_side 的真实 AE2 Interface 网络打包
+ME Packager 可从可切换顶面 network_side 的真实 AE2 Interface 网络打包，并在 network_side=down 时从机器背面的真实 AE2 线缆网络打包
 ME Packager 打包先抽取源内容并进入 packing 工作态，动画结束后才把包裹放入 outputSlot
+ME Packager 传送带完成工作动画后保留 UV 滚动相位，且该相位经过方块实体保存/读取后不复位
 ME Packager 不会回落到相邻 Forge item handler 或 Forge fluid handler
 ME Packager 菜单可切换新版打包激活模式
 ME Packager 安装红石卡后红石上升沿只执行一次
@@ -123,6 +127,7 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 手动整叠拆包拒绝单包数量乘包裹数发生 long 溢出的输入，并保留完整包裹堆叠
 真实世界相邻 Forge fluid handler smoke 反例确认 ME Packager 无 MEStorage 时不回落、不消耗流体槽
 当前最新执行：2026-07-10 补齐总线 REQUIRE_CHANNEL、存储总线在线缓存刷新、菜单 host 驱动 ghost 刷新和高级终端真实编码/marker 语义后，执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，164 个必需 GameTest 全部通过。
+2026-07-15 Package Unpacking Bus 改为 Formation Plane 式只写入接收并加入 Pattern Provider 阻挡，Package Storage Bus 补齐容器包裹分区，同时补齐颜色空模式后，执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，103 个必需 GameTest 全部通过。
 本轮新增高级终端编码测试首次失败并暴露真实 marker 丢失：AE2 `ConfigInventory.CONFIG_TYPES` 会把类型槽 GenericStack amount 固定为 0，旧代码误用 `amount <= 0` 判断空槽。改为读取 `getKey()` 并在样板数据中归一为 1 后复跑通过；未删除或放宽该断言。
 本轮首次执行 152 个测试时，既有 `damagedPackageEntityUnpacksContentsToWorld` 因用铁/铜统计附近掉落而被新增测试布局污染；改用该场景唯一的 NETHER_STAR/DRAGON_BREATH 后稳定。总线端点测试初版还暴露 bus -> Drive -> energy 拓扑未让目标总线上线，改为总线直连 Creative Energy Cell、Drive 接另一面后通过；这些均为测试场景修正，不放宽产品断言。
 2026-07-08 首次复跑 `.\gradlew.bat runGameTestServer` 暴露旧 `damagedPackageEntityUnpacksContentsToWorld` 测试对掉落实体统计范围/时序过宽的问题；收紧为掉落点附近等待式断言后复跑通过。
@@ -766,3 +771,32 @@ ME Packager 的容量元件正式确定为发布范围：无元件时保持 1k/1
 卸货总线向 Forge item handler 拆包改为 Pattern Provider 式 check-then-push：完整包裹先在保留 slot limit / isItemValid 的累计快照上模拟，并额外调用真实 handler 的 simulate；全部通过后才用 `ItemHandlerHelper.insertItemStacked` 逐项真实插入。删除逐槽提交计划、反向抽取回滚和重复的提交前模拟。同步删除没有运行时调用的 item handler 打包规划、Forge fluid handler 适配、Package Export/即时拆包操作及其专用测试；包裹流体数据仍由 GenericStack/AEFluidKey 与 AE2 MEStorage 正式路径支持。
 
 执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，100/100 required GameTest 全部通过；`.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/test-release-audit.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 均通过。发布审计确认 214 个发布资源与 JAR 一致、78 个资源 JSON 可解析、140 张 PNG 非空、5 个资产合同有效、140 个双语 key/占位符一致，并确认已删除的适配类没有重新出现。编译输出仍只有既有 25 条 Forge/Minecraft 1.20.1 removal 警告，按项目边界不处理。
+### 2026-07-15 Package Bus 同优先级路由验证
+
+确认右上角 Priority 子菜单直接读写 part 的 `IPriorityHost`，与 IStorageProvider 挂载使用同一数值，两个 part 默认值都为 0。对照 AE2 15.4.10 `FormationPlanePart` 确认默认值与挂载值都不应隐藏加一；再按 `NetworkStorage` 的同组两轮插入规则，让 Package Unpacking Bus 的实际只写入端点对合法包裹进入 preferred 首轮，`PackageItemStorage` 保持普通第二轮。真实共享 cable grid 先挂载存储、后挂载拆包，验证同值时卸货端先持有包裹，卸货端忙碌拒绝下一包时才正常回落到存储端；另一条真实网格回归把存储总线设为 1、卸货总线保持 0，确认玩家设置的更高数值仍优先。`.\\gradlew.bat runGameTestServer --stacktrace` 成功，105/105 required tests 全部通过。
+
+### 2026-07-15 ME Packager 轮廓与四向动态渲染
+
+ME Packager 的选择轮廓和碰撞体已从完整方块改为与正式模型一致的四向组合体，并明确排除帘子和运动包裹。BER 南北方向改用与 blockstate baked model 等效、符号相反的 `PoseStack` 角度，传送带、帘子和包裹现与静态主体工作口一致。新增回归覆盖 4 个 `facing`、6 个 `network_side` 及两种 shape；执行 `.\\gradlew.bat compileJava`、`.\\gradlew.bat build`、`scripts/verify-docs.ps1` 与 `scripts/verify-assets.ps1` 成功，执行 `.\\gradlew.bat runGameTestServer` 成功，106/106 required GameTest 全部通过。因用户调试客户端正在占用同一 `run` 目录，本轮保留该进程且未并发启动 client smoke。
+
+### 2026-07-15 ME Packager 输出位置、连续传送带与背面接网
+
+打包完成后的包裹静止点改为本地 `x=10/16,z=8/16`，对应去除 4px 后部模块后的 12x16 前部区域中心；包裹在静止和运动状态下都保留 1x1x1 stencil 裁剪，四条帘子也改用独立 immediate stencil pass，避免动态几何穿出机器背面。传送带 16px UV 相位进入方块实体 NBT 与客户端流同步，每个工作 tick 在既有相位上累加，停止和下一轮开始时不再归零。
+
+AE 主节点连接面改为 `network_side + facing.getOpposite()`：地面放置默认形成底部与背面两个可接线面，两者都不暴露普通 item capability。真实线缆 GameTest 明确设置 `network_side=down`、仅从机器背面接入 AE2 Cable + Drive + Creative Energy Cell，成功完成打包；同一测试确认 20 tick 向外动画结束后相位保持为 `12/16`，方块实体保存/读取后仍为 `12/16`。`.\\gradlew.bat compileJava`、`.\\gradlew.bat build --stacktrace`、`.\\gradlew.bat runGameTestServer --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1` 与 `git diff --check` 全部通过，106/106 required GameTest 成功。用户从 IntelliJ 启动的调试客户端仍占用同一 `run` 目录，本轮未终止该进程，也未并发启动 client smoke。
+
+### 2026-07-15 ME Packager 包裹落点与 15px 动态裁剪复验
+
+包裹渲染底面必须精确落在传送带顶面 `y=2/16`。验证按包裹模型最低点 `y=1/16`、item `fixed` 缩放 `0.5` 和机器 BER 外层缩放 `1.49` 反算渲染原点，不以截图目测替代坐标约束。包裹与帘子的 stencil 范围使用机器本地坐标 `x=1/16..16/16, y/z=0..1`，即只允许进入扣除 1px 背板后的 15px 深工作区，并随四个水平 `facing` 使用与动态模型相同的旋转。
+
+执行 `.\\gradlew.bat compileJava --rerun-tasks`、`.\\gradlew.bat runClientSmoke --stacktrace` 与 `.\\gradlew.bat build --stacktrace` 成功，11 张必需截图全部刷新并正常退出。客户端日志扫描未发现缺失模型/贴图、OpenGL、framebuffer、stencil、崩溃或超时错误；唯一异常关键字是 smoke 主动退出后的服务端 `ClosedChannelException`。`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1` 与 `git diff --check` 全部通过。本轮是纯客户端坐标和 stencil 修正，不改变机器状态、事务、网络、存储或碰撞，故不新增或重复运行 GameTest，以 client smoke 覆盖真实渲染路径。
+
+### 2026-07-15 统一包裹颜色选择器与 None 布局验证
+
+ME Packager、AE2 原版包裹样板模式、Advanced Pattern Terminal 和两种 Package Bus 已统一使用 `PackageColorPicker.TriggerButton` 与同一弹窗；高级终端旧的私有颜色按钮已删除。调用方显式传入 `allowNone`，只有两种总线过滤行启用 None 与右键清除。弹窗固定为 89x23，Fluix/None 在分隔线左侧上下排列；None 隐藏时保留空位，两个终端截图中的右侧 16 色与总线截图使用相同坐标。选中态只使用 8x8 背景 sprite，不增加外框，hover 不改变色格像素。
+
+`package-storagebus-sprites.png` 的 `(48,0,8,8)`、`(56,0,8,8)`、`(48,8,8,8)` 分别写入用户截图中的默认 Fluix、None 和选中背景；确定性脚本为 `scripts/update-package-color-picker-sprites.ps1`，最终 SHA-256 为 `632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635`。与修改前图集逐像素比较，仅三个单元内 192 像素变化，单元外包括透明 RGB 的变化数为 0。`scripts/verify-assets.ps1` 与完整 `scripts/test-assets-audit.ps1` 正/负夹具均通过。
+
+颜色弹窗打开时会暂停锚点触发按钮自身的 hover tooltip，关闭时恢复。隔离世界 `AP Smoke Color Picker 20260715` 的 `runClientSmoke` 成功刷新 11 张必需截图；`package_storage_bus` 烟测现在保持允许 None 的颜色弹窗打开，并把鼠标停在首行颜色按钮上。人工检查该截图确认没有触发按钮 tooltip 穿透，同时检查两个终端编辑截图确认 None 隐藏不移动布局、无额外 hover/选中外框或绘制黑块。客户端日志未命中错误关键字。
+
+`gradlew.bat compileJava --stacktrace`、`gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1`、`scripts/test-assets-audit.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。GameTest 已考虑并确认现有 `runGameTestServer` 路径；本轮只修改客户端 widget、输入提示拦截和 GUI sprite，不改变菜单 action、网络、存储、过滤或服务端行为，因此未新增或重复运行 GameTest。

@@ -3203,3 +3203,78 @@ GameTest 已按行为变更要求执行：`.\gradlew.bat runGameTestServer --sta
 最初尝试把只读桥放进 `appeng.client.gui.widgets` 包，客户端被 Java 模块系统以 split-package `ResolutionException` 正确拒绝；该文件已删除，最终实现不向 AE2 模块包写入类。旧开发客户端随后正常保存退出，以释放 ModDevGradle 重新生成 AT 处理产物所需的 Forge JAR 文件锁。包裹基础模型与 marker 模型的 GUI scale 由 0.6 继续提高到 0.75，Y 旋转保持 135 度，截图中的两个包裹预览均放大且未越出槽框。
 
 `\.\gradlew.bat compileJava processResources --stacktrace`、`\.\gradlew.bat runClientSmoke --stacktrace` 与 `\.\gradlew.bat build --stacktrace` 均成功；11 张必需截图全部刷新并自动退出。人工检查高级终端默认/编辑器截图，左侧按钮背景与图标均来自 current-main `ae2-states.png`，按钮组与主面板无空档，两个 0.75 缩放包裹均保持正面朝左；Package Storage Bus 截图确认共享工具栏无回归。`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1`、两份模型 JSON 解析、JAR 内 AT 配置检查、客户端异常日志扫描与 `git diff --check` 均通过。GameTest 已考虑但未执行：本轮仍只改变客户端表现和物品 GUI display，不改变菜单、按钮 action、网络、存储或服务端行为。
+
+### 2026-07-15 ME Package Assembler 与机器工具栏统一
+
+用户截图指出 ME Package Assembler 左侧输出模式按钮仍是 AE2 15.4.10 的旧 16x16 外观。根因是机器共用 `ModernUpgradeableScreen` 此前只回移了 current-main 槽位 hover、升级面板和空升级槽，没有接入已经用于高级终端和 Package Bus 的 `ModernVerticalToolbar`；因此装配室的 `OutputModeToolbarButton` 虽然使用 AE2 原生状态/点击/tooltip，仍由旧 `VerticalButtonBar/IconButton` 完成布局与绘制。
+
+本轮在 `ModernUpgradeableScreen` 的统一生命周期中捕获全尺寸原生 `IconButton`，追加共享 current-main render overlay，并在背景阶段调用同一 `layout()` 与 `drawPanel()`。ME Package Assembler 和 ME Packager 现在共同复用 `ModernVerticalToolbar` 的 `left=3,top=1`、2px margin、6px 间距、三段式 `vertical_buttons_bg`、18x20 normal/focus/hover 背景、hover 下移 1px及 current-main `ae2-states.png` 图标；没有新增 Mixin，也没有为装配室复制按钮状态逻辑。首次编译发现 ME Packager 既有 `init()` 为 `protected`，将共用基类 override 从 `public` 恢复为同等权限后复编译成功。
+
+检测到用户从 IntelliJ 启动的开发客户端仍在运行，未关闭或修改该进程；从 `New World` 复制排除 `session.lock` 的临时 `AP Smoke Toolbar 20260715` 世界，执行 `\.\gradlew.bat runClientSmoke '-Pappliedpackaging.clientSmoke.world=AP Smoke Toolbar 20260715' --stacktrace` 成功，11 张截图全部刷新并自动退出，随后校验目标路径位于 `run/saves` 且无 smoke Java 进程占用后删除临时世界。人工检查装配室截图，左侧按钮现显示新版外框、背景和白色状态图标并紧贴主面板；ME Packager 截图确认其 6 个按钮也使用同一共享实现。`\.\gradlew.bat compileJava processResources --stacktrace` 与 `\.\gradlew.bat build --stacktrace` 成功。GameTest 已考虑且发现现有 `runGameTestServer` 路径，但本轮未运行或新增 GameTest：改动只涉及客户端 Screen 初始化、按钮布局与绘制，不改变菜单 action、网络、存储、机器或服务端行为。
+
+### 2026-07-15 ME Packager 正式模型、滚动传送带与帘子动画
+
+将用户提供的 `model.bbmodel` 拆为 6-cube 静态主体、1-cube 动态传送带和复用四次的单条帘子 partial；静止 item model 保留 11 个 cube。`base.png`、`curtain.png`、`belt_scroll.png` 原字节复制并加入 SHA-256 门禁。32x32 belt 使用两个横向 16px 周期；运行时 UV 窗口规范为上表面 15px + 工作口正面 1px，BER 以 1px/tick 修改 atlas U offset。四条帘子在 x=3..4 内缩位置绕各自顶部转轴摆动，拆包向内、打包向外；包裹按原 20 tick 事务时序沿传送带移动并继续使用 1x1x1 stencil 裁切。最终方向规范为 `facing` 控制水平工作口方向，`network_side` 只控制 AE 接线面。
+
+删除旧 `me_packager_create` 模型/贴图、Create hatch/tray additional model 和对应 renderer 分支；机器行为与事务提交未改变，只新增客户端可读的归一化动画进度。GameTest 已按行为敏感边界执行：`\.\gradlew.bat runGameTestServer --stacktrace` 的 100/100 required tests 全部通过。`assetgen validate-contract`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`runData`、客户端 smoke、`build` 与 `scripts/verify-release.ps1 -RequireAssetContracts` 均通过；15px+1px UV 后刷新 11 张截图，无紫黑 missing model，三张用户 PNG 的运行时 SHA-256 与来源一致。
+
+### 2026-07-15 ME Packager 朝向与方块物品显示修正
+
+用户实机截图确认首次正式模型接入错误地使用 `network_side` 旋转整台机器：放在地面时 placement 产生 `network_side=down`，导致底盘被转成立墙、背板被转成顶板；传送带、帘子和包裹也跟随了错误轴。修正后 blockstate 及 BER 全部只读取水平 `facing`；源模型本地 +X 是工作口，north/east/south/west 分别使用 Y 旋转 270/0/90/180 度。`network_side` 继续支持六向 AE 接线，但不再改变机器姿态。
+
+同一截图还确认完整 11-cube item model 没有继承原版方块 `display`，第一人称呈现为贴脸的大平面。生成器现为 item model 增加 `minecraft:block/block` 父模型，恢复标准方块的 GUI、ground、fixed、第三人称和第一人称显示变换。`verify-assets.ps1` 新增四个 facing 在全部六种 network_side 下旋转不变、以及 item parent 的回归门禁。
+
+验证：`\.\gradlew.bat compileJava --stacktrace` 成功；`\.\gradlew.bat runClientSmoke --stacktrace` 成功并刷新 11 张截图。人工检查 `facing=north,network_side=south` 场景，底盘保持水平、背板保持竖直，工作口与动画部件朝 north、AE 接线位于 south。GameTest 已考虑且发现现有 `runGameTestServer` 路径；本次仅修复客户端模型朝向、blockstate 资源和 item display，不改变 placement 状态、AE 接线、菜单、存储、网络事务或服务端行为，因此未新增或重复运行 GameTest。
+
+### 2026-07-15 Package Unpacking Bus 路由、阻挡与 Package Storage Bus 分区修正
+
+用户明确拆包总线应更接近 Formation Plane/Pattern Provider，而不是 Storage Bus。对照项目锁定的 AE2 `forge/v15.4.10` 本地源码后，将 Package Unpacking Bus 从“周期扫描 ME 存储并抽取包裹”改为优先级 1 的只写入 `IStorageProvider`：挂载的 `MEStorage` 只实现 `insert`，每次最多接收一个网络路由的合法包裹，且只在过滤、整包累计目标模拟和可选阻挡条件全部通过时接受；held 工作包裹不枚举、不允许网络抽取，也不再需要 Drive/Cell 作为扫描源。Package Storage Bus 默认优先级保持 0，因此新进入网络的包裹优先进入可工作的拆包端点。
+
+Package Unpacking Bus 左侧工具栏收敛为 Pattern Provider 指南、清空过滤与 `Settings.BLOCKING_MODE` 三项。阻挡模式复用 Pattern Provider 语义：把包裹内容 item key 的 `dropSecondary` 集合作为 pattern inputs，只要相邻目标已有任一输入类型，就在网络接收和最终提交两个阶段拒绝；最终条件变化仍保留原 held 包裹并按既有 20 tick 工作周期重试。删除只服务于旧扫描路径的 `reserveOnePackage` 辅助逻辑和对应测试调用，没有保留旧行为兼容分支。
+
+两种总线的颜色过滤补齐可见空模式：颜色按钮在未启用时绘制无色标记，总线专用拾色弹窗在 Fluix 左侧提供“任意颜色”，右键仍可清除；空模式不限制包裹颜色。Package Storage Bus 的 Partition Storage 改为按相邻容器槽位顺序读取不同合法包裹，每个样本生成一个已启用过滤行，跳过散装物品与重复包裹，目标中没有合法包裹时清空过滤。每行 6 个内容槽无法完整表达含非物品 key 或超过 6 种物品内容的样本时只保留颜色/marker，避免生成一个反而拒绝原样本的不完整 allowlist。
+
+首次 `\.\gradlew.bat compileJava --stacktrace` 正确失败于两项旧 GameTest 仍调用已删除的扫描预留 API；迁移断言后复编译成功。新增/扩展真实 AE 网格测试覆盖默认优先级、Formation Plane 式直接接收、held 不可抽取、Pattern Provider 阻挡、颜色空模式和容器多包裹分区；最终 `\.\gradlew.bat runGameTestServer --stacktrace` 成功，103/103 required tests 全部通过。
+
+检测到用户开发客户端继续占用 `run/logs`，未关闭或修改该进程；`runData --stacktrace` 和 GameTest 均在日志轮转警告后正常完成。从未占用测试世界复制排除 `session.lock` 的临时 `AP Smoke Unpacking 20260715`，执行 `\.\gradlew.bat runClientSmoke '-Pappliedpackaging.clientSmoke.world=AP Smoke Unpacking 20260715' --stacktrace` 成功，11 张截图全部刷新并自动退出；检查 Storage/Unpacking Bus 截图确认前者保留存储工具栏，后者只显示帮助、清空过滤和阻挡模式三项，随后验证路径与进程并删除隔离世界。最终 `runData --stacktrace`、`build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过；发布 JAR 的 199 个资源、73 个 JSON、130 张 PNG、5 个资产合同和 141 个双语 key/占位符均通过审计。
+### 2026-07-15 Package Bus 默认优先级与同级路由最终修正
+
+前一版把“拆包总线比存储总线优先”错误实现为卸货默认优先级 1、存储默认 0，随后又把用户对同级决胜的说明误读为存储优先。最终需求明确为：两个总线默认值都必须是 0，右上 Priority 子菜单中的数值完全由玩家控制；只有当数值相同时，Package Unpacking Bus 必须先于 Package Storage Bus，拆包端点拒绝后才回落到存储总线。
+
+重新对照锁定的 AE2 15.4.10 `FormationPlanePart`：其字段默认值为 0，挂载时直接使用当前玩家优先级，没有默认加一或隐藏偏移。再对照 `NetworkStorage` 确认同一数值组会先尝试 `isPreferredStorageFor` 为真的端点。实现因此把 Package Unpacking Bus 的默认值恢复为 0，并让它的实际只写入 `packageInput` 对合法包裹返回 preferred；同时移除 `PackageItemStorage` 上误加的 preferred 覆盖。数值不同时继续完全服从玩家设置的较高值，同值时拆包稳定优先；若拆包因 held 忙碌、过滤、阻挡或目标容量拒绝，网络会继续尝试普通的包裹存储总线。
+
+GameTest 改为在真实共享 cable grid 中先挂载 Package Storage Bus、后挂载 Package Unpacking Bus，确认两个新 part 都默认 0、第一包仍优先进入卸货 held；随后在卸货忙碌时插入第二包，确认它回落到存储端。另增真实网格测试把存储总线设为 1、卸货保持 0，确认同值决胜不会覆盖玩家设置的更高数值。`.\\gradlew.bat compileJava --stacktrace` 成功；`.\\gradlew.bat runGameTestServer --stacktrace` 成功，105/105 required tests 全部通过；日志开头因用户开发客户端占用 `run/logs` 出现既有轮转警告，但不影响测试。`.\\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。此次没有改变 GUI、纹理或客户端交互，因此不重复 client screenshot smoke。
+
+### 2026-07-15 ME Packager 四向轮廓与动态件朝向修正
+
+ME Packager 不再继承完整 16x16x16 方块的默认选择框和碰撞体。四个水平朝向分别使用与正式模型一致的组合体：1px 底板、4px 后部模块、两条 2px 高侧框和 1px 传送带；帘子与运动中的包裹不参与碰撞。形状只读取 `facing`，切换六种 `network_side` 均不改变机体轮廓。
+
+动态传送带、帘子和包裹此前直接复用了 blockstate JSON 的正角度，忽略 JSON baked-model 旋转与 `PoseStack Axis.YP` 的符号相反，导致南北朝向动态件落到静态主体另一端。本轮把 BER 的 north/east/south/west 等效角度定为 90/0/270/180 度；静态 blockstate 仍保持 270/0/90/180 度，最终工作口方向一致。
+
+新增 GameTest 遍历 4 个 `facing` × 6 个 `network_side`，分别精确比较选择轮廓和碰撞体。`.\\gradlew.bat compileJava`、`.\\gradlew.bat build`、`scripts/verify-docs.ps1` 与 `scripts/verify-assets.ps1` 成功；`.\\gradlew.bat runGameTestServer` 成功，106/106 required tests 全部通过；`git diff --check` 无空白错误，仅输出工作区 LF/CRLF 提示。未启动第二个 client smoke：同一 `run` 目录已有用户从 IntelliJ 启动的调试客户端，进程占用 `run/logs`；本轮没有终止或覆盖该用户进程。
+
+### 2026-07-15 ME Packager 输出位置、裁剪、连续传送带与背面接网
+
+按用户实机反馈把打包输出的静止点从后部内部改到本地 `x=10/16,z=8/16`，即 4px 后部模块之外 12x16 前部区域的几何中心；拆包从该点向 `x=2.5/16` 内部移动，打包从内部向该点移动，动画结束不再发生位置跳变。包裹不再只在工作 tick 期间裁剪，静止 output 也经过 1x1x1 stencil immediate pass；四条帘子使用相同边界的独立 immediate pass，主体不透明背板继续依靠深度测试遮挡内部动态件。
+
+传送带的 16px 相位从 renderer 的“按本轮进度从 0 计算”改为方块实体状态：工作期间按拆包 `+1px/tick`、打包 `-1px/tick` 累加，写入 `belt_scroll_pixels` NBT 并通过 AE2 block entity stream 同步。停止时保留当前相位，下一轮继续累加。AE 主节点连接面从单一 `network_side` 扩展为 `network_side` 与机器背面 `facing.getOpposite()` 的并集；地面放置默认仍选 bottom，但背面同时可接线，两个 ME 面都不暴露普通 item capability。
+
+修改现有真实 AE2 Cable + Drive + Creative Energy Cell GameTest：机器朝 west、`network_side=down`、线缆只位于 east 背面，确认背面节点上线并完成打包；动画完成后断言相位为 `12/16`，再保存和读取方块实体确认相位未复位。`.\\gradlew.bat compileJava`、`.\\gradlew.bat build --stacktrace`、`.\\gradlew.bat runGameTestServer --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1` 与 `git diff --check` 全部通过，106/106 required GameTest 成功。GameTest 启动日志因用户 IntelliJ 调试客户端占用 `run/logs` 出现既有日志轮转警告，但测试本身正常完成；未终止用户进程，也未并发启动 client smoke。
+
+### 2026-07-15 ME Packager 包裹贴带与背板裁剪修正
+
+用户实机截图确认输出包裹仍悬空，且包裹/帘子可能穿过最后 1px 背板。根因一是 BER 直接把 item 渲染原点放到固定 Y，忽略包裹模型最低点以及 `fixed`、BER 两层缩放；根因二是旧 stencil 使用未随机器旋转的完整世界方块盒，没有扣除背板体积。
+
+修正后根据包裹模型 `y=1..9`、item `fixed scale=0.5` 与 BER `scale=1.49` 反算渲染原点，使最终几何底面严格等于传送带顶面 `y=2/16`。stencil 改为机器本地 `x=1/16..16/16` 的 15px 深盒，并通过统一的 `rotateMachineToFacing` 对齐 north/east/south/west；包裹和四条帘子共用该边界，最后 1px 背板不再属于动态件可见区域。
+
+`.\\gradlew.bat compileJava --rerun-tasks`、`.\\gradlew.bat runClientSmoke --stacktrace` 与 `.\\gradlew.bat build --stacktrace` 成功，11 张截图全部刷新；日志未发现缺失模型/贴图、OpenGL/stencil、崩溃或超时错误。`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1` 与 `git diff --check` 全部通过。GameTest 已考虑但未执行：本轮仅改变客户端 BER 变换和裁剪掩码，不改变服务端行为，真实客户端 smoke 是对应验证路径。
+
+### 2026-07-15 所有包裹颜色入口统一与 sprite 更新
+
+将 ME Packager、AE2 原版包裹样板模式、Advanced Pattern Terminal、Package Storage Bus 和 Package Unpacking Bus 全部收敛到 `PackageColorPicker.TriggerButton` 与单一 `openNear(..., allowNone, ...)` API，删除高级终端自有 `ColumnColorButton` 绘制。只有两种总线过滤行传入 `allowNone=true`，并由共享触发按钮处理右键清除；其它入口必须选择实际包裹颜色。
+
+弹窗固定为 89x23，分隔线左侧 Fluix/None 在 `(3,3)`、`(3,12)` 竖排，右侧 16 色从 `(15,3)` 开始保持 8x2；None 不允许时只隐藏绘制和命中，不回收布局。用户截图的默认、None、选中效果按 6x 网格精确还原到 `package-storagebus-sprites.png` 三个原空白 8x8 单元 `(48,0)`、`(56,0)`、`(48,8)`，最终 hash 为 `632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635`。逐像素对照原 atlas 确认三个单元内改变 192 像素、其它区域改变 0 像素。选中只改变格内背景，不画外 outline；popup 与触发按钮 hover 均不改变视觉。
+
+补充处理用户指出的 tooltip 穿透：picker 打开期间暂停锚点 `TriggerButton` 自己的 tooltip，关闭后恢复其原 tooltip；父 Screen 既有底层 slot tooltip 拦截保持不变，弹窗内颜色名称提示保留。Client smoke 的 Package Storage Bus 步骤在截图前自动打开首行 picker，并把鼠标停在首行颜色按钮，实际截图没有“选择包裹颜色”提示穿透。
+
+验证：`gradlew.bat compileJava --stacktrace`、`gradlew.bat build --stacktrace`、隔离世界 `runClientSmoke '-Pappliedpackaging.clientSmoke.world=AP Smoke Color Picker 20260715' --stacktrace`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部成功。11 张必需截图刷新；人工检查总线弹窗与两个终端编辑弹窗，确认 None 显隐不移动右侧颜色、选中/hover 无外框、没有 tooltip 穿透或黑块。GameTest 已考虑但未执行：修改范围完全位于客户端控件、渲染、提示拦截与资源，不改变服务端行为。

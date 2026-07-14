@@ -1,7 +1,0 @@
-{
-  "parent": "appliedpackaging:block/me_packager_create/block",
-  "textures": {
-    "2": "appliedpackaging:block/me_packager_create/packager_horizontal_linked"
-  },
-  "render_type": "minecraft:cutout_mipped"
-}

@@ -14,19 +14,18 @@ style:
   name: ae2_fluix_packaging
   palette_reference: docs/assets/palette.md
 asset_brief:
-  summary: AE2-style packager machine that scans adjacent storage and outputs sealed packages.
+  summary: AE2-style inspection outlet that exchanges sealed packages with the ME network through one configurable side.
   source_brief: docs/assets/asset-briefs/machines.md
 materials:
   - quartz_panel
   - dark_metal
-  - fluix_core
-  - glass_channel
+  - gray_conveyor_belt
 required_visual_parts:
-  - front package output port
-  - side scanning intake face
-  - top redstone status light
-  - capacity component window
-  - colored package band indicator
+  - three-layer side tray frame
+  - four-layer rear inspection frame
+  - one-pixel conveyor belt
+  - four hanging curtain flaps
+  - dark rear backing
 forbidden_visual_parts:
   - cardboard box body
   - brass gear
@@ -34,9 +33,9 @@ forbidden_visual_parts:
   - exposed thin wires
   - dense screen wall
 conversion_requirements:
-  max_major_components: 8
+  max_major_components: 11
   cuboid_friendly: true
-  front_is_north: true
+  front_is_north: false
   keep_inside_block_volume: true
 harness_assumptions:
   output_namespace: appliedpackaging

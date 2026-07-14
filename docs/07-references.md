@@ -63,6 +63,21 @@ AE2 GitHub / Maven 信息
 
 ## AE2 玩法语义
 
+AE2 15.4.10 Formation Plane / Pattern Provider / Storage Bus 源码
+
+```text
+本地源码：build/reference/ae2
+固定版本：forge/v15.4.10
+主要文件：src/main/java/appeng/parts/automation/FormationPlanePart.java
+             src/main/java/appeng/helpers/patternprovider/PatternProviderLogic.java
+             src/main/java/appeng/helpers/patternprovider/PatternProviderTarget.java
+             src/main/java/appeng/parts/storagebus/StorageBusPart.java
+             src/main/java/appeng/menu/implementations/StorageBusMenu.java
+             src/main/java/appeng/me/storage/NetworkStorage.java
+             src/main/java/appeng/api/storage/MEStorage.java
+用途：Formation Plane 的默认优先级为 0，并把玩家配置的原始数值直接用于挂载；它通过只实现 insert 的 MEStorage 成为网络输出端点而不提供库存/抽取。Pattern Provider blocking 在目标包含任一 pattern input 时拒绝 push；Storage Bus Partition Storage 从目标可用 key 重建配置槽。NetworkStorage 先按挂载优先级从高到低遍历，并在每个相同优先级组内先调用 `isPreferredStorageFor` 为真的存储，再尝试其余端点；Package Unpacking Bus 与 Package Storage Bus 的同值决胜以卸货端点的该正式扩展点实现，不修改玩家数值，也不依赖 part 挂载顺序。
+```
+
 AE2 1.21.1 Pattern Encoding Terminal UI reference
 
 ```text

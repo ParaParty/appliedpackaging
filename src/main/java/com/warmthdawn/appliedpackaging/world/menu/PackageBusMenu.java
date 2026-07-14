@@ -17,6 +17,7 @@ import appeng.menu.slot.OptionalFakeSlot;
 import appeng.util.ConfigInventory;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
+import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
 import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import net.minecraft.network.FriendlyByteBuf;
@@ -61,6 +62,8 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
     public YesNo filterOnExtract = YesNo.YES;
     @GuiSync(43)
     public Component connectedTo;
+    @GuiSync(44)
+    public YesNo blockingMode = YesNo.NO;
 
     public PackageBusMenu(int id, Inventory inventory, AbstractPackageBusPart host) {
         super(APMenus.PACKAGE_BUS.get(), id, inventory, host);
@@ -202,10 +205,21 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
 
     @Override
     protected void loadSettingsFromHost(appeng.api.util.IConfigManager manager) {
-        setFuzzyMode(manager.getSetting(Settings.FUZZY_MODE));
-        rwMode = manager.getSetting(Settings.ACCESS);
-        storageFilter = manager.getSetting(Settings.STORAGE_FILTER);
-        filterOnExtract = manager.getSetting(Settings.FILTER_ON_EXTRACT);
+        if (manager.hasSetting(Settings.FUZZY_MODE)) {
+            setFuzzyMode(manager.getSetting(Settings.FUZZY_MODE));
+        }
+        if (manager.hasSetting(Settings.ACCESS)) {
+            rwMode = manager.getSetting(Settings.ACCESS);
+        }
+        if (manager.hasSetting(Settings.STORAGE_FILTER)) {
+            storageFilter = manager.getSetting(Settings.STORAGE_FILTER);
+        }
+        if (manager.hasSetting(Settings.FILTER_ON_EXTRACT)) {
+            filterOnExtract = manager.getSetting(Settings.FILTER_ON_EXTRACT);
+        }
+        if (manager.hasSetting(Settings.BLOCKING_MODE)) {
+            blockingMode = manager.getSetting(Settings.BLOCKING_MODE);
+        }
     }
 
     @Override
@@ -270,7 +284,9 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
     }
 
     private void applyPartition() {
-        getHost().partitionFromTarget();
+        if (getHost() instanceof PackageStorageBusPart storageBus) {
+            storageBus.partitionFromTarget();
+        }
     }
 
     private void applyToggleFuzzy(Integer row) {
@@ -294,6 +310,14 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
 
     public boolean showsWorkingArea() {
         return getHost().showsWorkingArea();
+    }
+
+    public boolean isStorageBus() {
+        return getHost() instanceof PackageStorageBusPart;
+    }
+
+    public boolean isUnpackingBus() {
+        return getHost() instanceof PackageUnpackingBusPart;
     }
 
     public int progress() {
@@ -355,6 +379,10 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
 
     public YesNo getFilterOnExtract() {
         return filterOnExtract;
+    }
+
+    public YesNo getBlockingMode() {
+        return blockingMode;
     }
 
     public Component getConnectedTo() {

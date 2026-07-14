@@ -1,17 +1,11 @@
 package com.warmthdawn.appliedpackaging.part;
 
-import appeng.api.config.AccessRestriction;
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.Setting;
 import appeng.api.config.Settings;
-import appeng.api.config.StorageFilter;
-import appeng.api.config.YesNo;
 import appeng.api.inventories.InternalInventory;
-import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
-import appeng.api.networking.security.IActionSource;
-import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
@@ -30,8 +24,6 @@ import appeng.parts.automation.UpgradeablePart;
 import appeng.util.ConfigInventory;
 import appeng.util.SettingsFrom;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageBusFilterSet;
-import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
-import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import java.util.ArrayList;
@@ -75,18 +67,22 @@ public abstract class AbstractPackageBusPart extends UpgradeablePart
     private final boolean[] colorEnabled = new boolean[FILTER_ROWS];
     private final boolean[] fuzzyRows = new boolean[FILTER_ROWS];
     private final boolean[] invertedRows = new boolean[FILTER_ROWS];
+    private final int defaultPriority;
     private int priority;
     private int workTicks;
     private ItemStack displayedPackage = ItemStack.EMPTY;
 
     protected AbstractPackageBusPart(IPartItem<?> partItem) {
+        this(partItem, 0);
+    }
+
+    protected AbstractPackageBusPart(IPartItem<?> partItem, int defaultPriority) {
         super(partItem);
+        this.defaultPriority = defaultPriority;
+        this.priority = defaultPriority;
         for (int row = 0; row < FILTER_ROWS; row++) {
             colors[row] = PackageColor.FLUIX;
         }
-        getConfigManager().registerSetting(Settings.ACCESS, AccessRestriction.READ_WRITE);
-        getConfigManager().registerSetting(Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
-        getConfigManager().registerSetting(Settings.FILTER_ON_EXTRACT, YesNo.YES);
         getConfigManager().registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
         getMainNode().setIdlePowerUsage(1.0D).addService(IGridTickable.class, this);
     }
@@ -164,18 +160,6 @@ public abstract class AbstractPackageBusPart extends UpgradeablePart
             return null;
         }
         return getLevel().getBlockState(targetPos).getBlock().getName();
-    }
-
-    protected Optional<IStorageService> storageService() {
-        if (!getMainNode().isOnline()) {
-            return Optional.empty();
-        }
-        IGrid grid = getMainNode().getGrid();
-        return grid == null ? Optional.empty() : Optional.of(grid.getStorageService());
-    }
-
-    protected IActionSource actionSource() {
-        return IActionSource.ofMachine(this);
     }
 
     public ConfigInventory markerFilters() {
@@ -283,35 +267,6 @@ public abstract class AbstractPackageBusPart extends UpgradeablePart
         configurationChanged();
     }
 
-    public void partitionFromTarget() {
-        var target = findTargetItemHandler();
-        if (target.isEmpty()) {
-            return;
-        }
-        for (int slot = 0; slot < target.get().getSlots(); slot++) {
-            ItemStack stack = target.get().getStackInSlot(slot);
-            if (!PackageItemStorage.isLegalPackageStack(stack)
-                    || !(stack.getItem() instanceof com.warmthdawn.appliedpackaging.item.PackageItem packageItem)) {
-                continue;
-            }
-            var data = PackageDataStorage.read(stack);
-            if (data.isEmpty()) {
-                continue;
-            }
-            clearFilters();
-            setRowColor(0, packageItem.color());
-            data.get().marker().ifPresent(marker -> markerFilters.setStack(0, marker.stack()));
-            for (int index = 0; index < Math.min(CONTENTS_PER_ROW, data.get().contents().size()); index++) {
-                GenericStack content = data.get().contents().get(index);
-                if (content.what() instanceof AEItemKey) {
-                    contentFilters.setStack(index, new GenericStack(content.what(), 1));
-                }
-            }
-            configurationChanged();
-            return;
-        }
-    }
-
     public ItemStack displayedPackage() {
         return displayedPackage.copy();
     }
@@ -379,7 +334,9 @@ public abstract class AbstractPackageBusPart extends UpgradeablePart
     @Override
     public void readFromNBT(CompoundTag tag) {
         super.readFromNBT(tag);
-        priority = tag.getInt("priority");
+        priority = tag.contains("priority", net.minecraft.nbt.Tag.TAG_INT)
+                ? tag.getInt("priority")
+                : defaultPriority;
         markerFilters.readFromChildTag(tag, MARKERS_TAG);
         contentFilters.readFromChildTag(tag, CONTENTS_TAG);
         int[] colorOrdinals = tag.getIntArray(COLORS_TAG);

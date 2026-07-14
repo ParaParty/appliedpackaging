@@ -81,9 +81,8 @@ public final class AppliedPackagingClient {
     }
 
     private static void registerAdditionalModels(ModelEvent.RegisterAdditional event) {
-        event.register(MePackagerRenderer.TRAY_MODEL);
-        event.register(MePackagerRenderer.HATCH_CLOSED_MODEL);
-        event.register(MePackagerRenderer.HATCH_OPEN_MODEL);
+        event.register(MePackagerRenderer.BELT_MODEL);
+        event.register(MePackagerRenderer.CURTAIN_FLAP_MODEL);
         event.register(PackageAssemblerRenderer.LIGHTS_MODEL);
     }
 

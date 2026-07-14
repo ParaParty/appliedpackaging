@@ -7,6 +7,8 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.config.Actionable;
+import appeng.api.config.Settings;
+import appeng.api.config.YesNo;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.networking.GridFlags;
@@ -99,6 +101,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -109,6 +112,10 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.BooleanOp;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.gametest.GameTestHolder;
@@ -124,6 +131,33 @@ import net.minecraftforge.items.SlotItemHandler;
 @PrefixGameTestTemplate(false)
 public final class PackageDataGameTests {
     private PackageDataGameTests() {
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerShapeTracksFacingAndIgnoresNetworkSide(GameTestHelper helper) {
+        MePackagerBlock block = (MePackagerBlock) APBlocks.ME_PACKAGER.get();
+        CollisionContext context = CollisionContext.empty();
+
+        for (Direction facing : Direction.Plane.HORIZONTAL) {
+            VoxelShape expected = expectedMePackagerShape(facing);
+            for (Direction networkSide : Direction.values()) {
+                BlockState state = block.defaultBlockState()
+                        .setValue(AbstractHorizontalMachineBlock.FACING, facing)
+                        .setValue(MePackagerBlock.NETWORK_SIDE, networkSide);
+                VoxelShape outline = block.getShape(state, helper.getLevel(), BlockPos.ZERO, context);
+                VoxelShape collision = block.getCollisionShape(state, helper.getLevel(), BlockPos.ZERO, context);
+
+                helper.assertFalse(
+                        Shapes.joinIsNotEmpty(outline, expected, BooleanOp.NOT_SAME),
+                        "ME Packager outline must match its model for facing=" + facing
+                                + ", network_side=" + networkSide);
+                helper.assertFalse(
+                        Shapes.joinIsNotEmpty(collision, expected, BooleanOp.NOT_SAME),
+                        "ME Packager collision must match its model for facing=" + facing
+                                + ", network_side=" + networkSide);
+            }
+        }
+        helper.succeed();
     }
 
     @GameTest(template = "empty")
@@ -736,20 +770,24 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerExternalCapabilityExposesPackagesAwayFromNetworkSide(GameTestHelper helper) {
+    public static void mePackagerExternalCapabilityExposesPackagesAwayFromMeConnectionSides(GameTestHelper helper) {
         BlockPos packagerPos = new BlockPos(0, 1, 0);
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
                         .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.DOWN),
                 3);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
 
-        helper.assertTrue(packager.networkSide() == Direction.WEST,
+        helper.assertTrue(packager.networkSide() == Direction.DOWN,
                 "ME Packager should read its selected ME side from block state");
+        helper.assertTrue(packager.machineBackSide() == Direction.WEST,
+                "East-facing ME Packager should expose its rear on the west side");
+        helper.assertTrue(packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.DOWN).resolve().isEmpty(),
+                "ME Packager selected network side should not expose normal item capability");
         helper.assertTrue(packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.WEST).resolve().isEmpty(),
-                "ME Packager network side should not expose normal item capability");
+                "ME Packager rear ME side should not expose normal item capability");
         IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
                 .resolve()
                 .orElseThrow();
@@ -1159,7 +1197,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerPackagesThroughSelectedAeCableSide(GameTestHelper helper) {
+    public static void mePackagerPackagesThroughRearAeCableWhileBottomSelected(GameTestHelper helper) {
         BlockPos packagerPos = new BlockPos(0, 1, 0);
         BlockPos cablePos = packagerPos.relative(Direction.EAST);
         BlockPos drivePos = cablePos.relative(Direction.EAST);
@@ -1169,7 +1207,7 @@ public final class PackageDataGameTests {
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
                         .setValue(AbstractHorizontalMachineBlock.FACING, Direction.WEST)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.EAST),
+                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.DOWN),
                 3);
         PartHelper.setPart(
                 (ServerLevel) helper.getLevel(),
@@ -1190,10 +1228,17 @@ public final class PackageDataGameTests {
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
 
         helper.startSequence()
-                .thenWaitUntil(() -> assertMePackagerReady(helper, packager, "selected cable-side ME Packager test"))
+                .thenWaitUntil(() -> assertMePackagerReady(helper, packager, "rear cable-side ME Packager test"))
                 .thenExecute(() -> {
-                    helper.assertTrue(packager.networkSide() == Direction.EAST,
-                            "ME Packager should expose its AE node only on the selected cable side");
+                    helper.assertTrue(packager.networkSide() == Direction.DOWN,
+                            "ME Packager should retain the selected bottom ME side");
+                    helper.assertTrue(packager.machineBackSide() == Direction.EAST,
+                            "West-facing ME Packager should expose its rear on the east side");
+                    helper.assertTrue(packager.getCableConnectionType(Direction.DOWN) == AECableType.SMART
+                                    && packager.getCableConnectionType(Direction.EAST) == AECableType.SMART,
+                            "ME Packager should expose both its selected bottom and permanent rear ME sides");
+                    helper.assertTrue(packager.getCableConnectionType(Direction.NORTH) == AECableType.NONE,
+                            "ME Packager should not expose unrelated sides as ME cable connections");
                     MEStorage storage = packager.getMainNode().getGrid().getStorageService().getInventory();
                     long inserted = storage.insert(
                             AEItemKey.of(Items.IRON_INGOT),
@@ -1201,11 +1246,11 @@ public final class PackageDataGameTests {
                             Actionable.MODULATE,
                             IActionSource.ofMachine(packager));
                     helper.assertTrue(inserted == 64,
-                            "Selected-side cable network should accept iron before ME Packager packs");
+                            "Rear cable network should accept iron before ME Packager packs");
 
                     MePackagerBlockEntity.MachineResult result = packager.runOnce();
                     helper.assertTrue(result == MePackagerBlockEntity.MachineResult.PACKED,
-                            "ME Packager should package from the AE grid connected through its selected cable side");
+                            "ME Packager should package from the AE grid connected through its rear side");
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                             "ME Packager should keep the output slot empty while the packing animation runs");
                     helper.assertTrue(storage.extract(
@@ -1213,13 +1258,24 @@ public final class PackageDataGameTests {
                             1,
                             Actionable.SIMULATE,
                             IActionSource.ofMachine(packager)) == 0,
-                            "ME Packager should remove packaged iron from the selected cable network");
+                            "ME Packager should remove packaged iron from the rear cable network");
                 })
                 .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
                     ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData data = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
                             "Cable-side package should contain iron");
+                    int expectedPhase = Math.floorMod(
+                            -MePackagerBlockEntity.ANIMATION_CYCLE_TICKS,
+                            MePackagerBlockEntity.BELT_SCROLL_PERIOD_PIXELS);
+                    helper.assertTrue(packager.beltScrollPixels() == expectedPhase,
+                            "Belt UV phase should remain at its completed outward-animation offset");
+
+                    CompoundTag saved = packager.saveWithoutMetadata();
+                    MePackagerBlockEntity loaded = new MePackagerBlockEntity(BlockPos.ZERO, packager.getBlockState());
+                    loaded.load(saved);
+                    helper.assertTrue(loaded.beltScrollPixels() == expectedPhase,
+                            "Belt UV phase should persist across block entity save and load");
                 })
                 .thenSucceed();
     }
@@ -2525,26 +2581,15 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageBusReservedPackageCommitsOnlyAfterSeparateFinishStep(GameTestHelper helper) {
+    public static void packageBusPackageCommitsOnlyAfterSeparateFinishStep(GameTestHelper helper) {
         ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 64));
-        AEItemKey packageKey = AEItemKey.of(packageStack);
-        MemoryMEStorage source = new MemoryMEStorage();
-        source.add(packageKey, 1);
         ItemStackHandler target = new ItemStackHandler(1);
 
-        ItemStack heldPackage = PackageUnpackingOperations.reserveOnePackage(
-                source,
-                target,
-                ignored -> true,
-                IActionSource.empty());
-
-        helper.assertTrue(ItemStack.isSameItemSameTags(heldPackage, packageStack),
-                "Unpacking bus should reserve the complete matching package as its held work item");
-        helper.assertTrue(source.amount(packageKey) == 0,
-                "A reserved package should no longer be available to another network operation");
+        helper.assertTrue(PackageUnpackingOperations.canUnpack(packageStack, target),
+                "Unpacking bus should accept a complete package before starting its work phase");
         helper.assertTrue(target.getStackInSlot(0).isEmpty(),
-                "Reserving a package must not insert contents before work finishes");
-        helper.assertTrue(PackageUnpackingOperations.unpack(heldPackage, target),
+                "Validating a package must not insert contents before work finishes");
+        helper.assertTrue(PackageUnpackingOperations.unpack(packageStack, target),
                 "The separate finish step should commit a still-valid held package");
         helper.assertTrue(itemAmountInHandler(target, Items.IRON_INGOT) == 64,
                 "The finish step should insert the complete package contents");
@@ -2552,35 +2597,74 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageBusReservedPackageSurvivesFinalTargetChange(GameTestHelper helper) {
+    public static void packageBusHeldPackageSurvivesFinalTargetChange(GameTestHelper helper) {
         ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
-        AEItemKey packageKey = AEItemKey.of(packageStack);
-        MemoryMEStorage source = new MemoryMEStorage();
-        source.add(packageKey, 1);
         ItemStackHandler target = new ItemStackHandler(1);
-        ItemStack heldPackage = PackageUnpackingOperations.reserveOnePackage(
-                source,
-                target,
-                ignored -> true,
-                IActionSource.empty());
+        helper.assertTrue(PackageUnpackingOperations.canUnpack(packageStack, target),
+                "The target should accept the package before the work phase starts");
 
         target.setStackInSlot(0, new ItemStack(Items.COBBLESTONE, 64));
-        boolean blocked = PackageUnpackingOperations.unpack(heldPackage, target);
+        boolean blocked = PackageUnpackingOperations.unpack(packageStack, target);
 
         helper.assertFalse(blocked,
                 "Final unpack commit should fail when the destination changes during progress");
-        helper.assertTrue(ItemStack.isSameItemSameTags(heldPackage, packageStack),
+        helper.assertTrue(PackageItemStorage.isLegalPackageStack(packageStack),
                 "A failed final commit must leave the original held package intact");
-        helper.assertTrue(source.amount(packageKey) == 0,
-                "The blocked package must remain reserved locally instead of becoming available twice");
         helper.assertTrue(itemAmountInHandler(target, Items.IRON_INGOT) == 0,
                 "A failed final commit must not partially insert package contents");
 
         target.setStackInSlot(0, ItemStack.EMPTY);
-        helper.assertTrue(PackageUnpackingOperations.unpack(heldPackage, target),
+        helper.assertTrue(PackageUnpackingOperations.unpack(packageStack, target),
                 "The same held package should commit after the destination becomes valid again");
         helper.assertTrue(itemAmountInHandler(target, Items.IRON_INGOT) == 64,
                 "Retrying the held package should insert its complete contents");
+        helper.succeed();
+    }
+
+    private static VoxelShape expectedMePackagerShape(Direction facing) {
+        return switch (facing) {
+            case EAST -> Shapes.or(
+                    Block.box(0, 0, 0, 16, 1, 16),
+                    Block.box(0, 1, 0, 4, 16, 16),
+                    Block.box(4, 1, 0, 16, 3, 2),
+                    Block.box(4, 1, 14, 16, 3, 16),
+                    Block.box(1, 1, 2, 16, 2, 14)).optimize();
+            case SOUTH -> Shapes.or(
+                    Block.box(0, 0, 0, 16, 1, 16),
+                    Block.box(0, 1, 0, 16, 16, 4),
+                    Block.box(0, 1, 4, 2, 3, 16),
+                    Block.box(14, 1, 4, 16, 3, 16),
+                    Block.box(2, 1, 1, 14, 2, 16)).optimize();
+            case WEST -> Shapes.or(
+                    Block.box(0, 0, 0, 16, 1, 16),
+                    Block.box(12, 1, 0, 16, 16, 16),
+                    Block.box(0, 1, 0, 12, 3, 2),
+                    Block.box(0, 1, 14, 12, 3, 16),
+                    Block.box(0, 1, 2, 15, 2, 14)).optimize();
+            case NORTH -> Shapes.or(
+                    Block.box(0, 0, 0, 16, 1, 16),
+                    Block.box(0, 1, 12, 16, 16, 16),
+                    Block.box(0, 1, 0, 2, 3, 12),
+                    Block.box(14, 1, 0, 16, 3, 12),
+                    Block.box(2, 1, 0, 14, 2, 15)).optimize();
+            default -> throw new IllegalArgumentException("ME Packager has no vertical facing: " + facing);
+        };
+    }
+
+    @GameTest(template = "empty")
+    public static void packageUnpackingBlockingMatchesPatternProviderInputRule(GameTestHelper helper) {
+        ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 32));
+        ItemStackHandler target = new ItemStackHandler(2);
+        target.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 1));
+
+        helper.assertTrue(PackageUnpackingOperations.canUnpack(packageStack, target, false),
+                "Non-blocking unpacking should allow merging with an existing package input type");
+        helper.assertFalse(PackageUnpackingOperations.canUnpack(packageStack, target, true),
+                "Pattern Provider blocking should reject a target containing a package input type");
+
+        target.setStackInSlot(0, new ItemStack(Items.GOLD_INGOT, 1));
+        helper.assertTrue(PackageUnpackingOperations.canUnpack(packageStack, target, true),
+                "Blocking mode should ignore target stacks that are not package input types");
         helper.succeed();
     }
 
@@ -2629,6 +2713,210 @@ public final class PackageDataGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void packageUnpackingBusPartUsesFormationInputAndPatternBlocking(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(1, 1, 0);
+        BlockPos partPos = new BlockPos(1, 1, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        chest.setItem(0, new ItemStack(Items.IRON_INGOT, 1));
+        PackageUnpackingBusPart part = placePoweredUnpackingBusPart(helper, partPos, Direction.NORTH);
+        part.getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.YES);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 32));
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(part.getMainNode().isOnline() && part.getMainNode().hasGridBooted(),
+                            "Package unpacking bus should join its powered AE grid");
+                    helper.assertTrue(part.getMainNode().getGrid() != null,
+                            "Package unpacking bus should expose its connected grid");
+                })
+                .thenExecute(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(part)) == 0,
+                            "Pattern Provider blocking should reject a package whose input type exists in target");
+                    helper.assertTrue(part.heldPackage().isEmpty(),
+                            "A blocked formation-style input must not become local storage");
+                    chest.setItem(0, ItemStack.EMPTY);
+                })
+                .thenWaitUntil(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(part)) == 1,
+                            "The formation-style input should accept a package after blocking clears");
+                })
+                .thenExecute(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(part)) == 1,
+                            "The network should route one package directly into unpacking work");
+                    helper.assertTrue(part.isWorking() && ItemStack.isSameItemSameTags(part.heldPackage(), packageStack),
+                            "A committed insertion should immediately become the exclusive held work package");
+                    helper.assertTrue(storage.extract(
+                                    packageKey,
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(part)) == 0,
+                            "Package unpacking bus must not expose held work as network storage");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    @SuppressWarnings("unchecked")
+    public static void packageUnpackingBusWinsEqualPriorityBeforeStorageBus(GameTestHelper helper) {
+        BlockPos storageChestPos = new BlockPos(1, 1, 0);
+        BlockPos cablePos = new BlockPos(1, 1, 1);
+        BlockPos unpackingChestPos = new BlockPos(2, 1, 1);
+        BlockPos energyCellPos = new BlockPos(1, 1, 2);
+        helper.getLevel().setBlock(helper.absolutePos(storageChestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(helper.absolutePos(unpackingChestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        PartHelper.setPart(
+                (ServerLevel) helper.getLevel(),
+                helper.absolutePos(cablePos),
+                null,
+                null,
+                AEParts.GLASS_CABLE.item(AEColor.TRANSPARENT));
+
+        IPartItem<PackageStorageBusPart> storageItem =
+                (IPartItem<PackageStorageBusPart>) (IPartItem<?>) APItems.PACKAGE_STORAGE_BUS.get();
+        PackageStorageBusPart storagePart = PartHelper.setPart(
+                helper.getLevel(),
+                helper.absolutePos(cablePos),
+                Direction.NORTH,
+                null,
+                storageItem);
+        IPartItem<PackageUnpackingBusPart> unpackingItem =
+                (IPartItem<PackageUnpackingBusPart>) (IPartItem<?>) APItems.PACKAGE_UNPACKING_BUS.get();
+        PackageUnpackingBusPart unpackingPart = PartHelper.setPart(
+                helper.getLevel(),
+                helper.absolutePos(cablePos),
+                Direction.EAST,
+                null,
+                unpackingItem);
+        helper.assertTrue(unpackingPart != null && storagePart != null,
+                "Both package buses should place on the shared powered cable");
+        helper.assertTrue(storagePart.getPriority() == 0 && unpackingPart.getPriority() == 0,
+                "Both package buses should default to the same player-controlled priority zero");
+
+        ChestBlockEntity storageChest = (ChestBlockEntity) helper.getBlockEntity(storageChestPos);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 32));
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(
+                        storagePart.getMainNode().isOnline()
+                                && unpackingPart.getMainNode().isOnline()
+                                && storagePart.getMainNode().getGrid() == unpackingPart.getMainNode().getGrid(),
+                        "Equal-priority package buses should join the same powered grid"))
+                .thenExecute(() -> {
+                    MEStorage network = storagePart.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(network.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(storagePart)) == 1,
+                            "The shared grid should accept the package");
+                    helper.assertTrue(ItemStack.isSameItemSameTags(unpackingPart.heldPackage(), packageStack),
+                            "Package Unpacking Bus must receive a package before an equal-priority Storage Bus");
+                    helper.assertTrue(storageChest.isEmpty(),
+                            "Equal-priority routing must not store the package while Unpacking Bus can accept it");
+
+                    helper.assertTrue(network.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(storagePart)) == 1,
+                            "Routing should fall through while the preferred Package Unpacking Bus is busy");
+                    helper.assertTrue(ItemStack.isSameItemSameTags(storageChest.getItem(0), packageStack),
+                            "An equal-priority Storage Bus should receive the package after unpacking rejects it");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    @SuppressWarnings("unchecked")
+    public static void packageBusPlayerPriorityOverridesEqualPriorityTie(GameTestHelper helper) {
+        BlockPos storageChestPos = new BlockPos(1, 1, 0);
+        BlockPos cablePos = new BlockPos(1, 1, 1);
+        BlockPos unpackingChestPos = new BlockPos(2, 1, 1);
+        BlockPos energyCellPos = new BlockPos(1, 1, 2);
+        helper.getLevel().setBlock(helper.absolutePos(storageChestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(helper.absolutePos(unpackingChestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        PartHelper.setPart(
+                (ServerLevel) helper.getLevel(),
+                helper.absolutePos(cablePos),
+                null,
+                null,
+                AEParts.GLASS_CABLE.item(AEColor.TRANSPARENT));
+
+        IPartItem<PackageStorageBusPart> storageItem =
+                (IPartItem<PackageStorageBusPart>) (IPartItem<?>) APItems.PACKAGE_STORAGE_BUS.get();
+        PackageStorageBusPart storagePart = PartHelper.setPart(
+                helper.getLevel(),
+                helper.absolutePos(cablePos),
+                Direction.NORTH,
+                null,
+                storageItem);
+        IPartItem<PackageUnpackingBusPart> unpackingItem =
+                (IPartItem<PackageUnpackingBusPart>) (IPartItem<?>) APItems.PACKAGE_UNPACKING_BUS.get();
+        PackageUnpackingBusPart unpackingPart = PartHelper.setPart(
+                helper.getLevel(),
+                helper.absolutePos(cablePos),
+                Direction.EAST,
+                null,
+                unpackingItem);
+        helper.assertTrue(unpackingPart != null && storagePart != null,
+                "Both package buses should place on the shared powered cable");
+        storagePart.setPriority(1);
+        helper.assertTrue(storagePart.getPriority() == 1 && unpackingPart.getPriority() == 0,
+                "The player-configured numeric priorities must remain unchanged");
+
+        ChestBlockEntity storageChest = (ChestBlockEntity) helper.getBlockEntity(storageChestPos);
+        ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 16));
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> helper.assertTrue(
+                        storagePart.getMainNode().isOnline()
+                                && unpackingPart.getMainNode().isOnline()
+                                && storagePart.getMainNode().getGrid() == unpackingPart.getMainNode().getGrid(),
+                        "Differently prioritized package buses should join the same powered grid"))
+                .thenExecute(() -> {
+                    MEStorage network = storagePart.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(network.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(storagePart)) == 1,
+                            "The shared grid should accept the package");
+                    helper.assertTrue(ItemStack.isSameItemSameTags(storageChest.getItem(0), packageStack),
+                            "A player-configured priority 1 Storage Bus must beat priority 0 Unpacking Bus");
+                    helper.assertTrue(unpackingPart.heldPackage().isEmpty(),
+                            "Equal-priority tie-breaking must not override a higher player priority");
+                })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty")
     @SuppressWarnings("unchecked")
     public static void packageBusPartsUseFiveSharedUpgradeSlots(GameTestHelper helper) {
@@ -2663,6 +2951,11 @@ public final class PackageDataGameTests {
                 "Package storage bus should expose exactly five shared upgrade slots");
         helper.assertTrue(unpackingPart.getUpgrades().size() == AbstractPackageBusPart.UPGRADE_SLOT_COUNT,
                 "Package unpacking bus should expose exactly five shared upgrade slots");
+        helper.assertTrue(storagePart.getPriority() == 0,
+                "Package storage bus should keep AE2's default storage priority");
+        helper.assertTrue(unpackingPart.getPriority() == PackageUnpackingBusPart.DEFAULT_PRIORITY
+                        && unpackingPart.getPriority() == storagePart.getPriority(),
+                "Both package buses should default to player-controlled priority zero");
         for (AbstractPackageBusPart part : List.of(storagePart, unpackingPart)) {
             helper.assertTrue(
                     part.getUpgrades().getMaxInstalled(AEItems.CAPACITY_CARD)
@@ -2731,6 +3024,50 @@ public final class PackageDataGameTests {
                             "Extracting a package must leave adjacent loose items unchanged");
                 })
                 .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageStorageBusPartitionReadsContainerPackages(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(1, 1, 0);
+        BlockPos partPos = new BlockPos(1, 1, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        ItemStack redIron = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+        ItemStack blueGold = packageStack(
+                PackageColor.BLUE,
+                PackageData.create(
+                        PackageColor.BLUE,
+                        List.of(
+                                new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 8),
+                                new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 8),
+                                new GenericStack(AEItemKey.of(Items.DIAMOND), 8),
+                                new GenericStack(AEItemKey.of(Items.EMERALD), 8),
+                                new GenericStack(AEItemKey.of(Items.COAL), 8),
+                                new GenericStack(AEItemKey.of(Items.QUARTZ), 8),
+                                new GenericStack(AEItemKey.of(Items.LAPIS_LAZULI), 8)),
+                        Optional.empty(),
+                        0));
+        chest.setItem(0, redIron.copy());
+        chest.setItem(1, new ItemStack(Items.DIRT, 16));
+        chest.setItem(2, blueGold.copy());
+        PackageStorageBusPart part = placePoweredStorageBusPart(helper, partPos, Direction.NORTH);
+
+        part.partitionFromTarget();
+
+        helper.assertTrue(part.isRowColorEnabled(0) && part.rowColor(0) == PackageColor.RED,
+                "Partition Storage should derive the first row color from the first package");
+        helper.assertTrue(part.isRowColorEnabled(1) && part.rowColor(1) == PackageColor.BLUE,
+                "Partition Storage should skip loose items and derive the next package row");
+        helper.assertTrue(part.filterSet().matches(redIron) && part.filterSet().matches(blueGold),
+                "Partition-generated rows should match samples even when content exceeds six visible slots");
+
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+            chest.setItem(slot, ItemStack.EMPTY);
+        }
+        part.partitionFromTarget();
+        helper.assertTrue(part.filterSet().isAny(),
+                "Partition Storage should clear filters when the attached inventory has no packages");
+        helper.succeed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 250)
@@ -2858,6 +3195,18 @@ public final class PackageDataGameTests {
         helper.assertTrue(filters.matches(redPackage), "First filter row should match a red iron package");
         helper.assertTrue(filters.matches(blueIron), "Second inverted row should allow blue packages without gold");
         helper.assertFalse(filters.matches(blueGold), "Second inverted row should reject listed gold contents");
+
+        var anyColorIron = new com.warmthdawn.appliedpackaging.core.package_data.PackageBusFilterSet.Rule(
+                Optional.empty(),
+                null,
+                List.of(AEItemKey.of(Items.IRON_INGOT)),
+                false,
+                false);
+        var colorlessFilter = new com.warmthdawn.appliedpackaging.core.package_data.PackageBusFilterSet(
+                List.of(anyColorIron),
+                appeng.api.config.FuzzyMode.IGNORE_ALL);
+        helper.assertTrue(colorlessFilter.matches(redPackage) && colorlessFilter.matches(blueIron),
+                "An empty color mode should not filter package colors");
         helper.succeed();
     }
 
@@ -3518,18 +3867,11 @@ public final class PackageDataGameTests {
             GameTestHelper helper,
             BlockPos partPos,
             Direction side) {
-        BlockPos drivePos = partPos.relative(Direction.EAST);
         BlockPos energyCellPos = partPos.relative(Direction.SOUTH);
-        helper.getLevel().setBlock(
-                helper.absolutePos(drivePos),
-                AEBlocks.DRIVE.block().defaultBlockState(),
-                3);
         helper.getLevel().setBlock(
                 helper.absolutePos(energyCellPos),
                 AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
                 3);
-        DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
-        drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());
 
         PartHelper.setPart(
                 (ServerLevel) helper.getLevel(),

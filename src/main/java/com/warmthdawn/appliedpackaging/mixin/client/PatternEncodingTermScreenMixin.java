@@ -14,6 +14,7 @@ import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBri
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternScreenBridge;
 import com.warmthdawn.appliedpackaging.mixinbridge.PackageProcessingPanelBridge;
 import java.util.Map;
+import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -99,9 +100,12 @@ public abstract class PatternEncodingTermScreenMixin<C extends PatternEncodingTe
         appliedpackaging$colorButton = new PackageColorPicker.TriggerButton(
                 8,
                 8,
-                () -> ((PackageCraftingPatternMenuBridge) appliedpackaging$menu())
-                        .appliedpackaging$getPackageCraftingColor(),
-                this::appliedpackaging$openColorPicker);
+                false,
+                () -> Optional.of(((PackageCraftingPatternMenuBridge) appliedpackaging$menu())
+                        .appliedpackaging$getPackageCraftingColor()),
+                this::appliedpackaging$openColorPicker,
+                () -> {
+                });
     }
 
     @Inject(method = "updateBeforeRender", at = @At("TAIL"))
@@ -230,8 +234,9 @@ public abstract class PatternEncodingTermScreenMixin<C extends PatternEncodingTe
                 appliedpackaging$colorButton,
                 width,
                 height,
-                bridge::appliedpackaging$getPackageCraftingColor,
-                bridge::appliedpackaging$setPackageCraftingColor,
+                false,
+                () -> Optional.of(bridge.appliedpackaging$getPackageCraftingColor()),
+                selection -> selection.ifPresent(bridge::appliedpackaging$setPackageCraftingColor),
                 () -> setFocused(null));
         setFocused(null);
     }

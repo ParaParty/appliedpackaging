@@ -261,14 +261,15 @@ GameTest 与客户端 smoke
 当前状态：
 
 ```text
-package_storage_bus 使用 AE2 Storage Bus 占位模型并通过 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage
-package_unpacking_bus 使用 AE2 P2P 占位模型；先从 ME 网络预留一个包裹到持久化 held 状态，经过与 ME Packager 相同的 20 tick 拆包进度后，对目标面 item handler 做整包累计模拟并在通过后逐项插入
-两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle、左侧设置按钮与右侧 5 格共享升级面板
-七行过滤每行包含动态模糊/反转按钮、颜色选择、marker ghost 和 6 个物品 ghost；行间 OR、行内 AND
+package_storage_bus 使用新版 Storage Bus 形态，通过默认优先级 0 的 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage；Partition Storage 从相邻容器包裹生成过滤
+package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认优先级 0 的 Formation Plane 式只写入 IStorageProvider 接收网络路由包裹，不扫描、抽取或枚举 ME 存储
+两个默认值都为 0，且就是右上 Priority 子菜单显示/修改的数值；数值相同时由卸货总线只写入端点的 preferred-storage 语义先尝试拆包，拆包拒绝后再尝试存储总线
+两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle 与右侧 5 格共享升级面板；存储总线保留 Storage Bus 工具栏，卸货总线左侧只有 Help、清空和 Pattern Provider 阻挡模式
+七行过滤每行包含动态模糊/反转按钮、可为空的颜色选择、marker ghost 和 6 个物品 ghost；颜色空模式不过滤，行间 OR、行内 AND；所有颜色入口复用统一触发按钮/弹窗，只有两种总线过滤区启用 None 与右键清空，Fluix/None 固定在分隔线左侧上下排列且隐藏 None 不改变布局
 默认解锁底图最上方两行，每张容量卡额外解锁一行，五张容量卡时达到七行上限；未解锁行使用 OptionalFakeSlot 半透明叠加
 模糊/反转按钮仅在对应升级卡存在时显示并始终紧邻颜色按钮，模糊/反转/颜色三个 8px 按钮在 18px 行内统一使用固定 2px 上边距；卸货总线在同一 5 格升级库存中额外接受最多 4 张加速卡
 存储总线遮掉右上工作区；卸货总线工作槽同步真实 held 包裹并显示 15 级进度条，工作中不可取、阻塞时可由玩家取回
-最终目标变化时保留原 held 包裹并阻塞重试；held 状态写入 Part NBT，拆除 part 时作为额外掉落返还
+网络接收与最终提交都校验过滤、整包累计容量和 Pattern Provider 阻挡条件；最终目标变化时保留原 held 包裹并阻塞重试，held 状态写入 Part NBT，拆除 part 时作为额外掉落返还
 runClientSmoke 自动放置两个真实 AE2 part，插入模糊/反转/容量卡（卸货再插加速卡），打开菜单并截图
 ```
 
@@ -277,8 +278,10 @@ runClientSmoke 自动放置两个真实 AE2 part，插入模糊/反转/容量卡
 ```text
 总线只允许包裹通过
 存储总线不暴露包裹内部内容
+存储总线 Partition Storage 按容器内合法包裹生成过滤，空容器清空过滤
+卸货总线与存储总线的默认优先级都为 0；数值不同时由玩家设置的较高值优先，数值相同时卸货总线优先，卸货拒绝后存储总线接收
 卸货总线只按整包执行 check-then-push
-卸货总线在进度完成前不写入目标；最终模拟失败时不写入并重试同一个包裹
+卸货总线在进度完成前不写入目标；阻挡或最终模拟失败时不写入并重试同一个包裹
 取消项不存在玩家入口
 ```
 
@@ -355,14 +358,6 @@ AE2 样板集成风险：
 ```text
 AE2 1.20.1 API 对自定义 Pattern Provider/Molecular Assembler 风格集成的公开入口可能不足。
 先实现可由 Pattern Provider 推入材料的普通 Forge inventory 机器，再逐步接入深层样板语义。
-```
-
-AE2 总线 Part API 风险：
-
-```text
-Package Pattern Terminal 已实现为 AE2 cable part item，并保留兼容方块路径。
-Package Storage/Export/Unpacking Bus 当前交付为 AE2 可连接方块端点，不作为 cable part 发布。
-后续如果要把总线也迁移为 AE2 cable part，需要重新设计放置、持久化、菜单定位和掉落迁移，不阻塞 0.1.0-dev。
 ```
 
 GenericStack 范围风险：

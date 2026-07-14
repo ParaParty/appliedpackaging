@@ -15,6 +15,7 @@ import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -46,8 +47,11 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
         colorButton = new PackageColorPicker.TriggerButton(
                 COLOR_BUTTON_SIZE,
                 COLOR_BUTTON_SIZE,
-                menu::selectedColor,
-                this::openColorPicker);
+                false,
+                () -> Optional.of(menu.selectedColor()),
+                this::openColorPicker,
+                () -> {
+                });
         packingProgress = new ProgressBar(menu, style.getImage("packingProgress"), Direction.VERTICAL);
         unpackingProgress = new ProgressBar(menu, style.getImage("unpackingProgress"), Direction.VERTICAL);
         widgets.add("packingProgress", packingProgress);
@@ -212,8 +216,9 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
                 colorButton,
                 width,
                 height,
-                menu::selectedColor,
-                menu::setSelectedColor,
+                false,
+                () -> Optional.of(menu.selectedColor()),
+                selection -> selection.ifPresent(menu::setSelectedColor),
                 () -> colorButton.active = true);
     }
 

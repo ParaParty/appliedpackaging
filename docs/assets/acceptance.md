@@ -85,6 +85,7 @@ src/main/resources/assets/appliedpackaging/models/item/<block_id>.json
 图标语义清楚，不依赖文字标签
 8x8、12x12、16x16 尺寸下仍可识别
 颜色、marker、容量、阻挡、过滤、打包、拆包状态可区分
+颜色选择器默认、None 与选中背景在 8x8 下可区分；选中只改变格内背景，不添加外边框或 hover 像素
 与 AE2/Applied Packaging 面板风格一致
 ```
 
@@ -122,4 +123,4 @@ GUI 元素无错位
 日志无资源加载错误
 ```
 
-`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知资源路径、RGBA PNG header 和尺寸：普通 item/block 为 32x32，包裹盒体 face 为 10x8 或 10x10，临时 Create-style packager detail 可为 16x16，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128，ME Packager 与 ME Package Assembler GUI atlas 为 256x256；同时检查 17 色 package_box 模型仍为 v7 的 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override，且 faces 声明 full-face uv [0,0,16,16]；普通不透明 block/part 模型不得声明 render_type。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。
+`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知资源路径、RGBA PNG header 和尺寸：普通 item/block 为 32x32，包裹盒体 face 为 10x8 或 10x10，ME Packager 主体 atlas 为 64x64、帘子为 16x16、双周期传送带为 32x32，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128，ME Packager 与 ME Package Assembler GUI atlas 为 256x256；同时检查 17 色 package_box 模型仍为 v7 的 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override，且 faces 声明 full-face uv [0,0,16,16]；ME Packager 还必须让全部六种 `network_side` 共享当前 `facing` 的水平旋转，并让完整物品模型继承 `minecraft:block/block` 的标准方块显示变换；普通不透明 block/part 模型不得声明 render_type。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。

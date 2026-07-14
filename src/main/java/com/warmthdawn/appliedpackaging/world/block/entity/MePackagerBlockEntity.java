@@ -75,6 +75,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     public static final int UPGRADE_SLOT_COUNT = 6;
     public static final int CYCLIC_REDSTONE_INTERVAL_TICKS = 20;
     public static final int ANIMATION_CYCLE_TICKS = 20;
+    public static final int BELT_SCROLL_PERIOD_PIXELS = 16;
     private static final int SLOT_COUNT = 3;
     private static final String ITEMS_TAG = "items";
     private static final String FILTER_TAG = "content_filter";
@@ -87,6 +88,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private static final String BLOCKING_MODE_TAG = "blocking_mode";
     private static final String ANIMATION_TICKS_TAG = "animation_ticks";
     private static final String ANIMATION_INWARD_TAG = "animation_inward";
+    private static final String BELT_SCROLL_PIXELS_TAG = "belt_scroll_pixels";
     private static final String RENDERED_BOX_TAG = "rendered_box";
     private static final String WORKING_OPERATION_TAG = "working_operation";
     private static final String WORKING_STACK_TAG = "working_stack";
@@ -228,6 +230,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private int redstoneCooldown;
     private int animationTicks;
     private boolean animationInward = true;
+    private int beltScrollPixels;
     private ItemStack renderedBox = ItemStack.EMPTY;
     private ItemStack workingStack = ItemStack.EMPTY;
     private WorkingOperation workingOperation = WorkingOperation.NONE;
@@ -794,12 +797,12 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
-        return EnumSet.of(networkSide());
+        return meConnectionSides();
     }
 
     @Override
     public AECableType getCableConnectionType(Direction dir) {
-        return dir == networkSide() ? AECableType.SMART : AECableType.NONE;
+        return meConnectionSides().contains(dir) ? AECableType.SMART : AECableType.NONE;
     }
 
     public void onNetworkSideChanged() {
@@ -813,7 +816,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             if (side == null) {
                 return internalItemHandler.cast();
             }
-            if (side == networkSide()) {
+            if (meConnectionSides().contains(side)) {
                 return LazyOptional.empty();
             }
             return externalItemHandler.cast();
@@ -857,6 +860,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         tag.putString(BLOCKING_MODE_TAG, blockingMode.name());
         tag.putInt(ANIMATION_TICKS_TAG, animationTicks);
         tag.putBoolean(ANIMATION_INWARD_TAG, animationInward);
+        tag.putInt(BELT_SCROLL_PIXELS_TAG, beltScrollPixels);
         if (!renderedBox.isEmpty()) {
             tag.put(RENDERED_BOX_TAG, renderedBox.save(new CompoundTag()));
         }
@@ -885,6 +889,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         blockingMode = BlockingMode.byName(tag.getString(BLOCKING_MODE_TAG));
         animationTicks = tag.getInt(ANIMATION_TICKS_TAG);
         animationInward = !tag.contains(ANIMATION_INWARD_TAG) || tag.getBoolean(ANIMATION_INWARD_TAG);
+        beltScrollPixels = Math.floorMod(tag.getInt(BELT_SCROLL_PIXELS_TAG), BELT_SCROLL_PERIOD_PIXELS);
         renderedBox = tag.contains(RENDERED_BOX_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? ItemStack.of(tag.getCompound(RENDERED_BOX_TAG))
                 : currentInventoryBox();
@@ -904,6 +909,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     protected boolean readFromStream(FriendlyByteBuf data) {
         animationTicks = data.readVarInt();
         animationInward = data.readBoolean();
+        beltScrollPixels = data.readVarInt();
         renderedBox = data.readItem();
         return true;
     }
@@ -912,6 +918,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     protected void writeToStream(FriendlyByteBuf data) {
         data.writeVarInt(animationTicks);
         data.writeBoolean(animationInward);
+        data.writeVarInt(beltScrollPixels);
         data.writeItem(renderedBox);
     }
 
@@ -1001,6 +1008,16 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return MePackagerBlock.networkSide(getBlockState());
     }
 
+    public Direction machineBackSide() {
+        return getBlockState().getValue(MePackagerBlock.FACING).getOpposite();
+    }
+
+    public Set<Direction> meConnectionSides() {
+        EnumSet<Direction> sides = EnumSet.of(networkSide());
+        sides.add(machineBackSide());
+        return sides;
+    }
+
     public int animationTicks() {
         return animationTicks;
     }
@@ -1037,11 +1054,18 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return animationInward;
     }
 
-    public float getTrayOffset(float partialTicks) {
-        float tickCycle = animationInward ? animationTicks - partialTicks : animationTicks - 5 - partialTicks;
-        float progress = net.minecraft.util.Mth.clamp(tickCycle / (ANIMATION_CYCLE_TICKS - 5.0F) * 2.0F - 1.0F, -1.0F, 1.0F);
-        progress = 1.0F - progress * progress;
-        return progress * progress;
+    public int beltScrollPixels() {
+        return beltScrollPixels;
+    }
+
+    public float getAnimationProgress(float partialTicks) {
+        if (animationTicks <= 0) {
+            return 1.0F;
+        }
+        return net.minecraft.util.Mth.clamp(
+                (ANIMATION_CYCLE_TICKS - animationTicks + partialTicks) / ANIMATION_CYCLE_TICKS,
+                0.0F,
+                1.0F);
     }
 
     public ItemStack getRenderedBox() {
@@ -1054,17 +1078,12 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return animationTicks >= ANIMATION_CYCLE_TICKS / 2 ? ItemStack.EMPTY : renderedBox;
     }
 
-    public boolean isHatchOpen() {
-        return animationTicks > (animationInward ? 1 : 5)
-                && animationTicks < ANIMATION_CYCLE_TICKS - (animationInward ? 5 : 1);
-    }
-
     @Override
     @SuppressWarnings("deprecation")
     public void setBlockState(BlockState state) {
-        Direction previousSide = networkSide();
+        Set<Direction> previousSides = meConnectionSides();
         super.setBlockState(state);
-        if (previousSide != networkSide()) {
+        if (!previousSides.equals(meConnectionSides())) {
             onNetworkSideChanged();
         }
     }
@@ -1239,6 +1258,9 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             }
             return;
         }
+        beltScrollPixels = Math.floorMod(
+                beltScrollPixels + (animationInward ? 1 : -1),
+                BELT_SCROLL_PERIOD_PIXELS);
         animationTicks--;
         if (animationTicks > 0) {
             return;

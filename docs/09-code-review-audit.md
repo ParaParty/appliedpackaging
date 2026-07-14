@@ -16,6 +16,7 @@
 - ME Packager 的 16k / 64k / 256k storage component 容量升级确定为正式范围；基础档仍为 1k/16 类型，4k 与附属容量档仍不做。
 - 删除没有运行时调用的 item handler 打包规划、Forge fluid handler 打包/拆包适配、旧 Package Export/即时拆包操作及其测试。卸货总线的 item handler 路径只保留整包累计模拟与 Pattern Provider 式 check-then-push，不再生成逐槽提交计划或反向抽取回滚。
 - 包裹合并、容量累计和整叠手动拆包增加 `long` 溢出保护。
+- 用用户提供的正式空心框架模型、双周期传送带和四条动态帘子替换 ME Packager 的临时 Create 外壳；旧 `me_packager_create` 模型、贴图和 hatch/tray renderer 适配已删除。
 
 ## 2. 发布前兼容政策
 
@@ -32,11 +33,7 @@
 
 ## 3. 仍需决策或后续实现的问题
 
-### 3.1 ME Packager 正式模型尚未完成
-
-当前发布资源仍使用 2026-07-05 引入的 Create Packager 外壳作为临时视觉实现。资源已经复制到 Applied Packaging namespace，运行时不要求安装 Create，但模型语言、连接表达和动态 renderer 仍与 `docs/assets/contracts/me_packager.yaml` 的 AE2 风格正式目标不一致。
-
-后续应按 asset contract 产出正式模型，并一次性替换 `models/block/me_packager_create/`、`textures/block/me_packager_create/` 及其专用 renderer 适配。
+本轮代码审查列出的临时实现问题均已有正式迁移目标；最终是否发布仍以 `docs/08-change-intake.md` 的范围冻结和 `docs/06-verification-release.md` 的完整候选发布门禁为准。
 
 ## 4. 明确不处理的警告与当前实现
 
@@ -46,4 +43,5 @@
 
 ## 5. 后续收口顺序
 
-1. 用正式 Applied Packaging / AE2 风格模型替换临时 Create 外壳。
+1. 对正式 ME Packager 模型执行资源审计、GameTest 和客户端动画截图 smoke。
+2. 在新增范围冻结后重新执行完整 release candidate 门禁。

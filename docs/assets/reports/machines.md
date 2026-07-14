@@ -1,5 +1,42 @@
 # Machines Asset Report
 
+## 2026-07-15 ME Packager 正式模型与动画接入
+
+正式 `me_packager` 直接使用用户在 `E:/resources/textures/appliedpackaging/ret/model` 提供的 Blockbench 模型和三张贴图。PNG 仅做原字节复制，运行时与来源 SHA-256 一致：
+
+```text
+model.bbmodel    58a824e49f1e5b814956e2bec6f422ecd71a44877567e970daf4ca6dcb5cbf26
+base.png         c98e01d32207cd77d50c1b5aee5176fbd40264e16badf2569737003a7dd6385e
+curtain.png      d4a4bcc86b497cad066f364ce8e187d616283925fe6d58140934b9ebe1893f02
+belt_scroll.png  edd93ff96c09554b23b5b70266f5d2320c2a19aac6f66445f8a4b9240379ba04
+```
+
+模型拆分与运行时职责：
+
+```text
+body.json          6 个静态主体 cube
+belt.json          1 个动态传送带 cube；上表面和工作口正面共用连续 UV
+curtain_flap.json  1 条帘子局部模型；renderer 平移复用为 4 条并绕顶部转轴摆动
+item.json          11 个 cube 的静止物品预览；继承 minecraft:block/block 标准物品显示变换
+```
+
+`belt_scroll.png` 是 32x32、横向两个连续 16px 周期；一个运行时窗口严格为上表面 15px + 工作口正面 1px，工作期间按 1px/tick 计算 U/X offset，因此滚动到周期末也不会采样到 atlas 相邻 sprite。帘子不使用逐帧贴图，而是按 20 tick 机器进度做单峰摆角：拆包向内、打包向外。包裹沿传送带移动并保留方块体积 stencil 裁切，机器事务提交时序未修改。
+
+方向约定：源模型本地 +X 是工作口；运行时 `facing` 是工作口方向，north/east/south/west 对应 Y 旋转 270/0/90/180 度。`network_side` 仅指定 AE 接线面，不参与主体或动画旋转；因此放在地面得到 `network_side=down` 时，底盘仍保持水平。方块物品的完整 11-cube 模型继承 `minecraft:block/block`，使用原版标准 GUI、地面、固定、第三人称和第一人称方块变换。
+
+可编辑源和确定性导入记录保存在：
+
+```text
+docs/assets/source/me_packager/model.bbmodel
+docs/assets/source/me_packager/belt_scroll.aseprite
+docs/assets/source/me_packager/import-report.json
+scripts/import-me-packager-model.py
+```
+
+旧 `models/block/me_packager_create/`、`textures/block/me_packager_create/` 和 hatch/tray additional models 已删除；下方 2026-07-05 小节只保留历史来源记录。
+
+验证：`assetgen validate-contract`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`runData`、100/100 required GameTest、客户端 smoke、`build` 和 `verify-release.ps1 -RequireAssetContracts` 均通过。朝向修正后的客户端 smoke 以 `facing=north,network_side=south` 刷新 11 张截图，确认工作口朝 north、背面接线朝 south，主体保持直立且传送带/帘子与主体共用同一朝向，无 missing model/texture。
+
 ## 2026-07-13 AE2 v19 Package Assembler Replacement
 
 `package_assembler` now uses the official AE2 `neoforge/v19.2.17` molecular assembler model at commit

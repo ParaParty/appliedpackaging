@@ -30,6 +30,7 @@ import com.warmthdawn.appliedpackaging.mixin.client.SlotAccessor;
 import com.warmthdawn.appliedpackaging.world.menu.AdvancedPatternEncodingTermMenu;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -97,7 +98,6 @@ public class AdvancedPatternEncodingTermScreen
             32);
     private static final Blitter COLUMN_SCROLLBAR = Blitter.texture(SPRITES).src(0, 16, 15, 8);
     private static final Blitter CLEAR_BUTTON = Blitter.texture(SPRITES).src(0, 0, 8, 8);
-    private static final Blitter COLOR_BUTTON = Blitter.texture(SPRITES).src(8, 0, 8, 8);
     private static final Blitter ADD_COLUMN_BUTTON = Blitter.texture(SPRITES).src(0, 8, 8, 8);
     private static final Blitter DELETE_COLUMN_BUTTON = Blitter.texture(SPRITES).src(8, 8, 8, 8);
     private static final Blitter LATEST_PRIMARY_OUTPUT = Blitter.texture(LATEST_AE2_STATES).src(224, 0, 16, 16);
@@ -118,7 +118,8 @@ public class AdvancedPatternEncodingTermScreen
     private static final Blitter LATEST_CRAFT_HAMMER =
             Blitter.texture(LATEST_AE2_STATES).src(48, 144, 16, 16);
 
-    private final ColumnColorButton[] columnColorButtons = new ColumnColorButton[VISIBLE_COLUMNS];
+    private final PackageColorPicker.TriggerButton[] columnColorButtons =
+            new PackageColorPicker.TriggerButton[VISIBLE_COLUMNS];
     private final ColumnActionButton[] columnActionButtons = new ColumnActionButton[VISIBLE_COLUMNS];
     private final PackageColorPicker colorPicker = new PackageColorPicker();
     private final LatestEncodeButton encodeButton = new LatestEncodeButton();
@@ -157,7 +158,17 @@ public class AdvancedPatternEncodingTermScreen
         rowScrollbar.setCaptureMouseWheel(false);
 
         for (int visibleColumn = 0; visibleColumn < VISIBLE_COLUMNS; visibleColumn++) {
-            columnColorButtons[visibleColumn] = new ColumnColorButton(visibleColumn);
+            int buttonIndex = visibleColumn;
+            columnColorButtons[visibleColumn] = new PackageColorPicker.TriggerButton(
+                    HEADER_BUTTON_SIZE,
+                    HEADER_BUTTON_SIZE,
+                    false,
+                    () -> Optional.of(menu.columnColor(scrollColumn + buttonIndex)),
+                    () -> openColumnEditor(
+                            scrollColumn + buttonIndex,
+                            columnColorButtons[buttonIndex]),
+                    () -> {
+                    });
             columnActionButtons[visibleColumn] = new ColumnActionButton(visibleColumn);
         }
     }
@@ -170,7 +181,7 @@ public class AdvancedPatternEncodingTermScreen
         for (Renderable renderer : modernToolbar.createIconButtonRenderers()) {
             addRenderableOnly(renderer);
         }
-        for (ColumnColorButton button : columnColorButtons) {
+        for (PackageColorPicker.TriggerButton button : columnColorButtons) {
             addRenderableWidget(button);
         }
         for (ColumnActionButton button : columnActionButtons) {
@@ -460,8 +471,7 @@ public class AdvancedPatternEncodingTermScreen
         int actionButtonY = topPos + imageHeight - HEADER_ACTION_BOTTOM;
         for (int visibleColumn = 0; visibleColumn < VISIBLE_COLUMNS; visibleColumn++) {
             int column = scrollColumn + visibleColumn;
-            ColumnColorButton colorButton = columnColorButtons[visibleColumn];
-            colorButton.column = column;
+            PackageColorPicker.TriggerButton colorButton = columnColorButtons[visibleColumn];
             colorButton.setX(leftPos + HEADER_COLOR_X + visibleColumn * COLUMN_STEP);
             colorButton.setY(colorButtonY);
             colorButton.visible = column < menu.activeColumns();
@@ -590,8 +600,9 @@ public class AdvancedPatternEncodingTermScreen
                     anchor,
                     width,
                     height,
-                    () -> menu.columnColor(column),
-                    color -> menu.setColumnColor(column, color),
+                    false,
+                    () -> Optional.of(menu.columnColor(column)),
+                    selection -> selection.ifPresent(color -> menu.setColumnColor(column, color)),
                     () -> {
                         editedColumn = -1;
                         setFocused(null);
@@ -600,9 +611,9 @@ public class AdvancedPatternEncodingTermScreen
     }
 
     private void openColumnEditor(int column) {
-        for (ColumnColorButton button : columnColorButtons) {
-            if (button.column == column) {
-                openColumnEditor(column, button);
+        for (int visibleColumn = 0; visibleColumn < columnColorButtons.length; visibleColumn++) {
+            if (scrollColumn + visibleColumn == column) {
+                openColumnEditor(column, columnColorButtons[visibleColumn]);
                 return;
             }
         }
@@ -668,45 +679,6 @@ public class AdvancedPatternEncodingTermScreen
         SlotAccessor accessor = (SlotAccessor) slot;
         accessor.appliedpackaging$setX(x);
         accessor.appliedpackaging$setY(y);
-    }
-
-    private final class ColumnColorButton extends AbstractButton {
-        private int column;
-
-        private ColumnColorButton(int visibleColumn) {
-            super(
-                    0,
-                    0,
-                    HEADER_BUTTON_SIZE,
-                    HEADER_BUTTON_SIZE,
-                    Component.translatable(
-                            "gui.appliedpackaging.advanced_pattern_terminal.edit_color",
-                            visibleColumn + 1));
-        }
-
-        @Override
-        public void onPress() {
-            openColumnEditor(column, this);
-        }
-
-        @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            COLOR_BUTTON.dest(getX(), getY()).blit(graphics);
-            graphics.fill(
-                    getX() + 1,
-                    getY() + 1,
-                    getX() + 7,
-                    getY() + 7,
-                    menu.columnColor(column).swatchArgb());
-            if (isHoveredOrFocused()) {
-                graphics.renderOutline(getX(), getY(), width, height, 0xffffffff);
-            }
-        }
-
-        @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
-        }
     }
 
     private final class ColumnActionButton extends AbstractButton {

@@ -16,6 +16,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -26,11 +27,38 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.minecraftforge.common.ToolAction;
 import net.minecraftforge.network.NetworkHooks;
 
 public class MePackagerBlock extends AbstractHorizontalMachineBlock {
     public static final DirectionProperty NETWORK_SIDE = DirectionProperty.create("network_side");
+    private static final VoxelShape SHAPE_EAST = Shapes.or(
+            Block.box(0, 0, 0, 16, 1, 16),
+            Block.box(0, 1, 0, 4, 16, 16),
+            Block.box(4, 1, 0, 16, 3, 2),
+            Block.box(4, 1, 14, 16, 3, 16),
+            Block.box(1, 1, 2, 16, 2, 14)).optimize();
+    private static final VoxelShape SHAPE_SOUTH = Shapes.or(
+            Block.box(0, 0, 0, 16, 1, 16),
+            Block.box(0, 1, 0, 16, 16, 4),
+            Block.box(0, 1, 4, 2, 3, 16),
+            Block.box(14, 1, 4, 16, 3, 16),
+            Block.box(2, 1, 1, 14, 2, 16)).optimize();
+    private static final VoxelShape SHAPE_WEST = Shapes.or(
+            Block.box(0, 0, 0, 16, 1, 16),
+            Block.box(12, 1, 0, 16, 16, 16),
+            Block.box(0, 1, 0, 12, 3, 2),
+            Block.box(0, 1, 14, 12, 3, 16),
+            Block.box(0, 1, 2, 15, 2, 14)).optimize();
+    private static final VoxelShape SHAPE_NORTH = Shapes.or(
+            Block.box(0, 0, 0, 16, 1, 16),
+            Block.box(0, 1, 12, 16, 16, 16),
+            Block.box(0, 1, 0, 2, 3, 12),
+            Block.box(14, 1, 0, 16, 3, 12),
+            Block.box(2, 1, 0, 14, 2, 15)).optimize();
     private static final TagKey<Item> WRENCHES =
             TagKey.create(Registries.ITEM, new ResourceLocation("forge", "tools/wrench"));
     private static final ToolAction WRENCH_ACTION = ToolAction.get("wrench");
@@ -53,6 +81,16 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(NETWORK_SIDE);
+    }
+
+    @Override
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return shapeForFacing(state.getValue(FACING));
+    }
+
+    @Override
+    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        return shapeForFacing(state.getValue(FACING));
     }
 
     @Override
@@ -141,6 +179,15 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
         }
         Direction facing = state.hasProperty(FACING) ? state.getValue(FACING) : Direction.NORTH;
         return facing.getOpposite();
+    }
+
+    private static VoxelShape shapeForFacing(Direction facing) {
+        return switch (facing) {
+            case SOUTH -> SHAPE_SOUTH;
+            case WEST -> SHAPE_WEST;
+            case NORTH -> SHAPE_NORTH;
+            default -> SHAPE_EAST;
+        };
     }
 
     private static boolean isWrench(ItemStack stack) {
