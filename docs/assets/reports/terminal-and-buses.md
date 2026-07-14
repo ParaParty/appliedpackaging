@@ -1,5 +1,12 @@
 # Terminal And Buses Asset Report
 
+## 2026-07-15 Unified Package Color Picker Sprites
+
+- Every player-facing package-color trigger now uses the shared `PackageColorPicker.TriggerButton`; the Advanced Pattern Terminal's private color-button renderer was removed. The same picker receives an explicit `allowNone` flag, enabled only for Package Storage/Unpacking Bus filter rows.
+- The left group has a fixed two-row layout: Fluix at the top and None below, separated from the unchanged 8x2 dye grid. Hiding None reserves its row, so all picker call sites retain the same 89x23 geometry and dye coordinates. Package Bus triggers accept right-click to select None.
+- The user screenshot's 6x-scaled cells were reduced exactly to 8x8 and written into previously empty atlas cells: default Fluix `(48,0)`, None `(56,0)`, and selected background `(48,8)`. The deterministic source is `scripts/update-package-color-picker-sprites.ps1`; the updated atlas SHA-256 is `632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635`. A pixel comparison against the previous atlas confirms 192 changed pixels inside those three cells and zero changes elsewhere, including transparent RGB.
+- Selection replaces only the in-cell background and never draws an external outline. Hover changes no pixels. While the popup is open, its anchor trigger suspends its own hover tooltip and restores it on close; color-name tooltips inside the popup remain available.
+
 ## 2026-07-13 AE2 v19 Bus Model Replacement
 
 Package Storage Bus and Package Unpacking Bus now use models extracted from official AE2

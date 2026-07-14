@@ -6,7 +6,6 @@ param(
     [switch] $RequireLog,
     [switch] $RequireServerWorldLoad,
     [switch] $RequireAssetContracts,
-    [switch] $RequireClientSmokeScreenshots,
     [switch] $RequireCleanGit
 )
 
@@ -147,28 +146,6 @@ function Get-ReleaseDiagnosticLogLines {
     }
 
     return $filtered
-}
-
-function Test-PngSignature {
-    param([string] $Path)
-
-    $expected = @(137, 80, 78, 71, 13, 10, 26, 10)
-    $stream = [System.IO.File]::OpenRead($Path)
-    try {
-        if ($stream.Length -lt $expected.Count) {
-            return $false
-        }
-
-        foreach ($byte in $expected) {
-            if ($stream.ReadByte() -ne $byte) {
-                return $false
-            }
-        }
-
-        return $true
-    } finally {
-        $stream.Dispose()
-    }
 }
 
 function Test-CleanGitWorktree {
@@ -751,7 +728,7 @@ if ($null -eq $resolvedJar) {
             Assert-Matches $manifestText "Implementation-Vendor: $([regex]::Escape($projectProperties["mod_authors"]))" "manifest implementation vendor matches gradle.properties"
         }
 
-        $forbiddenEntryPattern = "(?i)(^|/)(com/warmthdawn/appliedpackaging/client/ClientSmokeRunner|com/warmthdawn/appliedpackaging/gametest/|build/|tmp/|docs/assets/|run/|reference/|preview/)"
+        $forbiddenEntryPattern = "(?i)(^|/)(com/warmthdawn/appliedpackaging/gametest/|build/|tmp/|docs/assets/|run/|reference/|preview/)"
         $forbiddenEntries = @($entries | Where-Object { $_ -match $forbiddenEntryPattern })
         if ($forbiddenEntries.Count -eq 0) {
             Add-Pass "Jar contains no dev/test/reference/preview entries"
@@ -819,48 +796,6 @@ if ($emptyPng.Count -eq 0) {
     Add-Pass "$($pngFiles.Count) PNG resources are non-empty"
 } else {
     Add-Fail "Empty PNG resources: $($emptyPng.FullName -join ', ')"
-}
-
-if ($RequireClientSmokeScreenshots) {
-    $expectedClientSmokeScreenshots = @(
-        "appliedpackaging-client-smoke-world-me_packager.png",
-        "appliedpackaging-client-smoke-world-me_packager_link.png",
-        "appliedpackaging-client-smoke-world-all_machines.png",
-        "appliedpackaging-client-smoke-package_assembler.png",
-        "appliedpackaging-client-smoke-me_packager.png",
-        "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png",
-        "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png",
-        "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png",
-        "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png",
-        "appliedpackaging-client-smoke-package_storage_bus.png",
-        "appliedpackaging-client-smoke-package_unpacking_bus.png"
-    )
-
-    $missingScreenshots = [System.Collections.Generic.List[string]]::new()
-    $invalidScreenshots = [System.Collections.Generic.List[string]]::new()
-    foreach ($screenshotName in $expectedClientSmokeScreenshots) {
-        $screenshotPath = Join-Path "run/screenshots" $screenshotName
-        $screenshot = Get-Item $screenshotPath -ErrorAction SilentlyContinue
-        if ($null -eq $screenshot) {
-            $missingScreenshots.Add($screenshotPath) | Out-Null
-            continue
-        }
-
-        if ($screenshot.Length -le 0 -or -not (Test-PngSignature $screenshot.FullName)) {
-            $invalidScreenshots.Add($screenshotPath) | Out-Null
-        }
-    }
-
-    if ($missingScreenshots.Count -eq 0 -and $invalidScreenshots.Count -eq 0) {
-        Add-Pass "$($expectedClientSmokeScreenshots.Count) client smoke screenshots are present and valid PNG files"
-    } else {
-        if ($missingScreenshots.Count -gt 0) {
-            Add-Fail "Missing client smoke screenshots: $($missingScreenshots -join ', ')"
-        }
-        if ($invalidScreenshots.Count -gt 0) {
-            Add-Fail "Invalid client smoke screenshots: $($invalidScreenshots -join ', ')"
-        }
-    }
 }
 
 $contractFiles = @(Get-ChildItem "docs/assets/contracts" -Filter "*.yaml" -File -ErrorAction SilentlyContinue)
@@ -970,7 +905,7 @@ if ($null -eq $resolvedLog) {
     }
 } else {
     Add-Pass "Log exists at $LogPath"
-    $badLogPattern = "(?i)\b(ERROR|FATAL|ClientSmokeRunner|NoClassDefFoundError|ClassNotFoundException|InvocationTargetException|IllegalStateException|OnlyIn|Exception|Crash)\b|Dist\.CLIENT|Missing model|Unable to load model|missing texture"
+    $badLogPattern = "(?i)\b(ERROR|FATAL|NoClassDefFoundError|ClassNotFoundException|InvocationTargetException|IllegalStateException|OnlyIn|Exception|Crash)\b|Dist\.CLIENT|Missing model|Unable to load model|missing texture"
     $diagnosticLogText = (Get-ReleaseDiagnosticLogLines $resolvedLog.Path) -join "`n"
     if ($ignoredYggdrasilKeyFailures -gt 0) {
         Add-Warn "Ignored $ignoredYggdrasilKeyFailures external Yggdrasil public-key fetch failure(s)"

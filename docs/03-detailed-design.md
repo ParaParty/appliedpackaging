@@ -393,7 +393,7 @@ GUI shift-click 会优先把已编码 package_pattern / advanced_processing_patt
 职责：
 
 ```text
-识别所选连接面相邻 AE2 MEStorage
+通过固定底部与模型背面加入 AE 网格并识别该网格的 MEStorage
 识别相邻 ME Interface 背后的存储子网
 从端点生成包裹
 把输入包裹拆入端点
@@ -419,7 +419,6 @@ heldBox: 唯一包裹工作槽，`heldBoxState` 区分 EMPTY / UNPACK_INPUT / PA
 capacitySlot: 只允许 AE2 16k/64k/256k storage component；为空时使用基础 1k/16 类型
 contentFilter: 45 格 AE2 GenericStack 配置，基础 2 行，最多 3 张容量卡各解锁 1 行
 upgradeSlots: 6 格 AE2 upgrade inventory，当前支持 capacity/speed/inverter card
-networkSide: Direction
 selectedColor
 markerItem
 markerMode: retain / override / clear
@@ -446,7 +445,7 @@ AE2 ME Interface adjacent subnet
 ```text
 服务端 tick 根据有效激活模式自动尝试
 红石脉冲模式在上升沿执行一次
-快速右键可放入输入包裹或取出输出包裹；无快速动作时打开 GUI
+仅右键传送带上表面时可放入输入包裹或取出输出包裹；命中其它模型表面时打开 GUI
 ```
 
 打包提交前必须全部模拟：
@@ -496,16 +495,16 @@ MEStorage 拆包提交：
 
 ```text
 me_packager 已注册为方块、方块实体和方块物品。
-方块状态包含水平朝向 facing 与可切换连接面 network_side；机器背面 `facing.getOpposite()` 不依赖 network_side，始终作为第二个 AE 连接面。
-放置时 network_side 默认设为被点击面的反向，因此放在地面时为 down；潜行右键任意方块面会把 network_side 切换到被点击面。
+方块状态只包含水平朝向 `facing`。底部 `DOWN` 与模型背面 `facing.getOpposite()` 是固定 AE 连接面；不存在独立可切换的连接面状态。
+方块实现 AE2 `IOrientableBlock` 并使用 `OrientationStrategies.horizontalFacing()`；AE2 扳手通过全局 `WrenchHook` 旋转 `facing`，不维护自定义扳手识别或接线切换分支。
 GUI 作为主入口，菜单继承 AE2 `UpgradeableMenu` 并使用 `ScreenStyle`，客户端改由 `ModernUpgradeableScreen` 回移 current-main 槽位 hover、升级面板与空升级槽视觉。
 样式文件位于 `assets/ae2/screens/appliedpackaging/me_packager.json`，背景贴图位于 `assets/appliedpackaging/textures/gui/mepackager.png`。
 右侧升级面板使用 current-main `UpgradesPanel` 的 1.20.1 回移实现与 5px padding；空升级槽使用独立原样 `ae2-states.png` 的 current-main `BACKGROUND_UPGRADE`。容量元件槽不再调用依赖 AE2 15 的 `Icon.BACKGROUND_STORAGE_COMPONENT`，改从同一原样资源绘制 current-main `(240,48,16,16)`。升级兼容性通过 `Upgrades.add` 注册到 ME Packager 方块物品。空 marker 槽从用户 sprite `(32,16,16,16)` 绘制自有图标，hover 使用 current-main 蓝色填充/边线并提供双行说明 tooltip。
-非潜行右键执行快速交互：
+右键传送带上表面执行快速交互：
   手持合法包裹时走与外部 capability 相同的立即拆包输入规则。
-  空手或非包裹物品时先尝试取出输出槽。
-  输出槽为空且没有快速动作时打开 GUI。
-其它非 AE 连接面暴露 1 槽普通 item capability：slot 0 在空闲时可接收 1 个能够完整拆包的合法包裹，也可导出 heldBox 中的 PACK_OUTPUT；network_side 与机器背面都不暴露普通 item capability。
+  空手或非包裹物品时尝试取出输出槽。
+  传送带命中但没有可执行动作时不打开 GUI；右键机框、背板、侧面、底面等其它位置打开 GUI。
+底部与模型背面不暴露普通 item capability；其它四个非 AE 连接面暴露 1 槽普通 item capability：slot 0 在空闲时可接收 1 个能够完整拆包的合法包裹，也可导出 heldBox 中的 PACK_OUTPUT。
 方块实体 capability invalidation 后会在 revive 时同时重建内部与外部 item handler `LazyOptional`。
 GUI 左侧按钮区包含帮助、清除配置、基于网络现存物品配置分区、过滤应用模式、打包激活模式和阻挡模式。
 过滤区为 5 行 9 列 ConfigInventory；默认启用 2 行，最多 3 张容量卡各启用 1 行，未启用行由 AE2 OptionalFakeSlot 控制渲染和交互。
@@ -518,9 +517,9 @@ GUI 左侧打包激活模式直接控制实际红石逻辑，可在 `HIGH_SIGNAL
 红石只控制自动打包；输入包裹拆包不受红石关闭影响，仍受拆包过滤、阻挡模式、目标容量和目标在线状态约束。
 工作态期间拒绝新的输入；持续打包触发等机器空闲后再重试，红石脉冲或手动单次打包触发在工作态期间记录为 pendingPackTrigger，空闲后尝试一次。
 持续打包和自动拆包按基础 20 tick 间隔重试；加速卡会降低间隔但不低于 2 tick。
-network_side 与机器背面共同暴露同一个 AE2 主节点；可从任一面接入 AE2 线缆或相邻 ME Interface 网络，无 AE2 storage 时返回 NO_TARGET，不回落 Forge item handler / fluid handler。
+底部与模型背面共同暴露同一个 AE2 主节点；只有这两个面可以接入 AE2 线缆或相邻 ME Interface 网络，无 AE2 storage 时返回 NO_TARGET，不回落 Forge item handler / fluid handler。
 真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager GameTest 覆盖从相邻 Interface 网络打包、抽走网络内容、再整包拆回网络。
-真实 AE2 顶面 network_side GameTest 覆盖可切换面可设为非背面方向；独立真实线缆 GameTest 覆盖 network_side=down 时仍可从机器背面接入网络。
+真实 AE2 底面 Interface GameTest 覆盖固定底部接线；独立真实线缆 GameTest 覆盖固定模型背面接线，并逐面断言其它四面为 `AECableType.NONE`。
 真实世界相邻 Forge item handler / fluid handler 反例 GameTest 覆盖无 MEStorage 时不打包、不拆包、不消耗相邻 Forge 端点。
 唯一 heldBox 是当前工作项：拆包时保存输入包裹，打包时保存已生成待输出包裹；`held_box_state` 明确区分两种语义。
 输入侧为空且机器空闲时，从已连接 AE 网络选择基础 1k 容量、16 类型上限可承载的内容生成包裹；生成包裹先进入 packing 工作态，动画结束后进入唯一 outputSlot，客户端停在本地 `(x=10/16,z=8/16)` 的 12x16 前部区域中心，物品模型底面精确贴合传送带顶面 `y=2/16`。
@@ -538,7 +537,7 @@ network_side 与机器背面共同暴露同一个 AE2 主节点；可从任一�
   拆包过滤启用时，输入包裹的全部内容 AEKey 必须满足 allowlist 或反转后的 denylist；包裹 item 颜色和 markerItem 作为独立门禁同时满足。
 阻挡模式为 block_unpack_when_network_has_items 时，如果目标 ME 网络已有任意可见内容，则拒绝拆包且不消耗输入包裹。
 AE2 MEStorage 端点直接处理 AEKey/GenericStack，并会把 MEStorage 中已有包裹展开后再封装。
-红石卡门槛、脉冲打包、持续高信号打包、红石关闭仍允许拆包、过滤行容量卡解锁和 client smoke GUI 截图已有验证覆盖。
+红石卡门槛、脉冲打包、持续高信号打包、红石关闭仍允许拆包和过滤行容量卡解锁已有 GameTest 覆盖；GUI 视觉按需通过人工客户端检查。
 ```
 
 ## 9. 样板与终端

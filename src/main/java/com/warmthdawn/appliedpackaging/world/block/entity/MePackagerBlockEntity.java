@@ -3,6 +3,7 @@ package com.warmthdawn.appliedpackaging.world.block.entity;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.orientation.BlockOrientation;
+import appeng.api.orientation.RelativeSide;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.stacks.AEItemKey;
@@ -29,7 +30,6 @@ import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.block.InventoryDroppingBlockEntity;
-import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -797,17 +797,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     @Override
     public Set<Direction> getGridConnectableSides(BlockOrientation orientation) {
-        return meConnectionSides();
+        return EnumSet.of(Direction.DOWN, orientation.getSide(RelativeSide.BACK));
     }
 
     @Override
-    public AECableType getCableConnectionType(Direction dir) {
-        return meConnectionSides().contains(dir) ? AECableType.SMART : AECableType.NONE;
-    }
-
-    public void onNetworkSideChanged() {
-        onGridConnectableSidesChanged();
-        setChanged();
+    public AECableType getCableConnectionType(Direction side) {
+        return getGridConnectableSides(getOrientation()).contains(side)
+                ? AECableType.SMART
+                : AECableType.NONE;
     }
 
     @Override
@@ -816,10 +813,9 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             if (side == null) {
                 return internalItemHandler.cast();
             }
-            if (meConnectionSides().contains(side)) {
-                return LazyOptional.empty();
+            if (!getGridConnectableSides(getOrientation()).contains(side)) {
+                return externalItemHandler.cast();
             }
-            return externalItemHandler.cast();
         }
         return super.getCapability(capability, side);
     }
@@ -1004,20 +1000,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         }
     }
 
-    public Direction networkSide() {
-        return MePackagerBlock.networkSide(getBlockState());
-    }
-
-    public Direction machineBackSide() {
-        return getBlockState().getValue(MePackagerBlock.FACING).getOpposite();
-    }
-
-    public Set<Direction> meConnectionSides() {
-        EnumSet<Direction> sides = EnumSet.of(networkSide());
-        sides.add(machineBackSide());
-        return sides;
-    }
-
     public int animationTicks() {
         return animationTicks;
     }
@@ -1076,16 +1058,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             return animationTicks <= ANIMATION_CYCLE_TICKS / 2 ? ItemStack.EMPTY : renderedBox;
         }
         return animationTicks >= ANIMATION_CYCLE_TICKS / 2 ? ItemStack.EMPTY : renderedBox;
-    }
-
-    @Override
-    @SuppressWarnings("deprecation")
-    public void setBlockState(BlockState state) {
-        Set<Direction> previousSides = meConnectionSides();
-        super.setBlockState(state);
-        if (!previousSides.equals(meConnectionSides())) {
-            onNetworkSideChanged();
-        }
     }
 
     public enum RedstoneMode {

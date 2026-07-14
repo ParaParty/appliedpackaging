@@ -497,30 +497,30 @@ if (Test-Path -LiteralPath $mePackagerBlockstatePath) {
             south = 90
             west = 180
         }
-        $networkSides = @("north", "east", "south", "west", "up", "down")
         foreach ($facingEntry in $expectedFacingRotations.GetEnumerator()) {
-            foreach ($networkSide in $networkSides) {
-                $variantKey = "facing=$($facingEntry.Key),network_side=$networkSide"
-                $variantProperty = $mePackagerBlockstate.variants.PSObject.Properties[$variantKey]
-                Assert-True ($null -ne $variantProperty) "ME Packager blockstate declares $variantKey"
-                if ($null -eq $variantProperty) {
-                    continue
-                }
-
-                $variant = $variantProperty.Value
-                $actualRotation = if ($variant.PSObject.Properties.Name -contains "y") {
-                    [int] $variant.y
-                } else {
-                    0
-                }
-                Assert-True `
-                    ($variant.model -eq "appliedpackaging:block/me_packager/body") `
-                    "ME Packager $variantKey always renders the upright body"
-                Assert-True `
-                    ($actualRotation -eq $facingEntry.Value) `
-                    "ME Packager $variantKey orientation is controlled only by facing"
+            $variantKey = "facing=$($facingEntry.Key)"
+            $variantProperty = $mePackagerBlockstate.variants.PSObject.Properties[$variantKey]
+            Assert-True ($null -ne $variantProperty) "ME Packager blockstate declares $variantKey"
+            if ($null -eq $variantProperty) {
+                continue
             }
+
+            $variant = $variantProperty.Value
+            $actualRotation = if ($variant.PSObject.Properties.Name -contains "y") {
+                [int] $variant.y
+            } else {
+                0
+            }
+            Assert-True `
+                ($variant.model -eq "appliedpackaging:block/me_packager/body") `
+                "ME Packager $variantKey renders the upright body"
+            Assert-True `
+                ($actualRotation -eq $facingEntry.Value) `
+                "ME Packager $variantKey uses the expected model rotation"
         }
+        Assert-True `
+            (@($mePackagerBlockstate.variants.PSObject.Properties).Count -eq 4) `
+            "ME Packager blockstate declares only the four horizontal facing variants"
     }
 }
 

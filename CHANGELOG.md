@@ -21,8 +21,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - Recipes, loot tables, models, item textures, block textures, GUI icons, and Forge mod metadata.
 - Forge mod metadata declares the required Minecraft, Forge, AE2, and GuideME version ranges.
 - GameTest coverage for package data, transactions, filters, capacity, package machines, package buses, AE2 carriers, AE2 Pattern Provider integration, and fluid transactions.
-- Automated `runClientSmoke` development run for opening key in-game menus, capturing screenshots, and exiting the client.
-- `scripts/run-release-checks.ps1 -ReleaseCandidate` preset for the full final gate: build, data generation, GameTest server, client smoke, server smoke, release audit, docs audit, release manifest, and release bundle.
+- `scripts/run-release-checks.ps1 -ReleaseCandidate` preset for the full final gate: build, data generation, GameTest server, server smoke, release audit, docs audit, release manifest, and release bundle.
 - `scripts/verify-release-readiness.ps1` and `run-release-checks.ps1 -RequireReadyForTag` gate final tagging on a frozen intake table, completed release status, explicit positive release-ready signals, and no pending, blocked, failed, unresolved-migration, missing-migration-target-path, traversal-migration-target-path, or misclassified requirement/asset migration-target intake rows.
 - `scripts/test-release-readiness.ps1` self-tests the release-readiness gate against ready, pending/blocked, failed-intake, unresolved-migration, missing-migration-target-path, traversal-migration-target-path, misclassified requirement/asset target, structural-failure, and missing-positive-signal fixtures.
 - `scripts/test-release-check-plan.ps1` self-tests the release-candidate plan order, forbidden skip flags, and server world-load guardrails without running Minecraft.
@@ -54,20 +53,23 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `.\gradlew.bat runData` passed.
 - `.\gradlew.bat build` passed and generated `build/libs/appliedpackaging-0.1.0-dev.jar`.
 - `.\gradlew.bat runClient` smoke reached Applied Packaging initialization, SoundEngine startup, and block atlas creation with no recorded missing model or missing texture errors.
-- `.\gradlew.bat runClientSmoke` passed and captured the Package Assembler, ME Packager, Package Pattern Terminal, Package Storage Bus, Package Export Bus, and Package Unpacking Bus screens.
 - `.\gradlew.bat runServer --stacktrace` reached dedicated server world-load after local EULA acceptance; `latest.log` recorded `Done (2.724s)!` and no Applied Packaging client-class loading errors.
 - `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` passed, reached `Done (2.413s)!`, cleaned up port 25565, and audited the refreshed server world-load log.
 - `scripts/run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke` passed again after GuideME metadata was made explicit in `mods.toml`.
-- `scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad` passed for the current baseline.
+- `scripts/run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireServerWorldLoad` passed for the current baseline.
 - `scripts/write-release-manifest.ps1` generated the release manifest with jar SHA-256 and git commit metadata.
 - `scripts/verify-release-manifest.ps1` passed and confirmed the release manifest matches the current jar, `gradle.properties`, and git HEAD.
 - `scripts/write-release-bundle.ps1` and `scripts/verify-release-bundle.ps1` generated and audited a zip containing the jar, release manifest, README, CHANGELOG, LICENSE, and SHA256SUMS.
 - `scripts/verify-release-bundle.ps1` passed with bundled manifest mod/version and jar SHA-256 checks; final clean-git runs also verify the bundled manifest commit, branch, clean flag, and status lines.
 - `scripts/run-release-checks.ps1 -PlanOnly -ReleaseCandidate -RequireCleanGit` passed and confirmed the final release-candidate gate order.
-- `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` passed for the current baseline, including 112 GameTests, 6 client smoke screenshots, dedicated server world-load, clean-git release audit, docs audit, release manifest, and release bundle.
+- `scripts/run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit` passed for the current baseline, including GameTests, dedicated server world-load, clean-git release audit, docs audit, release manifest, and release bundle.
 - `scripts/verify-release-readiness.ps1` reports the current pending requirement/asset intake, and `scripts/verify-release-readiness.ps1 -RequireReadyForTag` fails as expected until that intake is resolved.
 - `scripts/test-release-readiness.ps1` passed, confirming the readiness gate can pass ready fixtures and fail pending, blocked, failed, unresolved-migration, missing-migration-target-path, traversal-migration-target-path, misclassified requirement/asset target, structurally invalid, or missing-positive-signal fixtures.
-- `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan still includes build, data, GameTest, client smoke, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order, rejects all skip flags, and protects server world-load audit usage.
+- `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan includes build, data, GameTest, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order, rejects all skip flags, and protects server world-load audit usage.
+
+### Removed
+
+- Removed the slow automated client smoke runner, its Gradle task, screenshot fixtures, and release screenshot gate. Client visuals are now checked through targeted manual client runs when needed.
 - `scripts/verify-assets.ps1` passed, confirming required PNG resources are present, contain visible non-placeholder pixel content, and match the expected asset dimensions.
 - `scripts/test-assets-audit.ps1` passed, confirming valid asset fixtures pass and bad dimensions, invalid PNG headers, fully transparent PNGs, single-color placeholder PNGs, or missing required PNGs fail.
 - `scripts/test-release-audit.ps1` passed, confirming valid release audit fixtures pass and missing jar README, stale bundled docs/language files, missing or stale bundled release resources, tampered mod metadata, local path leaks, language placeholder mismatches, local pattern recipe outputs, creative-tab local patterns, or terminal `BlockItem` regressions fail.

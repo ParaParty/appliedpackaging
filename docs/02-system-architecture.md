@@ -43,7 +43,7 @@ ME Package Assembler / ME 包裹装配室：
 
 ME Packager / ME 打包机：
   类 Create Packager。
-  只通过一个可切换连接面贴着相邻 AE 网络工作，在 MEStorage 内容和包裹之间做整包转换，并支持 16k/64k/256k 容量元件。
+  只通过固定底部与模型背面接入 AE 网络，在所连网格的 MEStorage 内容和包裹之间做整包转换，并支持 16k/64k/256k 容量元件。
 
 Package Buses / 包裹总线家族：
   Package Storage Bus 与 Package Unpacking Bus 均为 AE2 cable part，只暴露合法包裹或在完整模拟通过后把合法包裹内容推入目标端点，并各自占用 channel。
@@ -88,7 +88,7 @@ registry / data / gametest
 2. `PackageDataStorage` 是 1.20.1 NBT 与未来 Data Component 的唯一读写入口。
 3. 包裹规划与 MEStorage 操作先模拟后提交；Forge item handler 拆包采用 Pattern Provider 式 check-then-push，只在整包累计模拟通过后执行真实插入，不维护自定义跨 handler 回滚层。
 4. 打包和拆包以单个包裹为最小操作单位。
-5. ME 打包机只扫描所选连接面的相邻 AE MEStorage，不扫描自身所在任意 ME 网络，也不回落到 Forge item/fluid handler。
+5. ME 打包机只通过固定底部与模型背面加入 AE 网格并使用该网格的 MEStorage；其它面不接入 ME 线缆，不扫描相邻 Forge item/fluid handler，也不回落到 Forge item/fluid handler。
 6. 装配室只处理样板语义，不处理相邻存储打包和拆包。
 7. 总线家族只路由包裹，不暴露包裹内部散装资源。
 8. 客户端类必须隔离，dedicated server 不得加载 screen/render/client event 类。
@@ -129,7 +129,8 @@ ME 打包机打包：
 
 ```text
 redstone/button trigger
--> detect AE2 MEStorage on selected network side
+-> access the connected grid through the fixed bottom or model-back node side
+-> resolve that grid's AE2 MEStorage
 -> enumerate endpoint contents
 -> unpack source packages into virtual entries
 -> apply content filter
@@ -147,7 +148,7 @@ incoming package stack
 -> validate PackageData
 -> apply package filter
 -> expand contents
--> simulate complete insertion into the adjacent MEStorage
+-> simulate complete insertion into the connected grid MEStorage
 -> commit the complete package contents
 -> clear the held package only after a successful commit
 ```

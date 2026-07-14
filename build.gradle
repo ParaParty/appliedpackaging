@@ -17,8 +17,6 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
-def clientSmokeWorld = providers.gradleProperty("appliedpackaging.clientSmoke.world").orElse("New World")
-
 repositories {
     mavenLocal()
     mavenCentral()
@@ -41,7 +39,6 @@ base {
 
 tasks.named('jar', Jar).configure {
     from('LICENSE.md', 'README.md', 'CHANGELOG.md')
-    exclude 'com/warmthdawn/appliedpackaging/client/ClientSmokeRunner*.class'
     exclude 'com/warmthdawn/appliedpackaging/gametest/**'
     manifest {
         attributes([
@@ -79,17 +76,6 @@ legacyForge {
 
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        clientSmoke {
-            client()
-            def smokeWorld = clientSmokeWorld.get()
-            programArguments.addAll "--username", "APSmoke", "--width", "960", "--height", "540",
-                    "--quickPlaySingleplayer", smokeWorld
-            systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
-            systemProperty 'appliedpackaging.clientSmoke.enabled', 'true'
-            systemProperty 'appliedpackaging.clientSmoke.quit', 'true'
-            systemProperty 'appliedpackaging.clientSmoke.world', smokeWorld
         }
 
         server {

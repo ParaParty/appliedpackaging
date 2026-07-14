@@ -137,13 +137,13 @@ GameTest
 ```text
 已实现：
   me_packager 方块/方块物品/方块实体注册
-  水平朝向 blockstate 与可切换 network_side blockstate
+  只包含四个水平 facing 的 blockstate；固定底部与模型背面接入 AE 网络
   方块掉落表
-  单一 heldBox item handler；非 network_side 面暴露同一包裹 capability，并由状态区分待拆输入与待取输出
+  单一 heldBox item handler；底部与模型背面之外的四面暴露同一包裹 capability，并由状态区分待拆输入与待取输出
   GUI/Menu 改为 AE2 UpgradeableScreen + UpgradeableMenu，主入口为右键打开 GUI
   GUI 包含 AE2 左工具栏、5 行过滤区、颜色选择小按钮、marker 槽、共享 heldBox、容量元件过滤器槽、右侧 6 格升级面板和玩家背包
-  非潜行右键保留快速放入包裹与取出输出；无快速动作时打开 GUI
-  潜行右键切换 network_side 到被点击面
+  只有右键传送带上表面才快速放入包裹或取出输出；右键其它模型位置打开 GUI
+  AE2 扳手按普通水平可定向机器规则旋转 facing，背面接线与模型同步旋转
   未安装红石卡时默认有红石信号打包；安装红石卡后可切换高信号、低信号、总是、脉冲和关闭，红石只控制打包
   拆包在输入槽存在合法包裹时自动工作，仍受过滤、阻挡和目标容量约束
   持续打包与自动拆包基础每 20 tick 重试一次；加速卡降低间隔
@@ -154,14 +154,14 @@ GameTest
   过滤应用模式可在打包拆包都启用、仅打包、仅拆包之间切换
   marker 槽物品在 override 模式下优先作为输出 marker；retain/override/clear 是当前正式配置
   阻挡模式可在忽略网络内容与网络内已有物品时禁止拆包之间切换
-  所选 network_side 只识别 AE2 MEStorage capability，可接入相邻 ME Interface 暴露的子网存储
+  固定底部与模型背面只接入 AE2 主节点，可连接线缆或相邻 ME Interface 网络
   AE2 MEStorage 打包/拆包操作，支持 GenericStack/AEKey 和源包裹展开
   MEStorage endpoint GameTest
   已删除无运行时调用的 Forge item handler 打包规划与 Forge fluid handler 适配；ME Packager 只以 AE2 MEStorage 作为目标
   ME Packager 红石模式菜单、红石卡门槛、红石脉冲、高信号持续打包、红石关闭仍允许拆包和容量卡过滤行 GameTest
-  ME Packager AE2 GUI client smoke 截图
+  ME Packager AE2 GUI 人工截图
   真实 AE2 Creative Energy Cell + Drive + Interface + ME Packager 世界内打包/拆包 GameTest smoke
-  真实 AE2 顶面 network_side 世界内打包 GameTest smoke
+  真实 AE2 底面 Interface 与模型背面线缆世界内打包 GameTest smoke
   真实世界相邻 Forge item/fluid handler + ME Packager 反例 GameTest smoke，确认无 MEStorage 时不回落、不消耗
 
 待实现：
@@ -232,7 +232,7 @@ GameTest/客户端验证
   装配室基础 GameTest
 
 客户端验证：
-  runClientSmoke 已覆盖 Package Assembler GUI 打开与截图；人工检查包括无过滤 ghost 物品、样板移除后残留输入红色错误状态、左侧 toolbar 与右侧 AE2 升级面板
+  历史人工截图已检查无过滤 ghost 物品、样板移除后残留输入红色错误状态、左侧 toolbar 与右侧 AE2 升级面板；后续视觉改动按需使用 runClient 人工复验
 ```
 
 验收：
@@ -253,10 +253,10 @@ GameTest/客户端验证
 包裹存储总线 AE2 cable part
 包裹卸货总线 AE2 cable part
 七行包裹过滤 UI 与 AE2 网络集成
-GameTest 与客户端 smoke
+GameTest 与客户端人工验证
 ```
 
-2026-07-12 范围修订：独立 Package Pattern Terminal 与 Package Export Bus 取消；物品注册、配方、创造栏入口、loot 和客户端 smoke 步骤均删除。2026-07-13 代码审查进一步删除了三个旧 Package Bus 方块/方块实体和独立终端方块/part/菜单的无入口兼容壳，正式实现只保留 AE2 cable part 总线、原版终端包裹模式与高级样板终端。
+2026-07-12 范围修订：独立 Package Pattern Terminal 与 Package Export Bus 取消；物品注册、配方、创造栏入口、loot 和对应客户端自动截图步骤均删除。2026-07-13 代码审查进一步删除了三个旧 Package Bus 方块/方块实体和独立终端方块/part/菜单的无入口兼容壳，正式实现只保留 AE2 cable part 总线、原版终端包裹模式与高级样板终端。
 
 当前状态：
 
@@ -270,7 +270,7 @@ package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认�
 模糊/反转按钮仅在对应升级卡存在时显示并始终紧邻颜色按钮，模糊/反转/颜色三个 8px 按钮在 18px 行内统一使用固定 2px 上边距；卸货总线在同一 5 格升级库存中额外接受最多 4 张加速卡
 存储总线遮掉右上工作区；卸货总线工作槽同步真实 held 包裹并显示 15 级进度条，工作中不可取、阻塞时可由玩家取回
 网络接收与最终提交都校验过滤、整包累计容量和 Pattern Provider 阻挡条件；最终目标变化时保留原 held 包裹并阻塞重试，held 状态写入 Part NBT，拆除 part 时作为额外掉落返还
-runClientSmoke 自动放置两个真实 AE2 part，插入模糊/反转/容量卡（卸货再插加速卡），打开菜单并截图
+总线视觉变更按需在 runClient 中放置真实 AE2 part 并人工检查
 ```
 
 验收：
@@ -293,8 +293,7 @@ runClientSmoke 自动放置两个真实 AE2 part，插入模糊/反转/容量卡
 runData
 build
 runGameTestServer
-runClient smoke
-runClientSmoke GUI screenshot smoke
+runClient（需要视觉验收时人工执行）
 检查 jar、mods.toml、license、changelog
 生成发布清单
 范围冻结后按当前版本生成发布 tag
@@ -307,17 +306,15 @@ runClientSmoke GUI screenshot smoke
   CHANGELOG.md、README.md、LICENSE.md 与 Forge/AE2/GuideME 版本声明已补齐
   mods.toml 已声明 Minecraft、Forge、AE2 与 GuideME 发布依赖范围
   build/libs/appliedpackaging-0.1.0-dev.jar 已生成
-  scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、jar 内文档/语言/Applied Packaging 发布资源源文件同步、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、玩家入口产品不变量、asset contract、语言 key/占位符、模型贴图引用、client smoke 截图、dedicated server latest.log 证据和可选 git clean 证据
-  scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 runClientSmoke、可选 run-server-smoke、机械发布审计、文档审计、发布清单和发布附件包
-  scripts/run-release-checks.ps1 -ReleaseCandidate 已作为最终候选发布预设，自动启用 client smoke、server smoke、manifest 和 bundle 审计
+  scripts/verify-release.ps1 已覆盖 jar 元数据、必需条目、jar 内文档/语言/Applied Packaging 发布资源源文件同步、dev/test/reference 条目排除、本机路径泄漏、资源 JSON/PNG、玩家入口产品不变量、asset contract、语言 key/占位符、模型贴图引用、dedicated server latest.log 证据和可选 git clean 证据
+  scripts/run-release-checks.ps1 已编排 build、runData、runGameTestServer、可选 run-server-smoke、机械发布审计、文档审计、发布清单和发布附件包
+  scripts/run-release-checks.ps1 -ReleaseCandidate 已作为最终候选发布预设，自动启用 server smoke、manifest 和 bundle 审计
   scripts/verify-release-readiness.ps1 已作为 tag 就绪审计，-RequireReadyForTag 会阻止状态、迁移目标或验证要求仍为待输入、待判定、阻塞或失败的 intake 项创建发布 tag，并要求已填写的迁移目标是仓库内已存在文件的规范相对路径、不包含父级遍历，且与类型目标族匹配：需求类落在 docs/01、02、03、05、06 或 07，材质类落在 docs/04、docs/assets 或 src/main/resources/assets/appliedpackaging；负面 blocker 清除后还要求文档明确记录范围已冻结、最终服务端 world-load 已完成、发布 tag 可创建、目标可以标记完成和 tag 就绪门禁已通过
-  使用 -RunClientSmoke 时会自动审计 11 张必需 client smoke 截图存在、非空且为有效 PNG
   dedicated server world-load 已在当前基线通过；服务端 latest.log 审计可由 run-server-smoke.ps1 或 run-release-checks.ps1 -RunServerSmoke 刷新后执行
-  当前验证基线已通过 run-release-checks.ps1 -RunClientSmoke
-  当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireClientSmokeScreenshots -RequireServerWorldLoad
+  当前服务端证据已通过 run-release-checks.ps1 -AuditOnly -RequireAssetContracts -RequireServerWorldLoad
   当前自动服务端 smoke 已通过 run-release-checks.ps1 -SkipBuild -SkipData -SkipGameTest -RunServerSmoke
-  2026-07-04 候选发布基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含当时的 build、runData、112 个 GameTest、6 张 client smoke 截图、dedicated server Done (2.471s)、release audit、asset audit、docs audit、manifest audit 和 bundle audit
-  当前非 UI 收尾基线为提交 57a9688；compileJava、170 个必需 GameTest、10 张必需 client smoke 截图、build、docs audit、release audit 与 clean-git audit 均有通过记录
+  2026-07-04 候选发布基线已通过 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit，包含当时的 build、runData、112 个 GameTest、dedicated server Done (2.471s)、release audit、asset audit、docs audit、manifest audit 和 bundle audit
+  当前非 UI 收尾基线为提交 57a9688；compileJava、170 个必需 GameTest、build、docs audit、release audit 与 clean-git audit 均有通过记录
   GuideME 发布依赖范围已进入 mods.toml，并通过 build、release audit、manifest audit 和 server smoke 验证
   当前提交基线已通过 run-release-checks.ps1 -AuditOnly -RequireCleanGit
   资产资源审计可由 verify-assets.ps1 覆盖必需 PNG、路径归类、RGBA PNG header、可见非占位像素内容和 item/block/gui/part/logo 尺寸

@@ -1,6 +1,5 @@
 package com.warmthdawn.appliedpackaging.client;
 
-import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.renderer.MePackagerRenderer;
 import com.warmthdawn.appliedpackaging.client.renderer.PackageEntityRenderer;
 import com.warmthdawn.appliedpackaging.client.renderer.PackageMarkerRenderer;
@@ -29,10 +28,6 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 public final class AppliedPackagingClient {
-    private static final String CLIENT_SMOKE_ENABLED_PROPERTY = "appliedpackaging.clientSmoke.enabled";
-    private static final String CLIENT_SMOKE_RUNNER_CLASS =
-            "com.warmthdawn.appliedpackaging.client.ClientSmokeRunner";
-
     private AppliedPackagingClient() {
     }
 
@@ -41,7 +36,6 @@ public final class AppliedPackagingClient {
         PackageUnpackingBusPart.registerModels();
         eventBus.addListener(AppliedPackagingClient::clientSetup);
         eventBus.addListener(AppliedPackagingClient::registerAdditionalModels);
-        registerClientSmokeRunner();
     }
 
     private static void clientSetup(FMLClientSetupEvent event) {
@@ -86,16 +80,4 @@ public final class AppliedPackagingClient {
         event.register(PackageAssemblerRenderer.LIGHTS_MODEL);
     }
 
-    private static void registerClientSmokeRunner() {
-        if (!Boolean.getBoolean(CLIENT_SMOKE_ENABLED_PROPERTY)) {
-            return;
-        }
-        try {
-            Class<?> runnerClass = Class.forName(CLIENT_SMOKE_RUNNER_CLASS);
-            runnerClass.getMethod("register").invoke(null);
-        } catch (ReflectiveOperationException exception) {
-            throw new IllegalStateException("Client smoke runner is not available in this build", exception);
-        }
-        AppliedPackaging.LOGGER.debug("Applied Packaging client smoke runner loaded for this development run.");
-    }
 }

@@ -1,21 +1,18 @@
 package com.warmthdawn.appliedpackaging.world.block;
 
+import appeng.api.orientation.IOrientableBlock;
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -24,17 +21,19 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraftforge.common.ToolAction;
 import net.minecraftforge.network.NetworkHooks;
 
-public class MePackagerBlock extends AbstractHorizontalMachineBlock {
-    public static final DirectionProperty NETWORK_SIDE = DirectionProperty.create("network_side");
+public class MePackagerBlock extends AbstractHorizontalMachineBlock implements IOrientableBlock {
+    private static final double BELT_MIN_X = 1.0 / 16.0;
+    private static final double BELT_MAX_X = 1.0;
+    private static final double BELT_MIN_Z = 2.0 / 16.0;
+    private static final double BELT_MAX_Z = 14.0 / 16.0;
+    private static final double BELT_TOP_Y = 2.0 / 16.0;
+    private static final double HIT_EPSILON = 1.0E-4;
     private static final VoxelShape SHAPE_EAST = Shapes.or(
             Block.box(0, 0, 0, 16, 1, 16),
             Block.box(0, 1, 0, 4, 16, 16),
@@ -59,28 +58,13 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
             Block.box(0, 1, 0, 2, 3, 12),
             Block.box(14, 1, 0, 16, 3, 12),
             Block.box(2, 1, 0, 14, 2, 15)).optimize();
-    private static final TagKey<Item> WRENCHES =
-            TagKey.create(Registries.ITEM, new ResourceLocation("forge", "tools/wrench"));
-    private static final ToolAction WRENCH_ACTION = ToolAction.get("wrench");
-    private static final ToolAction WRENCH_ROTATE_ACTION = ToolAction.get("wrench_rotate");
-
     public MePackagerBlock(BlockBehaviour.Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(NETWORK_SIDE, Direction.SOUTH));
     }
 
     @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        Direction facing = context.getHorizontalDirection().getOpposite();
-        return defaultBlockState()
-                .setValue(FACING, facing)
-                .setValue(NETWORK_SIDE, context.getClickedFace().getOpposite());
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(NETWORK_SIDE);
+    public IOrientationStrategy getOrientationStrategy() {
+        return OrientationStrategies.horizontalFacing();
     }
 
     @Override
@@ -120,27 +104,19 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
             return InteractionResult.PASS;
         }
 
-        ItemStack held = player.getItemInHand(hand);
-        if (isWrench(held)) {
-            Direction side = hit.getDirection();
-            level.setBlock(pos, state.setValue(NETWORK_SIDE, side), Block.UPDATE_ALL);
-            packager.onNetworkSideChanged();
-            packager.setChanged();
-            player.displayClientMessage(
-                    Component.translatable(
-                            "message.appliedpackaging.me_packager.network_side_set",
-                            Component.translatable("direction.appliedpackaging." + side.getName())),
-                    true);
-            return InteractionResult.CONSUME;
+        if (isBeltSurfaceHit(state, pos, hit)) {
+            ItemStack held = player.getItemInHand(hand);
+            MePackagerBlockEntity.ActionResult result = packager.interact(player, held);
+            if (result.messageKey() != null) {
+                player.displayClientMessage(Component.translatable(result.messageKey()), true);
+            }
+            return result.consumed() ? InteractionResult.CONSUME : InteractionResult.PASS;
         }
 
-        MePackagerBlockEntity.ActionResult result = packager.interact(player, held);
-        if (result.messageKey() != null) {
-            player.displayClientMessage(Component.translatable(result.messageKey()), true);
-        } else if (player instanceof ServerPlayer serverPlayer && serverPlayer.connection != null) {
+        if (player instanceof ServerPlayer serverPlayer && serverPlayer.connection != null) {
             NetworkHooks.openScreen(serverPlayer, packager, pos);
         }
-        return result.consumed() ? InteractionResult.CONSUME : InteractionResult.PASS;
+        return InteractionResult.CONSUME;
     }
 
     @Override
@@ -157,28 +133,11 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
     }
 
     @Override
-    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean isMoving) {
-        super.onPlace(state, level, pos, oldState, isMoving);
-        if (!level.isClientSide && !state.is(oldState.getBlock())
-                && level.getBlockEntity(pos) instanceof MePackagerBlockEntity packager) {
-            packager.onNetworkSideChanged();
-        }
-    }
-
-    @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
         if (!state.is(newState.getBlock())) {
             dropInventory(level, pos, level.getBlockEntity(pos));
             super.onRemove(state, level, pos, newState, isMoving);
         }
-    }
-
-    public static Direction networkSide(BlockState state) {
-        if (state.hasProperty(NETWORK_SIDE)) {
-            return state.getValue(NETWORK_SIDE);
-        }
-        Direction facing = state.hasProperty(FACING) ? state.getValue(FACING) : Direction.NORTH;
-        return facing.getOpposite();
     }
 
     private static VoxelShape shapeForFacing(Direction facing) {
@@ -190,18 +149,42 @@ public class MePackagerBlock extends AbstractHorizontalMachineBlock {
         };
     }
 
-    private static boolean isWrench(ItemStack stack) {
-        if (stack.isEmpty()) {
+    static boolean isBeltSurfaceHit(BlockState state, BlockPos pos, BlockHitResult hit) {
+        if (hit.getDirection() != Direction.UP) {
             return false;
         }
-        if (stack.is(WRENCHES)
-                || stack.canPerformAction(WRENCH_ACTION)
-                || stack.canPerformAction(WRENCH_ROTATE_ACTION)) {
-            return true;
+
+        double worldX = hit.getLocation().x - pos.getX();
+        double worldY = hit.getLocation().y - pos.getY();
+        double worldZ = hit.getLocation().z - pos.getZ();
+        if (Math.abs(worldY - BELT_TOP_Y) > HIT_EPSILON) {
+            return false;
         }
 
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        return "create".equals(id.getNamespace()) && "wrench".equals(id.getPath())
-                || "ae2".equals(id.getNamespace()) && id.getPath().endsWith("_wrench");
+        double modelX;
+        double modelZ;
+        switch (state.getValue(FACING)) {
+            case SOUTH -> {
+                modelX = worldZ;
+                modelZ = 1.0 - worldX;
+            }
+            case WEST -> {
+                modelX = 1.0 - worldX;
+                modelZ = 1.0 - worldZ;
+            }
+            case NORTH -> {
+                modelX = 1.0 - worldZ;
+                modelZ = worldX;
+            }
+            default -> {
+                modelX = worldX;
+                modelZ = worldZ;
+            }
+        }
+
+        return modelX >= BELT_MIN_X - HIT_EPSILON
+                && modelX <= BELT_MAX_X + HIT_EPSILON
+                && modelZ >= BELT_MIN_Z - HIT_EPSILON
+                && modelZ <= BELT_MAX_Z + HIT_EPSILON;
     }
 }

@@ -19,20 +19,6 @@ $pngBytes = [byte[]]@(
     0, 0, 0, 0, 73, 69, 78, 68,
     174, 66, 96, 130
 )
-$clientSmokeScreenshotNames = @(
-    "appliedpackaging-client-smoke-world-me_packager.png",
-    "appliedpackaging-client-smoke-world-me_packager_link.png",
-    "appliedpackaging-client-smoke-world-all_machines.png",
-    "appliedpackaging-client-smoke-package_assembler.png",
-    "appliedpackaging-client-smoke-me_packager.png",
-    "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal.png",
-    "appliedpackaging-client-smoke-ae2_pattern_encoding_terminal_settings.png",
-    "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal.png",
-    "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png",
-    "appliedpackaging-client-smoke-package_storage_bus.png",
-    "appliedpackaging-client-smoke-package_unpacking_bus.png"
-)
-
 function Write-Utf8File {
     param(
         [string] $Path,
@@ -45,16 +31,6 @@ function Write-Utf8File {
     }
 
     [System.IO.File]::WriteAllText($Path, $Text, [System.Text.UTF8Encoding]::new($false))
-}
-
-function Write-ClientSmokeScreenshots {
-    param([string] $RootPath)
-
-    $screenshotDirectory = Join-Path $RootPath "run/screenshots"
-    New-Item -ItemType Directory -Force -Path $screenshotDirectory | Out-Null
-    foreach ($screenshotName in $clientSmokeScreenshotNames) {
-        [System.IO.File]::WriteAllBytes((Join-Path $screenshotDirectory $screenshotName), $pngBytes)
-    }
 }
 
 function Add-ZipEntryText {
@@ -372,8 +348,7 @@ function Invoke-ReleaseAuditCase {
         [string] $RootPath,
         [string] $JarPath,
         [int] $ExpectedExitCode,
-        [string] $ExpectedText = "",
-        [switch] $RequireClientSmokeScreenshots
+        [string] $ExpectedText = ""
     )
 
     $arguments = @(
@@ -383,9 +358,6 @@ function Invoke-ReleaseAuditCase {
         "-RootPath", $RootPath,
         "-JarPath", $JarPath
     )
-    if ($RequireClientSmokeScreenshots) {
-        $arguments += "-RequireClientSmokeScreenshots"
-    }
     $output = & pwsh @arguments 2>&1 | Out-String
     $exitCode = $LASTEXITCODE
 
@@ -413,27 +385,6 @@ try {
         -RootPath $validFixture.RootPath `
         -JarPath $validFixture.JarPath `
         -ExpectedExitCode 0
-
-    $validScreenshotFixture = New-ReleaseAuditFixture "valid-client-smoke-screenshots"
-    Write-ClientSmokeScreenshots -RootPath $validScreenshotFixture.RootPath
-    Invoke-ReleaseAuditCase `
-        -Name "valid client smoke screenshot fixture" `
-        -RootPath $validScreenshotFixture.RootPath `
-        -JarPath $validScreenshotFixture.JarPath `
-        -ExpectedExitCode 0 `
-        -ExpectedText "11 client smoke screenshots are present and valid PNG files" `
-        -RequireClientSmokeScreenshots
-
-    $missingEditorScreenshotFixture = New-ReleaseAuditFixture "missing-advanced-editor-screenshot"
-    Write-ClientSmokeScreenshots -RootPath $missingEditorScreenshotFixture.RootPath
-    Remove-Item -LiteralPath (Join-Path $missingEditorScreenshotFixture.RootPath "run/screenshots/appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png")
-    Invoke-ReleaseAuditCase `
-        -Name "missing advanced editor screenshot fixture" `
-        -RootPath $missingEditorScreenshotFixture.RootPath `
-        -JarPath $missingEditorScreenshotFixture.JarPath `
-        -ExpectedExitCode 1 `
-        -ExpectedText "appliedpackaging-client-smoke-advanced_pattern_encoding_terminal_editor.png" `
-        -RequireClientSmokeScreenshots
 
     $missingReadmeFixture = New-ReleaseAuditFixture "missing-readme"
     Remove-ZipEntry -ZipPath $missingReadmeFixture.JarPath -EntryName "README.md"

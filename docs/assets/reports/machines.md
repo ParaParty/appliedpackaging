@@ -22,7 +22,7 @@ item.json          11 个 cube 的静止物品预览；继承 minecraft:block/bl
 
 `belt_scroll.png` 是 32x32、横向两个连续 16px 周期；一个运行时窗口严格为上表面 15px + 工作口正面 1px，工作期间按 1px/tick 计算 U/X offset，因此滚动到周期末也不会采样到 atlas 相邻 sprite。帘子不使用逐帧贴图，而是按 20 tick 机器进度做单峰摆角：拆包向内、打包向外。包裹沿传送带移动并保留方块体积 stencil 裁切，机器事务提交时序未修改。
 
-方向约定：源模型本地 +X 是工作口；运行时 `facing` 是工作口方向，north/east/south/west 对应 Y 旋转 270/0/90/180 度。`network_side` 仅指定 AE 接线面，不参与主体或动画旋转；因此放在地面得到 `network_side=down` 时，底盘仍保持水平。方块物品的完整 11-cube 模型继承 `minecraft:block/block`，使用原版标准 GUI、地面、固定、第三人称和第一人称方块变换。
+方向约定：源模型本地 +X 是工作口；运行时 `facing` 是工作口方向，north/east/south/west 对应 Y 旋转 270/0/90/180 度。方块状态只有这四个水平朝向；底部与模型背面是固定 AE 接线面，扳手旋转模型时背面接线随 `facing` 变化。方块物品的完整 11-cube 模型继承 `minecraft:block/block`，使用原版标准 GUI、地面、固定、第三人称和第一人称方块变换。
 
 可编辑源和确定性导入记录保存在：
 
@@ -35,7 +35,7 @@ scripts/import-me-packager-model.py
 
 旧 `models/block/me_packager_create/`、`textures/block/me_packager_create/` 和 hatch/tray additional models 已删除；下方 2026-07-05 小节只保留历史来源记录。
 
-验证：`assetgen validate-contract`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`runData`、100/100 required GameTest、客户端 smoke、`build` 和 `verify-release.ps1 -RequireAssetContracts` 均通过。朝向修正后的客户端 smoke 以 `facing=north,network_side=south` 刷新 11 张截图，确认工作口朝 north、背面接线朝 south，主体保持直立且传送带/帘子与主体共用同一朝向，无 missing model/texture。
+验证：`assetgen validate-contract`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`runData`、客户端 smoke、`build` 和 `verify-release.ps1 -RequireAssetContracts` 均通过。2026-07-15 方向/交互复验以 106/106 required GameTest 覆盖四个 `facing`、AE2 扳手旋转、固定底部与模型背面接网，以及仅传送带上表面执行手动包裹交互；既有客户端 smoke 确认主体保持直立且传送带/帘子与主体共用同一朝向，无 missing model/texture。
 
 ## 2026-07-13 AE2 v19 Package Assembler Replacement
 
@@ -82,7 +82,7 @@ assets/create/textures/block/factory_panel_packager_mode.png
   src/main/resources/assets/appliedpackaging/textures/block/me_packager_create/
 models/block/me_packager.json parent 指向 me_packager_create/block_linked。
 models/item/me_packager.json parent 指向 me_packager_create/item。
-blockstates/me_packager.json 已包含 facing 与 network_side 组合；network_side=up/down 使用 vertical linked 临时模型，其它方向使用 horizontal linked 临时模型。
+当时的临时 blockstate 曾包含 facing 与可切换接线组合；该方案已由 2026-07-15 正式模型和仅四个 `facing` 变体完全替代，不属于当前运行时资源。
 ```
 
 验收点：

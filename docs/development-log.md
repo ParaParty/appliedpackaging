@@ -3278,3 +3278,17 @@ ME Packager 不再继承完整 16x16x16 方块的默认选择框和碰撞体。�
 补充处理用户指出的 tooltip 穿透：picker 打开期间暂停锚点 `TriggerButton` 自己的 tooltip，关闭后恢复其原 tooltip；父 Screen 既有底层 slot tooltip 拦截保持不变，弹窗内颜色名称提示保留。Client smoke 的 Package Storage Bus 步骤在截图前自动打开首行 picker，并把鼠标停在首行颜色按钮，实际截图没有“选择包裹颜色”提示穿透。
 
 验证：`gradlew.bat compileJava --stacktrace`、`gradlew.bat build --stacktrace`、隔离世界 `runClientSmoke '-Pappliedpackaging.clientSmoke.world=AP Smoke Color Picker 20260715' --stacktrace`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部成功。11 张必需截图刷新；人工检查总线弹窗与两个终端编辑弹窗，确认 None 显隐不移动右侧颜色、选中/hover 无外框、没有 tooltip 穿透或黑块。GameTest 已考虑但未执行：修改范围完全位于客户端控件、渲染、提示拦截与资源，不改变服务端行为。
+
+### 2026-07-15 删除自动客户端 smoke
+
+按用户决定删除耗时且收益有限的自动客户端 smoke。移除 `ClientSmokeRunner`、Gradle `runClientSmoke` 运行配置、release runner 的 `-RunClientSmoke` / `-RequireClientSmokeScreenshots` 参数、固定截图存在性门禁和对应发布自测 fixture；客户端视觉变更改为按风险人工运行 `runClient` 并检查目标界面、动画与日志。行为验证继续由 GameTest 承担，dedicated server smoke 和最终 world-load 门禁保留。
+
+删除 smoke 不改变总线服务端逻辑：Package Storage Bus 与 Package Unpacking Bus 默认优先级仍均为 0，同优先级时卸货总线先接收，玩家设置的数值优先级继续生效。合并前重新执行 build、106 项必需 GameTest、发布自测和 asset-contract release audit，全部通过。
+
+### 2026-07-15 ME Packager 固定接线、标准扳手旋转与表面交互
+
+按最终交互要求删除 ME Packager 的独立 `network_side` 方块状态、放置推导、自定义扳手识别和接线切换提示。方块现在实现 AE2 `IOrientableBlock` 并使用 `OrientationStrategies.horizontalFacing()`；AE2 全局 `WrenchHook` 只旋转水平 `facing`。主体、动态件、轮廓、模型背面接线面和右键命中区域都从同一个 `facing` 推导，底部接线固定不变。AE 主节点只在 `DOWN` 与 `facing.getOpposite()` 暴露，`getCableConnectionType` 在其它四面返回 `NONE`；底部和模型背面不暴露普通 item capability，其余四面保留包裹自动化 capability。
+
+手动包裹交互改为模型局部坐标命中：只有传送带上表面 `x=1..16,y=2,z=2..14` 执行放入/取出，四个水平朝向先逆变换到源模型本地 +X 坐标再判断。右键机框、背板、侧面和底面等其它位置打开 GUI；传送带命中但没有可执行的包裹动作时不打开 GUI。blockstate 与确定性导入脚本收敛为四个 `facing` 变体，资源审计同步拒绝多余变体。
+
+新增或改写 GameTest 覆盖 AE2 扳手从 east 转到 south 后背面连接从 west 移到 north、固定底部真实 Interface 网络、固定模型背面真实线缆网络、其它四面拒绝 ME 线缆、底部/背面拒绝普通 item capability，以及四个 `facing` 下仅传送带上表面取包。`.\gradlew.bat runGameTestServer` 两次成功，最终 106/106 required tests 通过；`.\gradlew.bat runData`、`.\gradlew.bat build`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 通过。自动客户端 smoke 已按同日用户决定从项目移除，`runClientSmoke` 不再是可用任务，本轮没有恢复该入口。

@@ -1,92 +1,17 @@
 {
   "variants": {
-    "facing=east,network_side=north": {
+    "facing=east": {
       "model": "appliedpackaging:block/me_packager/body"
     },
-    "facing=east,network_side=east": {
-      "model": "appliedpackaging:block/me_packager/body"
-    },
-    "facing=east,network_side=south": {
-      "model": "appliedpackaging:block/me_packager/body"
-    },
-    "facing=east,network_side=west": {
-      "model": "appliedpackaging:block/me_packager/body"
-    },
-    "facing=east,network_side=up": {
-      "model": "appliedpackaging:block/me_packager/body"
-    },
-    "facing=east,network_side=down": {
-      "model": "appliedpackaging:block/me_packager/body"
-    },
-    "facing=south,network_side=north": {
+    "facing=south": {
       "model": "appliedpackaging:block/me_packager/body",
       "y": 90
     },
-    "facing=south,network_side=east": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 90
-    },
-    "facing=south,network_side=south": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 90
-    },
-    "facing=south,network_side=west": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 90
-    },
-    "facing=south,network_side=up": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 90
-    },
-    "facing=south,network_side=down": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 90
-    },
-    "facing=west,network_side=north": {
+    "facing=west": {
       "model": "appliedpackaging:block/me_packager/body",
       "y": 180
     },
-    "facing=west,network_side=east": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 180
-    },
-    "facing=west,network_side=south": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 180
-    },
-    "facing=west,network_side=west": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 180
-    },
-    "facing=west,network_side=up": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 180
-    },
-    "facing=west,network_side=down": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 180
-    },
-    "facing=north,network_side=north": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 270
-    },
-    "facing=north,network_side=east": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 270
-    },
-    "facing=north,network_side=south": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 270
-    },
-    "facing=north,network_side=west": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 270
-    },
-    "facing=north,network_side=up": {
-      "model": "appliedpackaging:block/me_packager/body",
-      "y": 270
-    },
-    "facing=north,network_side=down": {
+    "facing=north": {
       "model": "appliedpackaging:block/me_packager/body",
       "y": 270
     }

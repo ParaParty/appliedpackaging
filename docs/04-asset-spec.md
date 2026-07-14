@@ -104,12 +104,12 @@ AE2 派生模型、发光贴图和渲染语义保留 LGPL-3.0-or-later 来源记
 ME 打包机：
 
 ```text
-正式模型以 `docs/assets/source/me_packager/model.bbmodel` 为可编辑源，源模型工作口朝本地 +X/east；运行时只按水平 `facing` 旋转主体、传送带、帘子和包裹。blockstate JSON 中 north/east/south/west 对应 Y 旋转 270/0/90/180 度；BER 的 `PoseStack` 采用相反符号的等效旋转 90/0/270/180 度。`network_side` 表示可切换 AE 接线面，机器背面 `facing.getOpposite()` 始终作为另一个 AE 接线面；两者都不得改变机器姿态。
+正式模型以 `docs/assets/source/me_packager/model.bbmodel` 为可编辑源，源模型工作口朝本地 +X/east；运行时只按水平 `facing` 旋转主体、传送带、帘子和包裹。blockstate JSON 中 north/east/south/west 对应 Y 旋转 270/0/90/180 度；BER 的 `PoseStack` 采用相反符号的等效旋转 90/0/270/180 度。底部与模型背面是固定 AE 接线面；背面随 `facing` 旋转，底部保持不变。
 主体由 6 个 cube 组成：1px 底板、4px 后部模块、反向内表面、1px 黑色背板和两条侧框；保持用户模型的空心结构与 AE2 风格分层边框。
 传送带为独立 1 个 cube，几何范围 x=1..16、y=1..2、z=2..14；只渲染上表面和工作口正面。单个 UV 窗口严格由上表面 15px 和工作口正面 1px 连续组成；`belt_scroll.png` 为 32x32 双周期贴图，工作期间由 renderer 仅修改 U/X offset，禁止逐帧替换 PNG。16px 周期内的滚动相位由方块实体保存和同步；停止时不得归零，后续动画从已保存相位继续。
 帘子由 4 条 1x12x3 flap 组成，静态位置内缩在 x=3..4；运行时复用一个 `curtain_flap` baked model，在各自顶部转轴绕 Z 轴摆动，拆包向内、打包向外，静止时回到垂直位置。
-主体、传送带和帘子使用 cutout_mipped；主体始终由按 `facing` 旋转的 blockstate baked model 渲染，传送带、帘子和包裹的 BER 使用同一水平变换。即使 `network_side=up/down`，底盘也必须保持水平、背板保持竖直。
-选择轮廓与碰撞体由底板、4px 后部模块、两条 2px 高侧框和传送带实体组成，并按 `facing` 水平旋转；帘子和动画中的包裹不参与碰撞，`network_side` 不得改变轮廓或碰撞体。
+主体、传送带和帘子使用 cutout_mipped；主体始终由按 `facing` 旋转的 blockstate baked model 渲染，传送带、帘子和包裹的 BER 使用同一水平变换。底盘始终保持水平、背板始终保持竖直。
+选择轮廓与碰撞体由底板、4px 后部模块、两条 2px 高侧框和传送带实体组成，并按 `facing` 水平旋转；帘子和动画中的包裹不参与碰撞。
 包裹继续使用已有 20 tick 事务动画：本地内部点为 `x=2.5/16`，拆包时前半程从工作口移入，打包时后半程从内部移到 `x=10/16,z=8/16`，即去除 4px 后部模块后的 12x16 前部区域中心。包裹模型范围为 `y=1..9`，`FIXED` 变换缩放 0.5，机器额外缩放 1.49；BER 必须由这些参数反算渲染原点，使模型底面精确落在传送带顶面 `y=2/16`。包裹在工作态和静止态都使用 stencil immediate pass，帘子使用独立 stencil immediate pass；裁剪盒使用模型本地坐标 `x=1/16..16/16,y=0..1,z=0..1` 并随 `facing` 旋转，只保留从工作口向内 15px 的体积，禁止进入最后 1px 背板；传送带不进入 stencil pass。
 用户提供的 `base.png`、`curtain.png`、`belt_scroll.png` 必须原字节复制；导入脚本只拆分模型、换算 Java block model UV 和生成运行时 JSON，不重绘像素。
 普通不透明机器 block/part 模型不得声明 render_type，保持默认 solid；只有确实带透明遮罩的模型或 overlay 才使用 cutout_mipped。
@@ -252,7 +252,7 @@ scripts/test-assets-audit.ps1
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
-当前发布资源 PNG、package_box 模型和 ME Packager 朝向由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，ME Packager 主体 atlas 为 64x64、帘子为 16x16、双周期传送带为 32x32，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager、ME Package Assembler、高级终端与包裹模式 GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；ME Packager 会检查 `facing` 独立控制水平姿态、所有 `network_side` 使用相同 facing 旋转，以及完整物品模型继承 `minecraft:block/block` 的标准显示变换；普通不透明 block/part 模型还会检查不得声明 render_type。
+当前发布资源 PNG、package_box 模型和 ME Packager 朝向由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，ME Packager 主体 atlas 为 64x64、帘子为 16x16、双周期传送带为 32x32，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager、ME Package Assembler、高级终端与包裹模式 GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override 和每个 face 使用 full-face uv [0,0,16,16]；ME Packager 会检查 blockstate 只声明四个水平 `facing` 变体、各朝向旋转正确，以及完整物品模型继承 `minecraft:block/block` 的标准显示变换；普通不透明 block/part 模型还会检查不得声明 render_type。
 
 ## 9. 当前资产交付状态
 
@@ -293,5 +293,5 @@ texture/model 引用存在
 .\gradlew.bat build 成功
 .\gradlew.bat runData 成功
 .\gradlew.bat runGameTestServer 成功，138 个必需 GameTest 全部通过
-.\gradlew.bat runClientSmoke 成功，Package Pattern Terminal 使用真实 AE2 part host 打开
+历史人工客户端截图确认 Package Pattern Terminal 使用真实 AE2 part host 打开
 ```

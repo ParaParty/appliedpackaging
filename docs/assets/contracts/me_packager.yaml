@@ -14,7 +14,7 @@ style:
   name: ae2_fluix_packaging
   palette_reference: docs/assets/palette.md
 asset_brief:
-  summary: AE2-style inspection outlet that exchanges sealed packages with the ME network through one configurable side.
+  summary: AE2-style inspection outlet that exchanges sealed packages through fixed bottom and model-back ME connections.
   source_brief: docs/assets/asset-briefs/machines.md
 materials:
   - quartz_panel

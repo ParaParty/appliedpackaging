@@ -83,7 +83,6 @@ $expectedStepOrder = @(
     " - Gradle build:",
     " - Data generation:",
     " - GameTest server:",
-    " - Client smoke screenshots:",
     " - Dedicated server world-load smoke:",
     " - Mechanical release audit:",
     " - Asset resource audit:",
@@ -98,9 +97,8 @@ Assert-OrderedText "release candidate ready-for-tag plan" $plan.Output $expected
 
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output "Mode: release candidate"
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\gradlew.bat runGameTestServer --stacktrace"
-Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\gradlew.bat runClientSmoke --stacktrace"
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\run-server-smoke.ps1 -TimeoutSeconds 240"
-Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad -RequireClientSmokeScreenshots -RequireCleanGit"
+Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\verify-release.ps1 -RequireAssetContracts -RequireServerWorldLoad -RequireCleanGit"
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\verify-assets.ps1"
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\verify-release-readiness.ps1 -RequireReadyForTag"
 Assert-Contains "release candidate ready-for-tag plan" $plan.Output ".\scripts\write-release-manifest.ps1 -RequireCleanGit"

@@ -27,6 +27,7 @@ import appeng.blockentity.misc.InterfaceBlockEntity;
 import appeng.blockentity.storage.DriveBlockEntity;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
+import appeng.hooks.WrenchHook;
 import appeng.core.definitions.AEParts;
 import appeng.menu.me.items.PatternEncodingTermMenu;
 import appeng.menu.SlotSemantics;
@@ -99,7 +100,6 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -134,28 +134,23 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerShapeTracksFacingAndIgnoresNetworkSide(GameTestHelper helper) {
+    public static void mePackagerShapeTracksFacing(GameTestHelper helper) {
         MePackagerBlock block = (MePackagerBlock) APBlocks.ME_PACKAGER.get();
         CollisionContext context = CollisionContext.empty();
 
         for (Direction facing : Direction.Plane.HORIZONTAL) {
             VoxelShape expected = expectedMePackagerShape(facing);
-            for (Direction networkSide : Direction.values()) {
-                BlockState state = block.defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, facing)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, networkSide);
-                VoxelShape outline = block.getShape(state, helper.getLevel(), BlockPos.ZERO, context);
-                VoxelShape collision = block.getCollisionShape(state, helper.getLevel(), BlockPos.ZERO, context);
+            BlockState state = block.defaultBlockState()
+                    .setValue(AbstractHorizontalMachineBlock.FACING, facing);
+            VoxelShape outline = block.getShape(state, helper.getLevel(), BlockPos.ZERO, context);
+            VoxelShape collision = block.getCollisionShape(state, helper.getLevel(), BlockPos.ZERO, context);
 
-                helper.assertFalse(
-                        Shapes.joinIsNotEmpty(outline, expected, BooleanOp.NOT_SAME),
-                        "ME Packager outline must match its model for facing=" + facing
-                                + ", network_side=" + networkSide);
-                helper.assertFalse(
-                        Shapes.joinIsNotEmpty(collision, expected, BooleanOp.NOT_SAME),
-                        "ME Packager collision must match its model for facing=" + facing
-                                + ", network_side=" + networkSide);
-            }
+            helper.assertFalse(
+                    Shapes.joinIsNotEmpty(outline, expected, BooleanOp.NOT_SAME),
+                    "ME Packager outline must match its model for facing=" + facing);
+            helper.assertFalse(
+                    Shapes.joinIsNotEmpty(collision, expected, BooleanOp.NOT_SAME),
+                    "ME Packager collision must match its model for facing=" + facing);
         }
         helper.succeed();
     }
@@ -770,24 +765,23 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerExternalCapabilityExposesPackagesAwayFromMeConnectionSides(GameTestHelper helper) {
+    public static void mePackagerExternalCapabilityExcludesFixedMeConnectionSides(GameTestHelper helper) {
         BlockPos packagerPos = new BlockPos(0, 1, 0);
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.DOWN),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
                 3);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
 
-        helper.assertTrue(packager.networkSide() == Direction.DOWN,
-                "ME Packager should read its selected ME side from block state");
-        helper.assertTrue(packager.machineBackSide() == Direction.WEST,
-                "East-facing ME Packager should expose its rear on the west side");
         helper.assertTrue(packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.DOWN).resolve().isEmpty(),
-                "ME Packager selected network side should not expose normal item capability");
+                "ME Packager bottom ME connection should not expose package automation");
         helper.assertTrue(packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.WEST).resolve().isEmpty(),
-                "ME Packager rear ME side should not expose normal item capability");
+                "East-facing ME Packager model back should not expose package automation");
+        for (Direction side : List.of(Direction.UP, Direction.NORTH, Direction.EAST, Direction.SOUTH)) {
+            helper.assertTrue(packager.getCapability(ForgeCapabilities.ITEM_HANDLER, side).isPresent(),
+                    "ME Packager non-ME side should expose package automation on side " + side);
+        }
         IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
                 .resolve()
                 .orElseThrow();
@@ -796,7 +790,7 @@ public final class PackageDataGameTests {
         ItemStack insertRemainder = sideHandler.insertItem(0, packageStack.copy(), false);
         helper.assertTrue(ItemStack.isSameItemSameTags(packageStack, insertRemainder)
                         && insertRemainder.getCount() == packageStack.getCount(),
-                "Non-network package input should reject packages when no AE target can unpack them");
+                "External package input should reject packages when no AE target can unpack them");
         helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
                 "Rejected external package insertion should not fill the internal input slot");
 
@@ -807,7 +801,7 @@ public final class PackageDataGameTests {
 
         packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, packageStack.copy());
         ItemStack extracted = sideHandler.extractItem(0, 1, false);
-        helper.assertTrue(extracted.is(packageStack.getItem()), "Non-network sides should expose package output");
+        helper.assertTrue(extracted.is(packageStack.getItem()), "Non-ME sides should expose package output");
         helper.succeed();
     }
 
@@ -1101,87 +1095,103 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerPlacementDefaultsNetworkSideTowardClickedBlock(GameTestHelper helper) {
-        FakePlayer player = newFakePlayer(helper);
-        ItemStack stack = new ItemStack(APItems.ME_PACKAGER.get());
-        player.setItemInHand(InteractionHand.MAIN_HAND, stack);
-        BlockPos clickedPos = helper.absolutePos(new BlockPos(0, 1, 0));
-        BlockHitResult hit = new BlockHitResult(
-                Vec3.atCenterOf(clickedPos),
-                Direction.EAST,
-                clickedPos,
-                false);
-        BlockPlaceContext context = new BlockPlaceContext(player, InteractionHand.MAIN_HAND, stack, hit);
-
-        BlockState state = APBlocks.ME_PACKAGER.get().getStateForPlacement(context);
-
-        helper.assertTrue(state != null, "ME Packager placement should produce a block state");
-        helper.assertTrue(state.getValue(MePackagerBlock.NETWORK_SIDE) == Direction.WEST,
-                "ME Packager should default its network side toward the clicked block");
-        helper.succeed();
-    }
-
-    @GameTest(template = "empty")
-    public static void mePackagerNetworkSideRequiresWrench(GameTestHelper helper) {
+    public static void mePackagerWrenchRotatesFacing(GameTestHelper helper) {
         BlockPos relativePos = new BlockPos(1, 1, 0);
         BlockPos absolutePos = helper.absolutePos(relativePos);
         helper.getLevel().setBlock(
                 absolutePos,
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.SOUTH)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
                 3);
         FakePlayer player = newFakePlayer(helper);
-
-        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
-        BlockHitResult northHit = new BlockHitResult(
-                Vec3.atCenterOf(absolutePos),
-                Direction.NORTH,
+        player.setItemInHand(InteractionHand.MAIN_HAND, AEItems.CERTUS_QUARTZ_WRENCH.stack());
+        BlockHitResult topHit = new BlockHitResult(
+                Vec3.atCenterOf(absolutePos).add(0.0, 0.5, 0.0),
+                Direction.UP,
                 absolutePos,
                 false);
-        BlockState state = helper.getLevel().getBlockState(absolutePos);
-        APBlocks.ME_PACKAGER.get().use(state, helper.getLevel(), absolutePos, player, InteractionHand.MAIN_HAND, northHit);
-        helper.assertTrue(helper.getLevel().getBlockState(absolutePos).getValue(MePackagerBlock.NETWORK_SIDE) == Direction.WEST,
-                "Non-wrench right-click should not change the ME Packager network side");
 
-        player.setItemInHand(InteractionHand.MAIN_HAND, AEItems.CERTUS_QUARTZ_WRENCH.stack());
-        InteractionResult result = APBlocks.ME_PACKAGER.get().use(
-                helper.getLevel().getBlockState(absolutePos),
-                helper.getLevel(),
-                absolutePos,
-                player,
-                InteractionHand.MAIN_HAND,
-                northHit);
-        helper.assertTrue(result == InteractionResult.CONSUME,
-                "AE2 wrench should be consumed by ME Packager network-side switching");
-        helper.assertTrue(helper.getLevel().getBlockState(absolutePos).getValue(MePackagerBlock.NETWORK_SIDE) == Direction.NORTH,
-                "AE2 wrench should switch the ME Packager network side to the clicked face");
+        InteractionResult result = WrenchHook.onPlayerUseBlock(
+                player, helper.getLevel(), InteractionHand.MAIN_HAND, topHit);
+
+        helper.assertTrue(result.consumesAction(),
+                "AE2 wrench hook should rotate the ME Packager");
+        helper.assertTrue(helper.getLevel().getBlockState(absolutePos)
+                        .getValue(AbstractHorizontalMachineBlock.FACING) == Direction.SOUTH,
+                "Clockwise top-face wrench use should rotate the model from east to south");
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(relativePos);
+        helper.assertTrue(packager.getCableConnectionType(Direction.DOWN) == AECableType.SMART
+                        && packager.getCableConnectionType(Direction.NORTH) == AECableType.SMART,
+                "Wrench rotation should retain bottom and move model-back connectivity to north");
+        helper.assertTrue(packager.getCableConnectionType(Direction.WEST) == AECableType.NONE,
+                "The old east-facing model back should stop accepting ME cables after rotation");
         helper.succeed();
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerPackagesFromSwitchableTopAe2Side(GameTestHelper helper) {
-        BlockPos packagerPos = new BlockPos(1, 1, 0);
-        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.UP);
+    public static void mePackagerOnlyTransfersPackagesOnBeltSurface(GameTestHelper helper) {
+        MePackagerBlock block = (MePackagerBlock) APBlocks.ME_PACKAGER.get();
+        FakePlayer player = newFakePlayer(helper);
+        int index = 0;
+
+        for (Direction facing : Direction.Plane.HORIZONTAL) {
+            BlockPos relativePos = new BlockPos(index++, 1, 0);
+            BlockPos absolutePos = helper.absolutePos(relativePos);
+            BlockState state = block.defaultBlockState().setValue(AbstractHorizontalMachineBlock.FACING, facing);
+            helper.getLevel().setBlock(absolutePos, state, 3);
+            MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(relativePos);
+            ItemStack output = packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 64));
+
+            packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, output.copy());
+            player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            BlockHitResult beltHit = new BlockHitResult(
+                    mePackagerModelLocation(absolutePos, facing, 0.75, 2.0 / 16.0, 0.5),
+                    Direction.UP,
+                    absolutePos,
+                    false);
+            block.use(state, helper.getLevel(), absolutePos, player, InteractionHand.MAIN_HAND, beltHit);
+            helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                    "Belt surface should extract the package for facing=" + facing);
+
+            packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, output.copy());
+            player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.STICK));
+            BlockHitResult frameHit = new BlockHitResult(
+                    mePackagerModelLocation(absolutePos, facing, 0.75, 3.0 / 16.0, 1.0 / 16.0),
+                    Direction.UP,
+                    absolutePos,
+                    false);
+            block.use(state, helper.getLevel(), absolutePos, player, InteractionHand.MAIN_HAND, frameHit);
+            helper.assertFalse(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
+                    "Frame click should open the GUI without extracting for facing=" + facing);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void mePackagerPackagesFromBottomAe2Side(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(1, 3, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.DOWN);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
 
         helper.startSequence()
                 .thenWaitUntil(() -> {
-                    assertAe2InterfaceReady(helper, aeInterface, "top-side ME Packager test");
-                    assertMePackagerReady(helper, packager, "top-side ME Packager test");
+                    assertAe2InterfaceReady(helper, aeInterface, "bottom-side ME Packager test");
+                    assertMePackagerReady(helper, packager, "bottom-side ME Packager test");
                 })
                 .thenExecute(() -> {
-                    helper.assertTrue(packager.networkSide() == Direction.UP,
-                            "ME Packager should support a top ME connection side");
+                    helper.assertTrue(packager.getCableConnectionType(Direction.DOWN) == AECableType.SMART,
+                            "ME Packager should expose its fixed bottom ME connection");
+                    helper.assertTrue(packager.getCableConnectionType(Direction.UP) == AECableType.NONE,
+                            "ME Packager should not expose its top as an ME connection");
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     long inserted = storage.insert(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.MODULATE, source);
                     helper.assertTrue(inserted == 64,
-                            "Top-side AE network should accept iron before ME Packager packs");
+                            "Bottom-side AE network should accept iron before ME Packager packs");
 
                     MePackagerBlockEntity.MachineResult result = packager.runOnce();
                     helper.assertTrue(result == MePackagerBlockEntity.MachineResult.PACKED,
-                            "ME Packager should package from its selected top AE side");
+                            "ME Packager should package from its bottom AE side");
                     helper.assertTrue(packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.PACKING,
                             "ME Packager should enter packing work mode before exposing output");
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
@@ -1191,13 +1201,13 @@ public final class PackageDataGameTests {
                     ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData data = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
-                            "Top-side package should contain iron");
+                            "Bottom-side package should contain iron");
                 })
                 .thenSucceed();
     }
 
     @GameTest(template = "empty")
-    public static void mePackagerPackagesThroughRearAeCableWhileBottomSelected(GameTestHelper helper) {
+    public static void mePackagerUsesFixedBottomAndModelBackAeConnections(GameTestHelper helper) {
         BlockPos packagerPos = new BlockPos(0, 1, 0);
         BlockPos cablePos = packagerPos.relative(Direction.EAST);
         BlockPos drivePos = cablePos.relative(Direction.EAST);
@@ -1206,8 +1216,7 @@ public final class PackageDataGameTests {
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.WEST)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.DOWN),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.WEST),
                 3);
         PartHelper.setPart(
                 (ServerLevel) helper.getLevel(),
@@ -1230,15 +1239,13 @@ public final class PackageDataGameTests {
         helper.startSequence()
                 .thenWaitUntil(() -> assertMePackagerReady(helper, packager, "rear cable-side ME Packager test"))
                 .thenExecute(() -> {
-                    helper.assertTrue(packager.networkSide() == Direction.DOWN,
-                            "ME Packager should retain the selected bottom ME side");
-                    helper.assertTrue(packager.machineBackSide() == Direction.EAST,
-                            "West-facing ME Packager should expose its rear on the east side");
-                    helper.assertTrue(packager.getCableConnectionType(Direction.DOWN) == AECableType.SMART
-                                    && packager.getCableConnectionType(Direction.EAST) == AECableType.SMART,
-                            "ME Packager should expose both its selected bottom and permanent rear ME sides");
-                    helper.assertTrue(packager.getCableConnectionType(Direction.NORTH) == AECableType.NONE,
-                            "ME Packager should not expose unrelated sides as ME cable connections");
+                    for (Direction side : Direction.values()) {
+                        boolean expectedConnection = side == Direction.DOWN || side == Direction.EAST;
+                        helper.assertTrue(
+                                packager.getCableConnectionType(side)
+                                        == (expectedConnection ? AECableType.SMART : AECableType.NONE),
+                                "ME Packager should connect only on bottom and model back; checked side=" + side);
+                    }
                     MEStorage storage = packager.getMainNode().getGrid().getStorageService().getInventory();
                     long inserted = storage.insert(
                             AEItemKey.of(Items.IRON_INGOT),
@@ -1378,15 +1385,14 @@ public final class PackageDataGameTests {
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
                 3);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
 
         MePackagerBlockEntity.MachineResult result = packager.runOnce();
 
         helper.assertTrue(result == MePackagerBlockEntity.MachineResult.NO_TARGET,
-                "ME Packager should not fall back to a Forge item handler on its selected ME side");
+                "ME Packager should not treat a Forge item handler on its model back as an ME target");
         helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                 "Forge item handler fallback should not create a package");
         helper.assertTrue(ironAmountInChest(chest) == 64,
@@ -2395,8 +2401,7 @@ public final class PackageDataGameTests {
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
                 3);
 
         helper.startSequence()
@@ -2490,14 +2495,13 @@ public final class PackageDataGameTests {
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, Direction.WEST),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, Direction.EAST),
                 3);
         MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
 
         MePackagerBlockEntity.MachineResult result = packager.runOnce();
         helper.assertTrue(result == MePackagerBlockEntity.MachineResult.NO_TARGET,
-                "ME Packager should not fall back to a Forge fluid handler on its selected ME side");
+                "ME Packager should not treat a Forge fluid handler on its model back as an ME target");
         helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                 "Forge fluid handler fallback should not create a package");
         helper.assertTrue(tank.getFluidAmount() == 2000
@@ -2649,6 +2653,35 @@ public final class PackageDataGameTests {
                     Block.box(2, 1, 0, 14, 2, 15)).optimize();
             default -> throw new IllegalArgumentException("ME Packager has no vertical facing: " + facing);
         };
+    }
+
+    private static Vec3 mePackagerModelLocation(
+            BlockPos pos,
+            Direction facing,
+            double modelX,
+            double modelY,
+            double modelZ) {
+        double worldX;
+        double worldZ;
+        switch (facing) {
+            case SOUTH -> {
+                worldX = 1.0 - modelZ;
+                worldZ = modelX;
+            }
+            case WEST -> {
+                worldX = 1.0 - modelX;
+                worldZ = 1.0 - modelZ;
+            }
+            case NORTH -> {
+                worldX = modelZ;
+                worldZ = 1.0 - modelX;
+            }
+            default -> {
+                worldX = modelX;
+                worldZ = modelZ;
+            }
+        }
+        return new Vec3(pos.getX() + worldX, pos.getY() + modelY, pos.getZ() + worldZ);
     }
 
     @GameTest(template = "empty")
@@ -3731,13 +3764,13 @@ public final class PackageDataGameTests {
     private static InterfaceBlockEntity placeMePackagerAe2Interface(
             GameTestHelper helper,
             BlockPos packagerPos,
-            Direction networkSide) {
-        BlockPos interfacePos = packagerPos.relative(networkSide);
-        BlockPos drivePos = interfacePos.relative(networkSide);
-        BlockPos energyCellPos = drivePos.relative(networkSide);
-        Direction facing = networkSide.getAxis() == Direction.Axis.Y
+            Direction connectionSide) {
+        BlockPos interfacePos = packagerPos.relative(connectionSide);
+        BlockPos drivePos = interfacePos.relative(connectionSide);
+        BlockPos energyCellPos = drivePos.relative(connectionSide);
+        Direction facing = connectionSide.getAxis() == Direction.Axis.Y
                 ? Direction.NORTH
-                : networkSide.getOpposite();
+                : connectionSide.getOpposite();
 
         helper.getLevel().setBlock(
                 helper.absolutePos(energyCellPos),
@@ -3754,8 +3787,7 @@ public final class PackageDataGameTests {
         helper.getLevel().setBlock(
                 helper.absolutePos(packagerPos),
                 APBlocks.ME_PACKAGER.get().defaultBlockState()
-                        .setValue(AbstractHorizontalMachineBlock.FACING, facing)
-                        .setValue(MePackagerBlock.NETWORK_SIDE, networkSide),
+                        .setValue(AbstractHorizontalMachineBlock.FACING, facing),
                 3);
         DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
         drive.getInternalInventory().addItems(AEItems.ITEM_CELL_64K.stack());

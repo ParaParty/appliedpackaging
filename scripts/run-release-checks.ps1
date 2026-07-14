@@ -4,10 +4,8 @@ param(
     [switch] $SkipBuild,
     [switch] $SkipData,
     [switch] $SkipGameTest,
-    [switch] $RunClientSmoke,
     [switch] $RunServerSmoke,
     [int] $ServerSmokeTimeoutSeconds = 240,
-    [switch] $RequireClientSmokeScreenshots,
     [switch] $RequireServerWorldLoad,
     [switch] $RequireCleanGit,
     [switch] $RequireReadyForTag,
@@ -40,7 +38,6 @@ if ($ReleaseCandidate) {
         throw "-ReleaseCandidate cannot be combined with skip flags: $($skipFlags -join ', ')"
     }
 
-    $RunClientSmoke = $true
     $RunServerSmoke = $true
     $WriteReleaseManifest = $true
     $RequireReleaseManifest = $true
@@ -106,13 +103,6 @@ if (-not $AuditOnly) {
         }) | Out-Null
     }
 
-    if ($RunClientSmoke) {
-        $steps.Add(@{
-            Name = "Client smoke screenshots"
-            Command = @(".\gradlew.bat", "runClientSmoke", "--stacktrace")
-        }) | Out-Null
-    }
-
     if ($RunServerSmoke) {
         $steps.Add(@{
             Name = "Dedicated server world-load smoke"
@@ -145,10 +135,6 @@ if (-not $SkipAssetContracts) {
 
 if ($RequireServerWorldLoad -or $RunServerSmoke) {
     $verifyCommand += "-RequireServerWorldLoad"
-}
-
-if ($RunClientSmoke -or $RequireClientSmokeScreenshots) {
-    $verifyCommand += "-RequireClientSmokeScreenshots"
 }
 
 if ($RequireCleanGit) {

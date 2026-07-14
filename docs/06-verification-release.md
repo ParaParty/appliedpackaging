@@ -104,12 +104,12 @@ PackageFilter 可按流体 key 匹配内容 allowlist
 ME Packager 可识别 AE2 16k/64k/256k storage component 并映射到对应包裹容量档
 包裹物品丢出后替换为 appliedpackaging:package 实体并保留包裹数据
 ME Packager 基础容量固定为 1k/16 类型
-ME Packager 非 AE 连接面暴露包裹输入/输出 capability，network_side 与机器背面不暴露普通 item capability；外部输入在无 AE 目标或不可完整拆包时拒绝
+ME Packager 底部与模型背面不暴露普通 item capability，其它四面暴露包裹输入/输出 capability；外部输入在无 AE 目标或不可完整拆包时拒绝
 ME Packager 外部 capability 接受包裹时直接提交拆包、保持 inputSlot 为空并进入 unpacking 工作态
 ME Packager 菜单 shift-click 玩家背包包裹时每次只直接拆包 1 个，保持 inputSlot 为空，并在 working 期间拒绝继续输入
 ME Packager 外部 capability 输入同时校验当前非默认颜色、marker 槽、内容 allowlist 和目标可接收性
 ME Packager 安装反转卡后反转内容过滤，但不反转颜色或 marker 门禁
-ME Packager 可从可切换顶面 network_side 的真实 AE2 Interface 网络打包，并在 network_side=down 时从机器背面的真实 AE2 线缆网络打包
+ME Packager 只有底部与模型背面可接入 ME 网络，并分别通过真实 AE2 Interface 与真实 AE2 线缆网络完成打包；扳手旋转后背面连接随 facing 改变
 ME Packager 打包先抽取源内容并进入 packing 工作态，动画结束后才把包裹放入 outputSlot
 ME Packager 传送带完成工作动画后保留 UV 滚动相位，且该相位经过方块实体保存/读取后不复位
 ME Packager 不会回落到相邻 Forge item handler 或 Forge fluid handler
@@ -217,7 +217,7 @@ jar 文件名包含 mod id 和版本
 2026-07-04 在 `mods.toml` 显式声明 GuideME 发布依赖范围后执行 `.\gradlew.bat build --stacktrace` 成功，`generateModMetadata` 和 `jar` 均重新执行；发布 jar 的 `META-INF/mods.toml` 已包含 `guideme` `[20.1.7,20.2.0)` mandatory dependency。
 2026-07-04 在 Package Pattern Terminal Split 输出收敛到 AE2 blank_pattern carrier 后执行 `.\gradlew.bat build --stacktrace` 成功，重新生成 `build/libs/appliedpackaging-0.1.0-dev.jar`。
 本次发布 jar 重新打包后已确认包含 `META-INF/mods.toml`、`META-INF/MANIFEST.MF`、`LICENSE.md`、`README.md`、`CHANGELOG.md` 和 `assets/appliedpackaging/logo.png`。
-发布 jar 审计通过：`jar tf` 未发现 `ClientSmokeRunner`、`gametest`、`build/tmp`、reference、preview、`docs/assets`、`run/` 等 dev/test 条目。
+发布 jar 审计通过：`jar tf` 未发现 `gametest`、`build/tmp`、reference、preview、`docs/assets`、`run/` 等 dev/test 条目。
 发布 jar 文本资源审计通过：未发现 `E:\`、`C:\Users`、`build/reference`、`build/asset-reference`、`.codex` 或 `asset-reference` 等本机绝对路径和参考素材路径。
 
 机械发布审计脚本：
@@ -253,7 +253,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireServerWorldLoad
 ```
 
-`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `runClientSmoke`、可选 `run-server-smoke.ps1`、机械发布审计、资产资源审计、文档审计、可选 tag 就绪审计、可选发布清单生成/审计和可选发布附件包生成/审计。它支持 `-ReleaseCandidate`、`-AuditOnly`、`-PlanOnly`、`-RunClientSmoke`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireClientSmokeScreenshots`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-RequireReadyForTag`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle`、`-RequireReleaseBundle`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-ReleaseCandidate` 时会禁止 `-AuditOnly` 与 skip flags，并自动启用 `-RunClientSmoke`、`-RunServerSmoke`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle` 和 `-RequireReleaseBundle`，用于候选发布技术门禁；最终发布 tag 前推荐与 `-RequireCleanGit -RequireReadyForTag` 一起使用。`scripts/test-release-check-plan.ps1` 会通过 `-PlanOnly` 自测完整候选发布步骤顺序，并确认 `-ReleaseCandidate` 会拒绝所有 skip flags 和 `-AuditOnly`，`-AuditOnly` 会拒绝 `-RunServerSmoke`，普通执行模式下 `-RequireServerWorldLoad` 必须搭配 `-RunServerSmoke`。使用 `-RequireReadyForTag` 时会调用 `scripts/verify-release-readiness.ps1 -RequireReadyForTag`，确认变更接收表没有状态、迁移目标或验证要求仍为待输入、待判定、阻塞或失败的项，确认已填写的迁移目标是仓库内已存在文件的规范相对路径且不包含父级遍历，并确认需求类目标落在 `docs/01`、`02`、`03`、`05`、`06` 或 `07`，材质类目标落在 `docs/04-asset-spec.md`、`docs/assets/` 或 `src/main/resources/assets/appliedpackaging/`，本文件不再标记发布 tag 未完成，并且在没有负面 blocker 后必须存在明确正向发布信号。使用 `-RunClientSmoke` 时会自动要求 11 张必需 client smoke 截图存在且为有效 PNG。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械发布审计、资产资源审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD；修改发布清单生成或审计规则时同步运行 `scripts/test-release-manifest.ps1`。使用 `-WriteReleaseBundle` 时会生成 `build/release/appliedpackaging-<version>-release-bundle.zip`；使用 `-RequireReleaseBundle` 时会复验 zip 只包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且哈希与当前源文件一致，并确认 bundle 内 manifest 的 mod id/version 与 jar SHA-256 一致；使用 `-RequireCleanGit` 时 bundle 审计还会确认 bundle 内 manifest 的 git commit、shortCommit、branch、clean 和 statusPorcelain 与当前干净工作区一致。修改机械发布审计规则时同步运行 `scripts/test-release-audit.ps1`。修改发布 PNG 资源、资产尺寸规则或必需资源清单时同步运行 `scripts/verify-assets.ps1` 和 `scripts/test-assets-audit.ps1`。`scripts/test-release-self-tests.ps1` 会聚合 docs audit、asset audit、release audit、release readiness、release plan、manifest 和 bundle 自测，适合在修改发布脚本或文档门禁后快速验证脚本负路径。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
+`scripts/run-release-checks.ps1` 编排 `build`、`runData`、`runGameTestServer`、可选 `run-server-smoke.ps1`、机械发布审计、资产资源审计、文档审计、可选 tag 就绪审计、可选发布清单生成/审计和可选发布附件包生成/审计。它支持 `-ReleaseCandidate`、`-AuditOnly`、`-PlanOnly`、`-RunServerSmoke`、`-ServerSmokeTimeoutSeconds`、`-RequireServerWorldLoad`、`-RequireCleanGit`、`-RequireReadyForTag`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle`、`-RequireReleaseBundle`、`-SkipDocs`、`-SkipBuild`、`-SkipData`、`-SkipGameTest` 和 `-SkipAssetContracts`。使用 `-ReleaseCandidate` 时会禁止 `-AuditOnly` 与 skip flags，并自动启用 `-RunServerSmoke`、`-WriteReleaseManifest`、`-RequireReleaseManifest`、`-WriteReleaseBundle` 和 `-RequireReleaseBundle`，用于候选发布技术门禁；最终发布 tag 前推荐与 `-RequireCleanGit -RequireReadyForTag` 一起使用。`scripts/test-release-check-plan.ps1` 会通过 `-PlanOnly` 自测完整候选发布步骤顺序，并确认 `-ReleaseCandidate` 会拒绝所有 skip flags 和 `-AuditOnly`，`-AuditOnly` 会拒绝 `-RunServerSmoke`，普通执行模式下 `-RequireServerWorldLoad` 必须搭配 `-RunServerSmoke`。使用 `-RequireReadyForTag` 时会调用 `scripts/verify-release-readiness.ps1 -RequireReadyForTag`，确认变更接收表没有状态、迁移目标或验证要求仍为待输入、待判定、阻塞或失败的项，确认已填写的迁移目标是仓库内已存在文件的规范相对路径且不包含父级遍历，并确认需求类目标落在 `docs/01`、`02`、`03`、`05`、`06` 或 `07`，材质类目标落在 `docs/04-asset-spec.md`、`docs/assets/` 或 `src/main/resources/assets/appliedpackaging/`，本文件不再标记发布 tag 未完成，并且在没有负面 blocker 后必须存在明确正向发布信号。使用 `-RunServerSmoke` 时会在其他 Gradle run 后运行 dedicated server world-load smoke，刷新 `run/logs/latest.log`，并自动要求 `-RequireServerWorldLoad` 审计。使用 `-WriteReleaseManifest` 时会在机械发布审计、资产资源审计和文档审计之后写入 `build/release/appliedpackaging-<version>-release-manifest.json`。使用 `-RequireReleaseManifest` 时会调用 `scripts/verify-release-manifest.ps1`，确认发布清单匹配当前 jar、`gradle.properties` 和 git HEAD；修改发布清单生成或审计规则时同步运行 `scripts/test-release-manifest.ps1`。使用 `-WriteReleaseBundle` 时会生成 `build/release/appliedpackaging-<version>-release-bundle.zip`；使用 `-RequireReleaseBundle` 时会复验 zip 只包含 jar、manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，且哈希与当前源文件一致，并确认 bundle 内 manifest 的 mod id/version 与 jar SHA-256 一致；使用 `-RequireCleanGit` 时 bundle 审计还会确认 bundle 内 manifest 的 git commit、shortCommit、branch、clean 和 statusPorcelain 与当前干净工作区一致。修改机械发布审计规则时同步运行 `scripts/test-release-audit.ps1`。修改发布 PNG 资源、资产尺寸规则或必需资源清单时同步运行 `scripts/verify-assets.ps1` 和 `scripts/test-assets-audit.ps1`。`scripts/test-release-self-tests.ps1` 会聚合 docs audit、asset audit、release audit、release readiness、release plan、manifest 和 bundle 自测，适合在修改发布脚本或文档门禁后快速验证脚本负路径。`-RequireServerWorldLoad` 只检查 `run/logs/latest.log` 证据，只能与 `-AuditOnly` 组合使用，或与 `-RunServerSmoke` 同时使用。
 
 `scripts/run-server-smoke.ps1` 检查 `run/eula.txt` 已明确 `eula=true`，启动 `.\gradlew.bat runServer --stacktrace`，等待 `run/logs/latest.log` 出现 Applied Packaging 初始化、`Preparing level "world"` 和 `Done (...)! For help, type "help"`，随后终止本脚本启动的 runServer 进程树，并确认 25565 不再监听。脚本产生的 stdout/stderr 记录写入 `build/server-smoke/`，不纳入发布资源。
 
@@ -289,7 +289,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-release-self-tests.ps1` 串行运行 `test-docs-audit.ps1`、`test-assets-audit.ps1`、`test-release-audit.ps1`、`test-release-readiness.ps1`、`test-release-check-plan.ps1`、`test-release-manifest.ps1` 和 `test-release-bundle.ps1`。它不运行 Gradle、客户端或服务端，只验证发布脚本自测套件本身；工作区干净时 manifest/bundle 子测试会额外覆盖 clean-git 路径。
 
-`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 client smoke 截图文件、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认 `package_pattern` / `advanced_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，确认旧 packaged/colored pattern 存储与机器存档兼容路径没有重新引入，确认已取消的 `package_pattern_terminal` / `package_export_bus` 不再注册或进入创造栏，并确认 `package_storage_bus` / `package_unpacking_bus` 与高级样板终端继续注册为 AE2 `PartItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireClientSmokeScreenshots` 时会验证 11 张必需截图存在、非空且有 PNG 签名。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、`runClientSmoke` 或 `runServer`。
+`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认 `package_pattern` / `advanced_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，确认旧 packaged/colored pattern 存储与机器存档兼容路径没有重新引入，确认已取消的 `package_pattern_terminal` / `package_export_bus` 不再注册或进入创造栏，并确认 `package_storage_bus` / `package_unpacking_bus` 与高级样板终端继续注册为 AE2 `PartItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、人工 `runClient` 或 `runServer`。
 
 当前玩家入口产品不变量还要求 `advanced_pattern_encoding_terminal` 出现在创造栏，并继续注册为 AE2 `PartItem`；高级终端 base/sprite atlas 纳入必需 PNG 与 256x256 尺寸审计，独立 `advanced_processing_pattern` 不得作为配方或创造栏直接产物。
 
@@ -402,10 +402,9 @@ Tooltip 每包/总计正确
 
 ```powershell
 .\gradlew.bat runClient
-.\gradlew.bat runClientSmoke
 ```
 
-当前客户端 smoke：
+已删除的自动客户端 smoke 历史记录（仅保留既往验收证据，不是当前命令）：
 
 ```text
 2026-07-03 再次执行 .\gradlew.bat runClient，已启动到 Minecraft 客户端主流程。
@@ -800,3 +799,9 @@ ME Packager、AE2 原版包裹样板模式、Advanced Pattern Terminal 和两种
 颜色弹窗打开时会暂停锚点触发按钮自身的 hover tooltip，关闭时恢复。隔离世界 `AP Smoke Color Picker 20260715` 的 `runClientSmoke` 成功刷新 11 张必需截图；`package_storage_bus` 烟测现在保持允许 None 的颜色弹窗打开，并把鼠标停在首行颜色按钮上。人工检查该截图确认没有触发按钮 tooltip 穿透，同时检查两个终端编辑截图确认 None 隐藏不移动布局、无额外 hover/选中外框或绘制黑块。客户端日志未命中错误关键字。
 
 `gradlew.bat compileJava --stacktrace`、`gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-assets.ps1`、`scripts/test-assets-audit.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。GameTest 已考虑并确认现有 `runGameTestServer` 路径；本轮只修改客户端 widget、输入提示拦截和 GUI sprite，不改变菜单 action、网络、存储、过滤或服务端行为，因此未新增或重复运行 GameTest。
+
+### 2026-07-15 ME Packager 方向、接线与右键区域最终验证
+
+本节取代上方关于可切换接线状态的历史实现记录。ME Packager 当前 blockstate 只有四个水平 `facing`；固定底部与模型背面接入同一个 AE 主节点，其它四面 `AECableType.NONE`。AE2 标准扳手只旋转 `facing`，旋转后模型背面接线和模型坐标命中区域同步变化。只有传送带上表面允许手动放入/取出包裹，右键其它模型位置打开 GUI；底部和模型背面不暴露普通 item capability，其余四面保留包裹自动化 capability。
+
+`.\gradlew.bat runGameTestServer` 最终 106/106 required tests 通过，覆盖固定底部真实 Interface、固定模型背面真实线缆、逐面接线类型、扳手旋转后的连接迁移、四朝向轮廓和四朝向传送带点击。`.\gradlew.bat runData`、`.\gradlew.bat build`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 通过。自动客户端 smoke 已按项目同日决定删除，当前不存在 `runClientSmoke` Gradle task，本轮不恢复该已删除流程。
