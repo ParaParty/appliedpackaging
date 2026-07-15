@@ -26,6 +26,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternD
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageLayout;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
@@ -90,6 +91,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private static final String OUTPUT_MODE_TAG = "output_mode";
     private static final String CRAFT_PROGRESS_TAG = "craft_progress";
     private static final String ACTIVE_PACKAGES_TAG = "active_packages";
+    private static final String ACTIVE_MENU_PATTERN_TAG = "active_menu_pattern";
 
     private MenuInputEntry[] menuInputs = new MenuInputEntry[0];
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
@@ -171,6 +173,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private LazyOptional<ICraftingMachine> craftingMachine = createCraftingMachineCapability();
     private final List<QueuedPackage> activePackages = new ArrayList<>();
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
+    private ItemStack activeMenuPattern = ItemStack.EMPTY;
     private ItemStack cachedMenuFilterPattern = ItemStack.EMPTY;
     private Level cachedMenuFilterLevel;
     private List<GenericStack> cachedMenuInputFilters = List.of();
@@ -239,7 +242,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         if (PackageCraftingPatternDataStorage.read(stack).isPresent()
                 || AdvancedProcessingPatternDataStorage.hasData(stack)
-                || isAe2ProcessingPattern(stack)) {
+                || PatternDetailsHelper.isEncodedPattern(stack)) {
             return true;
         }
         return false;
@@ -269,6 +272,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return !stack.isEmpty() && AEItems.PROCESSING_PATTERN.isSameAs(stack);
     }
 
+    private static boolean isAe2CraftingPattern(ItemStack stack) {
+        return !stack.isEmpty() && AEItems.CRAFTING_PATTERN.isSameAs(stack);
+    }
+
     public static int outputHandlerSlot(int outputSlot) {
         if (outputSlot < 0 || outputSlot >= OUTPUT_SLOT_COUNT) {
             throw new IndexOutOfBoundsException(outputSlot);
@@ -294,21 +301,12 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return entry.amount() > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) entry.amount();
     }
 
-    public ItemStack menuInputFilterDisplay(int slot) {
+    public ItemStack menuInputFilterStack(int slot) {
         List<GenericStack> filters = menuInputFilters();
         if (slot < 0 || slot >= filters.size() || filters.get(slot) == null) {
             return ItemStack.EMPTY;
         }
         return displayStack(filters.get(slot));
-    }
-
-    public int menuInputFilterAmountForDisplay(int slot) {
-        List<GenericStack> filters = menuInputFilters();
-        if (slot < 0 || slot >= filters.size() || filters.get(slot) == null) {
-            return 0;
-        }
-        long amount = filters.get(slot).amount();
-        return amount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) amount;
     }
 
     public int menuInputDisplaySlotCount() {
@@ -503,8 +501,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             cachedMenuInputFilters = packageCraftingPattern.get().denseInputs();
             return cachedMenuInputFilters;
         }
-        if (isAe2ProcessingPattern(patternStack)) {
-            cachedMenuInputFilters = decodedPatternInputs(patternStack);
+        if (PatternDetailsHelper.isEncodedPattern(patternStack)) {
+            cachedMenuInputFilters = ordinaryPatternInputs(patternStack);
             return cachedMenuInputFilters;
         }
         cachedMenuInputFilters = List.of();
@@ -567,11 +565,32 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 && entry.amount() <= filter.amount();
     }
 
-    private List<GenericStack> decodedPatternInputs(ItemStack patternStack) {
+    private List<GenericStack> ordinaryPatternInputs(ItemStack patternStack) {
+        if (isAe2ProcessingPattern(patternStack)) {
+            return densePositiveStacks(AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack));
+        }
+        if (isAe2CraftingPattern(patternStack)) {
+            return readCraftingPatternInputs(patternStack);
+        }
         if (level == null || !PatternDetailsHelper.isEncodedPattern(patternStack)) {
             return List.of();
         }
-        var details = PatternDetailsHelper.decodePattern(patternStack, level, false);
+        return decodedPatternInputs(PatternDetailsHelper.decodePattern(patternStack, level, false));
+    }
+
+    private static List<GenericStack> ordinaryPatternInputs(
+            ItemStack patternStack,
+            IPatternDetails details) {
+        if (isAe2ProcessingPattern(patternStack)) {
+            return densePositiveStacks(AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack));
+        }
+        if (isAe2CraftingPattern(patternStack)) {
+            return readCraftingPatternInputs(patternStack);
+        }
+        return decodedPatternInputs(details);
+    }
+
+    private static List<GenericStack> decodedPatternInputs(IPatternDetails details) {
         if (details == null) {
             return List.of();
         }
@@ -585,6 +604,117 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             filters.add(new GenericStack(primary.what(), primary.amount() * input.getMultiplier()));
         }
         return List.copyOf(filters);
+    }
+
+    private static List<GenericStack> densePositiveStacks(List<GenericStack> sparseStacks) {
+        List<GenericStack> stacks = new ArrayList<>();
+        for (GenericStack stack : sparseStacks) {
+            if (stack != null && stack.amount() > 0) {
+                stacks.add(new GenericStack(stack.what(), stack.amount()));
+            }
+        }
+        return List.copyOf(stacks);
+    }
+
+    private static List<GenericStack> readCraftingPatternInputs(ItemStack patternStack) {
+        if (!patternStack.hasTag() || !patternStack.getTag().contains("in", Tag.TAG_LIST)) {
+            return List.of();
+        }
+        List<GenericStack> inputs = new ArrayList<>();
+        for (Tag element : patternStack.getTag().getList("in", Tag.TAG_COMPOUND)) {
+            if (!(element instanceof CompoundTag stackTag) || stackTag.isEmpty()) {
+                continue;
+            }
+            GenericStack input = GenericStack.fromItemStack(ItemStack.of(stackTag));
+            if (input != null && input.amount() > 0) {
+                inputs.add(input);
+            }
+        }
+        return List.copyOf(inputs);
+    }
+
+    private static Optional<PackageLayout> ordinaryPatternLayout(
+            ItemStack patternStack,
+            IPatternDetails details) {
+        List<GenericStack> sparse;
+        if (details instanceof appeng.crafting.pattern.AECraftingPattern craftingPattern) {
+            sparse = Arrays.asList(craftingPattern.getSparseInputs());
+        } else if (details instanceof appeng.crafting.pattern.AEProcessingPattern processingPattern) {
+            sparse = Arrays.asList(processingPattern.getSparseInputs());
+        } else if (isAe2ProcessingPattern(patternStack)) {
+            sparse = AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack);
+        } else if (isAe2CraftingPattern(patternStack)
+                && patternStack.hasTag()
+                && patternStack.getTag().contains("in", Tag.TAG_LIST)) {
+            List<GenericStack> craftingInputs = new ArrayList<>();
+            for (Tag element : patternStack.getTag().getList("in", Tag.TAG_COMPOUND)) {
+                GenericStack input = element instanceof CompoundTag stackTag && !stackTag.isEmpty()
+                        ? GenericStack.fromItemStack(ItemStack.of(stackTag))
+                        : null;
+                craftingInputs.add(input != null && input.amount() > 0 ? input : null);
+            }
+            sparse = craftingInputs;
+        } else {
+            return Optional.empty();
+        }
+        List<Integer> contentSlots = new ArrayList<>();
+        for (int slot = 0; slot < sparse.size(); slot++) {
+            GenericStack input = sparse.get(slot);
+            if (input != null && input.amount() > 0) {
+                contentSlots.add(slot);
+            }
+        }
+        return contentSlots.isEmpty()
+                ? Optional.empty()
+                : Optional.of(new PackageLayout(sparse.size(), contentSlots));
+    }
+
+    private Optional<MarkerSpec> ordinaryPatternMarker(ItemStack patternStack) {
+        if (isAe2ProcessingPattern(patternStack)) {
+            return firstStackAsMarker(AdvancedProcessingPatternDataStorage.readSparseOutputs(patternStack));
+        }
+        if (isAe2CraftingPattern(patternStack)) {
+            if (!patternStack.hasTag() || !patternStack.getTag().contains("out", Tag.TAG_COMPOUND)) {
+                return Optional.empty();
+            }
+            ItemStack output = ItemStack.of(patternStack.getTag().getCompound("out"));
+            AEItemKey key = AEItemKey.of(output);
+            return key == null
+                    ? Optional.empty()
+                    : Optional.of(new MarkerSpec(new GenericStack(key, 1)));
+        }
+        if (level == null) {
+            return Optional.empty();
+        }
+        return patternDetailsMarker(PatternDetailsHelper.decodePattern(patternStack, level, false));
+    }
+
+    private static Optional<MarkerSpec> ordinaryPatternMarker(
+            ItemStack patternStack,
+            IPatternDetails details) {
+        if (isAe2ProcessingPattern(patternStack)) {
+            return firstStackAsMarker(AdvancedProcessingPatternDataStorage.readSparseOutputs(patternStack));
+        }
+        return patternDetailsMarker(details);
+    }
+
+    private static Optional<MarkerSpec> firstStackAsMarker(List<GenericStack> stacks) {
+        for (GenericStack stack : stacks) {
+            if (stack != null && stack.amount() > 0) {
+                return Optional.of(new MarkerSpec(new GenericStack(stack.what(), 1)));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<MarkerSpec> patternDetailsMarker(IPatternDetails details) {
+        if (details == null) {
+            return Optional.empty();
+        }
+        GenericStack output = details.getPrimaryOutput();
+        return output == null || output.amount() <= 0
+                ? Optional.empty()
+                : Optional.of(new MarkerSpec(new GenericStack(output.what(), 1)));
     }
 
     private static List<GenericStack> genericStacksFromMap(Map<AEKey, Long> amounts) {
@@ -647,18 +777,22 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private static boolean packageContentsExactlyMatch(PackageData data, List<GenericStack> filters) {
-        Map<AEKey, Long> expected = new LinkedHashMap<>();
-        for (GenericStack filter : filters) {
-            if (filter == null) {
-                continue;
+        List<GenericStack> expected = filters.stream()
+                .filter(stack -> stack != null && stack.amount() > 0)
+                .toList();
+        List<GenericStack> actual = data.contents();
+        if (actual.size() != expected.size()) {
+            return false;
+        }
+        for (int slot = 0; slot < expected.size(); slot++) {
+            GenericStack expectedStack = expected.get(slot);
+            GenericStack actualStack = actual.get(slot);
+            if (!actualStack.what().equals(expectedStack.what())
+                    || actualStack.amount() != expectedStack.amount()) {
+                return false;
             }
-            expected.merge(filter.what(), filter.amount(), Long::sum);
         }
-        Map<AEKey, Long> actual = new LinkedHashMap<>();
-        for (GenericStack stack : data.contents()) {
-            actual.merge(stack.what(), stack.amount(), Long::sum);
-        }
-        return actual.equals(expected);
+        return true;
     }
 
     private static boolean menuInputsFitCapacity(MenuInputEntry[] inputs, PackageCapacityProfile capacityProfile) {
@@ -730,7 +864,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 if (batch.isEmpty()) {
                     return AssemblyResult.PATTERN_MISMATCH;
                 }
-                commitMenuExtractions(batch.get().menuExtractions());
+                if (!commitMenuExtractions(batch.get().menuExtractions())) {
+                    return AssemblyResult.PATTERN_MISMATCH;
+                }
                 return commitProviderPackages(batch.get().packages())
                         ? AssemblyResult.ASSEMBLED
                         : AssemblyResult.OUTPUT_BLOCKED;
@@ -757,8 +893,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 if (batch.isEmpty()) {
                     return AssemblyResult.PATTERN_MISMATCH;
                 }
-                commitMenuExtractions(batch.get().menuExtractions());
-                beginCrafting(batch.get().packages());
+                beginMenuCrafting(new MenuCraftPlan(
+                        batch.get().packages(),
+                        batch.get().menuExtractions()));
                 return AssemblyResult.ASSEMBLED;
             }
             AssemblyAttempt attempt = planMenuAssembly();
@@ -774,13 +911,16 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (!outputSlotsEmpty()) {
             return AssemblyResult.OUTPUT_BLOCKED;
         }
-        if (plan.menuExtractions() != null) {
-            commitMenuExtractions(plan.menuExtractions());
-        } else {
-            clearMenuInputs();
-        }
-        beginCrafting(List.of(new QueuedPackage(plan.color(), plan.data())));
+        beginMenuCrafting(new MenuCraftPlan(
+                List.of(new QueuedPackage(plan.color(), plan.data())),
+                plan.menuExtractions()));
         return AssemblyResult.ASSEMBLED;
+    }
+
+    private void beginMenuCrafting(MenuCraftPlan plan) {
+        beginCrafting(plan.packages());
+        activeMenuPattern = items.getStackInSlot(SLOT_PATTERN).copy();
+        setChanged();
     }
 
     private void beginCrafting(List<QueuedPackage> packages) {
@@ -789,6 +929,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         activePackages.clear();
         activePackages.addAll(packages);
+        activeMenuPattern = ItemStack.EMPTY;
         craftingProgress = 0;
         setChanged();
         syncClientVisualState();
@@ -802,6 +943,17 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (!outputSlotsEmpty()) {
             return;
         }
+        Optional<MenuCraftPlan> activeMenuPlan = Optional.empty();
+        if (!activeMenuPattern.isEmpty()) {
+            if (!ItemStack.isSameItemSameTags(activeMenuPattern, items.getStackInSlot(SLOT_PATTERN))) {
+                cancelActiveMenuCraft();
+                return;
+            }
+            activeMenuPlan = currentMenuCraftPlan();
+            if (activeMenuPlan.isEmpty() || !activeMenuPlan.get().packages().equals(activePackages)) {
+                return;
+            }
+        }
         int step = craftingProgressStep();
         if (step <= 0) {
             return;
@@ -812,9 +964,39 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return;
         }
         List<QueuedPackage> packages = List.copyOf(activePackages);
+        if (activeMenuPlan.isPresent()
+                && !commitMenuExtractions(activeMenuPlan.get().menuExtractions())) {
+            craftingProgress = MAX_CRAFT_PROGRESS - 1;
+            setChanged();
+            return;
+        }
         activePackages.clear();
+        activeMenuPattern = ItemStack.EMPTY;
         craftingProgress = 0;
         commitProviderPackages(packages);
+        setChanged();
+        syncClientVisualState();
+    }
+
+    private Optional<MenuCraftPlan> currentMenuCraftPlan() {
+        if (!isPatternCapacityValid()) {
+            return Optional.empty();
+        }
+        ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
+        if (AdvancedProcessingPatternDataStorage.hasData(patternStack)) {
+            return planMenuAdvancedPattern(patternStack)
+                    .map(plan -> new MenuCraftPlan(plan.packages(), plan.menuExtractions()));
+        }
+        AssemblyAttempt attempt = planMenuAssembly();
+        return attempt.plan().map(plan -> new MenuCraftPlan(
+                List.of(new QueuedPackage(plan.color(), plan.data())),
+                plan.menuExtractions()));
+    }
+
+    private void cancelActiveMenuCraft() {
+        activePackages.clear();
+        activeMenuPattern = ItemStack.EMPTY;
+        craftingProgress = 0;
         setChanged();
         syncClientVisualState();
     }
@@ -943,7 +1125,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return AssemblyResult.OUTPUT_BLOCKED;
         }
         if (plan.menuExtractions() != null) {
-            commitMenuExtractions(plan.menuExtractions());
+            if (!commitMenuExtractions(plan.menuExtractions())) {
+                return AssemblyResult.PATTERN_MISMATCH;
+            }
         } else {
             clearMenuInputs();
         }
@@ -1015,7 +1199,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     .orElseGet(() -> AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH));
         }
 
-        if (isAe2ProcessingPattern(patternStack)) {
+        if (PatternDetailsHelper.isEncodedPattern(patternStack)) {
             return planMenuDefaultEncodedPattern(patternStack);
         }
 
@@ -1034,9 +1218,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 ? MarkerMergeMode.OVERRIDE
                 : MarkerMergeMode.CLEAR;
         PackageCapacityProfile capacityProfile = configuredCapacityProfile();
-        PackagePlanResult result = PackagePlanBuilder.build(
+        PackagePlanResult result = PackagePlanBuilder.buildOrdered(
                 color,
-                extraction.looseContents(),
+                target.contents(),
+                target.layout(),
                 extraction.sourcePackages(),
                 markerMode,
                 target.marker(),
@@ -1170,26 +1355,35 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private AssemblyAttempt planMenuDefaultEncodedPattern(ItemStack patternStack) {
-        List<GenericStack> filters = decodedPatternInputs(patternStack);
+        List<GenericStack> filters = ordinaryPatternInputs(patternStack);
         if (!menuInputsExactlyMatchFilters(menuInputs, filters)) {
             return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
         }
         MenuInputContents contents = menuInputContents(menuInputs);
+        Optional<MarkerSpec> marker = ordinaryPatternMarker(patternStack);
         PackagePlanResult result = PackagePlanBuilder.buildOrdered(
                 PackageColor.FLUIX,
                 contents.orderedContents(),
+                ordinaryPatternLayout(patternStack, null),
                 contents.sourcePackages(),
-                MarkerMergeMode.CLEAR,
-                Optional.empty(),
+                marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.CLEAR,
+                marker,
                 configuredCapacityProfile(),
                 0);
         if (result.data().isEmpty() || !packageContentsExactlyMatch(result.data().orElseThrow(), filters)) {
             return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
         }
+        List<MenuInputExtraction> extractions = new ArrayList<>();
+        for (int slot = 0; slot < filters.size(); slot++) {
+            MenuInputEntry entry = menuInput(slot);
+            if (entry != null && entry.amount() > 0) {
+                extractions.add(new MenuInputExtraction(slot, entry.amount()));
+            }
+        }
         return AssemblyAttempt.planned(new AssemblyPlan(
                 PackageColor.FLUIX,
                 result.data().orElseThrow(),
-                List.of()));
+                List.copyOf(extractions)));
     }
 
     private boolean patternFitsCapacity(ItemStack patternStack, PackageCapacityProfile capacity) {
@@ -1225,17 +1419,42 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return hasPackage;
         }
 
-        if (!isAe2ProcessingPattern(patternStack)) {
+        if (!PatternDetailsHelper.isEncodedPattern(patternStack)) {
             return false;
         }
-        List<GenericStack> inputs = new ArrayList<>();
-        for (GenericStack input : AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack)) {
-            if (input != null && input.amount() > 0) {
-                inputs.add(input);
-            }
-        }
+        List<GenericStack> inputs = ordinaryPatternInputs(patternStack);
+        Optional<MarkerSpec> marker = ordinaryPatternMarker(patternStack);
         return !inputs.isEmpty()
-                && buildPatternPackage(PackageColor.FLUIX, Optional.empty(), inputs, capacity).isPresent();
+                && buildPatternPackage(
+                                PackageColor.FLUIX,
+                                marker,
+                                inputs,
+                                ordinaryPatternLayout(patternStack, null),
+                                capacity)
+                        .isPresent();
+    }
+
+    private boolean patternFitsCapacity(
+            ItemStack patternStack,
+            IPatternDetails patternDetails,
+            PackageCapacityProfile capacity) {
+        if (PackageCraftingPatternDataStorage.read(patternStack).isPresent()
+                || AdvancedProcessingPatternDataStorage.hasData(patternStack)) {
+            return patternFitsCapacity(patternStack, capacity);
+        }
+        if (!PatternDetailsHelper.isEncodedPattern(patternStack)) {
+            return false;
+        }
+        List<GenericStack> inputs = ordinaryPatternInputs(patternStack, patternDetails);
+        Optional<MarkerSpec> marker = ordinaryPatternMarker(patternStack, patternDetails);
+        return !inputs.isEmpty()
+                && buildPatternPackage(
+                                PackageColor.FLUIX,
+                                marker,
+                                inputs,
+                                ordinaryPatternLayout(patternStack, patternDetails),
+                                capacity)
+                        .isPresent();
     }
 
     private Optional<QueuedPackage> buildPatternPackage(
@@ -1249,6 +1468,15 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             PackageColor color,
             Optional<MarkerSpec> marker,
             List<GenericStack> inputs,
+            PackageCapacityProfile capacity) {
+        return buildPatternPackage(color, marker, inputs, Optional.empty(), capacity);
+    }
+
+    private Optional<QueuedPackage> buildPatternPackage(
+            PackageColor color,
+            Optional<MarkerSpec> marker,
+            List<GenericStack> inputs,
+            Optional<PackageLayout> layout,
             PackageCapacityProfile capacity) {
         List<GenericStack> orderedContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
@@ -1275,6 +1503,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         PackagePlanResult result = PackagePlanBuilder.buildOrdered(
                 color,
                 orderedContents,
+                layout,
                 sourcePackages,
                 marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.CLEAR,
                 marker,
@@ -1350,21 +1579,21 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return Optional.of(new ProviderPlan(packages, consumedInputs));
     }
 
-    private Optional<ProviderPlan> planOrdinaryProcessingPush(
-            ItemStack definitionStack,
+    private Optional<ProviderPlan> planOrdinaryPatternPush(
+            IPatternDetails patternDetails,
             KeyCounter[] inputHolder) {
-        if (!isAe2ProcessingPattern(definitionStack)
-                || AdvancedProcessingPatternDataStorage.hasData(definitionStack)) {
+        ItemStack definitionStack = patternDetails.getDefinition().toStack();
+        if (!PatternDetailsHelper.isEncodedPattern(definitionStack)
+                || AdvancedProcessingPatternDataStorage.hasData(definitionStack)
+                || PackageCraftingPatternDataStorage.read(definitionStack).isPresent()) {
             return Optional.empty();
         }
-        List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(definitionStack);
-        List<GenericStack> inputs = new ArrayList<>();
+        List<GenericStack> inputs = ordinaryPatternInputs(definitionStack, patternDetails);
         Map<AEKey, Long> expected = new LinkedHashMap<>();
-        for (GenericStack input : sparseInputs) {
+        for (GenericStack input : inputs) {
             if (input == null || input.amount() <= 0) {
                 continue;
             }
-            inputs.add(new GenericStack(input.what(), input.amount()));
             expected.merge(input.what(), input.amount(), Long::sum);
         }
         if (inputs.isEmpty() || !expected.equals(aggregateInputs(inputHolder).orElse(Map.of()))) {
@@ -1372,8 +1601,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         Optional<QueuedPackage> queued = buildPatternPackage(
                 PackageColor.FLUIX,
-                Optional.empty(),
-                inputs);
+                ordinaryPatternMarker(definitionStack, patternDetails),
+                inputs,
+                ordinaryPatternLayout(definitionStack, patternDetails),
+                configuredCapacityProfile());
         return queued.map(value -> new ProviderPlan(List.of(value), inputs));
     }
 
@@ -1454,7 +1685,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
 
         ItemStack definitionStack = patternDetails.getDefinition().toStack();
-        if (!patternFitsCapacity(definitionStack, configuredCapacityProfile())) {
+        if (!patternFitsCapacity(definitionStack, patternDetails, configuredCapacityProfile())) {
             return false;
         }
         Optional<ProviderPlan> packageCraftingPlan = planPackageCraftingPush(definitionStack, inputHolder);
@@ -1480,8 +1711,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return true;
         }
 
-        if (isAe2ProcessingPattern(definitionStack)) {
-            Optional<ProviderPlan> ordinaryPlan = planOrdinaryProcessingPush(definitionStack, inputHolder);
+        if (PatternDetailsHelper.isEncodedPattern(definitionStack)) {
+            Optional<ProviderPlan> ordinaryPlan = planOrdinaryPatternPush(patternDetails, inputHolder);
             if (ordinaryPlan.isEmpty()
                     || !beginProviderCraft(
                             ordinaryPlan.get().packages(),
@@ -1640,6 +1871,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         tag.put(MENU_INPUTS_TAG, saveMenuInputs());
         tag.put(PENDING_PACKAGES_TAG, savePendingPackages());
         tag.put(ACTIVE_PACKAGES_TAG, saveQueuedPackages(activePackages));
+        if (!activeMenuPattern.isEmpty()) {
+            tag.put(ACTIVE_MENU_PATTERN_TAG, activeMenuPattern.save(new CompoundTag()));
+        }
         tag.putInt(CRAFT_PROGRESS_TAG, craftingProgress);
         tag.putString(OUTPUT_MODE_TAG, outputMode.id());
     }
@@ -1655,6 +1889,12 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         outputMode = OutputMode.byId(tag.getString(OUTPUT_MODE_TAG)).orElse(OutputMode.ME_NETWORK);
         craftingProgress = Math.max(0, Math.min(MAX_CRAFT_PROGRESS, tag.getInt(CRAFT_PROGRESS_TAG)));
         loadQueuedPackages(tag, ACTIVE_PACKAGES_TAG, activePackages);
+        activeMenuPattern = tag.contains(ACTIVE_MENU_PATTERN_TAG, Tag.TAG_COMPOUND)
+                ? ItemStack.of(tag.getCompound(ACTIVE_MENU_PATTERN_TAG))
+                : ItemStack.EMPTY;
+        if (activePackages.isEmpty()) {
+            activeMenuPattern = ItemStack.EMPTY;
+        }
         loadPendingPackages(tag);
         promoteNextOutput();
     }
@@ -1685,13 +1925,15 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     pos.getZ(),
                     packageStack(queuedPackage.color(), queuedPackage.data()));
         }
-        for (QueuedPackage queuedPackage : activePackages) {
-            Containers.dropItemStack(
-                    level,
-                    pos.getX(),
-                    pos.getY(),
-                    pos.getZ(),
-                    packageStack(queuedPackage.color(), queuedPackage.data()));
+        if (activeMenuPattern.isEmpty()) {
+            for (QueuedPackage queuedPackage : activePackages) {
+                Containers.dropItemStack(
+                        level,
+                        pos.getX(),
+                        pos.getY(),
+                        pos.getZ(),
+                        packageStack(queuedPackage.color(), queuedPackage.data()));
+            }
         }
     }
 
@@ -1785,18 +2027,33 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
     }
 
-    private void commitMenuExtractions(List<MenuInputExtraction> extractions) {
+    private boolean commitMenuExtractions(List<MenuInputExtraction> extractions) {
+        MenuInputEntry[] updated = Arrays.copyOf(menuInputs, menuInputs.length);
+        List<GenericStack> filters = menuInputFilters();
         for (MenuInputExtraction extraction : extractions) {
-            MenuInputEntry entry = menuInput(extraction.slot());
-            if (entry == null) {
-                continue;
+            if (extraction.slot() < 0
+                    || extraction.slot() >= updated.length
+                    || extraction.slot() >= filters.size()
+                    || extraction.amount() <= 0) {
+                return false;
+            }
+            MenuInputEntry entry = updated[extraction.slot()];
+            GenericStack filter = filters.get(extraction.slot());
+            if (entry == null
+                    || filter == null
+                    || !filter.what().equals(AEItemKey.of(entry.stack()))
+                    || entry.amount() < extraction.amount()) {
+                return false;
             }
             long remaining = entry.amount() - extraction.amount();
-            menuInputs[extraction.slot()] = remaining <= 0
+            updated[extraction.slot()] = remaining <= 0
                     ? null
                     : new MenuInputEntry(entry.stack(), remaining);
         }
+        menuInputs = updated;
         trimMenuInputStorage();
+        setChanged();
+        return true;
     }
 
     private static MenuInputContents menuInputContents(MenuInputEntry[] inputs) {
@@ -2003,6 +2260,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
     private record MenuBatchPlan(List<QueuedPackage> packages, List<MenuInputExtraction> menuExtractions) {
         private MenuBatchPlan {
+            packages = List.copyOf(packages);
+            menuExtractions = List.copyOf(menuExtractions);
+        }
+    }
+
+    private record MenuCraftPlan(List<QueuedPackage> packages, List<MenuInputExtraction> menuExtractions) {
+        private MenuCraftPlan {
             packages = List.copyOf(packages);
             menuExtractions = List.copyOf(menuExtractions);
         }

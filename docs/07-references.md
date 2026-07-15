@@ -54,6 +54,14 @@ GuideME 20.1.7
 用途：AE2 15.4.10 runtime 必需依赖。runData 首次验证显示 AE2 要求 guideme [20.1.7,20.2.0)，因此 Gradle 显式加入 org.appliedenergistics:guideme:20.1.7，并在 Applied Packaging 的 mods.toml 发布 metadata 中声明 guideme [20.1.7,20.2.0)。
 ```
 
+JEI 15.20.0.134
+
+```text
+用途：Minecraft 1.20.1 Forge 开发客户端的配方与物品测试辅助。只通过 modLocalRuntime 加入本地运行类路径，不属于 Applied Packaging 的编译 API 或发布必需依赖，mods.toml 不声明 JEI。
+版本核对：https://maven.blamejared.com/mezz/jei/jei-1.20.1-forge/maven-metadata.xml
+官方仓库：https://github.com/mezz/JustEnoughItems/tree/1.20.1
+```
+
 AE2 GitHub / Maven 信息
 
 ```text
@@ -78,18 +86,52 @@ AE2 15.4.10 Formation Plane / Pattern Provider / Storage Bus 源码
 用途：Formation Plane 的默认优先级为 0，并把玩家配置的原始数值直接用于挂载；它通过只实现 insert 的 MEStorage 成为网络输出端点而不提供库存/抽取。Pattern Provider blocking 在目标包含任一 pattern input 时拒绝 push；Storage Bus Partition Storage 从目标可用 key 重建配置槽。NetworkStorage 先按挂载优先级从高到低遍历，并在每个相同优先级组内先调用 `isPreferredStorageFor` 为真的存储，再尝试其余端点；Package Unpacking Bus 与 Package Storage Bus 的同值决胜以卸货端点的该正式扩展点实现，不修改玩家数值，也不依赖 part 挂载顺序。
 ```
 
-AE2 1.21.1 Pattern Encoding Terminal UI reference
+AE2 Pattern Encoding Terminal runtime and newer UI references
 
 ```text
-本地源码：build/reference/ae2-1.21.1
-主要文件：src/main/java/appeng/client/gui/me/items/PatternEncodingTermScreen.java
+运行时源码：build/reference/ae2-v15.4.10
+固定提交：b4b08d9941e3faecb520d76be617629bb56661e1（forge/v15.4.10）
+主要文件：src/main/java/appeng/init/client/InitScreens.java
+             src/main/java/appeng/menu/me/items/PatternEncodingTermMenu.java
+             src/main/java/appeng/client/gui/me/items/PatternEncodingTermScreen.java
              src/main/java/appeng/client/gui/me/items/CraftingEncodingPanel.java
              src/main/java/appeng/client/gui/me/items/ProcessingEncodingPanel.java
              src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json
-             src/main/resources/assets/ae2/screens/terminals/encoding/crafting.json
-用途：高级样板终端的 9 列终端主体、搜索/玩家栏基线、processing slot 行滚动与紧凑按钮视觉；2026-07-11 复核 AE2 main 后确认 small scroller、states 与 1.21.1 参考文件 SHA-256 相同，因此运行时复制的 states atlas 可同时代表当前 main 样式。
-版本边界：仅作客户端视觉/交互参考，运行时依赖仍是 AE2 15.4.10 Forge。
-许可证：LGPL-3.0-or-later；本地适配 atlas 的许可证文本打包至 META-INF/licenses/ae2-LGPL-3.0-or-later.txt。
+用途：锁定原版 Screen、四种 panel、Menu 槽位验证和数量编辑调用链；普通终端只增加专用载体拒绝，不增加 package 入口、不替换 factory 或复制原生 panel。
+
+新版源码：build/reference/ae2-neoforge-v19.2.17
+固定提交：79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a（neoforge/v19.2.17）
+主要文件：src/main/java/appeng/client/gui/me/items/PatternEncodingTermScreen.java
+             src/main/java/appeng/client/gui/me/items/CraftingEncodingPanel.java
+             src/main/java/appeng/client/gui/me/items/ProcessingEncodingPanel.java
+             src/main/java/appeng/client/gui/me/items/SmithingTableEncodingPanel.java
+             src/main/java/appeng/client/gui/me/items/StonecuttingEncodingPanel.java
+             src/main/java/appeng/client/gui/me/patternaccess/PatternAccessTermScreen.java
+             src/main/java/appeng/client/gui/widgets/TabButton.java
+             src/main/java/appeng/client/gui/widgets/VerticalButtonBar.java
+             src/main/java/appeng/client/gui/widgets/IconButton.java
+             src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json
+用途：参考合并后 Advanced Pattern Encoding Terminal 的两套主体 profile、Encode/合成状态、样板槽占位、网络与 small scrollbar，以及保持 124x66 原宽的 package 面板；右侧模式按钮明确复用 Pattern Encoding Terminal 的 `TabButton.Style.HORIZONTAL` 视觉与坐标规则：22x22 normal/selected/focus、21px 步进和 `(3,3)` ItemStack 偏移。Pattern Access Terminal/VerticalButtonBar 只继续作为左侧公共工具栏参考。继续不采用新版 `VIEW_CELL` 面板，也不重实现四种原生模式。
+版本边界：新版源码只作专用高级终端的视觉与布局参考；普通终端 factory、Screen/模式行为、Menu、网络与 recipe API 均严格使用 AE2 15.4.10 Forge。高级/包裹页在同一自有 Screen/Menu 内切换，不切换到原版 Screen。
+许可证：LGPL-3.0-or-later；共享 sprite 中适配的上游像素许可证文本打包至 META-INF/licenses/ae2-LGPL-3.0-or-later.txt。
+```
+
+AE2 v19 Advanced Pattern Encoding Terminal part model reference
+
+```text
+官方仓库：https://github.com/AppliedEnergistics/Applied-Energistics-2
+本地源码：build/reference/ae2-neoforge-v19.2.17
+固定提交：79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a（neoforge/v19.2.17）
+主要模型：src/main/resources/assets/ae2/models/part/display_base.json
+          src/main/resources/assets/ae2/models/part/display_off.json
+          src/main/resources/assets/ae2/models/part/pattern_encoding_terminal_on.json
+          src/main/resources/assets/ae2/models/part/display_status_off.json
+          src/main/resources/assets/ae2/models/part/display_status_on.json
+          src/main/resources/assets/ae2/models/part/display_status_has_channel.json
+          src/main/resources/assets/ae2/models/item/display_base.json
+用途：高级样板终端的世界 Part 几何、物品几何、三层染色面和四段状态灯的固定上游来源。
+兼容边界：只把模型中的 NeoForge `neoforge_data` 全亮字段等价改写为 Forge 1.20.1 `forge_data`；几何、UV、tint index 与光照值不变。运行时 Part 状态选择仍调用 AE2 15.4.10 API。
+许可证与逐文件来源：META-INF/licenses/ae2-terminal-part-source.txt；LGPL-3.0-or-later 文本打包至 META-INF/licenses/ae2-LGPL-3.0-or-later.txt。
 ```
 
 AE2 current main Storage Bus GUI reference

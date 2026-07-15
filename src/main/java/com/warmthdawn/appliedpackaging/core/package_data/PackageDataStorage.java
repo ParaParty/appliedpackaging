@@ -21,6 +21,9 @@ public final class PackageDataStorage {
     private static final String USED_TYPES = "used_types";
     private static final String MARKER = "marker";
     private static final String CONTENTS = "contents";
+    private static final String LAYOUT = "layout";
+    private static final String SLOT_COUNT = "slot_count";
+    private static final String CONTENT_SLOTS = "content_slots";
 
     private PackageDataStorage() {
     }
@@ -60,8 +63,28 @@ public final class PackageDataStorage {
             }
         }
 
+        Optional<PackageLayout> layout = Optional.empty();
+        if (tag.contains(LAYOUT, Tag.TAG_COMPOUND)) {
+            CompoundTag layoutTag = tag.getCompound(LAYOUT);
+            int[] rawSlots = layoutTag.getIntArray(CONTENT_SLOTS);
+            List<Integer> contentSlots = new ArrayList<>(rawSlots.length);
+            for (int rawSlot : rawSlots) {
+                contentSlots.add(rawSlot);
+            }
+            try {
+                layout = Optional.of(new PackageLayout(layoutTag.getInt(SLOT_COUNT), contentSlots));
+            } catch (IllegalArgumentException ignored) {
+                return Optional.empty();
+            }
+        }
+
         int flags = tag.getInt(FLAGS);
-        PackageData computed = PackageData.create(color, contents, marker, flags);
+        PackageData computed;
+        try {
+            computed = PackageData.create(color, contents, layout, marker, flags);
+        } catch (IllegalArgumentException ignored) {
+            return Optional.empty();
+        }
         String storedHash = tag.getString(HASH);
         if (storedHash.isBlank() || !storedHash.equals(computed.canonicalHash())) {
             return Optional.empty();
@@ -86,6 +109,12 @@ public final class PackageDataStorage {
         tag.putInt(USED_TYPES, data.usedTypes());
 
         data.marker().ifPresent(marker -> tag.put(MARKER, GenericStack.writeTag(marker.stack())));
+        data.layout().ifPresent(layout -> {
+            CompoundTag layoutTag = new CompoundTag();
+            layoutTag.putInt(SLOT_COUNT, layout.slotCount());
+            layoutTag.putIntArray(CONTENT_SLOTS, layout.contentSlots());
+            tag.put(LAYOUT, layoutTag);
+        });
 
         ListTag contents = new ListTag();
         for (GenericStack stack : data.contents()) {

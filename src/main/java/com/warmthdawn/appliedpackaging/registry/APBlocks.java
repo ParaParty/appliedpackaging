@@ -3,6 +3,7 @@ package com.warmthdawn.appliedpackaging.registry;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.block.MePackagerBlock;
 import com.warmthdawn.appliedpackaging.world.block.PackageAssemblerBlock;
+import com.warmthdawn.appliedpackaging.world.block.SequenceBufferBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -23,6 +24,10 @@ public final class APBlocks {
     public static final RegistryObject<Block> PACKAGE_ASSEMBLER = BLOCKS.register(
             "package_assembler",
             () -> new PackageAssemblerBlock(cutoutMachineProperties()));
+
+    public static final RegistryObject<Block> SEQUENCE_BUFFER = BLOCKS.register(
+            "sequence_buffer",
+            () -> new SequenceBufferBlock(machineProperties()));
 
     private APBlocks() {
     }

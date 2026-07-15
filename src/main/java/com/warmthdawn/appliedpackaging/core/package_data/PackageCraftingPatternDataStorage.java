@@ -75,6 +75,21 @@ public final class PackageCraftingPatternDataStorage {
         if (!hasInput) {
             return Optional.empty();
         }
+        List<GenericStack> denseInputs = new ArrayList<>();
+        List<Integer> contentSlots = new ArrayList<>();
+        for (int slot = 0; slot < inputs.length; slot++) {
+            GenericStack input = inputs[slot];
+            if (input != null) {
+                denseInputs.add(input);
+                contentSlots.add(slot);
+            }
+        }
+        if (!data.get().contents().equals(denseInputs)
+                || data.get().layout().isEmpty()
+                || data.get().layout().orElseThrow().slotCount() != INPUT_SLOT_COUNT
+                || !data.get().layout().orElseThrow().contentSlots().equals(contentSlots)) {
+            return Optional.empty();
+        }
         return Optional.of(new EncodedPackageCraftingPattern(color.get(), inputs, data.get()));
     }
 
@@ -116,6 +131,7 @@ public final class PackageCraftingPatternDataStorage {
             return Optional.empty();
         }
         List<GenericStack> contents = new ArrayList<>();
+        List<Integer> contentSlots = new ArrayList<>();
         GenericStack[] normalizedInputs = new GenericStack[INPUT_SLOT_COUNT];
         for (int slot = 0; slot < INPUT_SLOT_COUNT; slot++) {
             GenericStack input = sparseInputs[slot];
@@ -124,13 +140,15 @@ public final class PackageCraftingPatternDataStorage {
             }
             normalizedInputs[slot] = input;
             contents.add(input);
+            contentSlots.add(slot);
         }
         if (contents.isEmpty()) {
             return Optional.empty();
         }
-        PackagePlanResult result = PackagePlanBuilder.build(
+        PackagePlanResult result = PackagePlanBuilder.buildOrdered(
                 color == null ? PackageColor.FLUIX : color,
                 contents,
+                Optional.of(new PackageLayout(INPUT_SLOT_COUNT, contentSlots)),
                 List.of(),
                 marker != null && marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.CLEAR,
                 marker == null ? Optional.empty() : marker,
@@ -162,6 +180,21 @@ public final class PackageCraftingPatternDataStorage {
             sparseInputs = Arrays.copyOf(sparseInputs, INPUT_SLOT_COUNT);
             if (data == null) {
                 throw new IllegalArgumentException("Package crafting pattern data cannot be null");
+            }
+            List<GenericStack> denseInputs = new ArrayList<>();
+            List<Integer> contentSlots = new ArrayList<>();
+            for (int slot = 0; slot < sparseInputs.length; slot++) {
+                GenericStack input = sparseInputs[slot];
+                if (input != null && input.amount() > 0) {
+                    denseInputs.add(input);
+                    contentSlots.add(slot);
+                }
+            }
+            if (!data.contents().equals(denseInputs)
+                    || data.layout().isEmpty()
+                    || data.layout().orElseThrow().slotCount() != INPUT_SLOT_COUNT
+                    || !data.layout().orElseThrow().contentSlots().equals(contentSlots)) {
+                throw new IllegalArgumentException("Package crafting pattern data must preserve its sparse layout");
             }
         }
 

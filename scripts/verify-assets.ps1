@@ -1,5 +1,6 @@
 param(
-    [string] $RootPath = ""
+    [string] $RootPath = "",
+    [switch] $SkipPngVisualContent
 )
 
 $ErrorActionPreference = "Stop"
@@ -275,6 +276,10 @@ function Get-ExpectedPngSize {
         return @{ Width = 256; Height = 256; Label = "package pattern mode GUI atlas" }
     }
 
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png") {
+        return @{ Width = 256; Height = 256; Label = "AE2 v19 package-mode full-screen terminal base GUI" }
+    }
+
     if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png") {
         return @{ Width = 256; Height = 256; Label = "package bus GUI atlas" }
     }
@@ -335,6 +340,10 @@ function Get-ExpectedPngSize {
         return @{ Width = 16; Height = 192; Label = "AE2 v19 package assembler animated light strip" }
     }
 
+    if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/block/sequence_buffer/faces/", [System.StringComparison]::Ordinal)) {
+        return @{ Width = 16; Height = 16; Label = "Sequence Buffer face texture" }
+    }
+
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/block/", [System.StringComparison]::Ordinal)) {
         return @{ Width = 32; Height = 32; Label = "block texture" }
     }
@@ -371,6 +380,74 @@ Write-Host "Repository: $repoRoot"
 $assetRoot = "src/main/resources/assets/appliedpackaging"
 Assert-True (Test-Path -LiteralPath $assetRoot) "Asset root exists: $assetRoot"
 
+$sequenceBufferFaceNames = @(
+    "undirected_unformed",
+    "undirected_formed_middle_side",
+    "undirected_formed_edge_side",
+    "controller_back",
+    "directed_front_unformed",
+    "directed_front_formed_middle_side",
+    "directed_front_formed_edge_side",
+    "formed_middle_side_edge_occluded",
+    "directed_side_unformed",
+    "directed_side_formed_middle_side",
+    "directed_side_formed_edge_side",
+    "controller_side",
+    "directed_back_unformed",
+    "directed_back_formed_middle_side",
+    "directed_back_formed_edge_side",
+    "tail_back"
+)
+
+$specializedPatternStylePath = "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json"
+$forbiddenNativePatternStylePath = "src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json"
+$forbiddenNativeModesTexturePath = "src/main/resources/assets/appliedpackaging/textures/gui/pattern_modes.png"
+Assert-True `
+    (Test-Path -LiteralPath $specializedPatternStylePath) `
+    "Combined specialized pattern terminal screen style exists: $specializedPatternStylePath"
+Assert-True `
+    (-not (Test-Path -LiteralPath $forbiddenNativePatternStylePath)) `
+    "AE2 native pattern terminal ScreenStyle is not overridden"
+Assert-True `
+    (-not (Test-Path -LiteralPath $forbiddenNativeModesTexturePath)) `
+    "AE2 native mode atlas is not copied into Applied Packaging"
+if (Test-Path -LiteralPath $specializedPatternStylePath) {
+    $specializedPatternStyle = Get-JsonFile $specializedPatternStylePath
+    if ($null -ne $specializedPatternStyle) {
+        Assert-True `
+            (@($specializedPatternStyle.includes) -contains "../terminals/terminal.json") `
+            "Combined specialized pattern terminal screen inherits AE2 terminal behavior"
+        Assert-True `
+            ($specializedPatternStyle.terminalStyle.header.texture -eq "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal.png") `
+            "Combined specialized pattern terminal screen uses the advanced terminal base"
+        Assert-True `
+            ($specializedPatternStyle.widgets.viewCells.right -eq 800) `
+            "Combined specialized pattern terminal suppresses the inherited view-cell panel"
+        Assert-True `
+            ($specializedPatternStyle.widgets.packagePatternModeScrollbar.height -eq 52 -and
+                $specializedPatternStyle.widgets.packagePatternModeScrollbar.left -eq 15 -and
+                $specializedPatternStyle.widgets.packagePatternModeScrollbar.bottom -eq 164) `
+            "Combined specialized pattern terminal declares the package-mode scrollbar geometry"
+        Assert-True `
+            ((@($specializedPatternStyle.terminalStyle.bottom.srcRect) -join ",") -eq "0,53,195,192") `
+            "Combined specialized pattern terminal uses the shared 195x245 two-row frame"
+        Assert-True `
+            ($specializedPatternStyle.slots.PROCESSING_INPUTS.left -eq 21 -and
+                $specializedPatternStyle.slots.PROCESSING_INPUTS.bottom -eq 164 -and
+                $specializedPatternStyle.slots.PROCESSING_OUTPUTS.left -eq 119 -and
+                $specializedPatternStyle.slots.PROCESSING_OUTPUTS.bottom -eq 164) `
+            "Combined specialized pattern terminal declares the revised advanced editor slots"
+        Assert-True `
+            ($specializedPatternStyle.slots.BLANK_PATTERN.left -eq 150 -and
+                $specializedPatternStyle.slots.BLANK_PATTERN.bottom -eq 165 -and
+                $specializedPatternStyle.slots.ENCODED_PATTERN.left -eq 150 -and
+                $specializedPatternStyle.slots.ENCODED_PATTERN.bottom -eq 118 -and
+                $specializedPatternStyle.widgets.encodePattern.left -eq 150 -and
+                $specializedPatternStyle.widgets.encodePattern.bottom -eq 145) `
+            "Combined specialized pattern terminal aligns both carrier slots and Encode to the revised base"
+    }
+}
+
 $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/logo.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/logo.png",
@@ -382,6 +459,7 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png",
@@ -403,6 +481,17 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/gui/icons/unpack_filter.png",
     "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png",
     "src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_back.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_bright.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_colored.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_dark.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_front.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_medium.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_sides.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_sides_status.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_has_channel.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_off.png",
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_on.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_front.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_back.png",
     "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_sides.png",
@@ -415,6 +504,9 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png",
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png"
 )
+foreach ($sequenceBufferFaceName in $sequenceBufferFaceNames) {
+    $requiredPngPaths += "src/main/resources/assets/appliedpackaging/textures/block/sequence_buffer/faces/$sequenceBufferFaceName.png"
+}
 
 $packageColors = @(
     "fluix",
@@ -436,6 +528,28 @@ $packageColors = @(
     "black"
 )
 $packageFaces = @("front", "back", "side", "top", "bottom")
+$packageTransformsPath = "src/main/resources/assets/appliedpackaging/models/item/package_box/_transforms.json"
+$markedPackageModelPath = "src/main/resources/assets/appliedpackaging/models/item/package_box/marked.json"
+foreach ($packageDisplayModelPath in @($packageTransformsPath, $markedPackageModelPath)) {
+    Assert-True (Test-Path -LiteralPath $packageDisplayModelPath) "Package display model exists: $packageDisplayModelPath"
+    if (-not (Test-Path -LiteralPath $packageDisplayModelPath)) {
+        continue
+    }
+    $packageDisplayModel = Get-JsonFile $packageDisplayModelPath
+    if ($null -eq $packageDisplayModel) {
+        continue
+    }
+    Assert-True `
+        ((@($packageDisplayModel.display.gui.rotation) -join ",") -eq "30,135,0") `
+        "Package display model keeps GUI rotation [30,135,0]: $packageDisplayModelPath"
+    Assert-True `
+        ((@($packageDisplayModel.display.gui.translation) -join ",") -eq "0,2,0") `
+        "Package display model centers the transformed cuboid in the GUI: $packageDisplayModelPath"
+    Assert-True `
+        ((@($packageDisplayModel.display.gui.scale) -join ",") -eq "0.75,0.75,0.75") `
+        "Package display model keeps GUI scale [0.75,0.75,0.75]: $packageDisplayModelPath"
+}
+
 foreach ($color in $packageColors) {
     foreach ($face in $packageFaces) {
         $requiredPngPaths += "src/main/resources/assets/appliedpackaging/textures/block/package_box/$color/package_box_$face.png"
@@ -452,13 +566,27 @@ $bytePreservedPngHashes = [ordered]@{
     "src/main/resources/assets/appliedpackaging/textures/block/me_packager/base.png" = "C98E01D32207CD77D50C1B5AEE5176FBD40264E16BADF2569737003A7DD6385E"
     "src/main/resources/assets/appliedpackaging/textures/block/me_packager/curtain.png" = "D4A4BCC86B497CAD066F364CE8E187D616283925FE6D58140934B9EBE1893F02"
     "src/main/resources/assets/appliedpackaging/textures/block/me_packager/belt_scroll.png" = "EDD93FF96C09554B23B5B70266F5D2320C2A19AAC6F66445F8A4B9240379BA04"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_back.png" = "0FBD8A8743D7C56FCBC5ECF3957E3C6B7B50D67B43169129ECCFEFB5605E0AF5"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_bright.png" = "1488EC1F42AFFA736CB5E5687C29B9F4EC7A41C7AAC2FD28C86AE1E6EF4914CF"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_colored.png" = "0A55D056F3DB2F501922AEFB00F8DA66605262EE8E95C413DA1C1BE057CCF7D2"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_dark.png" = "36D633037B7B40A5B289457533F63B817F098F9DDBF0F99CBCCA47002D12D4A3"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_front.png" = "0C304DD14AB433EAB35115EEDAF411278AB9C79786252F461AC525EA337852A6"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_medium.png" = "FE7A93FC055AD74AF9113711F799E56FE600A44E129B3D354D9F89C9BF2CCB98"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_sides.png" = "7F801E1DF17B380A42AE7501C89CEEB2FBCF5338E68CB5C32E986CD915DCAC7E"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_sides_status.png" = "6919534933452D822A8DB16E3BB78A385163A24A73F221C9C937F22167049829"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_has_channel.png" = "5BDC442AC0FA9D38C79C036D0B6AD732DA0187109209DDF3B7497DF932B525F1"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_off.png" = "7FCF547A4B40CDD91686354A120422D0868EA05BF4AC3D635D89E86E8B169892"
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_on.png" = "5DDA081025A4D57B25EA404AEECAC6EBE73776432402591069282586E50CC0EA"
     "src/main/resources/assets/appliedpackaging/textures/part/package_storage_bus_front.png" = "B682F316CB77A407736E4FD73D1CAE5104F679918090F23E1D994F3E63DBA1AB"
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_front.png" = "A6FB292B206693865094DF901A4A0789F051630C14001C9003423F5B3E44E96F"
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_back.png" = "3086B228171D19F1DFB55FDF6384165FDB78CEABB25B09C4706CE2E23599CD07"
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png" = "345A070081B556D2EF44AE0DAB65210F7728C33BB7C29FD46B526C607605FCE0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png" = "506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635"
+    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png" = "9586E6422D039A58C1188F5DA4F504FDE04870E4383F29E56FA9FE2752CCDD00"
+    "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png" = "65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096"
     "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png" = "0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55"
+    "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png" = "573E8852E2590262FD5405121549F48B7B78ED79199F615FC0B068C773A1F6BE"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png" = "C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png" = "62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715"
 }
@@ -522,6 +650,132 @@ if (Test-Path -LiteralPath $mePackagerBlockstatePath) {
             (@($mePackagerBlockstate.variants.PSObject.Properties).Count -eq 4) `
             "ME Packager blockstate declares only the four horizontal facing variants"
     }
+}
+
+$sequenceBufferDirections = @("down", "up", "north", "south", "west", "east")
+$sequenceBufferAxes = @("x", "y", "z")
+$sequenceBufferDirectionAxes = @{
+    down = "y"
+    up = "y"
+    north = "z"
+    south = "z"
+    west = "x"
+    east = "x"
+}
+$sequenceBufferGeneratedModelPaths = @()
+foreach ($direction in $sequenceBufferDirections) {
+    $sequenceBufferGeneratedModelPaths += "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/unformed_directed/$direction.json"
+    $sequenceBufferGeneratedModelPaths += "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/endpoint/$direction.json"
+    $sequenceBufferGeneratedModelPaths += "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/tail/$direction.json"
+}
+foreach ($axis in $sequenceBufferAxes) {
+    $sequenceBufferGeneratedModelPaths += "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/member/$axis.json"
+    foreach ($facing in $sequenceBufferDirections) {
+        if ($sequenceBufferDirectionAxes[$facing] -ne $axis) {
+            $sequenceBufferGeneratedModelPaths += "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/member_directed/$axis/$facing.json"
+        }
+    }
+}
+foreach ($sequenceDirection in $sequenceBufferDirections) {
+    foreach ($facing in $sequenceBufferDirections) {
+        if ($sequenceBufferDirectionAxes[$facing] -ne $sequenceBufferDirectionAxes[$sequenceDirection]) {
+            $sequenceBufferGeneratedModelPaths += "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/tail_directed/$sequenceDirection/$facing.json"
+        }
+    }
+}
+Assert-True `
+    ($sequenceBufferGeneratedModelPaths.Count -eq 57) `
+    "Sequence Buffer audit declares all 57 six-direction generated models"
+
+$sequenceBufferAssetPaths = @(
+    "src/main/resources/assets/appliedpackaging/blockstates/sequence_buffer.json",
+    "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/shell.json",
+    "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/unformed.json",
+    "src/main/resources/assets/appliedpackaging/models/item/sequence_buffer.json"
+) + $sequenceBufferGeneratedModelPaths
+foreach ($sequenceBufferAssetPath in $sequenceBufferAssetPaths) {
+    Assert-True (Test-Path -LiteralPath $sequenceBufferAssetPath) "Sequence Buffer model asset exists: $sequenceBufferAssetPath"
+    if (Test-Path -LiteralPath $sequenceBufferAssetPath) {
+        $null = Get-JsonFile $sequenceBufferAssetPath
+    }
+}
+
+$sequenceBufferBlockstatePath = $sequenceBufferAssetPaths[0]
+if (Test-Path -LiteralPath $sequenceBufferBlockstatePath) {
+    $sequenceBufferBlockstate = Get-JsonFile $sequenceBufferBlockstatePath
+    if ($null -ne $sequenceBufferBlockstate) {
+        $sequenceBufferStates = @($sequenceBufferBlockstate.multipart | ForEach-Object { $_.when.state } | Where-Object { $null -ne $_ } | Sort-Object -Unique)
+        Assert-True `
+            (($sequenceBufferStates -join ",") -eq "endpoint,member,member_directed,unformed,unformed_directed") `
+            "Sequence Buffer blockstate renders all five visual states"
+        Assert-True `
+            (@($sequenceBufferBlockstate.multipart).Count -eq 58) `
+            "Sequence Buffer blockstate declares the complete six-direction middle/tail orientation set"
+        $sequenceBufferTailValues = @($sequenceBufferBlockstate.multipart | ForEach-Object { $_.when.tail } | Where-Object { $null -ne $_ } | Sort-Object -Unique)
+        Assert-True `
+            (($sequenceBufferTailValues -join ",") -eq "false,true") `
+            "Sequence Buffer blockstate declares formed middle and tail segment variants"
+        $sequenceBufferTailDirections = @($sequenceBufferBlockstate.multipart | Where-Object { $_.when.tail -eq "true" } | ForEach-Object { $_.when.sequence_direction } | Sort-Object -Unique)
+        Assert-True `
+            (($sequenceBufferTailDirections -join ",") -eq "down,east,north,south,up,west") `
+            "Sequence Buffer tail models cover all six sequence directions"
+        $sequenceBufferFacings = @($sequenceBufferBlockstate.multipart | ForEach-Object { $_.when.facing } | Where-Object { $null -ne $_ } | Sort-Object -Unique)
+        Assert-True `
+            (($sequenceBufferFacings -join ",") -eq "down,east,north,south,up,west") `
+            "Sequence Buffer directed models cover all six block-facing directions"
+        $sequenceBufferStateAxes = @($sequenceBufferBlockstate.multipart | ForEach-Object { $_.when.axis } | Where-Object { $null -ne $_ } | Sort-Object -Unique)
+        Assert-True `
+            (($sequenceBufferStateAxes -join ",") -eq "x,y,z") `
+            "Sequence Buffer member models cover the X, Y, and Z structure axes"
+        $sequenceBufferStateCounts = @{}
+        foreach ($entry in @($sequenceBufferBlockstate.multipart)) {
+            $stateName = [string] $entry.when.state
+            if (-not $sequenceBufferStateCounts.ContainsKey($stateName)) {
+                $sequenceBufferStateCounts[$stateName] = 0
+            }
+            $sequenceBufferStateCounts[$stateName] += 1
+        }
+        Assert-True `
+            ($sequenceBufferStateCounts.unformed -eq 1 -and
+                $sequenceBufferStateCounts.unformed_directed -eq 6 -and
+                $sequenceBufferStateCounts.endpoint -eq 6 -and
+                $sequenceBufferStateCounts.member -eq 9 -and
+                $sequenceBufferStateCounts.member_directed -eq 36) `
+            "Sequence Buffer blockstate contains the expected 3D orientation matrix"
+    }
+}
+
+$sequenceBufferShellPath = $sequenceBufferAssetPaths[1]
+if (Test-Path -LiteralPath $sequenceBufferShellPath) {
+    $sequenceBufferShell = Get-JsonFile $sequenceBufferShellPath
+    if ($null -ne $sequenceBufferShell) {
+        Assert-True `
+            (@($sequenceBufferShell.elements).Count -eq 1 -and
+                ((@($sequenceBufferShell.elements[0].from) -join ",") -eq "0,0,0") -and
+                ((@($sequenceBufferShell.elements[0].to) -join ",") -eq "16,16,16")) `
+            "Sequence Buffer shell remains one in-bounds full-block cuboid"
+    }
+}
+
+$sequenceBufferItemPath = "src/main/resources/assets/appliedpackaging/models/item/sequence_buffer.json"
+if (Test-Path -LiteralPath $sequenceBufferItemPath) {
+    $sequenceBufferItem = Get-JsonFile $sequenceBufferItemPath
+    if ($null -ne $sequenceBufferItem) {
+        Assert-True `
+            ($sequenceBufferItem.parent -eq "appliedpackaging:block/sequence_buffer/unformed") `
+            "Sequence Buffer item model uses the unformed block model"
+    }
+}
+
+$sequenceBufferModelText = @(
+    @($sequenceBufferAssetPaths) |
+        Where-Object { $_ -like "*/models/block/sequence_buffer/*.json" } |
+        ForEach-Object { Get-Content -Raw -LiteralPath $_ }
+) -join "`n"
+foreach ($sequenceBufferFaceName in $sequenceBufferFaceNames) {
+    Assert-True `
+        ($sequenceBufferModelText.Contains("appliedpackaging:block/sequence_buffer/faces/$sequenceBufferFaceName")) `
+        "Sequence Buffer models reference split face texture: $sequenceBufferFaceName"
 }
 
 foreach ($color in $packageColors) {
@@ -622,6 +876,12 @@ if (Test-Path -LiteralPath $assemblerLightsModelPath) {
 }
 
 $packagePartModels = @(
+    "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_base.json",
+    "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_off.json",
+    "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_on.json",
+    "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_off.json",
+    "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_on.json",
+    "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_has_channel.json",
     "src/main/resources/assets/appliedpackaging/models/part/package_storage_bus_base.json",
     "src/main/resources/assets/appliedpackaging/models/part/package_unpacking_bus_base.json",
     "src/main/resources/assets/appliedpackaging/models/part/package_bus_status_off.json",
@@ -629,10 +889,103 @@ $packagePartModels = @(
     "src/main/resources/assets/appliedpackaging/models/part/package_bus_status_has_channel.json"
 )
 foreach ($packagePartModel in $packagePartModels) {
-    Assert-True (Test-Path -LiteralPath $packagePartModel) "AE2 v19 package bus part model exists: $packagePartModel"
+    Assert-True (Test-Path -LiteralPath $packagePartModel) "AE2 v19 part model exists: $packagePartModel"
+}
+
+$advancedTerminalBasePath = "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_base.json"
+$advancedTerminalOffPath = "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_off.json"
+$advancedTerminalOnPath = "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_on.json"
+$advancedTerminalStatusOffPath = "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_off.json"
+$advancedTerminalStatusOnPath = "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_on.json"
+$advancedTerminalStatusChannelPath = "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_has_channel.json"
+$advancedTerminalItemPath = "src/main/resources/assets/appliedpackaging/models/item/advanced_pattern_encoding_terminal.json"
+
+if (Test-Path -LiteralPath $advancedTerminalBasePath) {
+    $advancedTerminalBase = Get-JsonFile $advancedTerminalBasePath
+    if ($null -ne $advancedTerminalBase) {
+        $baseElements = @($advancedTerminalBase.elements)
+        Assert-True ($baseElements.Count -eq 3) "Advanced terminal placed Part uses the translated v19 item display geometry"
+        Assert-True `
+            ($advancedTerminalBase.textures.front_base -eq "appliedpackaging:part/advanced_pattern_encoding_terminal_front") `
+            "Advanced terminal placed Part uses the copied v19 front material"
+        Assert-True `
+            ([int] $baseElements[1].faces.north.tintindex -eq 4 -and $baseElements[1].faces.north.texture -eq "#front_medium_bright") `
+            "Advanced terminal placed Part keeps the v19 medium-bright tint layer used by its item model"
+        Assert-True `
+            (($baseElements[2].from -join ",") -eq "4,4,2" -and ($baseElements[2].to -join ",") -eq "12,12,3") `
+            "Advanced terminal placed Part translates the v19 item back geometry into cable-part coordinates"
+    }
+}
+
+if (Test-Path -LiteralPath $advancedTerminalOnPath) {
+    $advancedTerminalOn = Get-JsonFile $advancedTerminalOnPath
+    if ($null -ne $advancedTerminalOn) {
+        $onElements = @($advancedTerminalOn.elements)
+        $onTintOrder = @($onElements | ForEach-Object { [int] $_.faces.north.tintindex })
+        Assert-True `
+            (($onTintOrder -join ",") -eq "3,2,1") `
+            "Advanced terminal on model uses v19 dark/medium/bright tint order [3,2,1]"
+        foreach ($element in $onElements) {
+            $face = $element.faces.north
+            Assert-True `
+                ($null -ne $face.forge_data -and [int] $face.forge_data.block_light -eq 15 -and [int] $face.forge_data.sky_light -eq 15) `
+                "Advanced terminal on layers use Forge 1.20.1 full-bright face data"
+            Assert-True `
+                (-not ($face.PSObject.Properties.Name -contains "neoforge_data")) `
+                "Advanced terminal on layers do not leak NeoForge-only face data"
+        }
+    }
+}
+
+if (Test-Path -LiteralPath $advancedTerminalOffPath) {
+    $advancedTerminalOff = Get-JsonFile $advancedTerminalOffPath
+    if ($null -ne $advancedTerminalOff) {
+        $offElements = @($advancedTerminalOff.elements)
+        $offTintOrder = @($offElements | ForEach-Object { [int] $_.faces.north.tintindex })
+        Assert-True `
+            (($offTintOrder -join ",") -eq "3,2,1") `
+            "Advanced terminal off model keeps all three tint masks without full-bright lighting"
+        Assert-True `
+            (@($offElements | Where-Object { $_.faces.north.PSObject.Properties.Name -contains "forge_data" }).Count -eq 0) `
+            "Advanced terminal off model remains environment-lit"
+    }
+}
+
+foreach ($statusPath in @($advancedTerminalStatusOffPath, $advancedTerminalStatusOnPath, $advancedTerminalStatusChannelPath)) {
+    if (-not (Test-Path -LiteralPath $statusPath)) {
+        continue
+    }
+    $statusModel = Get-JsonFile $statusPath
+    if ($null -ne $statusModel) {
+        Assert-True `
+            (@($statusModel.elements).Count -eq 4) `
+            "Advanced terminal status model uses the v19 four-segment indicator geometry: $statusPath"
+    }
+}
+
+Assert-True (Test-Path -LiteralPath $advancedTerminalItemPath) "Advanced terminal v19 item model exists"
+if (Test-Path -LiteralPath $advancedTerminalItemPath) {
+    $advancedTerminalItem = Get-JsonFile $advancedTerminalItemPath
+    if ($null -ne $advancedTerminalItem) {
+        Assert-True `
+            ($advancedTerminalItem.parent -eq "ae2:item/part_base") `
+            "Advanced terminal item model keeps the AE2 part display transforms"
+        Assert-True `
+            (@($advancedTerminalItem.elements).Count -eq 6) `
+            "Advanced terminal item model uses the v19 display-base geometry"
+        $itemTintOrder = @($advancedTerminalItem.elements | ForEach-Object {
+                if ($null -ne $_.faces.north -and $_.faces.north.PSObject.Properties.Name -contains "tintindex") {
+                    [int] $_.faces.north.tintindex
+                }
+            })
+        Assert-True `
+            (($itemTintOrder -join ",") -eq "3,4,2,1") `
+            "Advanced terminal item model keeps the v19 four tint layers"
+    }
 }
 
 $opaqueSolidModelPaths = @(
+    "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_base.json",
     "src/main/resources/assets/appliedpackaging/models/part/package_storage_bus_base.json",
     "src/main/resources/assets/appliedpackaging/models/part/package_unpacking_bus_base.json"
 )
@@ -661,6 +1014,11 @@ $badDimensions = [System.Collections.Generic.List[string]]::new()
 $badColorTypes = [System.Collections.Generic.List[string]]::new()
 $badVisualContent = [System.Collections.Generic.List[string]]::new()
 $unexpectedPngs = [System.Collections.Generic.List[string]]::new()
+$intentionalTransparentPngs = @(
+    # AE2 v19 ships this tint layer as a transparent compatibility surface; its exact upstream
+    # bytes are pinned above, so allowing it here cannot hide an arbitrary empty placeholder.
+    "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_colored.png"
+)
 
 foreach ($file in $pngFiles) {
     $relativePath = [System.IO.Path]::GetRelativePath($repoRoot, $file.FullName).Replace("\", "/")
@@ -674,13 +1032,15 @@ foreach ($file in $pngFiles) {
         $badColorTypes.Add("$relativePath colorType=$($info.ColorType)") | Out-Null
     }
 
-    $visualStats = Get-PngVisualStats -Path $file.FullName -Info $info
-    if (-not $visualStats.Valid) {
-        $badVisualContent.Add("$relativePath $($visualStats.Error)") | Out-Null
-    } elseif ($visualStats.VisiblePixels -eq 0) {
-        $badVisualContent.Add("$relativePath is fully transparent") | Out-Null
-    } elseif ($visualStats.UniquePixels -lt 2) {
-        $badVisualContent.Add("$relativePath is a single-color placeholder") | Out-Null
+    if (-not $SkipPngVisualContent) {
+        $visualStats = Get-PngVisualStats -Path $file.FullName -Info $info
+        if (-not $visualStats.Valid) {
+            $badVisualContent.Add("$relativePath $($visualStats.Error)") | Out-Null
+        } elseif ($visualStats.VisiblePixels -eq 0 -and $relativePath -notin $intentionalTransparentPngs) {
+            $badVisualContent.Add("$relativePath is fully transparent") | Out-Null
+        } elseif ($visualStats.UniquePixels -lt 2 -and $relativePath -notin $intentionalTransparentPngs) {
+            $badVisualContent.Add("$relativePath is a single-color placeholder") | Out-Null
+        }
     }
 
     $expected = Get-ExpectedPngSize $relativePath
@@ -706,7 +1066,9 @@ if ($badColorTypes.Count -eq 0) {
     Add-Fail "PNG assets must use RGBA color type 6: $($badColorTypes -join '; ')"
 }
 
-if ($badVisualContent.Count -eq 0) {
+if ($SkipPngVisualContent) {
+    Add-Pass "PNG visual-content scan skipped by explicit targeted-fixture option"
+} elseif ($badVisualContent.Count -eq 0) {
     Add-Pass "PNG assets contain visible, non-placeholder pixel content"
 } else {
     Add-Fail "PNG assets must not be fully transparent or single-color placeholders: $($badVisualContent -join '; ')"

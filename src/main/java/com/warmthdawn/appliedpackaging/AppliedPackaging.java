@@ -4,6 +4,7 @@ import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEItems;
 import com.mojang.logging.LogUtils;
 import com.warmthdawn.appliedpackaging.client.AppliedPackagingClient;
+import com.warmthdawn.appliedpackaging.config.APServerConfig;
 import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
@@ -19,6 +20,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLEnvironment;
@@ -35,6 +38,8 @@ public class AppliedPackaging {
 
     public AppliedPackaging() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, APServerConfig.SPEC);
 
         APBlocks.register(modEventBus);
         APItems.register(modEventBus);

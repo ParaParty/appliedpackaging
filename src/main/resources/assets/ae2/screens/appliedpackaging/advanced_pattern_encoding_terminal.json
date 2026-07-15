@@ -5,22 +5,22 @@
   ],
   "slots": {
     "PROCESSING_INPUTS": {
-      "left": 23,
-      "bottom": 167,
+      "left": 21,
+      "bottom": 164,
       "grid": "VERTICAL"
     },
     "PROCESSING_OUTPUTS": {
-      "left": 129,
-      "bottom": 167,
+      "left": 119,
+      "bottom": 164,
       "grid": "VERTICAL"
     },
     "BLANK_PATTERN": {
-      "left": 167,
-      "bottom": 166
+      "left": 150,
+      "bottom": 165
     },
     "ENCODED_PATTERN": {
-      "left": 167,
-      "bottom": 119
+      "left": 150,
+      "bottom": 118
     },
     "PLAYER_INVENTORY": {
       "left": 8,
@@ -54,7 +54,7 @@
       },
       "position": {
         "left": 8,
-        "bottom": 194
+        "bottom": 189
       }
     },
     "player_inventory_title": {
@@ -71,7 +71,7 @@
       "align": "RIGHT",
       "scale": 0.6,
       "position": {
-        "right": 26,
+        "left": 169,
         "top": 8
       }
     }
@@ -106,7 +106,7 @@
       "texture": "appliedpackaging:textures/gui/advanced_pattern_encoding_terminal.png",
       "textureWidth": 256,
       "textureHeight": 256,
-      "srcRect": [0, 53, 195, 197]
+      "srcRect": [0, 53, 195, 192]
     }
   },
   "widgets": {
@@ -115,17 +115,22 @@
       "top": 1
     },
     "encodePattern": {
-      "left": 167,
-      "bottom": 146
+      "left": 150,
+      "bottom": 145
     },
     "processingPatternModeScrollbar": {
-      "left": 14,
-      "bottom": 167,
+      "left": 12,
+      "bottom": 164,
+      "height": 52
+    },
+    "packagePatternModeScrollbar": {
+      "left": 15,
+      "bottom": 164,
       "height": 52
     },
     "processingCycleOutput": {
-      "left": 108,
-      "bottom": 177,
+      "left": 106,
+      "bottom": 172,
       "width": 8,
       "height": 8
     },

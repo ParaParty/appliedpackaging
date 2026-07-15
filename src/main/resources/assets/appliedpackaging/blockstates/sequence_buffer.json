@@ -1,0 +1,606 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "state": "unformed"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/unformed"
+      }
+    },
+    {
+      "when": {
+        "state": "unformed_directed",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/unformed_directed/down"
+      }
+    },
+    {
+      "when": {
+        "state": "unformed_directed",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/unformed_directed/up"
+      }
+    },
+    {
+      "when": {
+        "state": "unformed_directed",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/unformed_directed/north"
+      }
+    },
+    {
+      "when": {
+        "state": "unformed_directed",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/unformed_directed/south"
+      }
+    },
+    {
+      "when": {
+        "state": "unformed_directed",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/unformed_directed/west"
+      }
+    },
+    {
+      "when": {
+        "state": "unformed_directed",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/unformed_directed/east"
+      }
+    },
+    {
+      "when": {
+        "state": "endpoint",
+        "sequence_direction": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/endpoint/down"
+      }
+    },
+    {
+      "when": {
+        "state": "endpoint",
+        "sequence_direction": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/endpoint/up"
+      }
+    },
+    {
+      "when": {
+        "state": "endpoint",
+        "sequence_direction": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/endpoint/north"
+      }
+    },
+    {
+      "when": {
+        "state": "endpoint",
+        "sequence_direction": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/endpoint/south"
+      }
+    },
+    {
+      "when": {
+        "state": "endpoint",
+        "sequence_direction": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/endpoint/west"
+      }
+    },
+    {
+      "when": {
+        "state": "endpoint",
+        "sequence_direction": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/endpoint/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "false",
+        "axis": "x"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member/x"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "false",
+        "axis": "y"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member/y"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "false",
+        "axis": "z"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member/z"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "true",
+        "sequence_direction": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail/down"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "true",
+        "sequence_direction": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail/up"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "true",
+        "sequence_direction": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail/north"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "true",
+        "sequence_direction": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail/south"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "true",
+        "sequence_direction": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail/west"
+      }
+    },
+    {
+      "when": {
+        "state": "member",
+        "tail": "true",
+        "sequence_direction": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "x",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/x/down"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "x",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/x/up"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "x",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/x/north"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "x",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/x/south"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "y",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/y/north"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "y",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/y/south"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "y",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/y/west"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "y",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/y/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "z",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/z/down"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "z",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/z/up"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "z",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/z/west"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "false",
+        "axis": "z",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/member_directed/z/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "down",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/down/north"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "down",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/down/south"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "down",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/down/west"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "down",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/down/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "up",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/up/north"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "up",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/up/south"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "up",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/up/west"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "up",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/up/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "north",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/north/down"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "north",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/north/up"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "north",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/north/west"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "north",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/north/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "south",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/south/down"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "south",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/south/up"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "south",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/south/west"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "south",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/south/east"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "west",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/west/down"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "west",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/west/up"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "west",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/west/north"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "west",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/west/south"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "east",
+        "facing": "down"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/east/down"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "east",
+        "facing": "up"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/east/up"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "east",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/east/north"
+      }
+    },
+    {
+      "when": {
+        "state": "member_directed",
+        "tail": "true",
+        "sequence_direction": "east",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "appliedpackaging:block/sequence_buffer/generated/tail_directed/east/south"
+      }
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
 import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
+import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
 import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
@@ -16,6 +17,8 @@ import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import appeng.init.client.InitScreens;
+import appeng.api.util.AEColor;
+import appeng.client.render.StaticItemColor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.item.ItemProperties;
 import net.minecraft.client.renderer.entity.EntityRenderers;
@@ -24,6 +27,8 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
+import net.minecraftforge.client.event.RegisterItemDecorationsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
@@ -32,10 +37,13 @@ public final class AppliedPackagingClient {
     }
 
     public static void register(IEventBus eventBus) {
+        AdvancedPatternEncodingTerminalPart.registerModels();
         PackageStorageBusPart.registerModels();
         PackageUnpackingBusPart.registerModels();
         eventBus.addListener(AppliedPackagingClient::clientSetup);
         eventBus.addListener(AppliedPackagingClient::registerAdditionalModels);
+        eventBus.addListener(AppliedPackagingClient::registerItemDecorations);
+        eventBus.addListener(AppliedPackagingClient::registerItemColors);
     }
 
     private static void clientSetup(FMLClientSetupEvent event) {
@@ -78,6 +86,17 @@ public final class AppliedPackagingClient {
         event.register(MePackagerRenderer.BELT_MODEL);
         event.register(MePackagerRenderer.CURTAIN_FLAP_MODEL);
         event.register(PackageAssemblerRenderer.LIGHTS_MODEL);
+    }
+
+    private static void registerItemDecorations(RegisterItemDecorationsEvent event) {
+        APItems.packageItems().values().forEach(item ->
+                event.register(item.get(), PackageMarkerRenderer.SHIFT_MARKER_DECORATOR));
+    }
+
+    private static void registerItemColors(RegisterColorHandlersEvent.Item event) {
+        event.register(
+                new StaticItemColor(AEColor.TRANSPARENT),
+                APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
     }
 
 }

@@ -38,6 +38,7 @@ import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.MenuProvider;
@@ -71,8 +72,19 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     public static final int FILTER_SLOT_COUNT = FILTER_COLUMNS * FILTER_ROWS;
     public static final int UPGRADE_SLOT_COUNT = 6;
     public static final int CYCLIC_REDSTONE_INTERVAL_TICKS = 20;
+    public static final int PACKING_BASE_WORK_TICKS = 40;
+    public static final int UNPACKING_BASE_WORK_TICKS = 20;
+    public static final int MIN_WORK_TICKS = 4;
     public static final int ANIMATION_CYCLE_TICKS = 20;
     public static final int BELT_SCROLL_PERIOD_PIXELS = 16;
+    public static final float BELT_PACKAGE_TRAVEL_PIXELS = 9.0F;
+    private static final float CURTAIN_SPRING_STRENGTH = 0.35F;
+    private static final float CURTAIN_DAMPING = 0.65F;
+    private static final float CURTAIN_MIN_DRIVE = 0.65F;
+    private static final float CURTAIN_SPEED_WEIGHT = 0.7F;
+    private static final float CURTAIN_REST_EPSILON = 0.001F;
+    private static final int[] PACKING_WORK_TICKS_BY_SPEED = {40, 30, 20, 15, 10, 6, 4};
+    private static final int[] UNPACKING_WORK_TICKS_BY_SPEED = {20, 15, 10, 6, 4};
     private static final int SLOT_COUNT = 2;
     private static final String ITEMS_TAG = "items";
     private static final String FILTER_TAG = "content_filter";
@@ -85,7 +97,10 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private static final String FILTER_APPLICATION_MODE_TAG = "filter_application_mode";
     private static final String BLOCKING_MODE_TAG = "blocking_mode";
     private static final String ANIMATION_TICKS_TAG = "animation_ticks";
+    private static final String ANIMATION_DURATION_TICKS_TAG = "animation_duration_ticks";
     private static final String ANIMATION_INWARD_TAG = "animation_inward";
+    private static final String CURTAIN_DEFLECTION_TAG = "curtain_deflection";
+    private static final String CURTAIN_VELOCITY_TAG = "curtain_velocity";
     private static final String BELT_SCROLL_PIXELS_TAG = "belt_scroll_pixels";
     private static final String RENDERED_BOX_TAG = "rendered_box";
     private static final String WORKING_OPERATION_TAG = "working_operation";
@@ -228,8 +243,12 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private boolean powered;
     private int redstoneCooldown;
     private int animationTicks;
+    private int animationDurationTicks = PACKING_BASE_WORK_TICKS;
     private boolean animationInward = true;
-    private int beltScrollPixels;
+    private float curtainDeflection;
+    private float previousCurtainDeflection;
+    private float curtainVelocity;
+    private float beltScrollPixels;
     private ItemStack renderedBox = ItemStack.EMPTY;
     private ItemStack workingStack = ItemStack.EMPTY;
     private WorkingOperation workingOperation = WorkingOperation.NONE;
@@ -444,8 +463,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             redstoneCooldown--;
             return;
         }
-        runUnpackOnce();
-        redstoneCooldown = redstoneIntervalTicks();
+        MachineResult result = runUnpackOnce();
+        redstoneCooldown = result == MachineResult.UNPACKED ? 0 : unpackingRetryIntervalTicks();
     }
 
     private void tickAutomaticPack() {
@@ -461,8 +480,8 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             redstoneCooldown--;
             return;
         }
-        runPackOnce();
-        redstoneCooldown = redstoneIntervalTicks();
+        MachineResult result = runPackOnce();
+        redstoneCooldown = result == MachineResult.PACKED ? 0 : packingRetryIntervalTicks();
     }
 
     public MachineResult runOnce() {
@@ -812,8 +831,11 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         tag.putString(FILTER_APPLICATION_MODE_TAG, filterApplicationMode.name());
         tag.putString(BLOCKING_MODE_TAG, blockingMode.name());
         tag.putInt(ANIMATION_TICKS_TAG, animationTicks);
+        tag.putInt(ANIMATION_DURATION_TICKS_TAG, animationDurationTicks);
         tag.putBoolean(ANIMATION_INWARD_TAG, animationInward);
-        tag.putInt(BELT_SCROLL_PIXELS_TAG, beltScrollPixels);
+        tag.putFloat(CURTAIN_DEFLECTION_TAG, curtainDeflection);
+        tag.putFloat(CURTAIN_VELOCITY_TAG, curtainVelocity);
+        tag.putFloat(BELT_SCROLL_PIXELS_TAG, beltScrollPixels);
         if (!renderedBox.isEmpty()) {
             tag.put(RENDERED_BOX_TAG, renderedBox.save(new CompoundTag()));
         }
@@ -841,9 +863,16 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         redstoneMode = RedstoneMode.byName(tag.getString(REDSTONE_MODE_TAG));
         filterApplicationMode = FilterApplicationMode.byName(tag.getString(FILTER_APPLICATION_MODE_TAG));
         blockingMode = BlockingMode.byName(tag.getString(BLOCKING_MODE_TAG));
-        animationTicks = tag.getInt(ANIMATION_TICKS_TAG);
+        animationDurationTicks = tag.contains(ANIMATION_DURATION_TICKS_TAG, Tag.TAG_INT)
+                ? Math.max(MIN_WORK_TICKS, Math.min(PACKING_BASE_WORK_TICKS, tag.getInt(ANIMATION_DURATION_TICKS_TAG)))
+                : PACKING_BASE_WORK_TICKS;
+        animationTicks = Math.max(0, Math.min(animationDurationTicks, tag.getInt(ANIMATION_TICKS_TAG)));
         animationInward = !tag.contains(ANIMATION_INWARD_TAG) || tag.getBoolean(ANIMATION_INWARD_TAG);
-        beltScrollPixels = Math.floorMod(tag.getInt(BELT_SCROLL_PIXELS_TAG), BELT_SCROLL_PERIOD_PIXELS);
+        curtainDeflection = net.minecraft.util.Mth.clamp(tag.getFloat(CURTAIN_DEFLECTION_TAG), -1.0F, 1.0F);
+        previousCurtainDeflection = curtainDeflection;
+        curtainVelocity = net.minecraft.util.Mth.clamp(tag.getFloat(CURTAIN_VELOCITY_TAG), -1.0F, 1.0F);
+        beltScrollPixels = net.minecraft.util.Mth.positiveModulo(
+                tag.getFloat(BELT_SCROLL_PIXELS_TAG), BELT_SCROLL_PERIOD_PIXELS);
         renderedBox = tag.contains(RENDERED_BOX_TAG, net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? ItemStack.of(tag.getCompound(RENDERED_BOX_TAG))
                 : currentInventoryBox();
@@ -862,8 +891,13 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     @Override
     protected boolean readFromStream(FriendlyByteBuf data) {
         animationTicks = data.readVarInt();
+        animationDurationTicks = Math.max(MIN_WORK_TICKS, Math.min(PACKING_BASE_WORK_TICKS, data.readVarInt()));
         animationInward = data.readBoolean();
-        beltScrollPixels = data.readVarInt();
+        curtainDeflection = net.minecraft.util.Mth.clamp(data.readFloat(), -1.0F, 1.0F);
+        previousCurtainDeflection = curtainDeflection;
+        curtainVelocity = net.minecraft.util.Mth.clamp(data.readFloat(), -1.0F, 1.0F);
+        beltScrollPixels = net.minecraft.util.Mth.positiveModulo(
+                data.readFloat(), BELT_SCROLL_PERIOD_PIXELS);
         renderedBox = data.readItem();
         return true;
     }
@@ -871,8 +905,11 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     @Override
     protected void writeToStream(FriendlyByteBuf data) {
         data.writeVarInt(animationTicks);
+        data.writeVarInt(animationDurationTicks);
         data.writeBoolean(animationInward);
-        data.writeVarInt(beltScrollPixels);
+        data.writeFloat(curtainDeflection);
+        data.writeFloat(curtainVelocity);
+        data.writeFloat(beltScrollPixels);
         data.writeItem(renderedBox);
     }
 
@@ -962,6 +999,10 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return animationTicks;
     }
 
+    public int animationDurationTicks() {
+        return animationDurationTicks;
+    }
+
     public boolean isWorking() {
         return workingOperation != WorkingOperation.NONE;
     }
@@ -994,28 +1035,41 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return animationInward;
     }
 
-    public int beltScrollPixels() {
+    public float beltScrollPixels() {
         return beltScrollPixels;
     }
 
-    public float getAnimationProgress(float partialTicks) {
+    public float getTransportAnimationProgress(float partialTicks) {
         if (animationTicks <= 0) {
             return 1.0F;
         }
+        int animationWindowTicks = Math.min(ANIMATION_CYCLE_TICKS, animationDurationTicks);
         return net.minecraft.util.Mth.clamp(
-                (ANIMATION_CYCLE_TICKS - animationTicks + partialTicks) / ANIMATION_CYCLE_TICKS,
+                (animationWindowTicks - animationTicks + partialTicks) / animationWindowTicks,
                 0.0F,
                 1.0F);
+    }
+
+    public float getPackageTravelProgress(float partialTicks) {
+        return getTransportAnimationProgress(partialTicks);
+    }
+
+    public float getCurtainDeflection(float partialTicks) {
+        return net.minecraft.util.Mth.lerp(
+                net.minecraft.util.Mth.clamp(partialTicks, 0.0F, 1.0F),
+                previousCurtainDeflection,
+                curtainDeflection);
     }
 
     public ItemStack getRenderedBox() {
         if (animationTicks <= 0) {
             return renderedBox;
         }
+        float transportProgress = getTransportAnimationProgress(0.0F);
         if (animationInward) {
-            return animationTicks <= ANIMATION_CYCLE_TICKS / 2 ? ItemStack.EMPTY : renderedBox;
+            return transportProgress >= 1.0F ? ItemStack.EMPTY : renderedBox;
         }
-        return animationTicks >= ANIMATION_CYCLE_TICKS / 2 ? ItemStack.EMPTY : renderedBox;
+        return transportProgress <= 0.0F ? ItemStack.EMPTY : renderedBox;
     }
 
     public enum RedstoneMode {
@@ -1157,9 +1211,24 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return stacks;
     }
 
-    private int redstoneIntervalTicks() {
+    private int packingRetryIntervalTicks() {
         int speedCards = getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD);
-        return Math.max(2, CYCLIC_REDSTONE_INTERVAL_TICKS - speedCards * 3);
+        return packingWorkTicks(speedCards);
+    }
+
+    private int unpackingRetryIntervalTicks() {
+        int speedCards = getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD);
+        return unpackingWorkTicks(speedCards);
+    }
+
+    public static int packingWorkTicks(int speedCards) {
+        return PACKING_WORK_TICKS_BY_SPEED[
+                Math.min(Math.max(0, speedCards), PACKING_WORK_TICKS_BY_SPEED.length - 1)];
+    }
+
+    public static int unpackingWorkTicks(int speedCards) {
+        return UNPACKING_WORK_TICKS_BY_SPEED[
+                Math.min(Math.max(0, speedCards), UNPACKING_WORK_TICKS_BY_SPEED.length - 1)];
     }
 
     private static boolean targetHasContents(MEStorage target) {
@@ -1171,6 +1240,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     private void tickAnimation() {
         if (animationTicks <= 0) {
+            tickCurtainAnimation(0.0F, 0.0F);
             if (isWorking() && level != null && !level.isClientSide) {
                 finishWorkingOperation();
                 return;
@@ -1183,10 +1253,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             }
             return;
         }
-        beltScrollPixels = Math.floorMod(
-                beltScrollPixels + (animationInward ? 1 : -1),
-                BELT_SCROLL_PERIOD_PIXELS);
+        float travelBefore = getPackageTravelProgress(0.0F);
         animationTicks--;
+        float travelAfter = getPackageTravelProgress(0.0F);
+        float direction = animationInward ? 1.0F : -1.0F;
+        beltScrollPixels = net.minecraft.util.Mth.positiveModulo(
+                beltScrollPixels + direction * (travelAfter - travelBefore) * BELT_PACKAGE_TRAVEL_PIXELS,
+                BELT_SCROLL_PERIOD_PIXELS);
+        tickCurtainAnimation(travelBefore, travelAfter);
         if (animationTicks > 0) {
             return;
         }
@@ -1199,17 +1273,45 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         finishWorkingOperation();
     }
 
+    private void tickCurtainAnimation(float travelBefore, float travelAfter) {
+        previousCurtainDeflection = curtainDeflection;
+        float packageMovement = Math.abs(travelAfter - travelBefore);
+        float targetDeflection = 0.0F;
+        if (packageMovement > 0.0F) {
+            float passage = Math.max(0.0F, net.minecraft.util.Mth.sin((float) Math.PI * travelAfter));
+            float speedWeight = net.minecraft.util.Mth.clamp(
+                    CURTAIN_MIN_DRIVE + packageMovement * CURTAIN_SPEED_WEIGHT,
+                    0.0F,
+                    1.0F);
+            targetDeflection = passage * speedWeight * (animationInward ? -1.0F : 1.0F);
+        }
+
+        curtainVelocity = (curtainVelocity
+                        + (targetDeflection - curtainDeflection) * CURTAIN_SPRING_STRENGTH)
+                * CURTAIN_DAMPING;
+        curtainDeflection = net.minecraft.util.Mth.clamp(
+                curtainDeflection + curtainVelocity,
+                -1.0F,
+                1.0F);
+        if (packageMovement == 0.0F
+                && Math.abs(curtainDeflection) < CURTAIN_REST_EPSILON
+                && Math.abs(curtainVelocity) < CURTAIN_REST_EPSILON) {
+            curtainDeflection = 0.0F;
+            curtainVelocity = 0.0F;
+        }
+    }
+
     private void finishWorkingOperation() {
         if (workingOperation == WorkingOperation.PACKING && !workingStack.isEmpty()) {
             if (!heldBox().isEmpty()) {
-                animationTicks = 1;
+                animationTicks = 0;
                 return;
             }
             heldBoxState = HeldBoxState.PACK_OUTPUT;
             ItemStack remainder = items.insertItem(SLOT_INPUT, workingStack.copy(), false);
             if (!remainder.isEmpty()) {
                 heldBoxState = HeldBoxState.EMPTY;
-                animationTicks = 1;
+                animationTicks = 0;
                 return;
             }
         } else if (workingOperation == WorkingOperation.UNPACKING) {
@@ -1249,7 +1351,11 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         workingStack = displayStack(stack);
         renderedBox = displayStack(stack);
         animationInward = operation == WorkingOperation.UNPACKING;
-        animationTicks = ANIMATION_CYCLE_TICKS;
+        int speedCards = getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD);
+        animationDurationTicks = operation == WorkingOperation.PACKING
+                ? packingWorkTicks(speedCards)
+                : unpackingWorkTicks(speedCards);
+        animationTicks = animationDurationTicks;
         syncVisualState();
     }
 

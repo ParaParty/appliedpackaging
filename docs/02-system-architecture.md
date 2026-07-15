@@ -39,7 +39,7 @@ GuideME: [20.1.7,20.2.0)
 ```text
 ME Package Assembler / ME 包裹装配室：
   类 AE2 Molecular Assembler。
-  接收 AE2 样板供应器推入的一批输入，或按本地已编码样板锁定真实输入槽；安装有效本地样板时，Forge item capability 同步暴露这些按位置过滤的输入位与有序输出位。机器消耗本机 AE 网络能量推进合成进度，并按样板输入顺序原样生成包裹 contents。
+  接收 AE2 样板供应器推入的一批输入，或按本地任意可解码已编码样板锁定真实输入槽；安装有效本地样板时，Forge item capability 同步暴露这些按位置过滤的输入位与有序输出位。同一资源出现在多个样板位置时仍对应多个输入位和多个包裹 contents 条目。机器消耗本机 AE 网络能量推进合成进度；本地输入在完成前保留且可交互，缺料暂停、补齐继续，完成时先原子扣除全部对应槽位，成功后才提交包裹。
 
 ME Packager / ME 打包机：
   类 Create Packager。
@@ -48,6 +48,9 @@ ME Packager / ME 打包机：
 Package Buses / 包裹总线家族：
   Package Storage Bus 与 Package Unpacking Bus 均为 AE2 cable part，只暴露合法包裹或在完整模拟通过后把合法包裹内容推入目标端点，并各自占用 channel。
   Package Export Bus 已移除；不再保留独立输出包裹到相邻库存的设备。
+
+Sequence Buffer / 序列缓存器：
+  单块是一次输入锁存的泛型 AEKey 缓存；沿 X/Y/Z 任一轴的直线结构由不存储资源的唯一端点协调拓扑、配置、顺序输入、合并抽取、同步输出、样板位置映射和全结构输入延迟。结构方向使用独立 `sequence_direction`，不会覆盖各方块自身六向 `facing`。Forge item/fluid capability 分别适配物品与流体，AE2 MEStorage 保留泛型 key，Pattern Provider 通过专用 ICraftingMachine 路径原子提交。
 ```
 
 ## 3. 模块划分
@@ -65,10 +68,26 @@ core.item_handler / core.fluid_handler / core.ae2
 world.block.entity
   MePackagerBlockEntity
   PackageAssemblerBlockEntity
+  SequenceBufferBlockEntity
+
+core.sequence_buffer
+  SequenceBufferConfig / SequenceBufferTopology
+  SequenceBufferPatternPlanner / SequenceBufferTransferPlan
+  sparse pattern layout adapters and check-then-push output planning
 
 pattern integration
-  AE2 Pattern Encoding Terminal mixins for package mode
-  AdvancedPatternEncodingTerminalPart/Menu/Screen
+  AE2 PatternEncodingTermScreen and its four native mode panels remain entirely original
+  ordinary terminals reject package_pattern and advanced_processing_pattern at their encoded-pattern slot
+  AdvancedPatternEncodingTerminalPart/Menu/Screen owns both ADVANCED and PACKAGE pages
+  one persisted SpecializedPatternMode selects the page; carrier insertion selects the matching page automatically
+  advanced inputs/outputs and package inputs/marker/preview are separate persisted inventories and are never migrated on page switch
+  the screen has complete advanced/package geometry profiles: a 217x250 advanced profile with a 195px body plus 22px mode-tab region versus the native 195x233 package profile with its 124x66 panel, at two network rows
+  switching profiles reinitializes and recenters the same Screen instance; background, search, scrollbars, inventory, carriers, controls, and active slots all receive page-specific positions
+  the two right-side mode controls use high-version Pattern Encoding Terminal `TabButton.Style.HORIZONTAL` sprites and placement: 22x22 tabs with 21px step, attached to each profile's encoding-area edge
+  the specialized menu suppresses VIEW_CELL slot creation, so the screen has no display-component panel
+  no ScreenEvent extension, PatternEncodingTermScreen behavior mixin, delegate screen, or InitScreens factory replacement
+  three narrow accessors expose MEStorageScreen client state, Scrollbar style, and Slot coordinates
+  one narrow AEBaseMenu slot-validation mixin rejects specialized carriers only in ordinary PatternEncodingTermMenu
   dedicated decoders implemented by the current package and advanced pattern item subclasses
 
 part
@@ -84,14 +103,16 @@ registry / data / gametest
 
 ## 4. 架构原则
 
-1. `PackageData` 是纯数据，不直接调用 Forge 或 AE2 网络；`contents` 是身份相关的有序列表，数据层不合并同类条目也不排序。
+1. `PackageData` 是纯数据，不直接调用 Forge 或 AE2 网络；`contents` 是身份相关的有序列表，数据层不合并同类条目也不排序；可选 `PackageLayout` 保存 sparse 样板的总槽数及每个条目的原槽位，并参与包裹身份。
 2. `PackageDataStorage` 是 1.20.1 NBT 与未来 Data Component 的唯一读写入口。
-3. 两台包裹机器共享 `PackageCapacityProfile` 的 storage component 映射和单包容量计算；包裹规划与 MEStorage 操作先模拟后提交，Package Assembler 的本地样板与 Pattern Provider 推送也必须在接收输入前预检全部预计包裹。Forge item handler 拆包采用 Pattern Provider 式 check-then-push，只在整包累计模拟通过后执行真实插入，不维护自定义跨 handler 回滚层。
+3. 两台包裹机器共享 `PackageCapacityProfile` 的 storage component 映射和单包容量计算；包裹规划与 MEStorage 操作先模拟后提交，Package Assembler 的本地样板与 Pattern Provider 推送也必须在接收输入前预检全部预计包裹。Forge item handler 拆包采用 Pattern Provider 式 check-then-push，只在整包累计模拟通过后按 contents 顺序逐条真实推入，重复资源条目不预先聚合；不维护自定义跨 handler 回滚层。
 4. 打包和拆包以单个包裹为最小操作单位。
 5. ME 打包机只通过固定底部与模型背面加入 AE 网格并使用该网格的 MEStorage；其它面不接入 ME 线缆，不扫描相邻 Forge item/fluid handler，也不回落到 Forge item/fluid handler。
 6. 装配室只处理样板语义，不处理相邻存储打包和拆包。
 7. 总线家族只路由包裹，不暴露包裹内部散装资源。
 8. 客户端类必须隔离，dedicated server 不得加载 screen/render/client event 类。
+9. 序列缓存器不建立独立全局多方块 SavedData；端点位置、顺序方向和本地配置副本由方块实体持久化，结构成员只在已加载的连续方块内重建，避免强制加载区块。
+10. 序列缓存器的模拟不得改变锁存、冷却、拓扑或输入 holder；多格输入、同步输出和 Pattern Provider push 都先构造完整计划，再按服务器主线程顺序提交。
 
 ## 5. 关键流程
 
@@ -116,14 +137,40 @@ AE2 crafting_pattern + appliedpackaging.package_crafting_pattern
 -> PackageCraftingPatternDetails
 -> Package Assembler exact single-package plan preserving encoded input order
 
-AE2 processing_pattern without Applied Packaging column metadata
--> ordinary processing plan
--> one Fluix package with empty name and marker, preserving pattern input order
+ordinary AE2 crafting / processing / stonecutting / smithing pattern
+-> ordinary encoded-pattern plan
+-> one Fluix package with empty name and normalized primary-output marker, preserving non-empty encoded input-slot order
 
 Applied Packaging advanced_processing_pattern
 -> inherits AE2 processing-pattern decoding and preserves normal inputs/outputs for planning
 -> Package Assembler keeps 17 contiguous 81-slot sparse columns only in pattern identity, then allocates a pattern-sized dense non-empty local-input view carrying each entry's original column
 -> ordered multi-package plan using each column's color and marker; each package preserves row order
+```
+
+序列缓存器结构与输入：
+
+```text
+wrench cycles an unformed endpoint's six-direction block-local facing
+-> neighbor update snapshots that facing as sequence_direction and scans a loaded, contiguous, unformed X/Y/Z line up to the configured limit
+-> one endpoint plus ordered members are committed and endpoint configuration is copied
+-> formation and topology repair preserve every block's original directional/facing state
+-> tail placement extends the same controller; gaps truncate the endpoint fragment and detach the tail fragment
+
+item pipe / MEStorage inserts at endpoint
+-> choose first unlocked member in endpoint-to-tail order
+-> apply exact-key filter and per-member capacity
+-> real insertion latches that member and raises the structure output barrier
+
+Pattern Provider ICraftingMachine.pushPattern
+-> recover sparse positions for known ordinary AE2/Applied Packaging pattern details, including empty positions
+-> advanced processing patterns explicitly use their dense public input order and ignore pattern mode
+-> copy and preflight KeyCounter contents, member occupancy, filters and capacity
+-> consume input holders only after the complete member assignment succeeds
+
+Package Unpacking Bus -> Sequence Buffer endpoint
+-> validate PackageData and its optional positional layout
+-> map layout positions to storage members (endpoint is not slot 1), or use dense contents order when absent
+-> commit the whole held package only after every member assignment succeeds
 ```
 
 ME 打包机打包：

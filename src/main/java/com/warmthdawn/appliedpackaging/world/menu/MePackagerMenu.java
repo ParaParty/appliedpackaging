@@ -67,6 +67,9 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
     @GuiSync(19)
     public boolean unpackBlocked;
 
+    @GuiSync(20)
+    public int workDurationTicks = MePackagerBlockEntity.PACKING_BASE_WORK_TICKS;
+
     public MePackagerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
         this(containerId, playerInventory, getBlockEntity(playerInventory, buffer.readBlockPos()));
     }
@@ -123,6 +126,7 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
             filterMode = getHost().filterApplicationMode();
             blockingMode = getHost().blockingMode();
             workTicksRemaining = getHost().animationTicks();
+            workDurationTicks = getHost().animationDurationTicks();
             workingOperation = getHost().workingOperation().ordinal();
             heldBoxState = getHost().heldBoxState().ordinal();
             unpackBlocked = getHost().unpackBlocked();
@@ -325,12 +329,12 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
 
     @Override
     public int getCurrentProgress() {
-        return Math.max(0, MePackagerBlockEntity.ANIMATION_CYCLE_TICKS - workTicksRemaining);
+        return Math.max(0, workDurationTicks - workTicksRemaining);
     }
 
     @Override
     public int getMaxProgress() {
-        return MePackagerBlockEntity.ANIMATION_CYCLE_TICKS;
+        return workDurationTicks;
     }
 
     public float workProgress(float partialTicks) {
@@ -339,7 +343,7 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
         }
         float remaining = Math.max(0.0F, workTicksRemaining - partialTicks);
         return Mth.clamp(
-                1.0F - remaining / MePackagerBlockEntity.ANIMATION_CYCLE_TICKS,
+                1.0F - remaining / Math.max(1, workDurationTicks),
                 0.0F,
                 1.0F);
     }

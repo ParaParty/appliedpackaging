@@ -1,0 +1,54 @@
+{
+  "textures": {
+    "particle": "appliedpackaging:block/sequence_buffer/faces/controller_side",
+    "down": "appliedpackaging:block/sequence_buffer/faces/controller_side",
+    "up": "appliedpackaging:block/sequence_buffer/faces/controller_side",
+    "north": "appliedpackaging:block/sequence_buffer/faces/formed_middle_side_edge_occluded",
+    "south": "appliedpackaging:block/sequence_buffer/faces/controller_back",
+    "west": "appliedpackaging:block/sequence_buffer/faces/controller_side",
+    "east": "appliedpackaging:block/sequence_buffer/faces/controller_side"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#down",
+          "cullface": "down"
+        },
+        "up": {
+          "texture": "#up",
+          "cullface": "up",
+          "rotation": 180
+        },
+        "north": {
+          "texture": "#north",
+          "cullface": "north"
+        },
+        "south": {
+          "texture": "#south",
+          "cullface": "south"
+        },
+        "west": {
+          "texture": "#west",
+          "cullface": "west",
+          "rotation": 90
+        },
+        "east": {
+          "texture": "#east",
+          "cullface": "east",
+          "rotation": 270
+        }
+      }
+    }
+  ]
+}

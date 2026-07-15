@@ -57,7 +57,8 @@ ME 打包机：
   不真实嵌套；包裹套包裹时展开后再封装。
 
 样板：
-  AE2 原版 Pattern Encoding Terminal 的包裹模式编码独立 package_pattern。
+  高级样板终端在高级/包裹两页间切换，分别编码独立 advanced_processing_pattern 与 package_pattern。
+  普通 AE2 Pattern Encoding Terminal 拒绝这两种专用载体，不增加包裹页面。
   AE2 原版 processing pattern 表示单个 Fluix、空 marker 包裹计划。
   高级样板终端编码独立 advanced_processing_pattern，保存连续包裹列、颜色与主产物 marker。
   发布前不读取旧 AE2 crafting/blank pattern 包裹载体或旧 colored/packaged processing 扩展 NBT。

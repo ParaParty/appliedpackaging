@@ -82,12 +82,11 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private static final ResourceLocation PATTERN_PROVIDER_GUIDE = new ResourceLocation(
             "ae2", "items-blocks-machines/pattern_provider.md");
 
-    // The progress frame is supplied in the unused source area of the original
-    // Package Bus background and sampled in-place at runtime.
+    // The work slot, empty progress frame, and active progress sprite are all
+    // supplied in the unused source area of the original Package Bus atlas.
     private static final Blitter WORK_SLOT_BACKGROUND = Blitter.texture(BACKGROUND).src(176, 0, 18, 18);
     private static final Blitter PROGRESS_FRAME = Blitter.texture(BACKGROUND).src(196, 0, 6, 18);
-    private static final Blitter PROGRESS_FILL =
-            Blitter.texture(BACKGROUND).src(196, 0, 1, 1).colorArgb(0xff6fffe9);
+    private static final Blitter PROGRESS_SPRITE = Blitter.texture(BACKGROUND).src(176, 32, 6, 18);
 
     private static final int BUTTON_X_RIGHT = 30;
     private static final int ROW_Y = 29;
@@ -344,13 +343,18 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
         int progress = Math.max(0, Math.min(15, menu.progress()));
         if (progress > 0) {
-            int height = Math.max(1, progress * 16 / 15);
-            PROGRESS_FILL.copy()
+            int spriteHeight = PROGRESS_SPRITE.getSrcHeight();
+            int visibleHeight = spriteHeight * progress / 15;
+            int hiddenHeight = spriteHeight - visibleHeight;
+            PROGRESS_SPRITE.copy()
+                    .src(
+                            PROGRESS_SPRITE.getSrcX(),
+                            PROGRESS_SPRITE.getSrcY() + hiddenHeight,
+                            PROGRESS_SPRITE.getSrcWidth(),
+                            visibleHeight)
                     .dest(
-                            offsetX + PROGRESS_X + 1,
-                            offsetY + WORK_SLOT_Y + 17 - height,
-                            4,
-                            height)
+                            offsetX + PROGRESS_X,
+                            offsetY + WORK_SLOT_Y + hiddenHeight)
                     .blit(graphics);
         }
     }

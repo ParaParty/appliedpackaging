@@ -7,6 +7,7 @@ Set-Location $repoRoot
 
 $verifyAssetsScript = Join-Path $repoRoot "scripts/verify-assets.ps1"
 $sourceAssetsRoot = Join-Path $repoRoot "src/main/resources/assets/appliedpackaging"
+$sourceAe2AssetsRoot = Join-Path $repoRoot "src/main/resources/assets/ae2"
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("appliedpackaging-assets-audit-" + [System.Guid]::NewGuid().ToString("N"))
 $tinyPngBytes = [byte[]]@(
     137, 80, 78, 71, 13, 10, 26, 10,
@@ -29,6 +30,7 @@ function New-AssetsFixture {
     $caseAssetsRoot = Join-Path $caseRoot "src/main/resources/assets"
     New-Item -ItemType Directory -Force -Path $caseAssetsRoot | Out-Null
     Copy-Item -LiteralPath $sourceAssetsRoot -Destination $caseAssetsRoot -Recurse
+    Copy-Item -LiteralPath $sourceAe2AssetsRoot -Destination $caseAssetsRoot -Recurse
     return $caseRoot
 }
 
@@ -37,10 +39,20 @@ function Invoke-AssetsCase {
         [string] $Name,
         [string] $RootPath,
         [int] $ExpectedExitCode,
-        [string] $ExpectedText = ""
+        [string] $ExpectedText = "",
+        [switch] $RunPngVisualContentAudit
     )
 
-    $output = & pwsh -NoProfile -ExecutionPolicy Bypass -File $verifyAssetsScript -RootPath $RootPath 2>&1 | Out-String
+    $verifyArguments = @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", $verifyAssetsScript,
+        "-RootPath", $RootPath
+    )
+    if (-not $RunPngVisualContentAudit) {
+        $verifyArguments += "-SkipPngVisualContent"
+    }
+    $output = & pwsh @verifyArguments 2>&1 | Out-String
     $exitCode = $LASTEXITCODE
 
     if ($exitCode -ne $ExpectedExitCode) {
@@ -62,7 +74,11 @@ try {
     New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
 
     $validFixture = New-AssetsFixture "valid"
-    Invoke-AssetsCase -Name "valid assets fixture" -RootPath $validFixture -ExpectedExitCode 0
+    Invoke-AssetsCase `
+        -Name "valid assets fixture" `
+        -RootPath $validFixture `
+        -ExpectedExitCode 0 `
+        -RunPngVisualContentAudit
 
     $badDimensionFixture = New-AssetsFixture "bad-dimension"
     $badDimensionPath = Join-Path $badDimensionFixture "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png"
@@ -72,6 +88,15 @@ try {
         -RootPath $badDimensionFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "expected 16x16 user pattern item texture"
+
+    $badSequenceBufferDimensionFixture = New-AssetsFixture "bad-sequence-buffer-dimension"
+    $badSequenceBufferDimensionPath = Join-Path $badSequenceBufferDimensionFixture "src/main/resources/assets/appliedpackaging/textures/block/sequence_buffer/faces/undirected_unformed.png"
+    [System.IO.File]::WriteAllBytes($badSequenceBufferDimensionPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad Sequence Buffer texture dimension fixture" `
+        -RootPath $badSequenceBufferDimensionFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 16x16 Sequence Buffer face texture"
 
     $badGuiAtlasDimensionFixture = New-AssetsFixture "bad-gui-atlas-dimension"
     $badGuiAtlasDimensionPath = Join-Path $badGuiAtlasDimensionFixture "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png"
@@ -136,6 +161,45 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "expected 256x256 package pattern mode GUI atlas"
 
+    $badPatternTerminalBaseFixture = New-AssetsFixture "bad-pattern-terminal-base-dimension"
+    $badPatternTerminalBasePath = Join-Path $badPatternTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
+    [System.IO.File]::WriteAllBytes($badPatternTerminalBasePath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad package-mode full-screen terminal base dimension fixture" `
+        -RootPath $badPatternTerminalBaseFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 256x256 AE2 v19 package-mode full-screen terminal base GUI"
+
+    $modifiedPatternTerminalBaseFixture = New-AssetsFixture "modified-pattern-terminal-base"
+    $modifiedPatternTerminalBasePath = Join-Path $modifiedPatternTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
+    $alternatePatternTerminalBasePath = Join-Path $modifiedPatternTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png"
+    Copy-Item -LiteralPath $alternatePatternTerminalBasePath -Destination $modifiedPatternTerminalBasePath -Force
+    Invoke-AssetsCase `
+        -Name "modified byte-preserved package-mode full-screen terminal base fixture" `
+        -RootPath $modifiedPatternTerminalBaseFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
+
+    $modifiedAdvancedTerminalGuiFixture = New-AssetsFixture "modified-advanced-terminal-gui"
+    $modifiedAdvancedTerminalGuiPath = Join-Path $modifiedAdvancedTerminalGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png"
+    $alternateAdvancedTerminalGuiPath = Join-Path $modifiedAdvancedTerminalGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
+    Copy-Item -LiteralPath $alternateAdvancedTerminalGuiPath -Destination $modifiedAdvancedTerminalGuiPath -Force
+    Invoke-AssetsCase `
+        -Name "modified byte-preserved combined terminal base fixture" `
+        -RootPath $modifiedAdvancedTerminalGuiFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png"
+
+    $modifiedPackageModeFixture = New-AssetsFixture "modified-package-mode-atlas"
+    $modifiedPackageModePath = Join-Path $modifiedPackageModeFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png"
+    $alternatePackageModePath = Join-Path $modifiedPackageModeFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png"
+    Copy-Item -LiteralPath $alternatePackageModePath -Destination $modifiedPackageModePath -Force
+    Invoke-AssetsCase `
+        -Name "modified byte-preserved package mode atlas fixture" `
+        -RootPath $modifiedPackageModeFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png"
+
     $modifiedPackageBusSourceFixture = New-AssetsFixture "modified-package-bus-source"
     $modifiedPackageBusSourcePath = Join-Path $modifiedPackageBusSourceFixture "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png"
     $alternatePackageBusSourcePath = Join-Path $modifiedPackageBusSourceFixture "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png"
@@ -145,6 +209,16 @@ try {
         -RootPath $modifiedPackageBusSourceFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png"
+
+    $modifiedAdvancedTerminalMaskFixture = New-AssetsFixture "modified-advanced-terminal-mask"
+    $modifiedAdvancedTerminalDarkPath = Join-Path $modifiedAdvancedTerminalMaskFixture "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_dark.png"
+    $alternateAdvancedTerminalMaskPath = Join-Path $modifiedAdvancedTerminalMaskFixture "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_medium.png"
+    Copy-Item -LiteralPath $alternateAdvancedTerminalMaskPath -Destination $modifiedAdvancedTerminalDarkPath -Force
+    Invoke-AssetsCase `
+        -Name "modified byte-preserved Advanced Terminal mask fixture" `
+        -RootPath $modifiedAdvancedTerminalMaskFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_dark.png"
 
     $badHeaderFixture = New-AssetsFixture "bad-header"
     $badHeaderPath = Join-Path $badHeaderFixture "src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png"
@@ -162,7 +236,8 @@ try {
         -Name "transparent PNG fixture" `
         -RootPath $transparentFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "fully transparent"
+        -ExpectedText "fully transparent" `
+        -RunPngVisualContentAudit
 
     $solidFixture = New-AssetsFixture "solid-png"
     $solidPath = Join-Path $solidFixture "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png"
@@ -171,7 +246,8 @@ try {
         -Name "single-color PNG fixture" `
         -RootPath $solidFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "single-color placeholder"
+        -ExpectedText "single-color placeholder" `
+        -RunPngVisualContentAudit
 
     $missingRequiredFixture = New-AssetsFixture "missing-required"
     Remove-Item -LiteralPath (Join-Path $missingRequiredFixture "src/main/resources/assets/appliedpackaging/logo.png") -Force
@@ -180,6 +256,49 @@ try {
         -RootPath $missingRequiredFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Required PNG exists: src/main/resources/assets/appliedpackaging/logo.png"
+
+    $nativeStyleOverrideFixture = New-AssetsFixture "native-pattern-style-override"
+    $nativeStyleOverridePath = Join-Path $nativeStyleOverrideFixture "src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json"
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $nativeStyleOverridePath) | Out-Null
+    Copy-Item `
+        -LiteralPath (Join-Path $nativeStyleOverrideFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json") `
+        -Destination $nativeStyleOverridePath
+    Invoke-AssetsCase `
+        -Name "forbidden AE2 native pattern ScreenStyle override fixture" `
+        -RootPath $nativeStyleOverrideFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "AE2 native pattern terminal ScreenStyle is not overridden"
+
+    $badPackageProfileFixture = New-AssetsFixture "bad-specialized-terminal-package-profile"
+    $badPackageProfilePath = Join-Path $badPackageProfileFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json"
+    $badPackageProfile = Get-Content -Raw -LiteralPath $badPackageProfilePath | ConvertFrom-Json
+    $badPackageProfile.widgets.packagePatternModeScrollbar.bottom = 177
+    $badPackageProfile | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badPackageProfilePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad specialized terminal package profile fixture" `
+        -RootPath $badPackageProfileFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Combined specialized pattern terminal declares the package-mode scrollbar geometry"
+
+    $badSequenceBufferBlockstateFixture = New-AssetsFixture "bad-sequence-buffer-blockstate"
+    $badSequenceBufferBlockstatePath = Join-Path $badSequenceBufferBlockstateFixture "src/main/resources/assets/appliedpackaging/blockstates/sequence_buffer.json"
+    $badSequenceBufferBlockstate = Get-Content -Raw -LiteralPath $badSequenceBufferBlockstatePath | ConvertFrom-Json
+    $badSequenceBufferBlockstate.multipart = @($badSequenceBufferBlockstate.multipart | Where-Object { $_.when.state -ne "endpoint" })
+    $badSequenceBufferBlockstate | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badSequenceBufferBlockstatePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "missing Sequence Buffer endpoint state fixture" `
+        -RootPath $badSequenceBufferBlockstateFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer blockstate renders all five visual states"
+
+    $missingVerticalSequenceBufferModelFixture = New-AssetsFixture "missing-vertical-sequence-buffer-model"
+    $missingVerticalSequenceBufferModelPath = Join-Path $missingVerticalSequenceBufferModelFixture "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/member/y.json"
+    Remove-Item -LiteralPath $missingVerticalSequenceBufferModelPath -Force
+    Invoke-AssetsCase `
+        -Name "missing vertical Sequence Buffer member model fixture" `
+        -RootPath $missingVerticalSequenceBufferModelFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer model asset exists: src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/member/y.json"
 
     $badPackageModelFixture = New-AssetsFixture "bad-package-box-cropped-uv"
     $badPackageModelPath = Join-Path $badPackageModelFixture "src/main/resources/assets/appliedpackaging/models/item/package_box/fluix.json"
@@ -203,6 +322,17 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "declares the marker custom-render override"
 
+    $badPackageGuiTransformFixture = New-AssetsFixture "bad-package-gui-transform"
+    $badPackageGuiTransformPath = Join-Path $badPackageGuiTransformFixture "src/main/resources/assets/appliedpackaging/models/item/package_box/_transforms.json"
+    $badPackageGuiTransform = Get-Content -Raw -LiteralPath $badPackageGuiTransformPath | ConvertFrom-Json
+    $badPackageGuiTransform.display.gui.translation = @(0, 3, 0)
+    $badPackageGuiTransform | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badPackageGuiTransformPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad package GUI transform fixture" `
+        -RootPath $badPackageGuiTransformFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "centers the transformed cuboid in the GUI"
+
     $badOpaqueModelFixture = New-AssetsFixture "bad-opaque-model-render-type"
     $badOpaqueModelPath = Join-Path $badOpaqueModelFixture "src/main/resources/assets/appliedpackaging/models/part/package_storage_bus_base.json"
     $badOpaqueModel = Get-Content -Raw -LiteralPath $badOpaqueModelPath | ConvertFrom-Json
@@ -213,6 +343,17 @@ try {
         -RootPath $badOpaqueModelFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Opaque block/part model must use the default solid render type"
+
+    $badAdvancedTerminalTintFixture = New-AssetsFixture "bad-advanced-terminal-tint-order"
+    $badAdvancedTerminalTintPath = Join-Path $badAdvancedTerminalTintFixture "src/main/resources/assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_on.json"
+    $badAdvancedTerminalTint = Get-Content -Raw -LiteralPath $badAdvancedTerminalTintPath | ConvertFrom-Json
+    $badAdvancedTerminalTint.elements[0].faces.north.tintindex = 1
+    $badAdvancedTerminalTint | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badAdvancedTerminalTintPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad Advanced Terminal tint order fixture" `
+        -RootPath $badAdvancedTerminalTintFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "uses v19 dark/medium/bright tint order [3,2,1]"
 
     Write-Host ""
     Write-Host "Asset audit self-test passed." -ForegroundColor Green

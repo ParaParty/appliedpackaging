@@ -1,0 +1,52 @@
+{
+  "textures": {
+    "particle": "appliedpackaging:block/sequence_buffer/faces/directed_side_unformed",
+    "down": "appliedpackaging:block/sequence_buffer/faces/directed_side_unformed",
+    "up": "appliedpackaging:block/sequence_buffer/faces/directed_side_unformed",
+    "north": "appliedpackaging:block/sequence_buffer/faces/directed_side_unformed",
+    "south": "appliedpackaging:block/sequence_buffer/faces/directed_side_unformed",
+    "west": "appliedpackaging:block/sequence_buffer/faces/directed_back_unformed",
+    "east": "appliedpackaging:block/sequence_buffer/faces/directed_front_unformed"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#down",
+          "cullface": "down"
+        },
+        "up": {
+          "texture": "#up",
+          "cullface": "up"
+        },
+        "north": {
+          "texture": "#north",
+          "cullface": "north",
+          "rotation": 180
+        },
+        "south": {
+          "texture": "#south",
+          "cullface": "south"
+        },
+        "west": {
+          "texture": "#west",
+          "cullface": "west"
+        },
+        "east": {
+          "texture": "#east",
+          "cullface": "east"
+        }
+      }
+    }
+  ]
+}

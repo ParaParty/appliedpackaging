@@ -22,10 +22,12 @@ public final class AdvancedPatternEncodingState {
     private static final String INDEX = "index";
     private static final String COLOR = "color";
     private static final String INPUTS = "inputs";
+    private static final String OUTPUTS = "outputs";
 
     private final Runnable changeListener;
     private final PackageColor[] colors = new PackageColor[AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS];
     private final ConfigInventory inputs;
+    private final ConfigInventory outputs;
     private int activeColumns = 1;
     private boolean loading;
 
@@ -35,6 +37,11 @@ public final class AdvancedPatternEncodingState {
         inputs = ConfigInventory.configStacks(
                 null,
                 AdvancedProcessingPatternDataStorage.MAX_INPUT_SLOTS,
+                this::changed,
+                true);
+        outputs = ConfigInventory.configStacks(
+                null,
+                AdvancedProcessingPatternDataStorage.MAX_OUTPUT_SLOTS,
                 this::changed,
                 true);
     }
@@ -134,6 +141,10 @@ public final class AdvancedPatternEncodingState {
         return inputs;
     }
 
+    public ConfigInventory outputs() {
+        return outputs;
+    }
+
     public List<AdvancedProcessingPatternDataStorage.PackageColumn> columns(GenericStack primaryOutput) {
         Optional<MarkerSpec> marker = primaryOutput != null && primaryOutput.what() instanceof AEItemKey
                 ? Optional.of(new MarkerSpec(new GenericStack(primaryOutput.what(), 1)))
@@ -168,6 +179,15 @@ public final class AdvancedPatternEncodingState {
                 for (var column : encoded.get().columns()) {
                     colors[column.index()] = column.color();
                 }
+                List<GenericStack> sparseOutputs = AdvancedProcessingPatternDataStorage.readSparseOutputs(pattern);
+                outputs.beginBatch();
+                try {
+                    for (int slot = 0; slot < Math.min(sparseOutputs.size(), outputs.size()); slot++) {
+                        outputs.setStack(slot, sparseOutputs.get(slot));
+                    }
+                } finally {
+                    outputs.endBatch();
+                }
             }
         } finally {
             loading = false;
@@ -192,6 +212,7 @@ public final class AdvancedPatternEncodingState {
                 colors[column] = PackageColor.byId(columnTag.getString(COLOR)).orElse(PackageColor.FLUIX);
             }
             inputs.readFromChildTag(state, INPUTS);
+            outputs.readFromChildTag(state, OUTPUTS);
         } finally {
             loading = false;
         }
@@ -209,6 +230,7 @@ public final class AdvancedPatternEncodingState {
         }
         state.put(COLUMNS, columns);
         inputs.writeToChildTag(state, INPUTS);
+        outputs.writeToChildTag(state, OUTPUTS);
         data.put(STATE_TAG, state);
     }
 
@@ -236,6 +258,7 @@ public final class AdvancedPatternEncodingState {
         activeColumns = 1;
         Arrays.fill(colors, PackageColor.FLUIX);
         inputs.clear();
+        outputs.clear();
     }
 
     private void checkActiveColumn(int column) {

@@ -1,0 +1,12 @@
+{
+  "parent": "appliedpackaging:block/sequence_buffer/shell",
+  "textures": {
+    "particle": "appliedpackaging:block/sequence_buffer/faces/undirected_unformed",
+    "down": "appliedpackaging:block/sequence_buffer/faces/undirected_unformed",
+    "up": "appliedpackaging:block/sequence_buffer/faces/undirected_unformed",
+    "north": "appliedpackaging:block/sequence_buffer/faces/undirected_unformed",
+    "south": "appliedpackaging:block/sequence_buffer/faces/undirected_unformed",
+    "west": "appliedpackaging:block/sequence_buffer/faces/undirected_unformed",
+    "east": "appliedpackaging:block/sequence_buffer/faces/undirected_unformed"
+  }
+}

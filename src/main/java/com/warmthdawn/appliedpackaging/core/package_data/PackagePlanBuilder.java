@@ -52,6 +52,26 @@ public final class PackagePlanBuilder {
             Optional<MarkerSpec> overrideMarker,
             PackageCapacityProfile capacityProfile,
             int flags) {
+        return buildOrdered(
+                color,
+                orderedContents,
+                Optional.empty(),
+                sourcePackagesForMarker,
+                markerMode,
+                overrideMarker,
+                capacityProfile,
+                flags);
+    }
+
+    public static PackagePlanResult buildOrdered(
+            PackageColor color,
+            List<GenericStack> orderedContents,
+            Optional<PackageLayout> layout,
+            List<PackageData> sourcePackagesForMarker,
+            MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
+            PackageCapacityProfile capacityProfile,
+            int flags) {
         if (orderedContents == null || orderedContents.isEmpty()) {
             return PackagePlanResult.failure(PackagePlanFailure.EMPTY_CONTENTS);
         }
@@ -63,7 +83,7 @@ public final class PackagePlanBuilder {
 
         PackageData data;
         try {
-            data = PackageData.create(color, orderedContents, marker, flags);
+            data = PackageData.create(color, orderedContents, layout, marker, flags);
         } catch (IllegalArgumentException e) {
             return PackagePlanResult.failure(PackagePlanFailure.INVALID_INPUT);
         }

@@ -18,24 +18,25 @@ public final class PackageContentsInserter {
      */
     public static boolean canInsert(PackageData data, IItemHandler target) {
         SimulatedItemHandler simulated = SimulatedItemHandler.copyOf(target);
-        return visitItemStacks(data, stack ->
+        return visitOrderedInputPushes(data, stack ->
                 ItemHandlerHelper.insertItemStacked(target, stack.copy(), true).isEmpty()
                         && ItemHandlerHelper.insertItemStacked(simulated, stack, false).isEmpty());
     }
 
     /**
      * Uses the same check-then-push contract as an AE2 Pattern Provider: simulate the complete
-     * input first, then perform the real insertions without a separate rollback transaction.
+     * input first, then push every stored package entry in order without aggregating repeated keys.
+     * One oversized entry may still require multiple physical ItemStack pushes.
      */
     public static boolean insert(PackageData data, IItemHandler target) {
         if (!canInsert(data, target)) {
             return false;
         }
-        return visitItemStacks(data,
+        return visitOrderedInputPushes(data,
                 stack -> ItemHandlerHelper.insertItemStacked(target, stack, false).isEmpty());
     }
 
-    private static boolean visitItemStacks(PackageData data, Predicate<ItemStack> visitor) {
+    private static boolean visitOrderedInputPushes(PackageData data, Predicate<ItemStack> visitor) {
         for (GenericStack entry : data.contents()) {
             if (!AEItemKey.is(entry.what()) || entry.amount() <= 0 || entry.amount() > Integer.MAX_VALUE) {
                 return false;

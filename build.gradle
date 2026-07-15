@@ -31,6 +31,17 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Jared's Maven"
+                url = "https://maven.blamejared.com"
+            }
+        }
+        filter {
+            includeGroup "mezz.jei"
+        }
+    }
 }
 
 base {
@@ -170,6 +181,7 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
     modImplementation "maven.modrinth:${ae2_modrinth_project}:${ae2_modrinth_version}"
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
+    modLocalRuntime "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 

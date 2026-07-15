@@ -41,6 +41,10 @@ public final class APItems {
             "package_assembler",
             () -> new BlockItem(APBlocks.PACKAGE_ASSEMBLER.get(), new Item.Properties()));
 
+    public static final RegistryObject<Item> SEQUENCE_BUFFER = ITEMS.register(
+            "sequence_buffer",
+            () -> new BlockItem(APBlocks.SEQUENCE_BUFFER.get(), new Item.Properties()));
+
     public static final RegistryObject<Item> PACKAGE_STORAGE_BUS = ITEMS.register(
             "package_storage_bus",
             () -> new PartItem<>(

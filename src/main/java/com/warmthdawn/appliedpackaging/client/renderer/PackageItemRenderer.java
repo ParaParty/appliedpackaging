@@ -44,6 +44,9 @@ public final class PackageItemRenderer extends BlockEntityWithoutLevelRenderer {
         BakedModel baseModel = itemRenderer.getModel(baseStack, minecraft.level, null, 0);
 
         poseStack.pushPose();
+        // ItemRenderer enters a BEWLR after translating by -0.5. Rendering the normal baked
+        // package model recursively applies the same translation again, so this only cancels
+        // the nested translation and keeps marked packages aligned with normal package items.
         poseStack.translate(0.5F, 0.5F, 0.5F);
         itemRenderer.render(
                 stack,

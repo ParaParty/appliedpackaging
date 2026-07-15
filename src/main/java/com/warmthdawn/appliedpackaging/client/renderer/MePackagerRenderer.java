@@ -45,10 +45,10 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
     private static final float CURTAIN_PIVOT_Z = 3.5F / 16.0F;
     private static final float CURTAIN_MAX_ANGLE = 28.0F;
     private static final float BELT_TEXTURE_WIDTH_PIXELS = 32.0F;
-    private static final float BELT_PIXELS_PER_TICK = 1.0F;
-    private static final float PACKAGE_INSIDE_X = 2.5F / 16.0F;
+    private static final float PACKAGE_INSIDE_X = 1.0F / 16.0F;
     private static final float PACKAGE_FRONT_CENTER_X = 10.0F / 16.0F;
     private static final float PACKAGE_RENDER_SCALE = 1.49F;
+    private static final float PACKAGE_FRONT_ROTATION_Y = 90.0F;
     private static final float PACKAGE_FIXED_SCALE = 0.5F;
     private static final float PACKAGE_MODEL_MIN_Y = 1.0F / 16.0F;
     private static final float BELT_TOP_Y = 2.0F / 16.0F;
@@ -109,8 +109,13 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         float phasePixels = packager.beltScrollPixels();
         if (packager.animationTicks() > 0) {
             float direction = packager.animationInward() ? 1.0F : -1.0F;
+            float tickTravel = packager.getPackageTravelProgress(0.0F);
+            float partialTravel = packager.getPackageTravelProgress(partialTick);
             phasePixels = Mth.positiveModulo(
-                    phasePixels + direction * partialTick * BELT_PIXELS_PER_TICK,
+                    phasePixels
+                            + direction
+                                    * (partialTravel - tickTravel)
+                                    * MePackagerBlockEntity.BELT_PACKAGE_TRAVEL_PIXELS,
                     MePackagerBlockEntity.BELT_SCROLL_PERIOD_PIXELS);
         }
 
@@ -138,8 +143,7 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
             MultiBufferSource bufferSource,
             int packedLight,
             int packedOverlay) {
-        float pulse = curtainPulse(packager.getAnimationProgress(partialTick));
-        float direction = packager.animationInward() ? -1.0F : 1.0F;
+        float deflection = packager.getCurtainDeflection(partialTick);
         float[] weights = {0.78F, 1.0F, 1.0F, 0.78F};
         var model = modelManager.getModel(CURTAIN_FLAP_MODEL);
         var renderType = RenderType.cutoutMipped();
@@ -151,7 +155,7 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
             poseStack.pushPose();
             poseStack.translate(0.0F, 0.0F, flap * CURTAIN_FLAP_STEP);
             poseStack.translate(CURTAIN_PIVOT_X, CURTAIN_PIVOT_Y, CURTAIN_PIVOT_Z);
-            poseStack.mulPose(Axis.ZP.rotationDegrees(direction * pulse * CURTAIN_MAX_ANGLE * weights[flap]));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(deflection * CURTAIN_MAX_ANGLE * weights[flap]));
             poseStack.translate(-CURTAIN_PIVOT_X, -CURTAIN_PIVOT_Y, -CURTAIN_PIVOT_Z);
             blockRenderer.getModelRenderer().renderModel(
                     poseStack.last(),
@@ -168,11 +172,6 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
             poseStack.popPose();
         }
         poseStack.popPose();
-    }
-
-    private static float curtainPulse(float progress) {
-        float window = Mth.clamp((progress - 0.12F) / 0.76F, 0.0F, 1.0F);
-        return Mth.sin((float) Math.PI * window);
     }
 
     private boolean renderClippedCurtains(
@@ -276,6 +275,7 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         poseStack.pushPose();
         rotateMachineToFacing(poseStack, facing);
         poseStack.translate(packageX, PACKAGE_RENDER_Y, 0.5F);
+        poseStack.mulPose(Axis.YP.rotationDegrees(PACKAGE_FRONT_ROTATION_Y));
         poseStack.scale(PACKAGE_RENDER_SCALE, PACKAGE_RENDER_SCALE, PACKAGE_RENDER_SCALE);
         Minecraft.getInstance().getItemRenderer().renderStatic(
                 renderedBox,
@@ -293,17 +293,11 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         if (packager.animationTicks() <= 0) {
             return PACKAGE_FRONT_CENTER_X;
         }
-        float progress = packager.getAnimationProgress(partialTick);
+        float progress = packager.getPackageTravelProgress(partialTick);
         if (packager.animationInward()) {
-            return Mth.lerp(
-                    Mth.clamp(progress * 2.0F, 0.0F, 1.0F),
-                    PACKAGE_FRONT_CENTER_X,
-                    PACKAGE_INSIDE_X);
+            return Mth.lerp(progress, PACKAGE_FRONT_CENTER_X, PACKAGE_INSIDE_X);
         }
-        return Mth.lerp(
-                Mth.clamp((progress - 0.5F) * 2.0F, 0.0F, 1.0F),
-                PACKAGE_INSIDE_X,
-                PACKAGE_FRONT_CENTER_X);
+        return Mth.lerp(progress, PACKAGE_INSIDE_X, PACKAGE_FRONT_CENTER_X);
     }
 
     private static void rotateMachineToFacing(PoseStack poseStack, Direction facing) {

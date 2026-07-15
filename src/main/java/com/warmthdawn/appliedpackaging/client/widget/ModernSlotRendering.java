@@ -31,6 +31,8 @@ public final class ModernSlotRendering {
             Blitter.texture(CURRENT_AE2_STATES).src(240, 48, 16, 16);
     private static final Blitter ENCODED_PATTERN_SLOT_ICON =
             Blitter.texture(CURRENT_AE2_STATES).src(240, 112, 16, 16);
+    private static final Blitter VIEW_CELL_SLOT_ICON =
+            Blitter.texture(CURRENT_AE2_STATES).src(224, 64, 16, 16);
     private static final Blitter UPGRADE_SLOT_ICON =
             Blitter.texture(CURRENT_AE2_STATES).src(240, 208, 16, 16);
 
@@ -56,6 +58,18 @@ public final class ModernSlotRendering {
                 && appEngSlot.isSlotEnabled()
                 && slot.getItem().isEmpty()) {
             UPGRADE_SLOT_ICON.copy()
+                    .dest(slot.x, slot.y)
+                    .opacity(appEngSlot.getOpacityOfIcon())
+                    .blit(graphics);
+        }
+    }
+
+    /** Draws the current-main view-cell placeholder in slot-local coordinates. */
+    public static void drawViewCellSlotIcon(GuiGraphics graphics, Slot slot) {
+        if (slot instanceof AppEngSlot appEngSlot
+                && appEngSlot.isSlotEnabled()
+                && slot.getItem().isEmpty()) {
+            VIEW_CELL_SLOT_ICON.copy()
                     .dest(slot.x, slot.y)
                     .opacity(appEngSlot.getOpacityOfIcon())
                     .blit(graphics);

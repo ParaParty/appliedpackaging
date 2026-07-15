@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "key": {
+    "f": {
+      "item": "ae2:formation_core"
+    },
+    "i": {
+      "tag": "forge:ingots/iron"
+    },
+    "q": {
+      "item": "ae2:quartz_glass"
+    }
+  },
+  "pattern": [
+    "qiq",
+    "ifi",
+    "qiq"
+  ],
+  "result": {
+    "item": "appliedpackaging:sequence_buffer"
+  },
+  "show_notification": true
+}

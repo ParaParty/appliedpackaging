@@ -17,9 +17,10 @@ public final class PackageCanonicalizer {
             PackageColor color,
             int version,
             List<GenericStack> contents,
+            Optional<PackageLayout> layout,
             Optional<MarkerSpec> marker,
             int flags) {
-        String canonical = canonicalString(color, version, contents, marker, flags);
+        String canonical = canonicalString(color, version, contents, layout, marker, flags);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(canonical.getBytes(StandardCharsets.UTF_8)));
@@ -32,6 +33,7 @@ public final class PackageCanonicalizer {
             PackageColor color,
             int version,
             List<GenericStack> contents,
+            Optional<PackageLayout> layout,
             Optional<MarkerSpec> marker,
             int flags) {
         StringBuilder builder = new StringBuilder();
@@ -40,6 +42,14 @@ public final class PackageCanonicalizer {
         builder.append("flags=").append(flags).append(';');
         builder.append("marker=");
         builder.append(marker.map(MarkerSpec::stack).map(PackageCanonicalizer::canonicalStack).orElse("none"));
+        builder.append(';');
+        builder.append("layout=");
+        layout.ifPresentOrElse(
+                value -> {
+                    builder.append(value.slotCount()).append(':');
+                    value.contentSlots().forEach(slot -> builder.append(slot).append(','));
+                },
+                () -> builder.append("none"));
         builder.append(';');
 
         contents.forEach(stack -> builder.append("entry=").append(canonicalStack(stack)).append(';'));

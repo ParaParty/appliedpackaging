@@ -19,6 +19,7 @@ public final class APCreativeTabs {
             .displayItems((parameters, output) -> {
                 output.accept(APItems.ME_PACKAGER.get());
                 output.accept(APItems.PACKAGE_ASSEMBLER.get());
+                output.accept(APItems.SEQUENCE_BUFFER.get());
                 output.accept(APItems.PACKAGE_STORAGE_BUS.get());
                 output.accept(APItems.PACKAGE_UNPACKING_BUS.get());
                 output.accept(APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());

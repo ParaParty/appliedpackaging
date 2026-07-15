@@ -1,0 +1,68 @@
+Applied Energistics 2 Advanced Pattern Encoding Terminal part provenance
+
+Repository: https://github.com/AppliedEnergistics/Applied-Energistics-2
+Tag: neoforge/v19.2.17
+Commit: 79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a
+License: LGPL-3.0-or-later
+Bundled license: META-INF/licenses/ae2-LGPL-3.0-or-later.txt
+
+Adapted model sources:
+
+- assets/ae2/models/item/display_base.json (translated by -7 on Z for placed-part coordinates)
+  -> assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_base.json
+- assets/ae2/models/part/display_off.json
+  -> assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_off.json
+- assets/ae2/models/part/pattern_encoding_terminal_on.json
+  -> assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_on.json
+- assets/ae2/models/part/display_status_off.json
+  -> assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_off.json
+- assets/ae2/models/part/display_status_on.json
+  -> assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_on.json
+- assets/ae2/models/part/display_status_has_channel.json
+  -> assets/appliedpackaging/models/part/advanced_pattern_encoding_terminal_status_has_channel.json
+- assets/ae2/models/item/display_base.json
+  -> assets/appliedpackaging/models/item/advanced_pattern_encoding_terminal.json
+
+Model adaptations are limited to Applied Packaging texture identifiers, translating the pinned
+item display geometry by -7 on Z for placed-part coordinates, and replacing NeoForge
+`neoforge_data` face lighting with the equivalent Forge 1.20.1 `forge_data` field. Element sizes,
+UVs, tint indices, and light values remain those of the pinned upstream models.
+
+Unmodified copied textures:
+
+- monitor_sides.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_sides.png
+  SHA-256: 7F801E1DF17B380A42AE7501C89CEEB2FBCF5338E68CB5C32E986CD915DCAC7E
+- monitor_sides_status.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_sides_status.png
+  SHA-256: 6919534933452D822A8DB16E3BB78A385163A24A73F221C9C937F22167049829
+- monitor_back.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_back.png
+  SHA-256: 0FBD8A8743D7C56FCBC5ECF3957E3C6B7B50D67B43169129ECCFEFB5605E0AF5
+- monitor_front.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_front.png
+  SHA-256: 0C304DD14AB433EAB35115EEDAF411278AB9C79786252F461AC525EA337852A6
+- monitor_sides_status_off.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_off.png
+  SHA-256: 7FCF547A4B40CDD91686354A120422D0868EA05BF4AC3D635D89E86E8B169892
+- monitor_sides_status_on.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_on.png
+  SHA-256: 5DDA081025A4D57B25EA404AEECAC6EBE73776432402591069282586E50CC0EA
+- monitor_sides_status_has_channel.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_status_has_channel.png
+  SHA-256: 5BDC442AC0FA9D38C79C036D0B6AD732DA0187109209DDF3B7497DF932B525F1
+- monitor_colored.png
+  -> assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_colored.png
+  SHA-256: 0A55D056F3DB2F501922AEFB00F8DA66605262EE8E95C413DA1C1BE057CCF7D2
+
+User-provided Applied Packaging tint masks (not copied from AE2):
+
+- assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_dark.png
+  source: E:/resources/textures/appliedpackaging/ret/adv_pattern_encoding_terminal_dark.png
+  SHA-256: 36D633037B7B40A5B289457533F63B817F098F9DDBF0F99CBCCA47002D12D4A3
+- assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_medium.png
+  source: E:/resources/textures/appliedpackaging/ret/adv_pattern_encoding_terminal_medium.png
+  SHA-256: FE7A93FC055AD74AF9113711F799E56FE600A44E129B3D354D9F89C9BF2CCB98
+- assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_bright.png
+  source: E:/resources/textures/appliedpackaging/ret/adv_pattern_encoding_terminal_bright.png
+  SHA-256: 1488EC1F42AFFA736CB5E5687C29B9F4EC7A41C7AAC2FD28C86AE1E6EF4914CF

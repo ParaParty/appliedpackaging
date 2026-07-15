@@ -34,6 +34,7 @@ import appeng.menu.me.items.PatternEncodingTermMenu;
 import appeng.menu.SlotSemantics;
 import appeng.menu.slot.FakeSlot;
 import appeng.parts.encoding.PatternEncodingTerminalPart;
+import appeng.parts.encoding.EncodingMode;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
@@ -54,11 +55,11 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanFailure;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageUnpacker;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
-import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternMenuBridge;
-import com.warmthdawn.appliedpackaging.mixinbridge.PackageCraftingPatternLogicBridge;
+import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingState;
 import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
+import com.warmthdawn.appliedpackaging.part.SpecializedPatternMode;
 import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
 import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
@@ -99,9 +100,12 @@ import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -259,6 +263,7 @@ public final class PackageDataGameTests {
         helper.assertFalse(hasRecipeOutput(helper, APItems.ADVANCED_PROCESSING_PATTERN.get()),
                 "Advanced processing patterns should only be encoded in the advanced terminal");
         assertRecipeOutput(helper, "package_assembler", APItems.PACKAGE_ASSEMBLER.get());
+        assertRecipeOutput(helper, "sequence_buffer", APItems.SEQUENCE_BUFFER.get());
         assertRecipeOutput(helper, "advanced_pattern_encoding_terminal",
                 APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
         assertRecipeOutput(helper, "package_storage_bus", APItems.PACKAGE_STORAGE_BUS.get());
@@ -880,7 +885,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(!busyRejected.isEmpty(),
                             "External input should reject new packages while the packager is working");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 2, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
@@ -933,7 +938,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 128, Actionable.SIMULATE, source) == 0,
                             "Rejected busy shift-click should not unpack a second package");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 2, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
@@ -1000,7 +1005,7 @@ public final class PackageDataGameTests {
                             IActionSource.ofMachine(aeInterface));
                     helper.assertTrue(inserted == 1, "Network change should insert a blocking item during progress");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 3, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 3, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(packager.unpackBlocked(),
@@ -1013,7 +1018,7 @@ public final class PackageDataGameTests {
                 })
                 .thenExecuteAfter(
                         MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS
-                                + MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 6,
+                                + MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 6,
                         () -> {
                             var storage = aeStorage(aeInterface);
                             var source = IActionSource.ofMachine(aeInterface);
@@ -1246,12 +1251,116 @@ public final class PackageDataGameTests {
                             "ME Packager should enter packing work mode before exposing output");
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                             "ME Packager should not expose the output package before the animation finishes");
+                    helper.assertTrue(packager.animationDurationTicks() == MePackagerBlockEntity.PACKING_BASE_WORK_TICKS,
+                            "Packing without speed cards should use the 40-tick base delay");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS - 1, () -> {
+                    helper.assertTrue(packager.getTransportAnimationProgress(0.0F) == 0.0F,
+                            "A 40-tick operation should keep package transport idle before the final 20 ticks");
+                    helper.assertTrue(Math.abs(packager.beltScrollPixels()) < 0.001F,
+                            "The belt should stay still while package transport is waiting");
+                    helper.assertTrue(Math.abs(packager.getCurtainDeflection(1.0F)) < 0.001F,
+                            "The independent curtain should stay at rest before the package reaches it");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 3, () -> {
                     ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData data = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
                             "Bottom-side package should contain iron");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void mePackagerSpeedCardsUsePackingWorkTable(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(1, 3, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.DOWN);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        int twoCardDuration = MePackagerBlockEntity.packingWorkTicks(2);
+        int sixCardDuration = MePackagerBlockEntity.packingWorkTicks(6);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "speed-card ME Packager test");
+                    assertMePackagerReady(helper, packager, "speed-card ME Packager test");
+                })
+                .thenExecute(() -> {
+                    int[] expectedTable = {40, 30, 20, 15, 10, 6, 4};
+                    for (int cards = 0; cards < expectedTable.length; cards++) {
+                        helper.assertTrue(MePackagerBlockEntity.packingWorkTicks(cards) == expectedTable[cards],
+                                "Packing speed-card table should match the specified delay at card count " + cards);
+                    }
+                    for (int card = 0; card < 2; card++) {
+                        helper.assertTrue(packager.getUpgrades().addItems(AEItems.SPEED_CARD.stack()).isEmpty(),
+                                "ME Packager should accept the first two packing speed cards");
+                    }
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(storage.insert(
+                                    AEItemKey.of(Items.IRON_INGOT),
+                                    64,
+                                    Actionable.MODULATE,
+                                    source) == 64,
+                            "Speed-card ME Packager network should accept iron before packing");
+                    helper.assertTrue(packager.runOnce() == MePackagerBlockEntity.MachineResult.PACKED,
+                            "Two-card ME Packager should start a packing operation");
+                    helper.assertTrue(twoCardDuration == 20
+                                    && packager.animationDurationTicks() == twoCardDuration
+                                    && packager.animationTicks() == twoCardDuration,
+                            "Two speed cards should shorten the actual packing work cycle from 40 to 20 ticks");
+                })
+                .thenExecuteAfter(twoCardDuration + 1, () -> {
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData data = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "The two-card work cycle should expose the completed package after 20 ticks");
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                    for (int card = 2; card < 6; card++) {
+                        helper.assertTrue(packager.getUpgrades().addItems(AEItems.SPEED_CARD.stack()).isEmpty(),
+                                "ME Packager should accept all six supported speed cards");
+                    }
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(storage.insert(
+                                    AEItemKey.of(Items.IRON_INGOT),
+                                    64,
+                                    Actionable.MODULATE,
+                                    source) == 64,
+                            "Six-card ME Packager network should accept iron before packing");
+                    helper.assertTrue(packager.runOnce() == MePackagerBlockEntity.MachineResult.PACKED,
+                            "Six-card ME Packager should start a packing operation");
+                    helper.assertTrue(sixCardDuration == 4
+                                    && packager.animationDurationTicks() == sixCardDuration
+                                    && packager.animationTicks() == sixCardDuration,
+                            "Six speed cards should reach the four-tick packing floor");
+                })
+                .thenExecuteAfter(sixCardDuration + 1, () -> {
+                    ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
+                    PackageData data = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
+                            "The six-card work cycle should expose the completed package after four ticks");
+                    helper.assertTrue(Math.abs(packager.getCurtainDeflection(1.0F)) > 0.05F,
+                            "Fast package movement should leave the independently simulated curtain mid-rebound");
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
+                    packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_INPUT, output);
+                    helper.assertTrue(packager.runOnce() == MePackagerBlockEntity.MachineResult.UNPACKED,
+                            "Six-card ME Packager should start unpacking its completed package");
+                    helper.assertTrue(MePackagerBlockEntity.unpackingWorkTicks(6) == 4
+                                    && packager.animationDurationTicks() == 4,
+                            "ME Packager unpacking should ignore cards beyond the fourth and keep the four-tick floor");
+                })
+                .thenExecuteAfter(MePackagerBlockEntity.MIN_WORK_TICKS + 1, () -> {
+                    helper.assertTrue(packager.getItems()
+                                    .getStackInSlot(MePackagerBlockEntity.SLOT_INPUT)
+                                    .isEmpty(),
+                            "The four-tick unpacking work cycle should consume the package");
+                    var storage = aeStorage(aeInterface);
+                    helper.assertTrue(storage.extract(
+                                    AEItemKey.of(Items.IRON_INGOT),
+                                    64,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(aeInterface)) == 64,
+                            "The four-tick unpacking work cycle should commit the package contents");
                 })
                 .thenSucceed();
     }
@@ -1317,21 +1426,23 @@ public final class PackageDataGameTests {
                             IActionSource.ofMachine(packager)) == 0,
                             "ME Packager should remove packaged iron from the rear cable network");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.PACKING_BASE_WORK_TICKS + 2, () -> {
                     ItemStack output = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData data = PackageDataStorage.read(output).orElseThrow();
                     helper.assertTrue(amountOf(data, AEItemKey.of(Items.IRON_INGOT)) == 64,
                             "Cable-side package should contain iron");
-                    int expectedPhase = Math.floorMod(
-                            -MePackagerBlockEntity.ANIMATION_CYCLE_TICKS,
+                    helper.assertTrue(Math.abs(MePackagerBlockEntity.BELT_PACKAGE_TRAVEL_PIXELS - 9.0F) < 0.001F,
+                            "Belt travel should match the package's nine-pixel curtain-to-output displacement");
+                    float expectedPhase = net.minecraft.util.Mth.positiveModulo(
+                            -MePackagerBlockEntity.BELT_PACKAGE_TRAVEL_PIXELS,
                             MePackagerBlockEntity.BELT_SCROLL_PERIOD_PIXELS);
-                    helper.assertTrue(packager.beltScrollPixels() == expectedPhase,
-                            "Belt UV phase should remain at its completed outward-animation offset");
+                    helper.assertTrue(Math.abs(packager.beltScrollPixels() - expectedPhase) < 0.001F,
+                            "Belt UV phase should move by exactly the completed package displacement");
 
                     CompoundTag saved = packager.saveWithoutMetadata();
                     MePackagerBlockEntity loaded = new MePackagerBlockEntity(BlockPos.ZERO, packager.getBlockState());
                     loaded.load(saved);
-                    helper.assertTrue(loaded.beltScrollPixels() == expectedPhase,
+                    helper.assertTrue(Math.abs(loaded.beltScrollPixels() - expectedPhase) < 0.001F,
                             "Belt UV phase should persist across block entity save and load");
                 })
                 .thenSucceed();
@@ -1351,7 +1462,7 @@ public final class PackageDataGameTests {
                 .thenExecute(() -> packager.getItems().setStackInSlot(
                         MePackagerBlockEntity.SLOT_INPUT,
                         packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64))))
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 3, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 3, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
@@ -1378,7 +1489,7 @@ public final class PackageDataGameTests {
                 .thenExecute(() -> packager.getItems().setStackInSlot(
                         MePackagerBlockEntity.SLOT_INPUT,
                         packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64))))
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 3, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 3, () -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_INPUT).isEmpty(),
@@ -1550,7 +1661,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
                             "Pulse redstone should leave contents beyond the 9-unit base profile in the AE network");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.PACKING_BASE_WORK_TICKS + 2, () -> {
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
                     helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
@@ -1594,7 +1705,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                             "Cyclic redstone should not expose output until the packing animation finishes");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.PACKING_BASE_WORK_TICKS + 2, () -> {
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
                     helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
@@ -1790,6 +1901,10 @@ public final class PackageDataGameTests {
         ItemStack directOutput = ((EncodedPatternItem) pattern.getItem()).getOutput(pattern);
         helper.assertTrue(PackageDataStorage.read(directOutput).isPresent(),
                 "Package pattern getOutput should work through the item override without a mixin decoder");
+        List<Component> tooltip = new ArrayList<>();
+        pattern.getItem().appendHoverText(pattern, helper.getLevel(), tooltip, TooltipFlag.NORMAL);
+        helper.assertTrue(tooltip.size() == 4,
+                "Package pattern tooltip should be implemented by the registered item without an orphan helper class");
         IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
         helper.assertTrue(details instanceof PackageCraftingPatternDetails,
                 "Package crafting pattern should decode to AP package pattern details");
@@ -2185,16 +2300,20 @@ public final class PackageDataGameTests {
                 0);
         ItemStack pattern = packageCraftingPattern(PackageColor.FLUIX, target);
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
+        assembler.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_CAPACITY,
+                ae2Item("cell_component_64k"));
         FakePlayer player = newFakePlayer(helper);
         PackageAssemblerMenu menu = new PackageAssemblerMenu(6, new Inventory(player), assembler);
         ItemStack secondRowPackage = packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 16));
-        ItemStack fifthFilter = assembler.menuInputFilterDisplay(PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS);
+        ItemStack fifthFilter = assembler.menuInputFilterStack(PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS);
 
-        assembler.insertMenuInput(
-                PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS,
-                fifthFilter,
-                fifthFilter.getCount(),
-                false);
+        helper.assertTrue(assembler.insertMenuInput(
+                        PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS,
+                        fifthFilter,
+                        fifthFilter.getCount(),
+                        false) == fifthFilter.getCount(),
+                "The scrolled slot fixture should contain a real inserted input, not a rendered filter");
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT, secondRowPackage);
         menu.broadcastChanges();
         menu.setScrollOffset(1);
@@ -2525,7 +2644,9 @@ public final class PackageDataGameTests {
 
                     var storage = aeInterface.getMainNode().getGrid().getStorageService().getInventory();
                     var source = IActionSource.ofMachine(aeInterface);
-                    ItemStack expectedPackage = packageStack(PackageColor.FLUIX, ironPackageData(PackageColor.FLUIX, 64));
+                    ItemStack expectedPackage = packageStack(
+                            PackageColor.FLUIX,
+                            PackageCraftingPatternDataStorage.read(pattern).orElseThrow().data());
                     long storedPackages =
                             storage.extract(AEItemKey.of(expectedPackage), 1, Actionable.SIMULATE, source);
                     helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
@@ -2745,7 +2866,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.SIMULATE, source) == 0,
                             "ME Packager should remove packaged copper from the AE2 Interface network");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.PACKING_BASE_WORK_TICKS + 2, () -> {
                     InterfaceBlockEntity aeInterface =
                             (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
                     MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
@@ -2767,7 +2888,7 @@ public final class PackageDataGameTests {
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 0,
                             "AE2 Interface network should not receive iron before progress completes");
                 })
-                .thenExecuteAfter(MePackagerBlockEntity.ANIMATION_CYCLE_TICKS + 2, () -> {
+                .thenExecuteAfter(MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 2, () -> {
                     InterfaceBlockEntity aeInterface =
                             (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
                     MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
@@ -3047,6 +3168,52 @@ public final class PackageDataGameTests {
                             "A successful final commit should clear the held package");
                     helper.assertTrue(itemAmountInContainer(chest, Items.IRON_INGOT) == 64,
                             "The completed work phase should commit all package contents at once");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void packageUnpackingBusSpeedCardsUseUnpackingWorkTable(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(1, 1, 0);
+        BlockPos partPos = new BlockPos(1, 1, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        PackageUnpackingBusPart part = placePoweredUnpackingBusPart(helper, partPos, Direction.NORTH);
+        ItemStack packageStack = packageStack(PackageColor.GREEN, ironPackageData(PackageColor.GREEN, 64));
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+        int expectedDuration = MePackagerBlockEntity.unpackingWorkTicks(4);
+
+        int[] expectedTable = {20, 15, 10, 6, 4};
+        for (int cards = 0; cards < expectedTable.length; cards++) {
+            helper.assertTrue(MePackagerBlockEntity.unpackingWorkTicks(cards) == expectedTable[cards],
+                    "Unpacking speed-card table should match the specified delay at card count " + cards);
+        }
+        helper.assertTrue(MePackagerBlockEntity.unpackingWorkTicks(6) == 4,
+                "Unpacking should ignore speed cards beyond the fourth card");
+
+        for (int card = 0; card < 4; card++) {
+            helper.assertTrue(part.getUpgrades().addItems(AEItems.SPEED_CARD.stack()).isEmpty(),
+                    "Package Unpacking Bus should accept all four supported speed cards");
+        }
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageUnpackingPartStorageReady(helper, part, packageStack))
+                .thenExecute(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(part)) == 1,
+                            "Speed-card unpacking bus grid should accept the source package");
+                })
+                .thenWaitUntil(() -> helper.assertTrue(part.isWorking(),
+                        "Speed-card unpacking bus should begin its work cycle"))
+                .thenExecuteAfter(expectedDuration + 2, () -> {
+                    helper.assertTrue(expectedDuration == 4 && part.heldPackage().isEmpty(),
+                            "Four speed cards should complete the actual unpacking work cycle in four ticks");
+                    helper.assertTrue(itemAmountInContainer(chest, Items.IRON_INGOT) == 64,
+                            "The speed-adjusted unpacking cycle should commit all package contents");
                 })
                 .thenSucceed();
     }
@@ -3662,8 +3829,200 @@ public final class PackageDataGameTests {
                 "Ordinary processing patterns should use the default Fluix package color");
         helper.assertFalse(output.hasCustomHoverName(),
                 "Ordinary processing patterns should retain the package item's default name");
-        helper.assertTrue(data.marker().isEmpty(),
-                "Ordinary processing patterns should leave the package marker empty");
+        helper.assertTrue(data.marker().orElseThrow().sameAs(
+                        new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1))),
+                "Ordinary processing patterns should use their primary output as the package marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerOrdinaryCraftingPatternUsesInputsAndOutputMarker(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        ItemStack pattern = ordinaryStickCraftingPattern(helper);
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        KeyCounter planks = new KeyCounter();
+        planks.add(AEItemKey.of(Items.OAK_PLANKS), 2);
+
+        boolean accepted = assembler.pushPattern(details, new KeyCounter[] { planks }, Direction.UP);
+        ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData data = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(PackageAssemblerBlockEntity.isPatternSlotItem(pattern),
+                "Package Assembler should accept an ordinary encoded crafting pattern in its pattern slot");
+        helper.assertTrue(accepted, "Package Assembler should accept an ordinary crafting pattern push");
+        helper.assertTrue(planks.isEmpty(), "Accepted crafting pattern should consume its exact inputs");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
+                "Ordinary crafting patterns should use the default Fluix package color");
+        helper.assertTrue(data.contents().size() == 2
+                        && data.contents().get(0).what().equals(AEItemKey.of(Items.OAK_PLANKS))
+                        && data.contents().get(1).what().equals(AEItemKey.of(Items.OAK_PLANKS)),
+                "Crafting pattern inputs should remain separate and preserve their encoded slot order");
+        helper.assertTrue(data.marker().orElseThrow().sameAs(
+                        new MarkerSpec(new GenericStack(AEItemKey.of(Items.STICK), 1))),
+                "Crafting pattern primary output should become the normalized package marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerLocalInputsStayInteractiveAndPauseProgress(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos assemblerPos = new BlockPos(1, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, assemblerPos, Direction.NORTH);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageAssemblerReady(helper, assembler, "interactive local-input test"))
+                .thenExecute(() -> {
+                    assembler.getItems().setStackInSlot(
+                            PackageAssemblerBlockEntity.SLOT_PATTERN,
+                            ordinaryStickCraftingPattern(helper));
+                    helper.assertTrue(assembler.insertMenuInput(
+                                    0, new ItemStack(Items.OAK_PLANKS), 1, false) == 1
+                                    && assembler.insertMenuInput(
+                                            1, new ItemStack(Items.OAK_PLANKS), 1, false) == 1,
+                            "Crafting pattern should expose one dense input slot for each non-empty encoded slot");
+                    for (int card = 0; card < PackageAssemblerBlockEntity.UPGRADE_SLOT_COUNT; card++) {
+                        assembler.getUpgrades().addItems(AEItems.SPEED_CARD.stack());
+                    }
+
+                    assembler.serverTick();
+                    helper.assertTrue(assembler.isCrafting()
+                                    && !assembler.menuInputDisplay(0).isEmpty()
+                                    && !assembler.menuInputDisplay(1).isEmpty(),
+                            "Starting a local craft must leave its real inputs visible and interactive");
+                    assembler.serverTick();
+                    helper.assertTrue(assembler.craftingProgress() == 50,
+                            "Powered local craft should reach half progress before the interaction check");
+
+                    ItemStack removed = assembler.extractMenuInput(0, 1, false);
+                    assembler.serverTick();
+                    helper.assertTrue(removed.is(Items.OAK_PLANKS),
+                            "Players should be able to remove a real input while crafting");
+                    helper.assertTrue(assembler.isCrafting()
+                                    && assembler.craftingProgress() == 50
+                                    && assembler.getItems()
+                                            .getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT)
+                                            .isEmpty(),
+                            "Missing input should pause progress without producing or cancelling the package");
+
+                    helper.assertTrue(assembler.insertMenuInput(
+                                    0, new ItemStack(Items.OAK_PLANKS), 1, false) == 1,
+                            "Restoring the removed input should be accepted by the same filtered slot");
+                    assembler.serverTick();
+                    ItemStack output = assembler.getItems()
+                            .getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+                    PackageData data = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(!assembler.isCrafting()
+                                    && assembler.menuInputDisplay(0).isEmpty()
+                                    && assembler.menuInputDisplay(1).isEmpty(),
+                            "Inputs should only be consumed when resumed progress actually completes");
+                    helper.assertTrue(data.marker().orElseThrow().sameAs(
+                                    new MarkerSpec(new GenericStack(AEItemKey.of(Items.STICK), 1))),
+                            "Completed local crafting-pattern package should keep the primary output marker");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageUnpackingKeepsRepeatedCraftingInputsSeparatedAndConsumesThem(GameTestHelper helper) {
+        BlockPos energyCellPos = new BlockPos(0, 0, 0);
+        BlockPos assemblerPos = new BlockPos(1, 0, 0);
+        helper.getLevel().setBlock(
+                helper.absolutePos(energyCellPos),
+                AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
+                3);
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, assemblerPos, Direction.NORTH);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> assertPackageAssemblerReady(helper, assembler, "split package-input test"))
+                .thenExecute(() -> {
+                    assembler.setOutputMode(PackageAssemblerBlockEntity.OutputMode.NONE);
+                    assembler.getItems().setStackInSlot(
+                            PackageAssemblerBlockEntity.SLOT_PATTERN,
+                            ordinaryStickCraftingPattern(helper));
+                    for (int card = 0; card < PackageAssemblerBlockEntity.UPGRADE_SLOT_COUNT; card++) {
+                        assembler.getUpgrades().addItems(AEItems.SPEED_CARD.stack());
+                    }
+
+                    PackageData sourceData = PackageData.create(
+                            PackageColor.FLUIX,
+                            List.of(
+                                    new GenericStack(AEItemKey.of(Items.OAK_PLANKS), 1),
+                                    new GenericStack(AEItemKey.of(Items.OAK_PLANKS), 1)),
+                            Optional.empty(),
+                            0);
+                    ItemStack sourcePackage = packageStack(PackageColor.FLUIX, sourceData);
+                    IItemHandler target = assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.SOUTH)
+                            .orElseThrow(IllegalStateException::new);
+
+                    helper.assertTrue(PackageUnpackingOperations.canUnpack(sourcePackage, target)
+                                    && PackageUnpackingOperations.unpack(sourcePackage, target),
+                            "Unpacking should push repeated package entries into separate filtered assembler slots");
+                    helper.assertTrue(assembler.menuInputAmountForDisplay(0) == 1
+                                    && assembler.menuInputAmountForDisplay(1) == 1,
+                            "Repeated crafting inputs must remain two real assembler input slots");
+
+                    assembler.serverTick();
+                    assembler.serverTick();
+                    helper.assertTrue(assembler.craftingProgress() == 50
+                                    && assembler.menuInputAmountForDisplay(0) == 1
+                                    && assembler.menuInputAmountForDisplay(1) == 1,
+                            "Separated inputs should remain present while local assembly is in progress");
+
+                    assembler.serverTick();
+                    ItemStack output = assembler.getItems()
+                            .getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+                    PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+                    helper.assertTrue(assembler.menuInputDisplay(0).isEmpty()
+                                    && assembler.menuInputDisplay(1).isEmpty(),
+                            "Completing local assembly must atomically consume both separated inputs");
+                    helper.assertTrue(outputData.contents().size() == 2
+                                    && outputData.contents().get(0).what().equals(AEItemKey.of(Items.OAK_PLANKS))
+                                    && outputData.contents().get(0).amount() == 1
+                                    && outputData.contents().get(1).what().equals(AEItemKey.of(Items.OAK_PLANKS))
+                                    && outputData.contents().get(1).amount() == 1,
+                            "Completed package contents must preserve both repeated pattern positions");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerPendingLocalCraftPersistsWithoutDuplicateDrop(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.setLevel(helper.getLevel());
+        assembler.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_PATTERN,
+                ordinaryStickCraftingPattern(helper));
+        assembler.insertMenuInput(0, new ItemStack(Items.OAK_PLANKS), 1, false);
+        assembler.insertMenuInput(1, new ItemStack(Items.OAK_PLANKS), 1, false);
+        helper.assertTrue(assembler.tryAssemble() == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Local crafting pattern should start a persisted progress plan");
+
+        CompoundTag saved = assembler.saveWithoutMetadata();
+        PackageAssemblerBlockEntity loaded = newPackageAssembler();
+        loaded.setLevel(helper.getLevel());
+        loaded.load(saved);
+
+        helper.assertTrue(loaded.isCrafting()
+                        && !loaded.menuInputDisplay(0).isEmpty()
+                        && !loaded.menuInputDisplay(1).isEmpty(),
+                "Reload should retain both the pending local plan and its unconsumed real inputs");
+        helper.assertTrue(PackageDataStorage.read(loaded.activePackageDisplayStack()).isPresent(),
+                "Reload should retain the pending package preview used to resume progress");
+
+        BlockPos dropPos = helper.absolutePos(new BlockPos(0, 1, 0));
+        loaded.dropContents(helper.getLevel(), dropPos);
+        long droppedPackages = helper.getLevel()
+                .getEntitiesOfClass(
+                        ItemEntity.class,
+                        new AABB(dropPos).inflate(1.0),
+                        entity -> entity.getItem().getItem() instanceof PackageItem)
+                .size();
+        helper.assertTrue(droppedPackages == 0,
+                "Breaking a pending local craft must not drop its uncommitted preview package in addition to inputs");
         helper.succeed();
     }
 
@@ -3751,11 +4110,11 @@ public final class PackageDataGameTests {
                 PackageAssemblerBlockEntity.SLOT_CAPACITY,
                 ae2Item("cell_component_256k"));
 
-        helper.assertTrue(assembler.menuInputFilterDisplay(0).is(Items.IRON_INGOT)
-                        && assembler.menuInputFilterDisplay(1).is(Items.GOLD_INGOT)
-                        && assembler.menuInputFilterDisplay(2).is(Items.COPPER_INGOT)
-                        && assembler.menuInputFilterDisplay(3).is(Items.DIAMOND)
-                        && assembler.menuInputFilterDisplay(4).isEmpty(),
+        helper.assertTrue(assembler.menuInputFilterStack(0).is(Items.IRON_INGOT)
+                        && assembler.menuInputFilterStack(1).is(Items.GOLD_INGOT)
+                        && assembler.menuInputFilterStack(2).is(Items.COPPER_INGOT)
+                        && assembler.menuInputFilterStack(3).is(Items.DIAMOND)
+                        && assembler.menuInputFilterStack(4).isEmpty(),
                 "Advanced local input filters should skip sparse blanks while preserving column and row order");
         helper.assertTrue(assembler.isMenuInputSlotEnabled(3) && !assembler.isMenuInputSlotEnabled(4),
                 "Only dense non-empty advanced inputs should unlock local slots");
@@ -3791,14 +4150,22 @@ public final class PackageDataGameTests {
                         && external.getSlots() == 71
                         && assembler.externalOutputSlot() == 70,
                 "Assembler input storage and external capability should resize to the installed pattern");
-        helper.assertTrue(!assembler.menuInputFilterDisplay(69).isEmpty()
-                        && assembler.menuInputFilterDisplay(70).isEmpty()
+        helper.assertTrue(!assembler.menuInputFilterStack(69).isEmpty()
+                        && assembler.menuInputFilterStack(70).isEmpty()
                         && external.isItemValid(69, new ItemStack(Items.IRON_INGOT)),
                 "Inputs beyond the former 68-slot limit should remain visible and externally addressable");
         helper.assertTrue(menu.maxScrollOffset() == 14
                         && menu.inputSlotForVisibleIndex(13) == 69
-                        && menu.getSlot(menu.menuInputMenuSlotIndex(13)).getItem().is(Items.IRON_INGOT),
-                "Dynamic scrolling should reach the final dense input without adding sparse blank rows");
+                        && menu.isInputSlotEnabled(69)
+                        && menu.getSlot(menu.menuInputMenuSlotIndex(13)).getItem().isEmpty(),
+                "Dynamic scrolling should reach the final empty filtered slot without rendering its filter as contents");
+        helper.assertTrue(assembler.insertMenuInput(69, new ItemStack(Items.IRON_INGOT), 1, false) == 1,
+                "The final dense slot should still accept its filtered input");
+        menu.broadcastChanges();
+        helper.assertTrue(menu.getSlot(menu.menuInputMenuSlotIndex(13)).getItem().is(Items.IRON_INGOT),
+                "A filtered input slot should render the item only after it is actually inserted");
+        assembler.extractMenuInput(69, 1, false);
+        menu.broadcastChanges();
 
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, compactPattern);
         menu.broadcastChanges();
@@ -3859,6 +4226,14 @@ public final class PackageDataGameTests {
         helper.assertTrue(part != null, "Advanced pattern terminal should place as an AE2 cable part");
         helper.assertTrue(part instanceof appeng.parts.encoding.PatternEncodingTerminalPart,
                 "Advanced pattern terminal should reuse AE2 pattern terminal part behavior");
+        var placedModelIds = part.getStaticModels().getModels();
+        helper.assertTrue(placedModelIds.contains(AppliedPackaging.id(
+                        "part/advanced_pattern_encoding_terminal_base"))
+                        && placedModelIds.contains(AppliedPackaging.id(
+                                "part/advanced_pattern_encoding_terminal_off"))
+                        && placedModelIds.contains(AppliedPackaging.id(
+                                "part/advanced_pattern_encoding_terminal_status_off")),
+                "Placed advanced terminal should select its Applied Packaging world Part models");
         part.getAdvancedPatternState().setActiveColumns(2);
         part.getAdvancedPatternState().setColor(0, PackageColor.GREEN);
         part.getAdvancedPatternState().inputs().setStack(
@@ -3882,90 +4257,155 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void patternEncodingTerminalPackageInputsSupportAmountEditing(GameTestHelper helper) {
+    public static void dedicatedPackagePatternTerminalEncodesAndLoadsPatterns(GameTestHelper helper) {
         @SuppressWarnings("unchecked")
-        IPartItem<PatternEncodingTerminalPart> partItem =
-                (IPartItem<PatternEncodingTerminalPart>) AEParts.PATTERN_ENCODING_TERMINAL.asItem();
-        PatternEncodingTerminalPart part = PartHelper.setPart(
+        IPartItem<AdvancedPatternEncodingTerminalPart> partItem =
+                (IPartItem<AdvancedPatternEncodingTerminalPart>) APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get();
+        AdvancedPatternEncodingTerminalPart part = PartHelper.setPart(
                 helper.getLevel(),
                 helper.absolutePos(new BlockPos(2, 2, 1)),
                 Direction.NORTH,
                 null,
                 partItem);
-        helper.assertTrue(part != null, "Pattern encoding terminal should place for package-mode amount testing");
+        helper.assertTrue(part != null, "Combined specialized pattern terminal should place");
 
-        PackageCraftingPatternLogicBridge logic = (PackageCraftingPatternLogicBridge) part.getLogic();
-        logic.appliedpackaging$setPackageCraftingMode(true);
-        part.getLogic().getEncodedInputInv().setStack(
+        part.getLogic().getBlankPatternInv().setItemDirect(0, AEItems.BLANK_PATTERN.stack());
+        FakePlayer player = newFakePlayer(helper);
+        AdvancedPatternEncodingTermMenu menu =
+                new AdvancedPatternEncodingTermMenu(8, new Inventory(player), part);
+        menu.setSpecializedMode(SpecializedPatternMode.PACKAGE);
+
+        part.getPackagePatternState().inputs().setStack(
                 0,
                 new GenericStack(AEItemKey.of(Items.OAK_LOG), 4));
-        part.getLogic().getEncodedInputInv().setStack(
+        part.getPackagePatternState().inputs().setStack(
                 PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT - 1,
                 new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 7));
-        part.getLogic().getEncodedInputInv().setStack(
+        part.getPackagePatternState().inputs().setStack(
                 1,
                 new GenericStack(AEFluidKey.of(Fluids.WATER), 1000));
-        part.getLogic().getBlankPatternInv().setItemDirect(0, AEItems.BLANK_PATTERN.stack());
+        menu.setPackageColor(PackageColor.GREEN);
+        menu.getPackageMarkerSlot().set(new ItemStack(Items.CHEST));
+        menu.broadcastChanges();
 
-        FakePlayer player = newFakePlayer(helper);
-        PatternEncodingTermMenu menu = new PatternEncodingTermMenu(8, new Inventory(player), part);
-        PackageCraftingPatternMenuBridge packageMenu = (PackageCraftingPatternMenuBridge) menu;
-        packageMenu.appliedpackaging$setPackageCraftingMode(true);
-        var input = menu.getProcessingInputSlots()[0];
-        var lastInput = menu.getProcessingInputSlots()[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT - 1];
-        var markerSlot = packageMenu.appliedpackaging$getPackageCraftingMarkerSlot();
+        var input = menu.getPackageInputSlots()[0];
+        var lastInput = menu.getPackageInputSlots()[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT - 1];
         var automaticOutput = menu.getSlots(SlotSemantics.CRAFTING_RESULT).get(0);
-
-        helper.assertTrue(markerSlot != null && markerSlot.isActive(),
-                "Package mode should expose its dedicated marker slot");
-        helper.assertTrue(automaticOutput.isActive(),
-                "Package mode should expose exactly one automatic package output");
+        helper.assertTrue(menu.getSpecializedMode() == SpecializedPatternMode.PACKAGE
+                        && part.getSpecializedPatternMode() == SpecializedPatternMode.PACKAGE,
+                "The combined terminal should persist and synchronize its package page");
+        helper.assertTrue(menu.getMode() == EncodingMode.PROCESSING
+                        && part.getLogic().getMode() == EncodingMode.PROCESSING,
+                "Both specialized editors should retain amount-preserving processing semantics");
+        helper.assertTrue(menu.getSlots(SlotSemantics.VIEW_CELL).isEmpty(),
+                "The combined terminal should not create view-cell slots");
+        helper.assertTrue(menu.getPackageMarkerSlot().isActive() && automaticOutput.isActive(),
+                "Package mode should expose its marker and automatic package preview");
         helper.assertTrue(PackageDataStorage.read(automaticOutput.getItem()).isPresent(),
-                "The package output should be calculated from configured inputs without an output filter");
-        helper.assertTrue(java.util.Arrays.stream(menu.getProcessingOutputSlots()).noneMatch(slot -> slot.isActive()),
-                "Package mode must not expose any configurable processing output slots");
-        helper.assertTrue(java.util.Arrays.stream(menu.getProcessingInputSlots()).allMatch(slot -> slot.isActive()),
-                "All 81 package inputs should remain available to the scrolling input window");
-        helper.assertFalse(input.isHideAmount(),
-                "Package-mode processing inputs should render configured amounts");
-        helper.assertTrue(menu.isProcessingPatternSlot(input),
-                "Package-mode inputs should use AE2 processing-slot container behavior");
-        helper.assertTrue(menu.canModifyAmountForSlot(input),
-                "Package-mode processing inputs should open AE2 amount editing on middle click");
-        GenericStack configured = GenericStack.fromItemStack(input.getItem());
-        helper.assertTrue(configured != null && configured.amount() == 4,
-                "Package-mode processing inputs should preserve amounts larger than one");
-        helper.assertTrue(menu.canModifyAmountForSlot(lastInput),
-                "The 81st package input should support amount editing");
+                "Package mode should calculate its preview from the isolated package inputs");
+        helper.assertTrue(java.util.Arrays.stream(menu.getAdvancedInputSlots()).noneMatch(Slot::isActive)
+                        && java.util.Arrays.stream(menu.getAdvancedOutputSlots()).noneMatch(Slot::isActive),
+                "Advanced inputs and outputs must be inactive while the package page is selected");
+        helper.assertFalse(input.isHideAmount(), "Package inputs should render configured amounts");
+        helper.assertTrue(menu.canModifyAmountForSlot(input)
+                        && menu.canModifyAmountForSlot(lastInput),
+                "All 81 isolated package inputs should support AE2 amount editing");
 
         menu.encode();
         ItemStack encodedStack = part.getLogic().getEncodedPatternInv().getStackInSlot(0);
         helper.assertTrue(encodedStack.is(APItems.PACKAGE_PATTERN.get()),
-                "Ordinary pattern terminal package mode should encode the dedicated package pattern item");
-        helper.assertFalse(AEItems.CRAFTING_PATTERN.isSameAs(encodedStack),
-                "New package patterns should no longer masquerade as AE2 crafting patterns");
+                "Package mode should encode the dedicated package pattern carrier");
         helper.assertTrue(PatternDetailsHelper.decodePattern(encodedStack, helper.getLevel())
                         instanceof com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDetails,
-                "Dedicated package patterns should decode through AE2 pattern details");
+                "Package patterns should decode through AE2 pattern details");
         var encoded = PackageCraftingPatternDataStorage.read(encodedStack).orElseThrow();
         GenericStack encodedLast = encoded.sparseInputs()[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT - 1];
         GenericStack encodedFluid = encoded.sparseInputs()[1];
         helper.assertTrue(encodedLast != null
                         && encodedLast.what().equals(AEItemKey.of(Items.GOLD_INGOT))
                         && encodedLast.amount() == 7,
-                "Package-mode encoding should preserve the 81st scrolled input");
+                "Package encoding should preserve the 81st input");
         helper.assertTrue(encodedFluid != null
                         && encodedFluid.what().equals(AEFluidKey.of(Fluids.WATER))
                         && encodedFluid.amount() == 1000,
-                "Package-mode encoding should preserve AE2 processing fluid inputs");
+                "Package encoding should preserve fluid inputs");
+        helper.assertTrue(encoded.data().marker()
+                        .map(marker -> marker.stack().what().equals(AEItemKey.of(Items.CHEST)))
+                        .orElse(false),
+                "Package encoding should preserve its isolated marker slot");
 
-        packageMenu.appliedpackaging$setPackageCraftingMode(false);
-        helper.assertFalse(menu.isProcessingPatternSlot(input),
-                "Normal crafting mode should restore AE2 processing-slot classification");
-        helper.assertFalse(menu.canModifyAmountForSlot(input),
-                "Normal crafting mode should not treat processing inputs as editable package inputs");
-        helper.assertTrue(menu.getCraftingGridSlots()[0].isHideAmount(),
-                "Normal crafting mode should keep AE2's crafting-grid amounts hidden");
+        var encodedPatternSlot = menu.getSlots(SlotSemantics.ENCODED_PATTERN).get(0);
+        ItemStack advancedPattern = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 2) },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        AdvancedProcessingPatternDataStorage.write(
+                advancedPattern,
+                new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                0, PackageColor.RED, Optional.empty()))));
+        helper.assertTrue(encodedPatternSlot.mayPlace(advancedPattern),
+                "The combined terminal should accept advanced patterns in its shared carrier slot");
+        encodedPatternSlot.set(advancedPattern.copy());
+        helper.assertTrue(menu.getSpecializedMode() == SpecializedPatternMode.ADVANCED
+                        && part.getSpecializedPatternMode() == SpecializedPatternMode.ADVANCED,
+                "Inserting an advanced pattern should select the advanced editor");
+        helper.assertTrue(menu.getAdvancedInputSlots()[0].getItem().is(Items.IRON_INGOT)
+                        && menu.getAdvancedOutputSlots()[0].getItem().is(Items.DIAMOND),
+                "Loading an advanced pattern should populate only the advanced slot group");
+        helper.assertTrue(part.getPackagePatternState().inputs().getStack(0).what().equals(AEItemKey.of(Items.OAK_LOG)),
+                "Switching to the advanced page must not overwrite package inputs");
+
+        GenericStack[] packageInputs = new GenericStack[PackageCraftingPatternDataStorage.INPUT_SLOT_COUNT];
+        packageInputs[0] = new GenericStack(AEItemKey.of(Items.OAK_PLANKS), 1);
+        packageInputs[3] = new GenericStack(AEItemKey.of(Items.OAK_PLANKS), 1);
+        ItemStack insertedPackagePattern = PackageCraftingPatternDataStorage.encode(
+                PackageCraftingPatternDataStorage.create(
+                                PackageColor.BLUE,
+                                packageInputs,
+                                Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(Items.CHEST), 1))))
+                        .orElseThrow());
+        encodedPatternSlot.set(insertedPackagePattern.copy());
+        helper.assertTrue(menu.getSpecializedMode() == SpecializedPatternMode.PACKAGE
+                        && menu.getPackageColor() == PackageColor.BLUE,
+                "Inserting a package pattern should select and load the package editor");
+        helper.assertTrue(automaticOutput.getItem().getItem() instanceof PackageItem packageItem
+                        && packageItem.color() == PackageColor.BLUE
+                        && PackageDataStorage.read(automaticOutput.getItem())
+                                .map(data -> data.contents().size() == 2)
+                                .orElse(false),
+                "Loading a package pattern should preview a package, never a crafting product");
+
+        CompoundTag persistedPart = new CompoundTag();
+        part.writeToNBT(persistedPart);
+        part.setSpecializedPatternMode(SpecializedPatternMode.ADVANCED);
+        part.getPackagePatternState().setColor(PackageColor.RED);
+        part.getPackagePatternState().markerInventory().clear();
+        part.readFromNBT(persistedPart);
+        AdvancedPatternEncodingTermMenu reopenedMenu =
+                new AdvancedPatternEncodingTermMenu(9, new Inventory(player), part);
+        helper.assertTrue(reopenedMenu.getSpecializedMode() == SpecializedPatternMode.PACKAGE
+                        && reopenedMenu.getPackageColor() == PackageColor.BLUE
+                        && reopenedMenu.getPackageMarkerSlot().getItem().is(Items.CHEST),
+                "The combined terminal should reopen on its persisted page with package settings intact");
+
+        @SuppressWarnings("unchecked")
+        IPartItem<PatternEncodingTerminalPart> nativePartItem =
+                (IPartItem<PatternEncodingTerminalPart>) AEParts.PATTERN_ENCODING_TERMINAL.asItem();
+        PatternEncodingTerminalPart nativePart = PartHelper.setPart(
+                helper.getLevel(),
+                helper.absolutePos(new BlockPos(3, 2, 1)),
+                Direction.NORTH,
+                null,
+                nativePartItem);
+        PatternEncodingTermMenu nativeMenu = new PatternEncodingTermMenu(10, new Inventory(player), nativePart);
+        Slot nativeEncodedSlot = nativeMenu.getSlots(SlotSemantics.ENCODED_PATTERN).get(0);
+        helper.assertFalse(nativeEncodedSlot.mayPlace(insertedPackagePattern),
+                "AE2's ordinary pattern terminal must reject package patterns");
+        helper.assertFalse(nativeEncodedSlot.mayPlace(advancedPattern),
+                "AE2's ordinary pattern terminal must reject advanced processing patterns");
+        helper.assertTrue(nativeMenu.getMode() == EncodingMode.CRAFTING
+                        && nativePart.getLogic().getMode() == EncodingMode.CRAFTING,
+                "The narrow carrier filter must not change the ordinary terminal's native mode");
         helper.succeed();
     }
 
@@ -3995,7 +4435,7 @@ public final class PackageDataGameTests {
         part.getAdvancedPatternState().inputs().setStack(
                 AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE * 2,
                 new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 64));
-        part.getLogic().getEncodedOutputInv().setStack(
+        part.getAdvancedPatternState().outputs().setStack(
                 0,
                 new GenericStack(AEItemKey.of(Items.DIAMOND), 1));
         part.getLogic().getBlankPatternInv().setItemDirect(0, AEItems.BLANK_PATTERN.stack());
@@ -4017,6 +4457,8 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(encodedStack.is(APItems.ADVANCED_PROCESSING_PATTERN.get()),
                 "Advanced terminal should encode the dedicated advanced pattern item");
+        helper.assertTrue(menu.getSlots(SlotSemantics.ENCODED_PATTERN).get(0).mayPlace(encodedStack),
+                "The dedicated advanced terminal should continue accepting its own encoded patterns");
         helper.assertTrue(
                 PatternDetailsHelper.decodePattern(encodedStack, helper.getLevel())
                         instanceof com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDetails,
@@ -4095,13 +4537,33 @@ public final class PackageDataGameTests {
         return PackageCraftingPatternDataStorage.encode(encoded);
     }
 
+    private static ItemStack ordinaryStickCraftingPattern(GameTestHelper helper) {
+        Recipe<?> recipe = helper.getLevel().getRecipeManager()
+                .byKey(java.util.Objects.requireNonNull(ResourceLocation.tryParse("minecraft:stick")))
+                .orElseThrow();
+        if (!(recipe instanceof CraftingRecipe craftingRecipe)) {
+            throw new IllegalStateException("minecraft:stick must be a crafting recipe");
+        }
+        ItemStack[] inputs = new ItemStack[9];
+        java.util.Arrays.fill(inputs, ItemStack.EMPTY);
+        inputs[0] = new ItemStack(Items.OAK_PLANKS);
+        inputs[3] = new ItemStack(Items.OAK_PLANKS);
+        return PatternDetailsHelper.encodeCraftingPattern(
+                craftingRecipe,
+                inputs,
+                craftingRecipe.getResultItem(helper.getLevel().registryAccess()),
+                false,
+                false);
+    }
+
     private static ItemStack packageCraftingPattern(PackageColor color, PackageData data) {
         GenericStack[] inputs = data.contents().toArray(GenericStack[]::new);
-        return PackageCraftingPatternDataStorage.encode(
-                new PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern(
+        var encoded = PackageCraftingPatternDataStorage.create(
                         color,
                         sparsePackageCraftingInputs(inputs),
-                        data));
+                        data.marker())
+                .orElseThrow();
+        return PackageCraftingPatternDataStorage.encode(encoded);
     }
 
     private static GenericStack[] sparsePackageCraftingInputs(GenericStack... inputs) {

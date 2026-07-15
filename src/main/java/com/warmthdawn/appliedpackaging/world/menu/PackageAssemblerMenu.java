@@ -292,8 +292,8 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         return getSlots(SlotSemantics.PLAYER_HOTBAR).get(hotbarSlot).index;
     }
 
-    public ItemStack inputFilterDisplay(int slot) {
-        return getHost().menuInputFilterDisplay(slot);
+    public ItemStack inputFilterForSlot(int slot) {
+        return getHost().menuInputFilterStack(slot);
     }
 
     public boolean isInputSlotEnabled(int slot) {
@@ -311,7 +311,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         if (displayed.isEmpty()) {
             return true;
         }
-        ItemStack filter = inputFilterDisplay(slot);
+        ItemStack filter = inputFilterForSlot(slot);
         return !filter.isEmpty()
                 && ItemStack.isSameItemSameTags(displayed, filter)
                 && displayed.getCount() <= filter.getCount();
@@ -439,8 +439,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
                 return clientDisplay;
             }
             int inputSlot = inputSlotForVisibleIndex(visibleIndex);
-            ItemStack actual = getHost().menuInputDisplay(inputSlot);
-            return actual.isEmpty() ? getHost().menuInputFilterDisplay(inputSlot) : actual;
+            return getHost().menuInputDisplay(inputSlot);
         }
 
         @Override

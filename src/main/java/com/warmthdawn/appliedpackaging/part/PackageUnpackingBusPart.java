@@ -18,8 +18,13 @@ import appeng.parts.PartModel;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageUnpackingOperations;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferTopology;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
+import com.warmthdawn.appliedpackaging.world.block.entity.SequenceBufferBlockEntity;
 import java.util.List;
+import java.util.Optional;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -27,12 +32,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandlerModifiable;
 
 public class PackageUnpackingBusPart extends AbstractPackageBusPart implements IStorageProvider {
-    public static final int ANIMATION_CYCLE_TICKS = MePackagerBlockEntity.ANIMATION_CYCLE_TICKS;
+    public static final int ANIMATION_CYCLE_TICKS = MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS;
     public static final int DEFAULT_PRIORITY = 0;
 
     private static final String HELD_PACKAGE_TAG = "heldPackage";
     private static final String WORKING_TAG = "unpackWorking";
     private static final String OPERATION_TICKS_TAG = "unpackOperationTicks";
+    private static final String OPERATION_DURATION_TICKS_TAG = "unpackOperationDurationTicks";
     private static final String RETRY_COOLDOWN_TAG = "unpackRetryCooldown";
     private static final String UNPACK_BLOCKED_TAG = "unpackBlocked";
 
@@ -86,6 +92,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
                 working = false;
                 unpackBlocked = false;
                 operationTicks = 0;
+                operationDurationTicks = ANIMATION_CYCLE_TICKS;
                 retryCooldown = 0;
             }
             if (!isClientSide()) {
@@ -131,6 +138,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
     private boolean working;
     private boolean unpackBlocked;
     private int operationTicks;
+    private int operationDurationTicks = ANIMATION_CYCLE_TICKS;
     private int retryCooldown;
 
     public PackageUnpackingBusPart(IPartItem<?> partItem) {
@@ -188,10 +196,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
 
         ItemStack packageStack = ((AEItemKey) what).toStack();
         packageStack.setCount(1);
-        var target = findTargetItemHandler();
-        if (target.isEmpty()
-                || !filterSet().matches(packageStack)
-                || !PackageUnpackingOperations.canUnpack(packageStack, target.get(), isBlockingMode())) {
+        if (!filterSet().matches(packageStack) || !canUnpackIntoTarget(packageStack)) {
             return 0;
         }
 
@@ -206,10 +211,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
     }
 
     private void retryHeldPackage() {
-        var target = findTargetItemHandler();
-        if (target.isEmpty()
-                || !filterSet().matches(heldPackage)
-                || !PackageUnpackingOperations.canUnpack(heldPackage, target.get(), isBlockingMode())) {
+        if (!filterSet().matches(heldPackage) || !canUnpackIntoTarget(heldPackage)) {
             if (!unpackBlocked) {
                 unpackBlocked = true;
                 configurationChanged();
@@ -224,7 +226,9 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
 
     private void startWorkingOperation() {
         working = true;
-        operationTicks = ANIMATION_CYCLE_TICKS;
+        operationDurationTicks = MePackagerBlockEntity.unpackingWorkTicks(
+                getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD));
+        operationTicks = operationDurationTicks;
         setDisplayedPackage(heldPackage);
     }
 
@@ -236,10 +240,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
             return;
         }
 
-        var target = findTargetItemHandler();
-        boolean committed = target.isPresent()
-                && filterSet().matches(heldPackage)
-                && PackageUnpackingOperations.unpack(heldPackage, target.get(), isBlockingMode());
+        boolean committed = filterSet().matches(heldPackage) && unpackIntoTarget(heldPackage);
         if (!committed) {
             working = false;
             unpackBlocked = true;
@@ -256,7 +257,43 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
 
     private int retryIntervalTicks() {
         int speedCards = getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD);
-        return Math.max(2, MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS - speedCards * 3);
+        return MePackagerBlockEntity.unpackingWorkTicks(speedCards);
+    }
+
+    private boolean canUnpackIntoTarget(ItemStack packageStack) {
+        Optional<SequenceBufferBlockEntity> sequenceBuffer = findTargetSequenceBuffer();
+        if (sequenceBuffer.isPresent()) {
+            return PackageDataStorage.read(packageStack)
+                    .map(data -> sequenceBuffer.get().acceptPackage(data, isBlockingMode(), true))
+                    .orElse(false);
+        }
+        return findTargetItemHandler()
+                .map(target -> PackageUnpackingOperations.canUnpack(packageStack, target, isBlockingMode()))
+                .orElse(false);
+    }
+
+    private boolean unpackIntoTarget(ItemStack packageStack) {
+        Optional<SequenceBufferBlockEntity> sequenceBuffer = findTargetSequenceBuffer();
+        if (sequenceBuffer.isPresent()) {
+            return PackageDataStorage.read(packageStack)
+                    .map(data -> sequenceBuffer.get().acceptPackage(data, isBlockingMode(), false))
+                    .orElse(false);
+        }
+        return findTargetItemHandler()
+                .map(target -> PackageUnpackingOperations.unpack(packageStack, target, isBlockingMode()))
+                .orElse(false);
+    }
+
+    private Optional<SequenceBufferBlockEntity> findTargetSequenceBuffer() {
+        if (getLevel() == null || getSide() == null) {
+            return Optional.empty();
+        }
+        BlockPos targetPos = getBlockEntity().getBlockPos().relative(getSide());
+        if (!(getLevel().getBlockEntity(targetPos) instanceof SequenceBufferBlockEntity sequenceBuffer)) {
+            return Optional.empty();
+        }
+        return SequenceBufferTopology.resolveEndpoint(sequenceBuffer)
+                .filter(SequenceBufferBlockEntity::isEndpoint);
     }
 
     public boolean isBlockingMode() {
@@ -281,8 +318,8 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         if (!working) {
             return 0;
         }
-        int elapsed = ANIMATION_CYCLE_TICKS - Math.max(0, operationTicks);
-        return Math.min(15, (elapsed * 15) / ANIMATION_CYCLE_TICKS);
+        int elapsed = operationDurationTicks - Math.max(0, operationTicks);
+        return Math.min(15, (elapsed * 15) / operationDurationTicks);
     }
 
     public ItemStack heldPackage() {
@@ -309,13 +346,19 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
                 : ItemStack.EMPTY;
         setHeldPackage(savedPackage);
         working = !heldPackage.isEmpty() && tag.getBoolean(WORKING_TAG);
-        operationTicks = Math.max(0, Math.min(ANIMATION_CYCLE_TICKS, tag.getInt(OPERATION_TICKS_TAG)));
+        operationDurationTicks = tag.contains(OPERATION_DURATION_TICKS_TAG, Tag.TAG_INT)
+                ? Math.max(
+                        MePackagerBlockEntity.MIN_WORK_TICKS,
+                        Math.min(ANIMATION_CYCLE_TICKS, tag.getInt(OPERATION_DURATION_TICKS_TAG)))
+                : ANIMATION_CYCLE_TICKS;
+        operationTicks = Math.max(0, Math.min(operationDurationTicks, tag.getInt(OPERATION_TICKS_TAG)));
         retryCooldown = Math.max(0, tag.getInt(RETRY_COOLDOWN_TAG));
         unpackBlocked = !heldPackage.isEmpty() && !working && tag.getBoolean(UNPACK_BLOCKED_TAG);
         if (heldPackage.isEmpty()) {
             working = false;
             unpackBlocked = false;
             operationTicks = 0;
+            operationDurationTicks = ANIMATION_CYCLE_TICKS;
             retryCooldown = 0;
         }
     }
@@ -328,6 +371,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         }
         tag.putBoolean(WORKING_TAG, working);
         tag.putInt(OPERATION_TICKS_TAG, operationTicks);
+        tag.putInt(OPERATION_DURATION_TICKS_TAG, operationDurationTicks);
         tag.putInt(RETRY_COOLDOWN_TAG, retryCooldown);
         tag.putBoolean(UNPACK_BLOCKED_TAG, unpackBlocked);
     }
@@ -357,6 +401,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         working = false;
         unpackBlocked = false;
         operationTicks = 0;
+        operationDurationTicks = ANIMATION_CYCLE_TICKS;
         retryCooldown = 0;
         setDisplayedPackage(ItemStack.EMPTY);
     }

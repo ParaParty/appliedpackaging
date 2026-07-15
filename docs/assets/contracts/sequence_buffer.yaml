@@ -1,0 +1,77 @@
+asset_id: sequence_buffer
+asset_kind: block
+generation_mode: user_authored_sheet_split
+target_game: minecraft_java
+target_texture_resolution: 16
+visual_output_protocol: VOP-2x2-Minecraft-Asset-v1
+visual_output_protocol_scope: schema_compatibility_only
+visual_output_note: The VOP four-panel generation layout is not used; source_sheet 4x4 grid and split script are authoritative.
+target_volume: [16, 16, 16]
+panel_order:
+  top_left: front
+  top_right: right_side
+  bottom_left: top
+  bottom_right: isometric
+style:
+  name: user_authored_sequence_buffer
+  palette_reference: E:/resources/textures/appliedpackaging/ret/sequance_buffer_all.png
+asset_brief:
+  summary: Pixel-preserve the user-authored 4x4 Sequence Buffer face sheet and map all controller, middle, edge, tail, directed, and undirected faces.
+  source_brief: docs/04-asset-spec.md
+source_sheet:
+  path: E:/resources/textures/appliedpackaging/ret/sequance_buffer_all.png
+  sha256: 66A26C07983D8E3CD1866B0D4EE723F2A68B1C257FCD936BCC0C3C57EECF7B8F
+  size: [64, 64]
+  mode: RGBA
+  grid: [4, 4]
+  tile_size: [16, 16]
+  row_order:
+    - undirected
+    - directed_front
+    - directed_side
+    - directed_back
+  column_order:
+    - unformed
+    - formed_middle_side
+    - formed_edge_side
+    - special
+materials:
+  - user_authored_quartz_frame
+  - user_authored_green_panel
+  - user_authored_fluix_indicator
+required_visual_parts:
+  - all 16 source cells exported without scaling or palette conversion
+  - controller back and side faces
+  - formed middle and edge side faces
+  - occluded link face
+  - tail back face
+  - directed front, side, and back variants
+orientation_requirements:
+  structure_axes: [x, y, z]
+  block_facings: [down, up, north, south, west, east]
+  generated_model_count: 57
+  multipart_entry_count: 58
+  directed_side_arrow: texture +U points toward the block facing/front
+  formed_side_length: texture +V follows the sequence axis
+  preserve_block_facing_when_formed: true
+forbidden_visual_parts:
+  - generated replacement pixels
+  - resampling
+  - palette quantization
+  - lossy conversion
+conversion_requirements:
+  max_major_components: 16
+  cuboid_friendly: true
+  front_is_north: true
+  keep_inside_block_volume: true
+  pixel_preserve_source: true
+harness_assumptions:
+  output_namespace: appliedpackaging
+  block_id: sequence_buffer
+  texture_dir: src/main/resources/assets/appliedpackaging/textures/block/sequence_buffer/faces
+  block_model_dir: src/main/resources/assets/appliedpackaging/models/block/sequence_buffer
+  item_model_dir: src/main/resources/assets/appliedpackaging/models/item
+  blockstate_dir: src/main/resources/assets/appliedpackaging/blockstates
+  report_path: docs/assets/reports/sequence-buffer.md
+  split_script: scripts/split-sequence-buffer-textures.py
+  model_generator: scripts/generate-sequence-buffer-models.py

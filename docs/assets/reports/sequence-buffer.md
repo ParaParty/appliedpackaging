@@ -1,0 +1,53 @@
+# Sequence Buffer Asset Report
+
+## Source
+
+The release textures come from the user-authored sheet:
+
+```text
+E:/resources/textures/appliedpackaging/ret/sequance_buffer_all.png
+64x64 RGBA
+SHA-256 66A26C07983D8E3CD1866B0D4EE723F2A68B1C257FCD936BCC0C3C57EECF7B8F
+```
+
+The sheet is a strict 4x4 grid of 16x16 cells. No scaling, recoloring, quantization, interpolation, or generated replacement pixels are allowed.
+
+## Deterministic Split
+
+Run:
+
+```powershell
+python .\scripts\split-sequence-buffer-textures.py
+```
+
+The script validates the exact 64x64 RGBA source, exports all 16 cells to one folder, reconstructs the original sheet pixel-for-pixel, and writes an ignored proof sheet and SHA-256 manifest under `build/asset-reference/sequence-buffer/user-sheet/`.
+
+Runtime output folder:
+
+```text
+src/main/resources/assets/appliedpackaging/textures/block/sequence_buffer/faces/
+```
+
+Rows are `undirected`, `directed_front`, `directed_side`, and `directed_back`. Columns are `unformed`, `formed_middle_side`, `formed_edge_side`, and `special`. Special cells map to controller back, the occluded link face, controller side, and tail back respectively.
+
+## Model Mapping
+
+The models use every split texture:
+
+- `unformed` and `unformed_directed` use the first-column faces;
+- `endpoint` uses controller side/back plus the occluded inward face;
+- non-tail members use the second-column middle faces;
+- tail members use the third-column edge faces plus the special tail back;
+- directed member models select matching front/side/back faces.
+
+`tail` and `sequence_direction` are rendering properties in addition to the existing five-value visual state. Topology reconciliation moves `tail=true` whenever a new block joins the end of the line, so the old tail changes to the middle model and the new last block receives the tail back.
+
+`scripts/generate-sequence-buffer-models.py` emits 57 explicit full-cube models and a 58-entry multipart blockstate. The matrix covers X/Y/Z structure axes, all six endpoint/tail directions, all six standalone facings, and every perpendicular formed-member facing. The source directed-side arrow follows texture `+U`; each generated face applies a per-face UV rotation so `+U` points toward that block's own `facing`. Formed side length follows texture `+V` along the structure axis.
+
+Structure formation never replaces the block's own direction. `sequence_direction` controls endpoint, connection, and tail geometry, while `directional + facing` remains the block-local wrench state. A pre-existing direction parallel to the structure axis is retained but hidden by the formed connection model and becomes visible again after detachment.
+
+## Acceptance
+
+`scripts/verify-assets.ps1` requires all 16 files, 16x16 RGBA dimensions, visible non-placeholder content, references from the actual Sequence Buffer models, all six tail directions, X/Y/Z axes, all six block facings, 57 generated models, and the complete 58-entry orientation matrix. `scripts/test-assets-audit.ps1` contains matching negative dimension, missing-state, and missing-vertical-model fixtures.
+
+The split proof sheet was inspected at nearest-neighbor scale. All cell borders are aligned, the source is reconstructed byte-for-byte at the pixel level, and no cell is cropped or shifted. Direct exported-model renders under `build/asset-preview/sequence-buffer/` were also inspected for a north-facing standalone block and vertical directed middle/tail blocks; the renderer resolved the real JSON and PNG assets rather than a missing-model placeholder.

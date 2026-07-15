@@ -107,7 +107,7 @@ tooltip 显示每包/总计
 package_pattern 与 advanced_processing_pattern 均只由对应编码终端产出，不作为普通合成输出。
 已交付 me_packager/package_assembler loot table。
 已交付 appliedpackaging:packages item tag。
-原版样板终端包裹模式、高级样板终端和两个 cable part 总线资源已接入 Java 注册与基础玩法。
+合并高级/包裹两页的 Advanced Pattern Encoding Terminal 和两个 cable part 总线资源已接入 Java 注册与基础玩法；普通 AE2 样板终端不增加包裹 UI。
 ```
 
 验收：
@@ -184,7 +184,7 @@ marker 冲突按策略拒绝或覆盖
 ```text
 方块/方块实体/菜单
 Pattern Provider 输入适配
-普通处理样板 -> 包裹
+普通 AE2 合成/处理等已编码样板 -> Fluix 包裹 + 主输出 marker
 彩色处理样板 -> 多包裹
 封装处理样板 -> package plan
 输出阻挡与输出模式
@@ -211,6 +211,7 @@ GameTest/客户端验证
   已编码 package_pattern 不消耗，可重复作为本地装配计划
   已编码 advanced_processing_pattern 保存连续列的有序多包裹计划
   package_assembler 可按 advanced_processing_pattern 逐包生成匹配包裹
+  本地样板槽接受任意 AE2 可解码已编码样板；普通 crafting/processing/stonecutting/smithing 等样板按非空输入槽顺序生成 Fluix 包裹，主输出归一为 marker
   advanced_processing_pattern 本地输入显示跳过 sparse 空白并保留原列归属，滚动行数按全部非空输入动态计算，超过旧 68 格的输入仍可显示、插入和装配
   package_assembler 暴露 AE2 ICraftingMachine capability
   Pattern Provider pushPattern 可按分子装配室语义临时使用本次 pattern 规划配方，把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
@@ -223,6 +224,7 @@ GameTest/客户端验证
   同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
   彩色 pushPattern 产生多个包裹时按顺序写入空输出槽，超过可用输出槽的余量通过 pending queue 顺序输出并持久化保存
   装配室存在 0-100 合成进度，只允许 5 张 AE2 speed card；0/1/2/3/4/5 张按分子装配室速度表每 tick 尝试推进 10/13/17/20/25/50，并按 1.0/1.3/1.7/2.0/2.5/5.0 能量倍率从本机 AE 网络抽取能量
+  本地合成期间输入槽保持真实可交互，材料到达 100 进度才提交；取出必需材料时保留进度并暂停，补齐后继续，样板变化时取消计划并归零
   装配室输出模式默认 ME_NETWORK，可通过 GUI 左侧 AE2 toolbar 图标循环切换 ME_NETWORK、ADJACENT_BLOCK 和 NONE 并持久化保存
   装配室 server tick 会按输出槽顺序一次导出 1 个包裹；ME_NETWORK 只导出到本机接入的 AE 网络存储服务，ADJACENT_BLOCK 只导出到背面 Forge item handler，NONE 不自动导出
   自动导出失败时保留输出槽包裹，不丢弃、不继续消耗新输入
@@ -235,13 +237,15 @@ GameTest/客户端验证
   装配室基础 GameTest
 
 客户端验证：
-  当前输入窗口显示样板过滤物品与数量，跳过高级样板 sparse 空白；样板移除后残留输入保持红色错误状态，左侧 toolbar 与右侧 AE2 升级面板继续沿用现有布局；后续视觉改动按需使用 runClient 人工复验
+  当前输入窗口按样板非空输入数建立真实槽并跳过高级样板 sparse 空白；过滤物品与数量只用于插入校验、不在空槽内绘制，只有真实输入显示为槽内容；样板移除后残留输入保持红色错误状态，左侧 toolbar 与右侧 AE2 升级面板继续沿用现有布局；后续视觉改动按需使用 runClient 人工复验
 ```
 
 验收：
 
 ```text
-普通处理样板生成默认色包裹
+普通 AE2 合成/处理等样板生成默认 Fluix 包裹并以主输出为 marker
+本地合成中取料不产出且暂停，补回后继续并在完成时一次性扣料
+本地完成扣料必须原子成功后才能提交包裹；重复样板输入位置在真实槽、contents 与拆包推入中保持分离
 彩色输入格生成对应颜色包裹
 同 AEKey 位于不同颜色格时不会提前合并
 输出阻挡只检查本机输出口，输出模式不扫描目标网络内容
@@ -252,18 +256,20 @@ GameTest/客户端验证
 当前交付：
 
 ```text
-高级样板终端与原版样板终端包裹模式
+合并后的高级/包裹样板终端
 包裹存储总线 AE2 cable part
 包裹卸货总线 AE2 cable part
 七行包裹过滤 UI 与 AE2 网络集成
 GameTest 与客户端人工验证
 ```
 
-2026-07-12 范围修订：独立 Package Pattern Terminal 与 Package Export Bus 取消；物品注册、配方、创造栏入口、loot 和对应客户端自动截图步骤均删除。2026-07-13 代码审查进一步删除了三个旧 Package Bus 方块/方块实体和独立终端方块/part/菜单的无入口兼容壳，正式实现只保留 AE2 cable part 总线、原版终端包裹模式与高级样板终端。
+2026-07-12 范围修订：独立 Package Pattern Terminal 与 Package Export Bus 取消；物品注册、配方、创造栏入口、loot 和对应客户端自动截图步骤均删除。2026-07-13 代码审查进一步删除了三个旧 Package Bus 方块/方块实体和独立终端方块/part/菜单的无入口兼容壳。2026-07-17 最终交互边界改为：包裹页合并进 Advanced Pattern Encoding Terminal，普通 AE2 Pattern Encoding Terminal 不再增加包裹页面。
 
 当前状态：
 
 ```text
+原版 Pattern Encoding Terminal、Screen factory 与四种原生模式保持 AE2 实现；只用一个窄菜单校验注入拒绝 package_pattern 与 advanced_processing_pattern，不增加按钮或绘制
+Advanced Pattern Encoding Terminal 使用同一个 part/menu/screen 承载 ADVANCED 与 PACKAGE 两页，右侧 current-AE Pattern Encoding Terminal 水平侧标签切换并持久化页面；两页各自拥有完整屏幕 profile（两行网络库存时 217x250 / 195x233）和完全隔离的槽位库存，切换时在同一 Screen 上 resize/init 并重排全部几何，放入对应载体时自动切换，菜单不创建 VIEW_CELL 槽
 package_storage_bus 使用新版 Storage Bus 形态，通过默认优先级 0 的 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage；Partition Storage 从相邻容器包裹生成过滤
 package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认优先级 0 的 Formation Plane 式只写入 IStorageProvider 接收网络路由包裹，不扫描、抽取或枚举 ME 存储
 两个默认值都为 0，且就是右上 Priority 子菜单显示/修改的数值；数值相同时由卸货总线只写入端点的 preferred-storage 语义先尝试拆包，拆包拒绝后再尝试存储总线
@@ -288,7 +294,57 @@ package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认�
 取消项不存在玩家入口
 ```
 
-## 阶段 7：发布
+## 阶段 7：序列缓存器
+
+交付：
+
+```text
+SequenceBufferBlock / SequenceBufferBlockEntity 注册、物品、配方与 loot
+五值模型状态、六向 facing、X/Y/Z axis 与扳手交互
+端点权威的直线拓扑、尾端自动加入、断裂/解散和配置同步
+一次输入锁存的 AEKey 存储、Forge item/fluid handler 与 AE2 MEStorage
+端点顺序输入、合并抽取、自动输出、阻挡、同步和全结构输入延迟
+PackageData sparse 布局身份扩展、Pattern Provider 与拆包总线原子位置输入
+第一版服务端配置/过滤接口，不注册 GUI
+GameTest、runData、build、资源/文档/发布审计
+```
+
+实施顺序：
+
+```text
+1. 固定 state/config/NBT schema 和纯计划类
+2. 注册方块、方块实体与单格 capability，验证锁存/延迟/保存读取
+3. 实现端点拓扑、成员排序、尾端加入和断裂恢复
+4. 实现端点聚合 capability 与普通/同步自动输出
+5. 扩展 PackageData 布局并实现 Pattern Provider/拆包总线的 sparse 位置输入
+6. 实现高级样板稠密顺序例外和三套 capability
+7. 补齐五类模型、语言、配方、loot 和资产 contract
+8. 扩展真实 Pattern Provider、拆包总线与多方块 GameTest，执行发布相关审计
+```
+
+验收：
+
+```text
+单格只接收一次并在完全清空后解锁
+结构成型/拒绝/扩展/断裂后的端点、顺序、配置和缓存内容正确
+X/Y/Z 三轴都可成型，且成型、扩展和解体不改写各方块原有方向
+端点不存储，逻辑第 1 格从首个成员开始；输入和抽取顺序稳定
+阻挡、同步和输入延迟同时约束主动与被动输出
+普通样板 push 保留 sparse 空位，高级样板只用稠密顺序；失败不消费 KeyCounter
+拆包总线把包裹布局原子映射到序列缓存器，失败不消费 held 包裹
+物品、流体与其它 AEKey 都有不丢失的受支持路径
+五类模型在三轴、六向合法组合下无 missing model/texture，侧面箭头始终指向自身正面
+```
+
+当前状态：
+
+```text
+已完成当前首版：方块/方块实体、五类模型状态、端点拓扑、三套存储能力、一次输入锁存、顺序输入/合并抽取、自动输出、阻挡、同步、输入延迟、普通 sparse 样板、高级样板稠密顺序、包裹布局身份与拆包总线原子保序输入均已实现。
+2026-07-16 全量 runGameTestServer 132/132 通过，包含真实 AE2 扳手三段方向循环；build、runData、资源审计及负例、文档审计、机械发布审计及负例通过；真实 runClient 完成资源重载、OpenAL 与图集创建，未发现 sequence_buffer missing model/texture 或 ModelBakery 错误。第一版按范围不含 GUI。
+2026-07-17 已用确定性脚本把用户 64x64 原图拆成 16 张 16x16 面贴图，并生成覆盖 X/Y/Z 三轴和六向 facing 的 57 个显式模型、58 个 multipart 项；结构方向与方块自身方向分离，成型/扩展/解体均保留原 `facing`。135/135 GameTest、build、资源审计及全部负例、文档审计、asset contract/发布资源审计通过；现有修改前启动的 IntelliJ 客户端未被中断，最终世界内像素效果需重启该客户端后人工复核。
+```
+
+## 阶段 8：发布
 
 交付：
 
@@ -334,7 +390,7 @@ runClient（需要视觉验收时人工执行）
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
 
 暂缓：
-  0.1.0-dev 发布 tag 暂缓到 IN-003 正式 UI/模型范围由用户描述、实现、验收并完成最终服务端与 tag 就绪门禁之后
+  0.1.0-dev 发布 tag 暂缓到 IN-003 正式 UI/模型范围与 IN-007 序列缓存器均实现、验收并完成最终服务端与 tag 就绪门禁之后
 ```
 
 验收：

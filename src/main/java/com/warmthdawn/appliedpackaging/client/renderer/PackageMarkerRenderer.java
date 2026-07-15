@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -13,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.client.IItemDecorator;
 
 public final class PackageMarkerRenderer {
     public static final ResourceLocation HAS_MARKER_PROPERTY =
@@ -23,6 +25,24 @@ public final class PackageMarkerRenderer {
     private static final float MARKER_CENTER_Y = 4.0F * PX;
     private static final float FRONT_Z = 3.0F * PX;
     private static final float MARKER_SIZE = 3.0F * PX;
+
+    public static final IItemDecorator SHIFT_MARKER_DECORATOR =
+            (guiGraphics, font, packageStack, xOffset, yOffset) -> {
+                if (!Screen.hasShiftDown()) {
+                    return false;
+                }
+                ItemStack marker = markerItem(packageStack);
+                if (marker.isEmpty()) {
+                    return false;
+                }
+                PoseStack poseStack = guiGraphics.pose();
+                poseStack.pushPose();
+                poseStack.translate(xOffset, yOffset + 8.0F, 100.0F);
+                poseStack.scale(0.5F, 0.5F, 0.5F);
+                guiGraphics.renderItem(marker, 0, 0);
+                poseStack.popPose();
+                return false;
+            };
 
     private PackageMarkerRenderer() {
     }
