@@ -39,11 +39,11 @@ GuideME: [20.1.7,20.2.0)
 ```text
 ME Package Assembler / ME 包裹装配室：
   类 AE2 Molecular Assembler。
-  接收 AE2 样板供应器推入的一批输入，或按本地已编码样板锁定真实输入槽，消耗本机 AE 网络能量推进合成进度并生成包裹输出。
+  接收 AE2 样板供应器推入的一批输入，或按本地已编码样板锁定真实输入槽；安装有效本地样板时，Forge item capability 同步暴露这些按位置过滤的输入位与有序输出位。机器消耗本机 AE 网络能量推进合成进度，并按样板输入顺序原样生成包裹 contents。
 
 ME Packager / ME 打包机：
   类 Create Packager。
-  只通过固定底部与模型背面接入 AE 网络，在所连网格的 MEStorage 内容和包裹之间做整包转换，并支持 16k/64k/256k 容量元件。
+  只通过固定底部与模型背面接入 AE 网络，在所连网格的 MEStorage 内容和包裹之间做整包转换；空容量槽为 9 单位/9 类型，只支持 16k/64k/256k storage component 升级。
 
 Package Buses / 包裹总线家族：
   Package Storage Bus 与 Package Unpacking Bus 均为 AE2 cable part，只暴露合法包裹或在完整模拟通过后把合法包裹内容推入目标端点，并各自占用 channel。
@@ -55,7 +55,7 @@ Package Buses / 包裹总线家族：
 ```text
 core.package_data
   PackageData / PackageDataStorage / PackageCanonicalizer
-  PackagePlanBuilder / PackageCapacityCalculator / PackageFilter
+  PackagePlanBuilder / PackageCapacityProfile / PackageCapacityCalculator / PackageFilter
   package-pattern and advanced-pattern data adapters
 
 core.item_handler / core.fluid_handler / core.ae2
@@ -69,7 +69,7 @@ world.block.entity
 pattern integration
   AE2 Pattern Encoding Terminal mixins for package mode
   AdvancedPatternEncodingTerminalPart/Menu/Screen
-  read-only compatibility decoders for previously encoded pattern carriers
+  dedicated decoders implemented by the current package and advanced pattern item subclasses
 
 part
   PackageStorageBusPart
@@ -84,9 +84,9 @@ registry / data / gametest
 
 ## 4. 架构原则
 
-1. `PackageData` 是纯数据，不直接调用 Forge 或 AE2 网络。
+1. `PackageData` 是纯数据，不直接调用 Forge 或 AE2 网络；`contents` 是身份相关的有序列表，数据层不合并同类条目也不排序。
 2. `PackageDataStorage` 是 1.20.1 NBT 与未来 Data Component 的唯一读写入口。
-3. 包裹规划与 MEStorage 操作先模拟后提交；Forge item handler 拆包采用 Pattern Provider 式 check-then-push，只在整包累计模拟通过后执行真实插入，不维护自定义跨 handler 回滚层。
+3. 两台包裹机器共享 `PackageCapacityProfile` 的 storage component 映射和单包容量计算；包裹规划与 MEStorage 操作先模拟后提交，Package Assembler 的本地样板与 Pattern Provider 推送也必须在接收输入前预检全部预计包裹。Forge item handler 拆包采用 Pattern Provider 式 check-then-push，只在整包累计模拟通过后执行真实插入，不维护自定义跨 handler 回滚层。
 4. 打包和拆包以单个包裹为最小操作单位。
 5. ME 打包机只通过固定底部与模型背面加入 AE 网格并使用该网格的 MEStorage；其它面不接入 ME 线缆，不扫描相邻 Forge item/fluid handler，也不回落到 Forge item/fluid handler。
 6. 装配室只处理样板语义，不处理相邻存储打包和拆包。
@@ -102,6 +102,7 @@ AE2 Pattern Provider
 -> adjacent ICraftingMachine.pushPattern(...)
 -> PackageAssembler uses the pushed pattern as a temporary plan, Molecular Assembler style
 -> validate local assembler is empty, output slots are empty, and KeyCounter exactly satisfies the plan
+-> preflight every predicted package against the shared current capacity profile without consuming KeyCounter input
 -> input holder all-or-nothing consume
 -> assembler craft progress advances with speed cards
 -> output package(s) insert into local output slots in order
@@ -113,16 +114,16 @@ AE2 Pattern Provider
 ```text
 AE2 crafting_pattern + appliedpackaging.package_crafting_pattern
 -> PackageCraftingPatternDetails
--> Package Assembler exact single-package plan
+-> Package Assembler exact single-package plan preserving encoded input order
 
 AE2 processing_pattern without Applied Packaging column metadata
 -> ordinary processing plan
--> one Fluix package with empty name and marker
+-> one Fluix package with empty name and marker, preserving pattern input order
 
 Applied Packaging advanced_processing_pattern
 -> inherits AE2 processing-pattern decoding and preserves normal inputs/outputs for planning
--> Package Assembler groups sparse inputs by contiguous 4-slot columns
--> ordered multi-package plan using each column's color, name, and marker
+-> Package Assembler keeps 17 contiguous 81-slot sparse columns only in pattern identity, then allocates a pattern-sized dense non-empty local-input view carrying each entry's original column
+-> ordered multi-package plan using each column's color and marker; each package preserves row order
 ```
 
 ME 打包机打包：
@@ -134,6 +135,7 @@ redstone/button trigger
 -> enumerate endpoint contents
 -> unpack source packages into virtual entries
 -> apply content filter
+-> sort all selected virtual entries by canonical stack key
 -> build package plan
 -> simulate endpoint extraction
 -> simulate output slot insertion

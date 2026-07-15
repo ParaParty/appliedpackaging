@@ -10,12 +10,14 @@ import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageCanonicalizer;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -117,8 +119,15 @@ public final class MEStoragePackageTransactions {
                         capacityProfile,
                         0)
                 .data()
+                .map(data -> sortPackagerContents(color, data))
                 .filter(data -> effectiveFilter.matches(color, data, invertContents))
                 .map(data -> new MEStoragePackagePlan(data, extractions));
+    }
+
+    private static PackageData sortPackagerContents(PackageColor color, PackageData data) {
+        List<GenericStack> sortedContents = new ArrayList<>(data.contents());
+        sortedContents.sort(Comparator.comparing(PackageCanonicalizer::canonicalStack));
+        return PackageData.create(color, sortedContents, data.marker(), data.flags());
     }
 
     public static boolean canExtract(MEStorage source, MEStoragePackagePlan plan) {

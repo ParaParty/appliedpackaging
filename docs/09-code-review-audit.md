@@ -8,14 +8,14 @@
 - 删除独立 Package Pattern Terminal 的方块、方块实体、part、菜单、screen 和资源。包裹样板入口只保留 AE2 原版 Pattern Encoding Terminal 包裹模式，高级处理入口只保留 Advanced Pattern Encoding Terminal part。
 - 删除旧 `packaged_processing_pattern` 物品、模型、语言、注册与数据存储；其图标资源改名为当前 `advanced_processing_pattern`。
 - 删除旧 AE2 `crafting_pattern` 包裹载体、`colored_processing_pattern` / `packaged_processing_pattern` 扩展 NBT 解码，以及 AE2 blank pattern 兼容载体。正式载体只保留本 Mod `package_pattern`、AE2 普通 processing pattern 和本 Mod `advanced_processing_pattern`。
-- 删除 Package Assembler 的 9 格隐藏输入、旧槽位布局迁移、旧 `auto_export` NBT、旧多样板执行分支和外部输入 capability。继续删除失去所有执行语义的颜色按钮、marker fallback 槽及其同步/NBT；外部 item capability 只暴露严格有序的当前输出。
+- 删除 Package Assembler 的 9 格隐藏输入、旧槽位布局迁移、旧 `auto_export` NBT 和旧多样板执行分支。继续删除失去所有执行语义的颜色按钮、marker fallback 槽及其同步/NBT；当前外部 item capability 按 AE2 分子装配室语义暴露样板过滤输入与严格有序输出，不恢复无样板自由输入。
 - 删除 ME Packager 的旧 output/filter 槽迁移、旧 held-box 状态推断，以及 `DISABLED` / `CYCLIC` 旧红石枚举归一化。
 - 删除 PackageEntity 的旧 `Package` NBT key 和高级终端旧输入迁移。
 - 删除上述路径对应的失效 GameTest；保留并更新当前三种正式样板语义、整包模拟/提交、真实 AE2 网络和客户端人工验收记录。
 - 删除已取消功能对应的无引用资源与测试，发布审计新增旧注册、旧数据存储和机器兼容路径的回归门禁。
-- ME Packager 的 16k / 64k / 256k storage component 容量升级确定为正式范围；基础档仍为 1k/16 类型，4k 与附属容量档仍不做。
+- 两台包裹机器的 16k / 64k / 256k storage component 容量升级确定为正式范围；空槽为 9 单位/9 类型，1k component、完整 storage cell、portable cell、4k 与附属容量档均不做。
 - 删除没有运行时调用的 item handler 打包规划、Forge fluid handler 打包/拆包适配、旧 Package Export/即时拆包操作及其测试。卸货总线的 item handler 路径只保留整包累计模拟与 Pattern Provider 式 check-then-push，不再生成逐槽提交计划或反向抽取回滚。
-- 包裹合并、容量累计和整叠手动拆包增加 `long` 溢出保护。
+- 容量单位累计和整叠手动拆包增加 `long` 溢出保护；包裹 contents 不执行同类合并。
 - 用用户提供的正式空心框架模型、双周期传送带和四条动态帘子替换 ME Packager 的临时 Create 外壳；旧 `me_packager_create` 模型、贴图和 hatch/tray renderer 适配已删除。
 
 ## 2. 发布前兼容政策

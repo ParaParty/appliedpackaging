@@ -64,10 +64,17 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
 
     private final BlockRenderDispatcher blockRenderer;
     private final ModelManager modelManager;
+    // BufferBuilder owns unmanaged LWJGL memory and has no release API in 1.20.1.
+    // Keep the stencil buffers for the renderer lifetime instead of leaking new buffers every frame.
+    private final MultiBufferSource.BufferSource clippedAnimationBuffer;
+    private final BufferBuilder clipMaskBuffer;
 
     public MePackagerRenderer(BlockEntityRendererProvider.Context context) {
         this.blockRenderer = context.getBlockRenderDispatcher();
         this.modelManager = context.getBlockRenderDispatcher().getBlockModelShaper().getModelManager();
+        this.clippedAnimationBuffer =
+                MultiBufferSource.immediate(new BufferBuilder(RenderType.TRANSIENT_BUFFER_SIZE));
+        this.clipMaskBuffer = new BufferBuilder(256);
     }
 
     @Override
@@ -181,11 +188,16 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         }
 
         beginMachineStencilClip(poseStack, facing);
-        MultiBufferSource.BufferSource animationBuffer =
-                MultiBufferSource.immediate(new BufferBuilder(RenderType.TRANSIENT_BUFFER_SIZE));
         try {
-            renderCurtains(packager, facing, partialTick, poseStack, animationBuffer, packedLight, packedOverlay);
-            animationBuffer.endBatch();
+            renderCurtains(
+                    packager,
+                    facing,
+                    partialTick,
+                    poseStack,
+                    clippedAnimationBuffer,
+                    packedLight,
+                    packedOverlay);
+            clippedAnimationBuffer.endBatch();
         } finally {
             endBlockStencilClip();
         }
@@ -205,11 +217,16 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         }
 
         beginMachineStencilClip(poseStack, facing);
-        MultiBufferSource.BufferSource animationBuffer =
-                MultiBufferSource.immediate(new BufferBuilder(RenderType.TRANSIENT_BUFFER_SIZE));
         try {
-            renderPackage(packager, facing, partialTick, poseStack, animationBuffer, packedLight, packedOverlay);
-            animationBuffer.endBatch();
+            renderPackage(
+                    packager,
+                    facing,
+                    partialTick,
+                    poseStack,
+                    clippedAnimationBuffer,
+                    packedLight,
+                    packedOverlay);
+            clippedAnimationBuffer.endBatch();
         } finally {
             endBlockStencilClip();
         }
@@ -301,7 +318,7 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         poseStack.translate(-0.5F, -0.5F, -0.5F);
     }
 
-    private static void beginMachineStencilClip(PoseStack poseStack, Direction facing) {
+    private void beginMachineStencilClip(PoseStack poseStack, Direction facing) {
         GL11.glEnable(GL11.GL_STENCIL_TEST);
         RenderSystem.stencilMask(STENCIL_MASK);
         RenderSystem.clearStencil(0);
@@ -340,11 +357,11 @@ public class MePackagerRenderer implements BlockEntityRenderer<MePackagerBlockEn
         RenderSystem.enableCull();
     }
 
-    private static void drawClipBox(PoseStack poseStack, Direction facing) {
+    private void drawClipBox(PoseStack poseStack, Direction facing) {
         poseStack.pushPose();
         rotateMachineToFacing(poseStack, facing);
         Matrix4f pose = poseStack.last().pose();
-        BufferBuilder builder = new BufferBuilder(256);
+        BufferBuilder builder = clipMaskBuffer;
         builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
         float minX = CLIP_LOCAL_MIN_X;
         float minY = CLIP_LOCAL_MIN_YZ;

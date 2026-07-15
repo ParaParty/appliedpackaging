@@ -5,7 +5,6 @@ import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -43,13 +42,11 @@ public final class PackageCanonicalizer {
         builder.append(marker.map(MarkerSpec::stack).map(PackageCanonicalizer::canonicalStack).orElse("none"));
         builder.append(';');
 
-        contents.stream()
-                .sorted(Comparator.comparing(PackageCanonicalizer::canonicalStack))
-                .forEach(stack -> builder.append("entry=").append(canonicalStack(stack)).append(';'));
+        contents.forEach(stack -> builder.append("entry=").append(canonicalStack(stack)).append(';'));
         return builder.toString();
     }
 
-    static String canonicalStack(GenericStack stack) {
+    public static String canonicalStack(GenericStack stack) {
         return stack.what().getType().getId()
                 + "|"
                 + stack.what().getId()

@@ -70,7 +70,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         implements InventoryDroppingBlockEntity, MenuProvider, ICraftingMachine, IUpgradeableObject {
     public static final int OUTPUT_SLOT_COUNT = 17;
     public static final int MENU_INPUT_COLUMNS = 4;
-    public static final int MENU_INPUT_SLOT_COUNT = OUTPUT_SLOT_COUNT * MENU_INPUT_COLUMNS;
+    public static final int MAX_MENU_INPUT_SLOT_COUNT = AdvancedProcessingPatternDataStorage.MAX_INPUT_SLOTS;
     public static final int SLOT_PATTERN = 0;
     public static final int SLOT_OUTPUT = 1;
     public static final int SLOT_CAPACITY = 2;
@@ -91,7 +91,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private static final String CRAFT_PROGRESS_TAG = "craft_progress";
     private static final String ACTIVE_PACKAGES_TAG = "active_packages";
 
-    private final MenuInputEntry[] menuInputs = new MenuInputEntry[MENU_INPUT_SLOT_COUNT];
+    private MenuInputEntry[] menuInputs = new MenuInputEntry[0];
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
@@ -102,7 +102,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 return isPatternSlotItem(stack);
             }
             if (slot == SLOT_CAPACITY) {
-                return MePackagerBlockEntity.capacityProfileFromItem(stack).isPresent();
+                return PackageCapacityProfile.fromStorageComponent(stack).isPresent();
             }
             return false;
         }
@@ -171,6 +171,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private LazyOptional<ICraftingMachine> craftingMachine = createCraftingMachineCapability();
     private final List<QueuedPackage> activePackages = new ArrayList<>();
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
+    private ItemStack cachedMenuFilterPattern = ItemStack.EMPTY;
+    private Level cachedMenuFilterLevel;
+    private List<GenericStack> cachedMenuInputFilters = List.of();
+    private List<AdvancedMenuInputFilter> cachedAdvancedMenuInputFilters = List.of();
+    private ItemStack cachedCapacityPattern = ItemStack.EMPTY;
+    private ItemStack cachedCapacityComponent = ItemStack.EMPTY;
+    private boolean cachedPatternCapacityValid = true;
     private OutputMode outputMode = OutputMode.ME_NETWORK;
     private int craftingProgress;
 
@@ -238,6 +245,26 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return false;
     }
 
+    public boolean isPatternCapacityValid() {
+        ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
+        if (patternStack.isEmpty()) {
+            return true;
+        }
+        ItemStack capacityStack = items.getStackInSlot(SLOT_CAPACITY);
+        if (sameStackAndCount(cachedCapacityPattern, patternStack)
+                && sameStackAndCount(cachedCapacityComponent, capacityStack)) {
+            return cachedPatternCapacityValid;
+        }
+        cachedCapacityPattern = patternStack.copy();
+        cachedCapacityComponent = capacityStack.copy();
+        cachedPatternCapacityValid = patternFitsCapacity(patternStack, configuredCapacityProfile());
+        return cachedPatternCapacityValid;
+    }
+
+    private static boolean sameStackAndCount(ItemStack first, ItemStack second) {
+        return first.getCount() == second.getCount() && ItemStack.isSameItemSameTags(first, second);
+    }
+
     private static boolean isAe2ProcessingPattern(ItemStack stack) {
         return !stack.isEmpty() && AEItems.PROCESSING_PATTERN.isSameAs(stack);
     }
@@ -284,12 +311,34 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return amount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) amount;
     }
 
+    public int menuInputDisplaySlotCount() {
+        int count = Math.min(menuInputFilters().size(), MAX_MENU_INPUT_SLOT_COUNT);
+        for (int slot = menuInputs.length - 1; slot >= count; slot--) {
+            if (menuInputs[slot] != null) {
+                return slot + 1;
+            }
+        }
+        return count;
+    }
+
+    public int menuInputSlotCount() {
+        return menuInputDisplaySlotCount();
+    }
+
+    public int externalOutputSlot() {
+        return menuInputSlotCount();
+    }
+
+    public int externalSlotCount() {
+        return externalOutputSlot() + 1;
+    }
+
     public boolean hasMenuInput(int slot) {
         return menuInput(slot) != null;
     }
 
     public int insertMenuInput(int preferredSlot, ItemStack stack, int requestedAmount, boolean simulate) {
-        if (stack.isEmpty() || requestedAmount <= 0) {
+        if (stack.isEmpty() || requestedAmount <= 0 || !isPatternCapacityValid()) {
             return 0;
         }
         ItemStack keyStack = stack.copy();
@@ -297,17 +346,18 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         int amount = Math.min(requestedAmount, stack.getCount());
         int inserted = 0;
 
-        if (preferredSlot >= 0 && preferredSlot < MENU_INPUT_SLOT_COUNT) {
+        int inputSlotCount = Math.min(menuInputFilters().size(), MAX_MENU_INPUT_SLOT_COUNT);
+        if (preferredSlot >= 0 && preferredSlot < inputSlotCount) {
             inserted = insertMenuInputIntoSlot(preferredSlot, keyStack, amount, simulate);
         } else {
-            for (int slot = 0; slot < MENU_INPUT_SLOT_COUNT && inserted < amount; slot++) {
-                MenuInputEntry entry = menuInputs[slot];
+            for (int slot = 0; slot < inputSlotCount && inserted < amount; slot++) {
+                MenuInputEntry entry = menuInput(slot);
                 if (entry != null && ItemStack.isSameItemSameTags(entry.stack(), keyStack)) {
                     inserted += insertMenuInputIntoSlot(slot, keyStack, amount - inserted, simulate);
                 }
             }
-            for (int slot = 0; slot < MENU_INPUT_SLOT_COUNT && inserted < amount; slot++) {
-                if (menuInputs[slot] == null) {
+            for (int slot = 0; slot < inputSlotCount && inserted < amount; slot++) {
+                if (menuInput(slot) == null) {
                     inserted += insertMenuInputIntoSlot(slot, keyStack, amount - inserted, simulate);
                 }
             }
@@ -330,6 +380,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (!simulate) {
             long remaining = entry.amount() - amount;
             menuInputs[slot] = remaining <= 0 ? null : new MenuInputEntry(entry.stack(), remaining);
+            trimMenuInputStorage();
             setChanged();
         }
         return extracted;
@@ -339,7 +390,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (requestedAmount <= 0) {
             return 0;
         }
-        MenuInputEntry current = menuInputs[slot];
+        MenuInputEntry current = menuInput(slot);
         if (current != null && !ItemStack.isSameItemSameTags(current.stack(), keyStack)) {
             return 0;
         }
@@ -355,28 +406,32 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         if (low > 0 && !simulate) {
             long amount = (current == null ? 0 : current.amount()) + low;
+            ensureMenuInputStorageCapacity(slot + 1);
             menuInputs[slot] = new MenuInputEntry(keyStack, amount);
         }
         return low;
     }
 
     private boolean canInsertMenuInputIntoSlot(int slot, ItemStack keyStack, int amount) {
+        if (!isPatternCapacityValid()) {
+            return false;
+        }
         List<GenericStack> filters = menuInputFilters();
         if (slot < 0 || slot >= filters.size()) {
             return false;
         }
-        MenuInputEntry current = menuInputs[slot];
+        MenuInputEntry current = menuInput(slot);
         long newAmount = (current == null ? 0 : current.amount()) + amount;
         if (newAmount <= 0) {
             return false;
         }
-        MenuInputEntry[] trial = copyMenuInputs();
+        MenuInputEntry[] trial = copyMenuInputs(Math.max(filters.size(), slot + 1));
         trial[slot] = new MenuInputEntry(keyStack, newAmount);
         return menuInputsMatchFilters(trial, filters);
     }
 
-    private MenuInputEntry[] copyMenuInputs() {
-        return Arrays.copyOf(menuInputs, menuInputs.length);
+    private MenuInputEntry[] copyMenuInputs(int minimumLength) {
+        return Arrays.copyOf(menuInputs, Math.max(menuInputs.length, minimumLength));
     }
 
     private MenuInputEntry menuInput(int slot) {
@@ -396,51 +451,111 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private void clearMenuInputs() {
-        Arrays.fill(menuInputs, null);
+        menuInputs = new MenuInputEntry[0];
         setChanged();
+    }
+
+    private void ensureMenuInputStorageCapacity(int requiredLength) {
+        if (requiredLength < 0 || requiredLength > MAX_MENU_INPUT_SLOT_COUNT) {
+            throw new IndexOutOfBoundsException(requiredLength);
+        }
+        if (requiredLength > menuInputs.length) {
+            menuInputs = Arrays.copyOf(menuInputs, requiredLength);
+        }
+    }
+
+    private void trimMenuInputStorage() {
+        int length = menuInputs.length;
+        while (length > 0 && menuInputs[length - 1] == null) {
+            length--;
+        }
+        if (length != menuInputs.length) {
+            menuInputs = Arrays.copyOf(menuInputs, length);
+        }
     }
 
     private List<GenericStack> menuInputFilters() {
         ItemStack patternStack = items.getStackInSlot(SLOT_PATTERN);
+        if (cachedMenuFilterLevel == level
+                && ItemStack.isSameItemSameTags(cachedMenuFilterPattern, patternStack)
+                && cachedMenuFilterPattern.getCount() == patternStack.getCount()) {
+            return cachedMenuInputFilters;
+        }
+        cachedMenuFilterLevel = level;
+        cachedMenuFilterPattern = patternStack.copy();
+        cachedAdvancedMenuInputFilters = List.of();
         if (!isPatternSlotItem(patternStack)) {
-            return List.of();
+            cachedMenuInputFilters = List.of();
+            return cachedMenuInputFilters;
         }
         Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> advancedPattern =
                 AdvancedProcessingPatternDataStorage.read(patternStack);
         if (advancedPattern.isPresent()) {
-            List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack);
-            int size = advancedPattern.get().activeColumnCount()
-                    * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
-            List<GenericStack> filters = new ArrayList<>(size);
-            for (int slot = 0; slot < size; slot++) {
-                filters.add(slot < sparseInputs.size() ? sparseInputs.get(slot) : null);
-            }
-            return filters;
+            cachedAdvancedMenuInputFilters = buildAdvancedMenuInputFilters(patternStack, advancedPattern.get());
+            cachedMenuInputFilters = cachedAdvancedMenuInputFilters.stream()
+                    .map(AdvancedMenuInputFilter::stack)
+                    .toList();
+            return cachedMenuInputFilters;
         }
         Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> packageCraftingPattern =
                 PackageCraftingPatternDataStorage.read(patternStack);
         if (packageCraftingPattern.isPresent()) {
-            return packageCraftingPattern.get().denseInputs();
+            cachedMenuInputFilters = packageCraftingPattern.get().denseInputs();
+            return cachedMenuInputFilters;
         }
         if (isAe2ProcessingPattern(patternStack)) {
-            return decodedPatternInputs(patternStack);
+            cachedMenuInputFilters = decodedPatternInputs(patternStack);
+            return cachedMenuInputFilters;
         }
-        return List.of();
+        cachedMenuInputFilters = List.of();
+        return cachedMenuInputFilters;
+    }
+
+    private List<AdvancedMenuInputFilter> advancedMenuInputFilters(ItemStack patternStack) {
+        menuInputFilters();
+        if (!ItemStack.isSameItemSameTags(cachedMenuFilterPattern, patternStack)
+                || cachedMenuFilterPattern.getCount() != patternStack.getCount()) {
+            return List.of();
+        }
+        return cachedAdvancedMenuInputFilters;
+    }
+
+    private static List<AdvancedMenuInputFilter> buildAdvancedMenuInputFilters(
+            ItemStack patternStack,
+            AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern encoded) {
+        List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack);
+        int sparseLimit = Math.min(
+                sparseInputs.size(),
+                encoded.activeColumnCount() * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE);
+        List<AdvancedMenuInputFilter> filters = new ArrayList<>();
+        for (int sparseSlot = 0; sparseSlot < sparseLimit; sparseSlot++) {
+            GenericStack stack = sparseInputs.get(sparseSlot);
+            if (stack == null || stack.amount() <= 0) {
+                continue;
+            }
+            filters.add(new AdvancedMenuInputFilter(
+                    sparseSlot / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE,
+                    stack));
+        }
+        return List.copyOf(filters);
     }
 
     public boolean isMenuInputSlotEnabled(int slot) {
-        if (slot < 0 || slot >= MENU_INPUT_SLOT_COUNT) {
+        if (slot < 0 || slot >= menuInputSlotCount()) {
             return false;
         }
         List<GenericStack> filters = menuInputFilters();
         return menuInput(slot) != null
-                || (slot < filters.size() && filters.get(slot) != null);
+                || (isPatternCapacityValid() && slot < filters.size() && filters.get(slot) != null);
     }
 
     public boolean isMenuInputSlotValid(int slot) {
         MenuInputEntry entry = menuInput(slot);
         if (entry == null) {
             return true;
+        }
+        if (!isPatternCapacityValid()) {
+            return false;
         }
         List<GenericStack> filters = menuInputFilters();
         if (slot < 0 || slot >= filters.size()) {
@@ -505,8 +620,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (filters.isEmpty()) {
             return false;
         }
-        for (int slot = 0; slot < inputs.length; slot++) {
-            MenuInputEntry entry = inputs[slot];
+        int slotCount = Math.max(inputs.length, filters.size());
+        for (int slot = 0; slot < slotCount; slot++) {
+            MenuInputEntry entry = slot < inputs.length ? inputs[slot] : null;
             if (slot >= filters.size()) {
                 if (entry != null) {
                     return false;
@@ -550,9 +666,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (contents.isEmpty()) {
             return true;
         }
-        return PackagePlanBuilder.build(
+        return PackagePlanBuilder.buildOrdered(
                         PackageColor.FLUIX,
-                        contents.looseContents(),
+                        contents.orderedContents(),
                         contents.sourcePackages(),
                         MarkerMergeMode.RETAIN,
                         Optional.empty(),
@@ -605,6 +721,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (!pendingPackages.isEmpty()) {
             return outputPendingPackage();
         }
+        if (!isPatternCapacityValid()) {
+            return AssemblyResult.PATTERN_MISMATCH;
+        }
         if (hasMenuInputs()) {
             if (AdvancedProcessingPatternDataStorage.hasData(items.getStackInSlot(SLOT_PATTERN))) {
                 Optional<MenuBatchPlan> batch = planMenuAdvancedPattern(items.getStackInSlot(SLOT_PATTERN));
@@ -628,6 +747,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private AssemblyResult tryStartAssembly() {
         if (!outputSlotsEmpty() || !pendingPackages.isEmpty() || !activePackages.isEmpty()) {
             return AssemblyResult.OUTPUT_BLOCKED;
+        }
+        if (!isPatternCapacityValid()) {
+            return AssemblyResult.PATTERN_MISMATCH;
         }
         if (hasMenuInputs()) {
             if (AdvancedProcessingPatternDataStorage.hasData(items.getStackInSlot(SLOT_PATTERN))) {
@@ -911,7 +1033,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         MarkerMergeMode markerMode = target.marker().isPresent()
                 ? MarkerMergeMode.OVERRIDE
                 : MarkerMergeMode.CLEAR;
-        PackageCapacityProfile capacityProfile = capacityProfileFor(target).orElse(configuredCapacityProfile());
+        PackageCapacityProfile capacityProfile = configuredCapacityProfile();
         PackagePlanResult result = PackagePlanBuilder.build(
                 color,
                 extraction.looseContents(),
@@ -933,25 +1055,31 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (encoded.isEmpty()) {
             return Optional.empty();
         }
-        List<GenericStack> filters = menuInputFilters();
+        List<AdvancedMenuInputFilter> advancedFilters = advancedMenuInputFilters(patternStack);
+        List<GenericStack> filters = advancedFilters.stream()
+                .map(AdvancedMenuInputFilter::stack)
+                .toList();
         if (!menuInputsExactlyMatchFilters(menuInputs, filters)) {
             return Optional.empty();
         }
 
         List<QueuedPackage> packages = new ArrayList<>();
         List<MenuInputExtraction> extractions = new ArrayList<>();
-        for (var column : encoded.get().columns()) {
-            List<GenericStack> inputs = new ArrayList<>();
-            int start = column.index() * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
-            for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
-                int slot = start + row;
-                MenuInputEntry entry = menuInputs[slot];
-                if (entry == null || entry.amount() <= 0) {
-                    continue;
-                }
-                inputs.add(new GenericStack(AEItemKey.of(entry.stack()), entry.amount()));
-                extractions.add(new MenuInputExtraction(slot, entry.amount()));
+        List<List<GenericStack>> columnInputs = new ArrayList<>(encoded.get().activeColumnCount());
+        for (int column = 0; column < encoded.get().activeColumnCount(); column++) {
+            columnInputs.add(new ArrayList<>());
+        }
+        for (int denseSlot = 0; denseSlot < advancedFilters.size(); denseSlot++) {
+            MenuInputEntry entry = menuInput(denseSlot);
+            if (entry == null || entry.amount() <= 0) {
+                return Optional.empty();
             }
+            AdvancedMenuInputFilter filter = advancedFilters.get(denseSlot);
+            columnInputs.get(filter.column()).add(new GenericStack(AEItemKey.of(entry.stack()), entry.amount()));
+            extractions.add(new MenuInputExtraction(denseSlot, entry.amount()));
+        }
+        for (var column : encoded.get().columns()) {
+            List<GenericStack> inputs = columnInputs.get(column.index());
             if (inputs.isEmpty()) {
                 continue;
             }
@@ -1047,9 +1175,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return AssemblyAttempt.failed(AssemblyResult.PATTERN_MISMATCH);
         }
         MenuInputContents contents = menuInputContents(menuInputs);
-        PackagePlanResult result = PackagePlanBuilder.build(
+        PackagePlanResult result = PackagePlanBuilder.buildOrdered(
                 PackageColor.FLUIX,
-                contents.looseContents(),
+                contents.orderedContents(),
                 contents.sourcePackages(),
                 MarkerMergeMode.CLEAR,
                 Optional.empty(),
@@ -1064,13 +1192,66 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 List.of()));
     }
 
+    private boolean patternFitsCapacity(ItemStack patternStack, PackageCapacityProfile capacity) {
+        Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> packagePattern =
+                PackageCraftingPatternDataStorage.read(patternStack);
+        if (packagePattern.isPresent()) {
+            PackageData data = packagePattern.get().data();
+            return capacity.fits(data.usedUnits(), data.usedTypes());
+        }
+
+        Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> advancedPattern =
+                AdvancedProcessingPatternDataStorage.read(patternStack);
+        if (advancedPattern.isPresent()) {
+            List<AdvancedMenuInputFilter> filters = buildAdvancedMenuInputFilters(patternStack, advancedPattern.get());
+            List<List<GenericStack>> columnInputs = new ArrayList<>(advancedPattern.get().activeColumnCount());
+            for (int column = 0; column < advancedPattern.get().activeColumnCount(); column++) {
+                columnInputs.add(new ArrayList<>());
+            }
+            for (AdvancedMenuInputFilter filter : filters) {
+                columnInputs.get(filter.column()).add(filter.stack());
+            }
+            boolean hasPackage = false;
+            for (var column : advancedPattern.get().columns()) {
+                List<GenericStack> inputs = columnInputs.get(column.index());
+                if (inputs.isEmpty()) {
+                    continue;
+                }
+                hasPackage = true;
+                if (buildPatternPackage(column.color(), column.marker(), inputs, capacity).isEmpty()) {
+                    return false;
+                }
+            }
+            return hasPackage;
+        }
+
+        if (!isAe2ProcessingPattern(patternStack)) {
+            return false;
+        }
+        List<GenericStack> inputs = new ArrayList<>();
+        for (GenericStack input : AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack)) {
+            if (input != null && input.amount() > 0) {
+                inputs.add(input);
+            }
+        }
+        return !inputs.isEmpty()
+                && buildPatternPackage(PackageColor.FLUIX, Optional.empty(), inputs, capacity).isPresent();
+    }
+
     private Optional<QueuedPackage> buildPatternPackage(
             PackageColor color,
             Optional<MarkerSpec> marker,
             List<GenericStack> inputs) {
-        List<GenericStack> looseContents = new ArrayList<>();
+        return buildPatternPackage(color, marker, inputs, configuredCapacityProfile());
+    }
+
+    private Optional<QueuedPackage> buildPatternPackage(
+            PackageColor color,
+            Optional<MarkerSpec> marker,
+            List<GenericStack> inputs,
+            PackageCapacityProfile capacity) {
+        List<GenericStack> orderedContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
-        PackageCapacityProfile capacity = configuredCapacityProfile();
         for (GenericStack input : inputs) {
             if (input == null || input.amount() <= 0) {
                 continue;
@@ -1085,14 +1266,15 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 }
                 for (long count = 0; count < input.amount(); count++) {
                     sourcePackages.add(sourcePackage.get());
+                    orderedContents.addAll(sourcePackage.get().contents());
                 }
             } else {
-                looseContents.add(input);
+                orderedContents.add(input);
             }
         }
-        PackagePlanResult result = PackagePlanBuilder.build(
+        PackagePlanResult result = PackagePlanBuilder.buildOrdered(
                 color,
-                looseContents,
+                orderedContents,
                 sourcePackages,
                 marker.isPresent() ? MarkerMergeMode.OVERRIDE : MarkerMergeMode.CLEAR,
                 marker,
@@ -1272,6 +1454,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
 
         ItemStack definitionStack = patternDetails.getDefinition().toStack();
+        if (!patternFitsCapacity(definitionStack, configuredCapacityProfile())) {
+            return false;
+        }
         Optional<ProviderPlan> packageCraftingPlan = planPackageCraftingPush(definitionStack, inputHolder);
         if (packageCraftingPlan.isPresent()) {
             if (!beginProviderCraft(
@@ -1331,6 +1516,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         Optional<PackageCraftingPatternDataStorage.EncodedPackageCraftingPattern> encoded =
                 PackageCraftingPatternDataStorage.read(definitionStack);
         if (encoded.isEmpty()) {
+            return Optional.empty();
+        }
+        PackageData encodedData = encoded.get().data();
+        if (!configuredCapacityProfile().fits(encodedData.usedUnits(), encodedData.usedTypes())) {
             return Optional.empty();
         }
         Optional<Map<AEKey, Long>> availableInputs = aggregateInputs(inputHolder);
@@ -1523,7 +1712,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private void loadMenuInputs(CompoundTag tag) {
-        Arrays.fill(menuInputs, null);
+        menuInputs = new MenuInputEntry[0];
         if (!tag.contains(MENU_INPUTS_TAG, Tag.TAG_LIST)) {
             return;
         }
@@ -1531,7 +1720,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         for (int index = 0; index < list.size(); index++) {
             CompoundTag entryTag = list.getCompound(index);
             int slot = entryTag.getInt(MENU_INPUT_SLOT_TAG);
-            if (slot < 0 || slot >= menuInputs.length
+            if (slot < 0 || slot >= MAX_MENU_INPUT_SLOT_COUNT
                     || !entryTag.contains(MENU_INPUT_STACK_TAG, Tag.TAG_COMPOUND)) {
                 continue;
             }
@@ -1539,9 +1728,11 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             long amount = entryTag.getLong(MENU_INPUT_AMOUNT_TAG);
             if (!stack.isEmpty() && amount > 0) {
                 stack.setCount(1);
+                ensureMenuInputStorageCapacity(slot + 1);
                 menuInputs[slot] = new MenuInputEntry(stack, amount);
             }
         }
+        trimMenuInputStorage();
     }
 
     private static void dropMenuInput(Level level, BlockPos pos, MenuInputEntry entry) {
@@ -1605,10 +1796,11 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     ? null
                     : new MenuInputEntry(entry.stack(), remaining);
         }
+        trimMenuInputStorage();
     }
 
     private static MenuInputContents menuInputContents(MenuInputEntry[] inputs) {
-        List<GenericStack> looseContents = new ArrayList<>();
+        List<GenericStack> orderedContents = new ArrayList<>();
         List<PackageData> sourcePackages = new ArrayList<>();
         for (MenuInputEntry entry : inputs) {
             if (entry == null || entry.amount() <= 0) {
@@ -1618,12 +1810,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             if (packageData.isPresent()) {
                 for (long count = 0; count < entry.amount(); count++) {
                     sourcePackages.add(packageData.get());
+                    orderedContents.addAll(packageData.get().contents());
                 }
                 continue;
             }
-            looseContents.add(new GenericStack(AEItemKey.of(entry.stack()), entry.amount()));
+            orderedContents.add(new GenericStack(AEItemKey.of(entry.stack()), entry.amount()));
         }
-        return new MenuInputContents(List.copyOf(looseContents), List.copyOf(sourcePackages));
+        return new MenuInputContents(List.copyOf(orderedContents), List.copyOf(sourcePackages));
     }
 
     private static ItemStack displayStack(GenericStack stack) {
@@ -1634,15 +1827,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         int count = (int) Math.max(1L, Math.min(stack.amount(), Integer.MAX_VALUE));
         display.setCount(count);
         return display;
-    }
-
-    private static Optional<PackageCapacityProfile> capacityProfileFor(PackageData data) {
-        for (PackageCapacityProfile profile : PackageCapacityProfile.values()) {
-            if (profile.fits(data.usedUnits(), data.usedTypes())) {
-                return Optional.of(profile);
-            }
-        }
-        return Optional.empty();
     }
 
     private ListTag savePendingPackages() {
@@ -1691,7 +1875,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private PackageCapacityProfile configuredCapacityProfile() {
-        return MePackagerBlockEntity.capacityProfileFromItem(items.getStackInSlot(SLOT_CAPACITY))
+        return PackageCapacityProfile.fromStorageComponent(items.getStackInSlot(SLOT_CAPACITY))
                 .orElse(PackageCapacityProfile.DEFAULT);
     }
 
@@ -1736,22 +1920,37 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private final class ExternalItemHandler implements IItemHandler {
         @Override
         public int getSlots() {
-            return 1;
+            return externalSlotCount();
         }
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            return slot == 0 ? items.getStackInSlot(SLOT_OUTPUT) : ItemStack.EMPTY;
+            int outputSlot = externalOutputSlot();
+            if (slot >= 0 && slot < outputSlot) {
+                return menuInputDisplay(slot);
+            }
+            return slot == outputSlot
+                    ? items.getStackInSlot(SLOT_OUTPUT).copy()
+                    : ItemStack.EMPTY;
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            return stack;
+            if (slot < 0 || slot >= menuInputSlotCount() || stack.isEmpty()) {
+                return stack;
+            }
+            int inserted = insertMenuInput(slot, stack, stack.getCount(), simulate);
+            if (inserted <= 0) {
+                return stack;
+            }
+            ItemStack remainder = stack.copy();
+            remainder.shrink(inserted);
+            return remainder;
         }
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (amount <= 0 || slot != 0) {
+            if (amount <= 0 || slot != externalOutputSlot()) {
                 return ItemStack.EMPTY;
             }
             return extractPrimaryOutput(amount, simulate);
@@ -1759,12 +1958,30 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
         @Override
         public int getSlotLimit(int slot) {
-            return slot == 0 ? 1 : 0;
+            if (slot == externalOutputSlot()) {
+                return 1;
+            }
+            GenericStack filter = externalInputFilter(slot);
+            if (filter == null || !(filter.what() instanceof AEItemKey)) {
+                return 0;
+            }
+            return (int) Math.min(filter.amount(), Integer.MAX_VALUE);
         }
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return false;
+            GenericStack filter = externalInputFilter(slot);
+            return filter != null
+                    && !stack.isEmpty()
+                    && filter.what().equals(AEItemKey.of(stack));
+        }
+
+        private GenericStack externalInputFilter(int slot) {
+            if (!isPatternCapacityValid() || slot < 0 || slot >= menuInputSlotCount()) {
+                return null;
+            }
+            List<GenericStack> filters = menuInputFilters();
+            return slot < filters.size() ? filters.get(slot) : null;
         }
     }
 
@@ -1869,14 +2086,22 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private record MenuInputExtraction(int slot, long amount) {
     }
 
-    private record MenuInputContents(List<GenericStack> looseContents, List<PackageData> sourcePackages) {
+    private record AdvancedMenuInputFilter(int column, GenericStack stack) {
+        private AdvancedMenuInputFilter {
+            if (column < 0 || stack == null || stack.amount() <= 0) {
+                throw new IllegalArgumentException("Invalid advanced menu input filter");
+            }
+        }
+    }
+
+    private record MenuInputContents(List<GenericStack> orderedContents, List<PackageData> sourcePackages) {
         private MenuInputContents {
-            looseContents = List.copyOf(looseContents);
+            orderedContents = List.copyOf(orderedContents);
             sourcePackages = List.copyOf(sourcePackages);
         }
 
         private boolean isEmpty() {
-            return looseContents.isEmpty() && sourcePackages.isEmpty();
+            return orderedContents.isEmpty();
         }
     }
 

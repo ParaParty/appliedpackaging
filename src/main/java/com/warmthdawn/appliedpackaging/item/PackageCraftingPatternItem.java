@@ -35,6 +35,13 @@ public final class PackageCraftingPatternItem extends EncodedPatternItem {
     }
 
     @Override
+    public ItemStack getOutput(ItemStack stack) {
+        return PackageCraftingPatternDataStorage.read(stack)
+                .map(PackageCraftingPatternDataStorage::toPackageStack)
+                .orElseGet(() -> super.getOutput(stack));
+    }
+
+    @Override
     public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
         PackagePatternItem.appendPackagePatternTooltip(stack, tooltip, flag);
     }

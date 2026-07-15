@@ -3292,3 +3292,47 @@ ME Packager 不再继承完整 16x16x16 方块的默认选择框和碰撞体。�
 手动包裹交互改为模型局部坐标命中：只有传送带上表面 `x=1..16,y=2,z=2..14` 执行放入/取出，四个水平朝向先逆变换到源模型本地 +X 坐标再判断。右键机框、背板、侧面和底面等其它位置打开 GUI；传送带命中但没有可执行的包裹动作时不打开 GUI。blockstate 与确定性导入脚本收敛为四个 `facing` 变体，资源审计同步拒绝多余变体。
 
 新增或改写 GameTest 覆盖 AE2 扳手从 east 转到 south 后背面连接从 west 移到 north、固定底部真实 Interface 网络、固定模型背面真实线缆网络、其它四面拒绝 ME 线缆、底部/背面拒绝普通 item capability，以及四个 `facing` 下仅传送带上表面取包。`.\gradlew.bat runGameTestServer` 两次成功，最终 106/106 required tests 通过；`.\gradlew.bat runData`、`.\gradlew.bat build`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 通过。自动客户端 smoke 已按同日用户决定从项目移除，`runClientSmoke` 不再是可用任务，本轮没有恢复该入口。
+
+### 2026-07-15 ME Packager 已取走包裹残影修正
+
+用户实机发现打包完成并取走包裹后，BER 仍绘制一个已不存在的包裹。根因是 `getRenderedBox()` 的静止分支优先读取客户端 heldBox 库存副本；AE2 方块实体 visual stream 只同步 `renderedBox` 等视觉字段，不会同时刷新该库存副本，因此服务端已发送空视觉栈后，旧库存又把包裹补回渲染。
+
+修正后静止与动画渲染都只使用明确同步的 `renderedBox`，真实 heldBox 只在服务端库存回调中生成下一次视觉状态。新增 `mePackagerVisualSyncClearsRemovedPackage` GameTest，构造“旧客户端库存非空、服务端视觉更新为空”的精确回归场景；`.\gradlew.bat compileJava --stacktrace`、`.\gradlew.bat runGameTestServer --stacktrace` 与 `.\gradlew.bat build --stacktrace` 成功，107/107 required GameTest 全部通过。自动客户端 smoke 已从项目删除，本轮未恢复。
+
+### 2026-07-15 包裹有序 contents 与装配室外部样板输入
+
+按最终语义撤销 `PackageData` 的同 AEKey 合并和全局 canonical 排序。`contents` 现在按输入逐项保存，重复 AEKey 保持为独立条目，canonical hash 与 NBT 都对列表顺序敏感；因此内容总量相同但条目顺序不同的包裹不再堆叠。ME Packager 的 MEStorage 规划在生成最终包裹前单独按 canonical stack key 排序所有选中及展开后的内容，排序职责不再泄漏到包裹数据层。Package Assembler 增加 ordered plan 路径，源包裹在原输入位置展开，包裹样板、普通处理样板和高级处理样板均保持样板输入顺序，同一 AEKey 在多个样板位置出现时不合并。
+
+对照项目锁定的 AE2 15.4.10 `MolecularAssemblerBlockEntity.CraftingGridFilter`：有效本地样板存在时才按位置接受外部输入，输入位不允许外部抽取，输出位允许抽取。Package Assembler 的 Forge item capability 因此改为 68 个按本地样板位置过滤的输入位加 1 个有序输出位；无样板、错误位置、超出样板数量、非物品 GenericStack 或向输出插入均拒绝，外部仍只能抽取输出。样板、容量元件和升级配置槽不暴露。
+
+新增/改写 GameTest 覆盖重复 AEKey 与顺序敏感 hash/NBT、ME Packager 确定性排序、无样板外部输入拒绝、流体样板不伪装为 item capability 槽、有样板按位置输入、输入位不可抽取，以及最终包裹严格保持 `iron 32 -> copper 16 -> iron 8` 的样板顺序。`.\gradlew.bat compileJava`、`.\gradlew.bat runGameTestServer --stacktrace`、`.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过，108/108 required GameTest 成功。本轮没有客户端视觉变更，不运行 `runClient`。
+
+### 2026-07-16 样板 Mixin 与 PackageCapacity 复核收口
+
+逐项处理前轮代码复核点。对照 AE2 15.4.10 `AEPatternDecoder` 后确认它会按物品动态分派到 `PackageCraftingPatternItem.decode(...)`，因此删除重复拦截两个 decoder overload 的 `AEPatternDecoderMixin`。`EncodedPatternItemMixin` 的 tooltip 注入不会命中已覆盖 `appendHoverText` 的包裹样板子类；其余 `getOutput` 行为改为由 `PackageCraftingPatternItem` 直接 override，保留无客户端 Level 时也可从当前 NBT 生成包裹预览的能力，随后删除整个 Mixin 和配置项。概要设计中旧的 previous-carrier compatibility decoder 表述同步改为当前样板物品自己的 decoder。
+
+`PackageCapacityProfile` 删除非单调的 `STORAGE_1K(1024,16)`，正式档位收敛为 default 9/9、16k 16/16、64k 64/63、256k 256/63。ME Packager 与 Package Assembler 空容量槽都使用 default 9/9，容量槽只接受 AE2 16k/64k/256k storage component；1k component、完整 item/fluid storage cell、portable cell、4k 和附属容量均拒绝。Package Assembler 的菜单分流、槽位校验和容量读取统一使用 component-only 映射；package_pattern 本地 exact plan 不再按目标包裹反推一个更大档位，Pattern Provider push 也在消费输入前复验当前容量档。
+
+GameTest 新增/改写容量档单调性、空槽九单位/九类型、1k 与完整 cell 拒绝、16k component 接受、ME Packager 九单位实际抽取、包裹样板原生 decoder/getOutput、Pattern Provider 容量拒绝不消费，以及填入十单位后移除组件仍拒绝本地执行并保留输入。`.\gradlew.bat compileJava`、`.\gradlew.bat runGameTestServer --stacktrace`、`.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部成功，109/109 required GameTest 通过。本轮服务端行为和 Mixin 收口没有新增客户端视觉，不重复运行 `runClient`；同工作树内独立的 renderer 原生缓冲修正按其后单独记录完成客户端长时验证。
+
+### 2026-07-16 ME Packager stencil 原生缓冲泄漏修正
+
+用户实机开发客户端在 ME Packager 旁运行约 6 分钟后因 `MePackagerRenderer.renderCurtains()` 抛出 `OutOfMemoryError: Failed to resize buffer from 1536 bytes to 2098688 bytes`。崩溃报告同时显示 Java 堆仍有充足余量（约 995 MiB used / 2720 MiB committed / 16320 MiB max），但系统 virtual memory 已使用 176419.38/176446.06 MiB。对照项目生成的 Forge 1.20.1 源码确认 `BufferBuilder` 使用 `MemoryTracker` 的 LWJGL allocator，首次容量不足时固定增长 2 MiB，且该版本没有释放底层原生缓冲的 API；原 BER 在每台机器的每帧帘子 pass、包裹 pass 和裁剪盒 pass 中创建新实例，因此持续泄漏原生内存。
+
+修正后 renderer 只在构造时创建一个共享 stencil animation `BufferSource` 与一个裁剪盒 `BufferBuilder`，帘子、包裹和裁剪盒每帧结束后复用同一底层缓冲；stencil 的绘制顺序、裁剪体积和视觉语义不变。`docs/04-asset-spec.md` 同步把 renderer 生命周期复用写为正式约束，禁止在 `render` 调用中分配新的原生 `BufferBuilder`。
+
+验证：`.\gradlew.bat compileJava --stacktrace` 与 `scripts/verify-docs.ps1` 成功，`git diff --check` 无空白错误。随后复制实际崩溃世界为隔离 quick-play 世界并执行真实 `runClient`，玩家在原坐标 `(-14.303,70.871,-18.642)`、即崩溃报告所指 `(-17,68,-14)` ME Packager 旁持续渲染；客户端 CPU 时间持续增长，私有内存从 00:18:52 的 5158.8 MiB 稳定到 00:19:39 的 4884.0 MiB，并在延长观察后降至 00:20:44 的 4442.6 MiB，没有修复前的线性增长。日志未命中 `OutOfMemory`、buffer resize、crash、FATAL/ERROR、missing model/texture、OpenGL 或 stencil 错误。测试客户端正常终止，隔离世界与临时启动脚本均已删除。GameTest 已考虑且发现现有 `runGameTestServer` 路径；本轮只改变客户端 BER 原生缓冲生命周期，不改变机器、菜单、事务、同步或服务端行为，因此未新增或运行 GameTest。
+
+### 2026-07-16 Marker fake slot 与高级样板稠密输入修正
+
+ME Packager 的 marker 配置从真实 `ItemStackHandler` 第三槽迁移为 1 格 AE2 `ConfigInventory.configTypes`，菜单使用 `FakeSlot`。marker 只保存 AEItemKey，独立写入 `marker_filter` NBT，不消耗、不掉落真实物品；颜色、marker 与 contents 仍分别执行独立门禁。真实机器物品库存收敛为 heldBox 与容量组件两槽。
+
+Package Assembler 不再把高级样板的 17×81 sparse 输入直接映射到旧 68 格缓冲。方块实体先按 `column * 81 + row` 扫描有效列，跳过空白并生成带原列索引的稠密输入过滤；GUI 与 Forge item capability 使用按当前样板实际非空项数动态确定的稠密输入索引，1377 只保留为高级样板编码格式上限，提交时再按原列归组。4×4 可见代理窗口显示过滤物品与数量，后续全为 disabled 槽时不滚动；只有实际输入超过可见区或样板切换后仍有尾部残留物品时才保留对应行。高级样板的颜色与 marker 继续只读列元数据，装配室不恢复已删除的机器 fallback 控件。
+
+新增/改写 GameTest 验证 marker 菜单槽确为 `FakeSlot`、配置 NBT 往返、错误 marker 拒绝、sparse 空白压缩、跨第 69 个输入显示与外部过滤、动态滚动，以及本地稠密输入重建两个包裹时仍保持原列颜色、marker 和 row 顺序。后续按用户复核把装配室固定 1377 格后备数组和固定 capability 输出索引进一步收口为样板尺寸：测试先装入 4 项 sparse 样板并确认 4 个有效输入/0 滚动，再切换 70 项确认 70 个输入/14 行偏移，最后切回 4 项确认 disabled 尾行、滚动偏移和 capability 槽数立即收缩。第一次复跑暴露 AE2 config-types 用 amount 0 表示“仅类型”的细节，以及离线方块实体菜单主动 broadcast 的测试夹具问题；修正为按 key 是否存在判 marker、菜单同步测试使用真实世界方块实体。最终 `.\gradlew.bat compileJava --stacktrace`、`.\gradlew.bat runGameTestServer --stacktrace` 与 `.\gradlew.bat build --stacktrace` 成功，110/110 required GameTest 全部通过；`scripts/verify-docs.ps1` 与 `git diff --check` 也通过。自动客户端 smoke 已按项目决定删除；本轮用菜单实际 slot stack、同步的有效槽数、稠密滚动映射和 Screen 动态范围覆盖显示数据路径，未恢复已删除流程。
+
+### 2026-07-16 装配室与打包机共享容量预检
+
+ME Packager 与 Package Assembler 的容量元件识别收敛到 `PackageCapacityProfile.fromStorageComponent`，两台机器不再分别维护 AE2 registry id 映射。装配室新增统一的样板容量预检：包裹样板检查编码目标包裹，普通处理样板检查预计 Fluix 包裹，高级处理样板按列构造预计输出并逐包检查。容量不足的本地样板仍允许留在样板槽供玩家查看，但菜单同步为无效容量状态，客户端对样板槽绘制红色覆盖；空 GUI 输入位和外部 capability 输入同时锁定，本地合成拒绝，已有残留输入仍可取出。安装足够容量元件会立即解锁，移除后立即恢复锁定。
+
+Pattern Provider 的 `pushPattern` 在任何 `KeyCounter` 扣减前执行同一预检；普通与高级处理样板任一预计包裹超限时整批返回 false，所有输入保持不变。新增 GameTest 覆盖普通/高级供应器推送的拒绝不消费与 16k 解锁，以及本地样板无效状态的菜单同步、GUI/外部输入门禁、容量安装/移除回退和残留输入保留。首次完整复跑中，既有动态输入测试的 70 个独立有序条目按新规则正确超过 16k 单包上限；夹具改装 256k 元件，继续单独验证超过旧 68 槽限制的显示、滚动和外部寻址，而没有放宽容量规则。`.\gradlew.bat compileJava --stacktrace` 成功；`.\gradlew.bat runGameTestServer --stacktrace` 最终 112/112 required GameTest 全部通过；`.\gradlew.bat build --stacktrace`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 均成功，发布审计确认 198 个发布资源、72 个 JSON、130 张 PNG、5 个资产合同及 140 个双语 key/占位符有效。自动客户端 smoke 已从项目删除；红色状态的数据同步与输入门禁由 GameTest 覆盖，未恢复已删除的 smoke 流程。

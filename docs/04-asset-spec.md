@@ -110,7 +110,7 @@ ME 打包机：
 帘子由 4 条 1x12x3 flap 组成，静态位置内缩在 x=3..4；运行时复用一个 `curtain_flap` baked model，在各自顶部转轴绕 Z 轴摆动，拆包向内、打包向外，静止时回到垂直位置。
 主体、传送带和帘子使用 cutout_mipped；主体始终由按 `facing` 旋转的 blockstate baked model 渲染，传送带、帘子和包裹的 BER 使用同一水平变换。底盘始终保持水平、背板始终保持竖直。
 选择轮廓与碰撞体由底板、4px 后部模块、两条 2px 高侧框和传送带实体组成，并按 `facing` 水平旋转；帘子和动画中的包裹不参与碰撞。
-包裹继续使用已有 20 tick 事务动画：本地内部点为 `x=2.5/16`，拆包时前半程从工作口移入，打包时后半程从内部移到 `x=10/16,z=8/16`，即去除 4px 后部模块后的 12x16 前部区域中心。包裹模型范围为 `y=1..9`，`FIXED` 变换缩放 0.5，机器额外缩放 1.49；BER 必须由这些参数反算渲染原点，使模型底面精确落在传送带顶面 `y=2/16`。包裹在工作态和静止态都使用 stencil immediate pass，帘子使用独立 stencil immediate pass；裁剪盒使用模型本地坐标 `x=1/16..16/16,y=0..1,z=0..1` 并随 `facing` 旋转，只保留从工作口向内 15px 的体积，禁止进入最后 1px 背板；传送带不进入 stencil pass。
+包裹继续使用已有 20 tick 事务动画：本地内部点为 `x=2.5/16`，拆包时前半程从工作口移入，打包时后半程从内部移到 `x=10/16,z=8/16`，即去除 4px 后部模块后的 12x16 前部区域中心。包裹模型范围为 `y=1..9`，`FIXED` 变换缩放 0.5，机器额外缩放 1.49；BER 必须由这些参数反算渲染原点，使模型底面精确落在传送带顶面 `y=2/16`。包裹在工作态和静止态都使用 stencil immediate pass，帘子使用独立 stencil immediate pass；裁剪盒使用模型本地坐标 `x=1/16..16/16,y=0..1,z=0..1` 并随 `facing` 旋转，只保留从工作口向内 15px 的体积，禁止进入最后 1px 背板；传送带不进入 stencil pass。stencil immediate pass 与裁剪盒必须复用 renderer 生命周期内的原生 `BufferBuilder`，禁止在每帧或每台机器的 `render` 调用中创建新缓冲。
 用户提供的 `base.png`、`curtain.png`、`belt_scroll.png` 必须原字节复制；导入脚本只拆分模型、换算 Java block model UV 和生成运行时 JSON，不重绘像素。
 普通不透明机器 block/part 模型不得声明 render_type，保持默认 solid；只有确实带透明遮罩的模型或 overlay 才使用 cutout_mipped。
 薄型 bus/terminal 方块必须保持 noOcclusion，避免按完整方块遮挡地面和光照。

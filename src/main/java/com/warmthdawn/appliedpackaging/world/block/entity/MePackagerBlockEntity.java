@@ -37,11 +37,9 @@ import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Player;
@@ -61,12 +59,11 @@ import net.minecraftforge.items.ItemStackHandler;
 
 public class MePackagerBlockEntity extends AENetworkBlockEntity
         implements InventoryDroppingBlockEntity, MenuProvider, IUpgradeableObject {
-    public static final PackageCapacityProfile BASE_CAPACITY_PROFILE = PackageCapacityProfile.STORAGE_1K;
+    public static final PackageCapacityProfile BASE_CAPACITY_PROFILE = PackageCapacityProfile.DEFAULT;
     public static final int SLOT_HELD_BOX = 0;
     public static final int SLOT_INPUT = SLOT_HELD_BOX;
     public static final int SLOT_OUTPUT = SLOT_HELD_BOX;
     public static final int SLOT_CAPACITY = 1;
-    public static final int SLOT_MARKER = 2;
     public static final int FILTER_COLUMNS = 9;
     public static final int FILTER_ROWS = 5;
     public static final int BASE_FILTER_ROWS = 2;
@@ -76,9 +73,10 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     public static final int CYCLIC_REDSTONE_INTERVAL_TICKS = 20;
     public static final int ANIMATION_CYCLE_TICKS = 20;
     public static final int BELT_SCROLL_PERIOD_PIXELS = 16;
-    private static final int SLOT_COUNT = 3;
+    private static final int SLOT_COUNT = 2;
     private static final String ITEMS_TAG = "items";
     private static final String FILTER_TAG = "content_filter";
+    private static final String MARKER_FILTER_TAG = "marker_filter";
     private static final String UPGRADES_TAG = "upgrades";
     private static final String POWERED_TAG = "powered";
     private static final String SELECTED_COLOR_TAG = "selected_color";
@@ -103,17 +101,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
                 return PackageDataStorage.read(stack).isPresent();
             }
             if (slot == SLOT_CAPACITY) {
-                return componentCapacityProfileFromItem(stack).isPresent();
-            }
-            if (slot == SLOT_MARKER) {
-                return isMarkerItem(stack);
+                return PackageCapacityProfile.fromStorageComponent(stack).isPresent();
             }
             return false;
         }
 
         @Override
         public int getSlotLimit(int slot) {
-            if (slot == SLOT_INPUT || slot == SLOT_CAPACITY || slot == SLOT_MARKER) {
+            if (slot == SLOT_INPUT || slot == SLOT_CAPACITY) {
                 return 1;
             }
             return super.getSlotLimit(slot);
@@ -189,6 +184,10 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             FILTER_SLOT_COUNT,
             this::onFilterChanged,
             true);
+    private final ConfigInventory markerFilter = ConfigInventory.configTypes(
+            key -> key instanceof AEItemKey itemKey && !(itemKey.getItem() instanceof PackageItem),
+            1,
+            this::onFilterChanged);
     private final IUpgradeInventory upgrades = UpgradeInventories.forMachine(
             APBlocks.ME_PACKAGER.get(),
             UPGRADE_SLOT_COUNT,
@@ -258,6 +257,10 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     public ConfigInventory getContentFilter() {
         return contentFilter;
+    }
+
+    public ConfigInventory getMarkerFilter() {
+        return markerFilter;
     }
 
     @Override
@@ -654,13 +657,13 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     private Optional<MarkerSpec> configuredMarkerItem() {
-        ItemStack markerStack = items.getStackInSlot(SLOT_MARKER);
-        if (!isMarkerItem(markerStack)) {
+        GenericStack markerStack = markerFilter.getStack(0);
+        if (markerStack == null
+                || !(markerStack.what() instanceof AEItemKey itemKey)
+                || itemKey.getItem() instanceof PackageItem) {
             return Optional.empty();
         }
-        ItemStack keyStack = markerStack.copy();
-        keyStack.setCount(1);
-        return Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(keyStack), 1)));
+        return Optional.of(new MarkerSpec(new GenericStack(markerStack.what(), 1)));
     }
 
     private boolean contentFilterInverted() {
@@ -668,7 +671,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     private PackageCapacityProfile configuredCapacityProfile() {
-        return componentCapacityProfileFromItem(items.getStackInSlot(SLOT_CAPACITY))
+        return PackageCapacityProfile.fromStorageComponent(items.getStackInSlot(SLOT_CAPACITY))
                 .orElse(BASE_CAPACITY_PROFILE);
     }
 
@@ -695,56 +698,9 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         return filter.marker();
     }
 
-    public static Optional<PackageCapacityProfile> capacityProfileFromItem(ItemStack stack) {
-        if (stack.isEmpty()) {
-            return Optional.empty();
-        }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        if (!"ae2".equals(id.getNamespace())) {
-            return Optional.empty();
-        }
-        return switch (id.getPath()) {
-            case "cell_component_16k",
-                    "item_storage_cell_16k",
-                    "fluid_storage_cell_16k",
-                    "portable_item_cell_16k",
-                    "portable_fluid_cell_16k",
-                    "storage_cell_16k" -> Optional.of(PackageCapacityProfile.STORAGE_16K);
-            case "cell_component_64k",
-                    "item_storage_cell_64k",
-                    "fluid_storage_cell_64k",
-                    "portable_item_cell_64k",
-                    "portable_fluid_cell_64k",
-                    "storage_cell_64k" -> Optional.of(PackageCapacityProfile.STORAGE_64K);
-            case "cell_component_256k",
-                    "item_storage_cell_256k",
-                    "fluid_storage_cell_256k",
-                    "portable_item_cell_256k",
-                    "portable_fluid_cell_256k",
-                    "storage_cell_256k" -> Optional.of(PackageCapacityProfile.STORAGE_256K);
-            default -> Optional.empty();
-        };
-    }
-
-    public static Optional<PackageCapacityProfile> componentCapacityProfileFromItem(ItemStack stack) {
-        if (stack.isEmpty()) {
-            return Optional.empty();
-        }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        if (!"ae2".equals(id.getNamespace())) {
-            return Optional.empty();
-        }
-        return switch (id.getPath()) {
-            case "cell_component_16k" -> Optional.of(PackageCapacityProfile.STORAGE_16K);
-            case "cell_component_64k" -> Optional.of(PackageCapacityProfile.STORAGE_64K);
-            case "cell_component_256k" -> Optional.of(PackageCapacityProfile.STORAGE_256K);
-            default -> Optional.empty();
-        };
-    }
-
     public void clearConfiguration() {
         contentFilter.clear();
-        items.setStackInSlot(SLOT_MARKER, ItemStack.EMPTY);
+        markerFilter.clear();
         setSelectedColor(PackageColor.FLUIX);
         setFilterApplicationMode(FilterApplicationMode.BOTH);
         setBlockingMode(BlockingMode.IGNORE_NETWORK_CONTENTS);
@@ -847,6 +803,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         super.saveAdditional(tag);
         tag.put(ITEMS_TAG, items.serializeNBT());
         contentFilter.writeToChildTag(tag, FILTER_TAG);
+        markerFilter.writeToChildTag(tag, MARKER_FILTER_TAG);
         upgrades.writeToNBT(tag, UPGRADES_TAG);
         tag.putBoolean(POWERED_TAG, powered);
         tag.putString(SELECTED_COLOR_TAG, selectedColor.id());
@@ -876,6 +833,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
             items.deserializeNBT(tag.getCompound(ITEMS_TAG));
         }
         contentFilter.readFromChildTag(tag, FILTER_TAG);
+        markerFilter.readFromChildTag(tag, MARKER_FILTER_TAG);
         upgrades.readFromNBT(tag, UPGRADES_TAG);
         powered = tag.getBoolean(POWERED_TAG);
         selectedColor = PackageColor.byId(tag.getString(SELECTED_COLOR_TAG)).orElse(PackageColor.FLUIX);
@@ -1052,7 +1010,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
 
     public ItemStack getRenderedBox() {
         if (animationTicks <= 0) {
-            return idleRenderedBox();
+            return renderedBox;
         }
         if (animationInward) {
             return animationTicks <= ANIMATION_CYCLE_TICKS / 2 ? ItemStack.EMPTY : renderedBox;
@@ -1151,11 +1109,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
                 return IGNORE_NETWORK_CONTENTS;
             }
         }
-    }
-
-    private static boolean isMarkerItem(ItemStack stack) {
-        return !stack.isEmpty()
-                && !(stack.getItem() instanceof PackageItem);
     }
 
     private static MarkerMergeMode markerModeByName(String name) {
@@ -1314,11 +1267,6 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         ItemStack copy = stack.copy();
         copy.setCount(1);
         return copy;
-    }
-
-    private ItemStack idleRenderedBox() {
-        ItemStack currentBox = currentInventoryBox();
-        return currentBox.isEmpty() ? renderedBox : currentBox;
     }
 
     private ItemStack currentInventoryBox() {

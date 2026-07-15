@@ -34,14 +34,36 @@ public final class PackagePlanBuilder {
             return PackagePlanResult.failure(PackagePlanFailure.EMPTY_CONTENTS);
         }
 
-        Optional<MarkerSpec> marker = resolveMarker(sourcePackages, markerMode, overrideMarker);
+        return buildOrdered(
+                color,
+                contents,
+                sourcePackages,
+                markerMode,
+                overrideMarker,
+                capacityProfile,
+                flags);
+    }
+
+    public static PackagePlanResult buildOrdered(
+            PackageColor color,
+            List<GenericStack> orderedContents,
+            List<PackageData> sourcePackagesForMarker,
+            MarkerMergeMode markerMode,
+            Optional<MarkerSpec> overrideMarker,
+            PackageCapacityProfile capacityProfile,
+            int flags) {
+        if (orderedContents == null || orderedContents.isEmpty()) {
+            return PackagePlanResult.failure(PackagePlanFailure.EMPTY_CONTENTS);
+        }
+
+        Optional<MarkerSpec> marker = resolveMarker(sourcePackagesForMarker, markerMode, overrideMarker);
         if (marker == null) {
             return PackagePlanResult.failure(PackagePlanFailure.MARKER_CONFLICT);
         }
 
         PackageData data;
         try {
-            data = PackageData.create(color, contents, marker, flags);
+            data = PackageData.create(color, orderedContents, marker, flags);
         } catch (IllegalArgumentException e) {
             return PackagePlanResult.failure(PackagePlanFailure.INVALID_INPUT);
         }

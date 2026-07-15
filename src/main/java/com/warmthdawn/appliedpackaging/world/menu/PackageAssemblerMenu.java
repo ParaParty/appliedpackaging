@@ -9,7 +9,7 @@ import appeng.menu.slot.IOptionalSlot;
 import appeng.client.Point;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
-import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -30,7 +30,6 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public static final int BUTTON_SCROLL_BASE = 100;
     private static final String ACTION_CYCLE_OUTPUT_MODE = "cycleOutputMode";
 
-    public static final int SCROLLED_ROW_COUNT = PackageAssemblerBlockEntity.OUTPUT_SLOT_COUNT;
     public static final int VISIBLE_ROWS = 4;
     public static final int VISIBLE_INPUT_COLUMNS = PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS;
     public static final int VISIBLE_INPUT_COUNT = VISIBLE_ROWS * VISIBLE_INPUT_COLUMNS;
@@ -61,6 +60,12 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public int craftProgress = 0;
     @GuiSync(13)
     public int queuedOutputCount = 0;
+    @GuiSync(14)
+    public int scrollableInputRows = 0;
+    @GuiSync(15)
+    public int syncedMenuInputSlotCount = 0;
+    @GuiSync(16)
+    public boolean syncedPatternCapacityValid = true;
     private SimpleContainer previewOutput;
     private int[] menuInputSlotIndexes;
     private int mainOutputSlotIndex;
@@ -89,6 +94,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         registerClientAction(ACTION_CYCLE_OUTPUT_MODE, this::cycleOutputMode);
         addDataSlot(outputModeSlot);
+        refreshMenuInputDimensions();
     }
 
     @Override
@@ -137,7 +143,10 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
         int visibleIndex = visibleIndexForMenuSlot(slotId);
         if (visibleIndex >= 0) {
-            clickMenuInput(inputSlotForVisibleIndex(visibleIndex), button, clickType, player);
+            int inputSlot = inputSlotForVisibleIndex(visibleIndex);
+            if (inputSlot < menuInputSlotCount()) {
+                clickMenuInput(inputSlot, button, clickType, player);
+            }
             return;
         }
         super.clicked(slotId, button, clickType, player);
@@ -150,7 +159,10 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         }
         int visibleIndex = visibleIndexForMenuSlot(index);
         if (visibleIndex >= 0) {
-            return quickMoveMenuInput(inputSlotForVisibleIndex(visibleIndex));
+            int inputSlot = inputSlotForVisibleIndex(visibleIndex);
+            return inputSlot < menuInputSlotCount()
+                    ? quickMoveMenuInput(inputSlot)
+                    : ItemStack.EMPTY;
         }
 
         Slot slot = slots.get(index);
@@ -168,7 +180,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
             if (!moveItemStackTo(source, PATTERN_SLOT, PATTERN_SLOT + 1, false)) {
                 return ItemStack.EMPTY;
             }
-        } else if (MePackagerBlockEntity.capacityProfileFromItem(source).isPresent()) {
+        } else if (PackageCapacityProfile.fromStorageComponent(source).isPresent()) {
             if (!moveItemStackTo(source, CAPACITY_SLOT, CAPACITY_SLOT + 1, false)) {
                 return ItemStack.EMPTY;
             }
@@ -198,6 +210,8 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         if (isServerSide()) {
             craftProgress = getHost().craftingProgress();
             queuedOutputCount = getHost().queuedOutputCount();
+            refreshMenuInputDimensions();
+            setScrollOffset(scrollOffset);
             previewOutput.setItem(0, getHost().nextOutputPreview());
         }
         super.broadcastChanges();
@@ -232,7 +246,11 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     }
 
     public int maxScrollOffset() {
-        return Math.max(0, SCROLLED_ROW_COUNT - VISIBLE_ROWS);
+        return Math.max(0, scrollableInputRows - VISIBLE_ROWS);
+    }
+
+    public int menuInputSlotCount() {
+        return Math.max(0, syncedMenuInputSlotCount);
     }
 
     public void setScrollOffset(int scrollOffset) {
@@ -266,6 +284,10 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         return craftProgress > 0;
     }
 
+    public boolean isPatternCapacityValid() {
+        return syncedPatternCapacityValid;
+    }
+
     public int hotbarMenuSlotIndex(int hotbarSlot) {
         return getSlots(SlotSemantics.PLAYER_HOTBAR).get(hotbarSlot).index;
     }
@@ -275,16 +297,35 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     }
 
     public boolean isInputSlotEnabled(int slot) {
-        return getHost().isMenuInputSlotEnabled(slot);
+        return slot >= 0
+                && slot < menuInputSlotCount()
+                && getHost().isMenuInputSlotEnabled(slot);
     }
 
     public boolean isInputSlotValid(int slot) {
-        return getHost().isMenuInputSlotValid(slot);
+        int visibleIndex = slot - scrollOffset * VISIBLE_INPUT_COLUMNS;
+        if (visibleIndex < 0 || visibleIndex >= menuInputSlotIndexes.length) {
+            return getHost().isMenuInputSlotValid(slot);
+        }
+        ItemStack displayed = getSlot(menuInputSlotIndexes[visibleIndex]).getItem();
+        if (displayed.isEmpty()) {
+            return true;
+        }
+        ItemStack filter = inputFilterDisplay(slot);
+        return !filter.isEmpty()
+                && ItemStack.isSameItemSameTags(displayed, filter)
+                && displayed.getCount() <= filter.getCount();
     }
 
     public int inputSlotForMenuSlotIndex(int slotIndex) {
         int visibleIndex = visibleIndexForMenuSlot(slotIndex);
         return visibleIndex < 0 ? -1 : inputSlotForVisibleIndex(visibleIndex);
+    }
+
+    private void refreshMenuInputDimensions() {
+        syncedMenuInputSlotCount = getHost().menuInputSlotCount();
+        scrollableInputRows = (syncedMenuInputSlotCount + VISIBLE_INPUT_COLUMNS - 1) / VISIBLE_INPUT_COLUMNS;
+        syncedPatternCapacityValid = getHost().isPatternCapacityValid();
     }
 
     @Override
@@ -385,6 +426,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
     private final class MenuInputDisplaySlot extends Slot implements IOptionalSlot {
         private final int visibleIndex;
+        private ItemStack clientDisplay = ItemStack.EMPTY;
 
         private MenuInputDisplaySlot(int visibleIndex) {
             super(new SimpleContainer(1), 0, 0, 0);
@@ -393,7 +435,12 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         @Override
         public ItemStack getItem() {
-            return getHost().menuInputDisplay(inputSlotForVisibleIndex(visibleIndex));
+            if (PackageAssemblerMenu.this.isClientSide()) {
+                return clientDisplay;
+            }
+            int inputSlot = inputSlotForVisibleIndex(visibleIndex);
+            ItemStack actual = getHost().menuInputDisplay(inputSlot);
+            return actual.isEmpty() ? getHost().menuInputFilterDisplay(inputSlot) : actual;
         }
 
         @Override
@@ -408,6 +455,9 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         @Override
         public void set(ItemStack stack) {
+            if (PackageAssemblerMenu.this.isClientSide()) {
+                clientDisplay = stack.copy();
+            }
         }
 
         @Override
@@ -427,7 +477,10 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         @Override
         public boolean isSlotEnabled() {
             int inputSlot = inputSlotForVisibleIndex(visibleIndex);
-            return getHost().hasMenuInput(inputSlot) || getHost().isMenuInputSlotEnabled(inputSlot);
+            return inputSlot < menuInputSlotCount()
+                    && (!getItem().isEmpty()
+                            || getHost().hasMenuInput(inputSlot)
+                            || getHost().isMenuInputSlotEnabled(inputSlot));
         }
 
         @Override

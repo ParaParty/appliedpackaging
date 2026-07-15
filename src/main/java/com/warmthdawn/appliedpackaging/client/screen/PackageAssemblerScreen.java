@@ -53,6 +53,7 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
         super.updateBeforeRender();
         outputModeButton.setMessage(outputModeMessage());
         progressBar.visible = menu.isCrafting();
+        rowScrollbar.setRange(0, menu.maxScrollOffset(), PackageAssemblerMenu.VISIBLE_ROWS);
         if (rowScrollbar.getCurrentScroll() != menu.scrollOffset()) {
             setScrollOffset(rowScrollbar.getCurrentScroll());
         }
@@ -77,6 +78,12 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
     @Override
     public void renderSlot(GuiGraphics graphics, Slot slot) {
         super.renderSlot(graphics, slot);
+        if (slot.hasItem()
+                && slot == firstSlot(SlotSemantics.ENCODED_PATTERN)
+                && !menu.isPatternCapacityValid()) {
+            graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, SLOT_INVALID_OVERLAY);
+            graphics.renderOutline(slot.x - 1, slot.y - 1, 18, 18, SLOT_INVALID_BORDER);
+        }
         int inputSlot = menu.inputSlotForMenuSlotIndex(slot.index);
         if (inputSlot >= 0 && slot.hasItem() && !menu.isInputSlotValid(inputSlot)) {
             graphics.fill(slot.x, slot.y, slot.x + 16, slot.y + 16, SLOT_INVALID_OVERLAY);

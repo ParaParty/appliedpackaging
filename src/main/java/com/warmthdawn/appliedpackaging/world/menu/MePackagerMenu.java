@@ -5,6 +5,7 @@ import appeng.menu.SlotSemantics;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.implementations.UpgradeableMenu;
 import appeng.menu.interfaces.IProgressProvider;
+import appeng.menu.slot.FakeSlot;
 import appeng.menu.slot.OptionalFakeSlot;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerMergeMode;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
@@ -90,7 +91,7 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
                 new SlotItemHandler(getHost().getItems(), MePackagerBlockEntity.SLOT_CAPACITY, 0, 0),
                 SlotSemantics.STORAGE_CELL);
         addSlot(
-                new SlotItemHandler(getHost().getItems(), MePackagerBlockEntity.SLOT_MARKER, 0, 0),
+                new FakeSlot(getHost().getMarkerFilter().createMenuWrapper(), 0),
                 SlotSemantics.BLANK_PATTERN);
     }
 

@@ -6,8 +6,6 @@
   "refmap": "appliedpackaging.refmap.json",
   "mixins": [
     "AEBaseMenuAccessor",
-    "AEPatternDecoderMixin",
-    "EncodedPatternItemMixin",
     "PatternEncodingLogicMixin",
     "PatternEncodingTermMenuMixin"
   ],

@@ -70,7 +70,7 @@ unit tests/GameTest
   marker retain/override/clear plan logic
   package flattening
   AE2 MEStorage 打包/拆包适配与 Forge item handler 整包插入
-  同内容不同顺序 canonical hash 稳定，并写入可堆叠的规范化 NBT
+  有序 contents 不合并同类条目；同内容不同顺序产生不同 canonical hash 与 NBT
   颜色、marker、内容差异会产生不同 canonical hash
   PackageData GameTest
 
@@ -82,7 +82,7 @@ unit tests/GameTest
 
 ```text
 无 PackageData 的包裹被判无效
-同内容不同顺序 canonical hash 稳定
+contents 顺序与重复条目经 NBT/hash 往返后保持不变
 不同颜色/marker/content 不能误堆叠
 tooltip 显示每包/总计
 ```
@@ -141,18 +141,18 @@ GameTest
   方块掉落表
   单一 heldBox item handler；底部与模型背面之外的四面暴露同一包裹 capability，并由状态区分待拆输入与待取输出
   GUI/Menu 改为 AE2 UpgradeableScreen + UpgradeableMenu，主入口为右键打开 GUI
-  GUI 包含 AE2 左工具栏、5 行过滤区、颜色选择小按钮、marker 槽、共享 heldBox、容量元件过滤器槽、右侧 6 格升级面板和玩家背包
+  GUI 包含 AE2 左工具栏、5 行过滤区、颜色选择小按钮、marker fake/config slot、共享 heldBox、容量元件过滤器槽、右侧 6 格升级面板和玩家背包
   只有右键传送带上表面才快速放入包裹或取出输出；右键其它模型位置打开 GUI
   AE2 扳手按普通水平可定向机器规则旋转 facing，背面接线与模型同步旋转
   未安装红石卡时默认有红石信号打包；安装红石卡后可切换高信号、低信号、总是、脉冲和关闭，红石只控制打包
   拆包在输入槽存在合法包裹时自动工作，仍受过滤、阻挡和目标容量约束
   持续打包与自动拆包基础每 20 tick 重试一次；加速卡降低间隔
-  容量元件槽读取 AE2 16k/64k/256k storage component；无元件时使用基础 1k 容量与 16 类型上限
+  容量元件槽只读取 AE2 16k/64k/256k storage component；无元件时使用 9 单位与 9 类型上限
   容量卡最多 3 张，每张解锁 1 行过滤槽，默认启用 2 行，最多 5 行
   selectedColor 控制无过滤模板时的输出包裹颜色
   contentFilter 使用 AE2 GenericStack fake slots，不读取隐藏旧过滤槽
   过滤应用模式可在打包拆包都启用、仅打包、仅拆包之间切换
-  marker 槽物品在 override 模式下优先作为输出 marker；retain/override/clear 是当前正式配置
+  marker fake/config slot 在 override 模式下优先作为输出 marker；retain/override/clear 是当前正式配置
   阻挡模式可在忽略网络内容与网络内已有物品时禁止拆包之间切换
   固定底部与模型背面只接入 AE2 主节点，可连接线缆或相邻 ME Interface 网络
   AE2 MEStorage 打包/拆包操作，支持 GenericStack/AEKey 和源包裹展开
@@ -199,22 +199,25 @@ GameTest/客户端验证
   水平朝向 blockstate
   方块掉落表
   Package Assembler GUI/Menu
-  68 格 GUI 真实输入缓冲（17 行 x 4 列）+ 1 格样板槽 + 17 格输出槽 + 1 格容量槽 + 5 格 AE2 加速卡升级槽
+  按样板实际非空输入数动态分配的逻辑输入缓冲（高级样板编码上限 17×81）+ 4×4 稠密可见窗口 + 1 格样板槽 + 17 格输出槽 + 1 格容量槽 + 5 格 AE2 加速卡升级槽
   shift-click 已编码样板进样板槽，AE2 容量元件进容量槽，其它物品只有在样板过滤允许时进入 GUI 真实输入缓冲
   样板槽为空时拒绝本地输入和本地合成，不再自由封装
   输入合法包裹展开后再封装
-  容量槽识别 AE2 16k/64k/256k storage component、item/fluid storage cell 与 portable cell
+  容量槽只识别 AE2 16k/64k/256k storage component；拒绝 1k component、完整 storage cell 与 portable cell
   任意输出槽非空时不启动新合成或新 Pattern Provider plan，不消耗输入
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
-  已编码 package_pattern 走 exact package plan，可重封装大于默认容量的源包裹
+  两台包裹机器共用 PackageCapacityProfile 的 default/16k/64k/256k 映射与容量计算
+  已编码 package_pattern 走 exact package plan，并在本地执行与 Pattern Provider push 时复验当前容量档；不能绕过空槽 9/9 上限
   已编码 package_pattern 不消耗，可重复作为本地装配计划
   已编码 advanced_processing_pattern 保存连续列的有序多包裹计划
   package_assembler 可按 advanced_processing_pattern 逐包生成匹配包裹
+  advanced_processing_pattern 本地输入显示跳过 sparse 空白并保留原列归属，滚动行数按全部非空输入动态计算，超过旧 68 格的输入仍可显示、插入和装配
   package_assembler 暴露 AE2 ICraftingMachine capability
   Pattern Provider pushPattern 可按分子装配室语义临时使用本次 pattern 规划配方，把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
   空本地样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
-  本地样板与 Pattern Provider pushPattern 均使用容量槽档位
-  pushPattern 在输出阻挡、输入缓冲非空或规划失败时整批拒绝且不消耗输入；本地样板槽兼容路径遇到无法转成 ItemStack 的 AEKey 时同样拒绝
+  本地三类样板先逐个预计输出包裹做容量预检；超限样板保留显示但槽位标红，GUI/外部输入与装配锁定
+  Pattern Provider pushPattern 在消费 KeyCounter 前执行同一预检；高级样板逐列检查，任一包超限时整批拒绝
+  pushPattern 在容量不足、输出阻挡、输入缓冲非空或规划失败时整批拒绝且不消耗输入；本地样板槽兼容路径遇到无法转成 ItemStack 的 AEKey 时同样拒绝
   彩色 Pattern Provider pushPattern 读取 AE2 sparse input 槽位，按输入槽颜色拆成多个包裹
   彩色 Pattern Provider pushPattern 支持流体 AEKey 输入
   同 AEKey 位于不同颜色槽时按 sparse 槽位拆分，不被 AE2 condensed input 提前合并
@@ -223,8 +226,8 @@ GameTest/客户端验证
   装配室输出模式默认 ME_NETWORK，可通过 GUI 左侧 AE2 toolbar 图标循环切换 ME_NETWORK、ADJACENT_BLOCK 和 NONE 并持久化保存
   装配室 server tick 会按输出槽顺序一次导出 1 个包裹；ME_NETWORK 只导出到本机接入的 AE 网络存储服务，ADJACENT_BLOCK 只导出到背面 Forge item handler，NONE 不自动导出
   自动导出失败时保留输出槽包裹，不丢弃、不继续消耗新输入
-  外部 Forge item handler 可见机器库存，但只允许从主输出按队列顺序每次抽取 1 个合法包裹，非输出槽不可抽取
-  颜色和 marker 只在样板或临时 pattern plan 没有对应包裹标记时作为 fallback 生效
+  外部 Forge item handler 按本地样板动态暴露 N 个稠密过滤输入位与紧随其后的 1 个有序输出位；输入位不可抽取，输出位每次只抽取 1 个合法包裹
+  放入本地样板后颜色和 marker 以样板为权威；装配室不提供机器 fallback 配置或可编辑槽
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler GameTest smoke
   真实 AE2 Creative Energy Cell + Pattern Provider + Package Assembler 彩色处理样板 GameTest smoke
   真实 AE2 Drive + 64k item cell + Crafting CPU + Pattern Provider + Package Assembler 自动合成 job smoke
@@ -232,7 +235,7 @@ GameTest/客户端验证
   装配室基础 GameTest
 
 客户端验证：
-  历史人工截图已检查无过滤 ghost 物品、样板移除后残留输入红色错误状态、左侧 toolbar 与右侧 AE2 升级面板；后续视觉改动按需使用 runClient 人工复验
+  当前输入窗口显示样板过滤物品与数量，跳过高级样板 sparse 空白；样板移除后残留输入保持红色错误状态，左侧 toolbar 与右侧 AE2 升级面板继续沿用现有布局；后续视觉改动按需使用 runClient 人工复验
 ```
 
 验收：
