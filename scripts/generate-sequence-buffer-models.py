@@ -140,6 +140,26 @@ def oriented_face(
     u_direction: str | None = None,
     v_direction: str | None = None,
 ) -> dict[str, object]:
+    if u_direction is not None and v_direction is not None:
+        matches = [
+            (rotation, v_axis)
+            for rotation, (u_axis, v_axis) in UV_DIRECTIONS[face_direction].items()
+            if u_axis == u_direction
+            and (v_axis == v_direction or v_axis == OPPOSITE[v_direction])
+        ]
+        if len(matches) != 1:
+            raise ValueError(
+                f"Expected one UV transform for face={face_direction}, "
+                f"u={u_direction}, v={v_direction}; got {matches}"
+            )
+        rotation, current_v_direction = matches[0]
+        result = face(texture, face_direction, rotation)
+        if current_v_direction != v_direction:
+            # Opposite cube faces have mirrored local UV handedness. Keep texture
+            # +U (the output arrow) fixed and flip only +V so the edge cap still
+            # points outward while the open strip continues toward the controller.
+            result["uv"] = [0, 16, 16, 0]
+        return result
     return face(
         texture,
         face_direction,
@@ -243,7 +263,7 @@ def tail_model(sequence_direction: str) -> dict[str, object]:
             faces[direction] = oriented_face(
                 "undirected_formed_edge_side",
                 direction,
-                v_direction=sequence_direction,
+                v_direction=OPPOSITE[sequence_direction],
             )
     return model("undirected_formed_edge_side", faces)
 
@@ -297,19 +317,20 @@ def tail_directed_model(sequence_direction: str, facing: str) -> dict[str, objec
             faces[direction] = oriented_face(
                 "directed_front_formed_edge_side",
                 direction,
-                v_direction=sequence_direction,
+                v_direction=OPPOSITE[sequence_direction],
             )
         elif direction == OPPOSITE[facing]:
             faces[direction] = oriented_face(
                 "directed_back_formed_edge_side",
                 direction,
-                v_direction=sequence_direction,
+                v_direction=OPPOSITE[sequence_direction],
             )
         else:
             faces[direction] = oriented_face(
                 "directed_side_formed_edge_side",
                 direction,
                 u_direction=facing,
+                v_direction=OPPOSITE[sequence_direction],
             )
     return model("directed_side_formed_edge_side", faces)
 
@@ -425,7 +446,8 @@ def main() -> None:
         {
             "source_sheet_convention": {
                 "directed_side_arrow": "texture +U points toward the block facing/front",
-                "formed_side_length": "texture +V follows the sequence axis",
+                "formed_middle_length": "texture +V follows the positive structure axis",
+                "formed_edge_length": "texture +V points inward toward the controller",
             },
             "generated_model_count": len(records),
             "multipart_entry_count": len(multipart),

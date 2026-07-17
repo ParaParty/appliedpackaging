@@ -36,6 +36,7 @@ build/libs/appliedpackaging-0.1.0-dev.jar
 - AE2 encoded processing pattern carrier support for packaged-processing automation.
 - Package Storage Bus, Package Export Bus, and Package Unpacking Bus that expose or move only valid packages.
 - Color, marker, required-content, and package-template filtering for routing and unpacking.
+- Optional JEI recipe transfer for both pages of the Advanced Pattern Encoding Terminal: ordinary deterministic JEI recipes map through standard recipe roles, Create sequenced assembly preserves its steps, Create mechanical crafting is grouped by rows or columns, and deterministic GTCEu item/fluid recipes support upstream GTCEu and the StarT Fork.
 - Adjustable fluid amounts for fluid-container processing output ghosts and package-bus required-content ghosts.
 - English and Simplified Chinese language files.
 - Models, item textures, block textures, GUI icons, recipes, loot tables, and Forge mod metadata.
@@ -61,6 +62,8 @@ GuideME 20.1.7 to before 20.2.0
 ```
 
 For multiplayer, install Applied Packaging on both client and dedicated server. The mod registers gameplay blocks, items, menus, and AE2 integrations, so client-only or server-only installation is not a supported gameplay configuration.
+
+Optional recipe-viewer integrations are developed against JEI 15.20.0.134, Create 6.0.8, and GTCEu 7.5.3, with an additional runtime compatibility check against GregTech Modern - StarT Fork 1.7.0b. None is a mandatory dependency. On the advanced page, standard JEI inputs and outputs become one processing column unless a specialized adapter preserves a richer structure. On the package page, the same consumed inputs are flattened into package contents and the first deterministic item output becomes the marker. JEI catalysts and render-only slots are skipped. Random, ranged, ambiguous, oversized, dynamic-world, or otherwise non-representable recipes are rejected without partially changing either page.
 
 ## Development
 

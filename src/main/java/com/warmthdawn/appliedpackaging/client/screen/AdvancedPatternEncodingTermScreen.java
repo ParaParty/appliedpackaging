@@ -63,15 +63,15 @@ public class AdvancedPatternEncodingTermScreen
     private static final int COLUMN_STEP = 19;
     private static final int HEADER_COLOR_X = 22;
     private static final int HEADER_ACTION_X = 31;
-    private static final int HEADER_COLOR_BOTTOM = 172;
-    private static final int HEADER_ACTION_BOTTOM = 171;
+    private static final int HEADER_COLOR_BOTTOM = 174;
+    private static final int HEADER_ACTION_BOTTOM = 173;
     private static final int HEADER_BUTTON_SIZE = 8;
     private static final int INPUT_PANEL_WIDTH = (VISIBLE_COLUMNS - 1) * COLUMN_STEP + SLOT_STEP;
     private static final int COLUMN_SCROLLBAR_X = 21;
     private static final int COLUMN_SCROLLBAR_BOTTOM = 110;
     private static final int COLUMN_SCROLLBAR_TRACK_WIDTH = 75;
     private static final int CLEAR_BUTTON_X = 97;
-    private static final int CLEAR_BUTTON_BOTTOM = 172;
+    private static final int CLEAR_BUTTON_BOTTOM = 174;
     private static final int ENCODE_BUTTON_X = 150;
     private static final int ENCODE_BUTTON_BOTTOM = 145;
     private static final int SCREEN_WIDTH = 195;
@@ -82,8 +82,6 @@ public class AdvancedPatternEncodingTermScreen
     private static final int MODE_BUTTON_SIZE = 22;
     private static final int MODE_BUTTON_STEP = 21;
     private static final int MODE_BUTTON_TOP_GAP = 6;
-    private static final int ENABLED_SLOT_BODY = 0xffadb0c4;
-    private static final int DISABLED_SLOT_BODY = 0xff969cb1;
     private static final int HIDDEN_SLOT = -10_000;
     private static final int PACKAGE_PANEL_LEFT = 8;
     private static final int PACKAGE_PANEL_BOTTOM = 177;
@@ -148,6 +146,8 @@ public class AdvancedPatternEncodingTermScreen
     private static final Blitter CLEAR_BUTTON = Blitter.texture(SPRITES).src(0, 0, 8, 8);
     private static final Blitter ADD_COLUMN_BUTTON = Blitter.texture(SPRITES).src(0, 8, 8, 8);
     private static final Blitter DELETE_COLUMN_BUTTON = Blitter.texture(SPRITES).src(8, 8, 8, 8);
+    private static final Blitter LATEST_SLOT_BACKGROUND =
+            Blitter.texture(LATEST_AE2_STATES).src(192, 192, 18, 18);
     private static final Blitter LATEST_PRIMARY_OUTPUT = Blitter.texture(LATEST_AE2_STATES).src(224, 0, 16, 16);
     private static final Blitter LATEST_ENCODE_ICON = Blitter.texture(LATEST_AE2_STATES).src(128, 0, 16, 16);
     private static final Blitter LATEST_ENCODE_BUTTON = Blitter.texture(LATEST_AE2_STATES).src(176, 128, 18, 20);
@@ -357,7 +357,7 @@ public class AdvancedPatternEncodingTermScreen
         modernToolbar.layout(offsetX, offsetY);
         modernToolbar.drawPanel(graphics, offsetX, offsetY);
         if (advanced) {
-            drawEncodingSlotBackgrounds(graphics, offsetX, offsetY);
+            drawAdvancedInputSlotBackgrounds(graphics, offsetX, offsetY);
             drawColumnScrollbar(graphics, offsetX, offsetY);
             drawPrimaryOutputOverlay(graphics, offsetX, offsetY);
         } else {
@@ -900,21 +900,23 @@ public class AdvancedPatternEncodingTermScreen
         }
     }
 
-    private void drawEncodingSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
+    private void drawAdvancedInputSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
         int inputY = imageHeight - INPUT_BOTTOM;
         for (int visibleColumn = 0; visibleColumn < VISIBLE_COLUMNS; visibleColumn++) {
             int column = scrollColumn + visibleColumn;
-            boolean enabled = column < menu.activeColumns();
-            for (int visibleRow = 0; visibleRow < VISIBLE_ROWS; visibleRow++) {
-                int x = offsetX + INPUT_X + visibleColumn * COLUMN_STEP;
-                int y = offsetY + inputY + visibleRow * SLOT_STEP + 1;
-                graphics.fill(x, y, x + 16, y + 16, enabled ? ENABLED_SLOT_BODY : DISABLED_SLOT_BODY);
+            if (column >= menu.activeColumns()) {
+                continue;
             }
-        }
-        for (int visibleRow = 0; visibleRow < VISIBLE_ROWS; visibleRow++) {
-            int x = offsetX + OUTPUT_X;
-            int y = offsetY + inputY + visibleRow * SLOT_STEP + 1;
-            graphics.fill(x, y, x + 16, y + 16, ENABLED_SLOT_BODY);
+            for (int visibleRow = 0; visibleRow < VISIBLE_ROWS; visibleRow++) {
+                // AE2 v19 draws optional slot material as the complete 18x18
+                // SLOT_BACKGROUND sprite at slot - 1. Inactive columns retain the
+                // artwork already present in the terminal atlas.
+                LATEST_SLOT_BACKGROUND
+                        .dest(
+                                offsetX + INPUT_X + visibleColumn * COLUMN_STEP - 1,
+                                offsetY + inputY + visibleRow * SLOT_STEP - 1)
+                        .blit(graphics);
+            }
         }
     }
 
@@ -1194,9 +1196,6 @@ public class AdvancedPatternEncodingTermScreen
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             (plus ? ADD_COLUMN_BUTTON : DELETE_COLUMN_BUTTON).dest(getX(), getY()).blit(graphics);
-            if (isHoveredOrFocused()) {
-                graphics.fill(getX(), getY(), getX() + width, getY() + height, 0x30ffffff);
-            }
         }
 
         @Override
@@ -1219,9 +1218,6 @@ public class AdvancedPatternEncodingTermScreen
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             CLEAR_BUTTON.dest(getX(), getY()).blit(graphics);
-            if (isHoveredOrFocused()) {
-                graphics.fill(getX(), getY(), getX() + width, getY() + height, 0x30ffffff);
-            }
         }
 
         @Override

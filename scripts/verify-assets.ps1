@@ -445,6 +445,10 @@ if (Test-Path -LiteralPath $specializedPatternStylePath) {
                 $specializedPatternStyle.widgets.encodePattern.left -eq 150 -and
                 $specializedPatternStyle.widgets.encodePattern.bottom -eq 145) `
             "Combined specialized pattern terminal aligns both carrier slots and Encode to the revised base"
+        Assert-True `
+            ($specializedPatternStyle.widgets.processingCycleOutput.left -eq 106 -and
+                $specializedPatternStyle.widgets.processingCycleOutput.bottom -eq 174) `
+            "Combined specialized pattern terminal keeps advanced header controls above the input-grid border"
     }
 }
 
@@ -745,15 +749,58 @@ if (Test-Path -LiteralPath $sequenceBufferBlockstatePath) {
     }
 }
 
+$sequenceBufferEastTailPath = "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/tail/east.json"
+if (Test-Path -LiteralPath $sequenceBufferEastTailPath) {
+    $sequenceBufferEastTail = Get-JsonFile $sequenceBufferEastTailPath
+    if ($null -ne $sequenceBufferEastTail) {
+        Assert-True `
+            ($sequenceBufferEastTail.textures.east -eq "appliedpackaging:block/sequence_buffer/faces/tail_back" -and
+                $sequenceBufferEastTail.textures.west -eq "appliedpackaging:block/sequence_buffer/faces/formed_middle_side_edge_occluded" -and
+                [int] $sequenceBufferEastTail.elements[0].faces.up.rotation -eq 90) `
+            "Sequence Buffer east tail keeps its cap outward and its open edge toward the controller"
+    }
+}
+
+$sequenceBufferUpTailPath = "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/tail/up.json"
+if (Test-Path -LiteralPath $sequenceBufferUpTailPath) {
+    $sequenceBufferUpTail = Get-JsonFile $sequenceBufferUpTailPath
+    if ($null -ne $sequenceBufferUpTail) {
+        $sequenceBufferUpTailNorthRotation = if ($sequenceBufferUpTail.elements[0].faces.north.PSObject.Properties.Name -contains "rotation") {
+            [int] $sequenceBufferUpTail.elements[0].faces.north.rotation
+        } else {
+            0
+        }
+        Assert-True `
+            ($sequenceBufferUpTail.textures.up -eq "appliedpackaging:block/sequence_buffer/faces/tail_back" -and
+                $sequenceBufferUpTail.textures.down -eq "appliedpackaging:block/sequence_buffer/faces/formed_middle_side_edge_occluded" -and
+                $sequenceBufferUpTailNorthRotation -eq 0) `
+            "Sequence Buffer upward tail keeps its cap outward and its open edge toward the controller"
+    }
+}
+
+$sequenceBufferDirectedEastTailPath = "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/tail_directed/east/up.json"
+if (Test-Path -LiteralPath $sequenceBufferDirectedEastTailPath) {
+    $sequenceBufferDirectedEastTail = Get-JsonFile $sequenceBufferDirectedEastTailPath
+    if ($null -ne $sequenceBufferDirectedEastTail) {
+        $sequenceBufferDirectedEastTailSouth = $sequenceBufferDirectedEastTail.elements[0].faces.south
+        Assert-True `
+            ([int] $sequenceBufferDirectedEastTail.elements[0].faces.up.rotation -eq 90 -and
+                [int] $sequenceBufferDirectedEastTailSouth.rotation -eq 270 -and
+                ((@($sequenceBufferDirectedEastTailSouth.uv) -join ",") -eq "0,16,16,0")) `
+            "Sequence Buffer directed tail preserves its output arrow while keeping the side cap outward"
+    }
+}
+
 $sequenceBufferShellPath = $sequenceBufferAssetPaths[1]
 if (Test-Path -LiteralPath $sequenceBufferShellPath) {
     $sequenceBufferShell = Get-JsonFile $sequenceBufferShellPath
     if ($null -ne $sequenceBufferShell) {
         Assert-True `
-            (@($sequenceBufferShell.elements).Count -eq 1 -and
+            ($sequenceBufferShell.parent -eq "minecraft:block/block" -and
+                @($sequenceBufferShell.elements).Count -eq 1 -and
                 ((@($sequenceBufferShell.elements[0].from) -join ",") -eq "0,0,0") -and
                 ((@($sequenceBufferShell.elements[0].to) -join ",") -eq "16,16,16")) `
-            "Sequence Buffer shell remains one in-bounds full-block cuboid"
+            "Sequence Buffer shell inherits the standard 3D block item transforms and remains one in-bounds full-block cuboid"
     }
 }
 

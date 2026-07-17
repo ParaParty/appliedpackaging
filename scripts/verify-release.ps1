@@ -126,6 +126,7 @@ function Get-ReleaseDiagnosticLogLines {
     $filtered = [System.Collections.Generic.List[string]]::new()
     $skippingYggdrasilKeyFailure = $false
     $script:ignoredYggdrasilKeyFailures = 0
+    $script:ignoredOptionalCompatClassWarnings = 0
 
     foreach ($line in Get-Content $Path) {
         if ($line -match "Yggdrasil Key Fetcher/ERROR.*Failed to request yggdrasil public key") {
@@ -140,6 +141,13 @@ function Get-ReleaseDiagnosticLogLines {
             } else {
                 continue
             }
+        }
+
+        $knownOptionalCompatClass = $line -match "Error loading class: (com/simibubi/create/foundation/ponder/PonderWorld|xaero/map/gui/GuiMap|org/embeddedt/modernfix/api/entrypoint/ModernFixClientIntegration)" -and
+            $line -match "java\.lang\.ClassNotFoundException"
+        if ($knownOptionalCompatClass) {
+            $script:ignoredOptionalCompatClassWarnings += 1
+            continue
         }
 
         $filtered.Add($line) | Out-Null
@@ -909,6 +917,9 @@ if ($null -eq $resolvedLog) {
     $diagnosticLogText = (Get-ReleaseDiagnosticLogLines $resolvedLog.Path) -join "`n"
     if ($ignoredYggdrasilKeyFailures -gt 0) {
         Add-Warn "Ignored $ignoredYggdrasilKeyFailures external Yggdrasil public-key fetch failure(s)"
+    }
+    if ($ignoredOptionalCompatClassWarnings -gt 0) {
+        Add-Warn "Ignored $ignoredOptionalCompatClassWarnings known third-party optional-integration class warning(s)"
     }
     if ($diagnosticLogText -match $badLogPattern) {
         Add-Fail "Log contains release-blocking diagnostic keywords"

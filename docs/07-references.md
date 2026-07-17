@@ -57,9 +57,55 @@ GuideME 20.1.7
 JEI 15.20.0.134
 
 ```text
-用途：Minecraft 1.20.1 Forge 开发客户端的配方与物品测试辅助。只通过 modLocalRuntime 加入本地运行类路径，不属于 Applied Packaging 的编译 API 或发布必需依赖，mods.toml 不声明 JEI。
+用途：Minecraft 1.20.1 Forge 开发客户端的配方浏览，以及 Advanced Pattern Encoding Terminal 高级/包裹两页的可选 recipe transfer API。通用入口使用 JEI 标准 INPUT、OUTPUT、CATALYST、RENDER_ONLY 角色；Gradle 使用 common-api/forge-api compile-only 和完整 Forge runtime；不属于 Applied Packaging 的发布必需依赖，mods.toml 不声明 JEI。
 版本核对：https://maven.blamejared.com/mezz/jei/jei-1.20.1-forge/maven-metadata.xml
 官方仓库：https://github.com/mezz/JustEnoughItems/tree/1.20.1
+```
+
+Create 6.0.8-291（Minecraft 1.20.1）
+
+```text
+用途：Advanced Pattern Encoding Terminal 可选导入确定性的 Sequenced Assembly、ProcessingRecipe 和 Mechanical Crafting。动力合成按非空行/列中分组更少的一侧拆成包裹，数量相同时按行；Gradle 使用 slim compile-only 和 all runtime；mods.toml 不声明 Create。
+官方 release：https://github.com/Creators-of-Create/Create/releases/tag/mc1.20.1-6.0.8
+官方源码：https://github.com/Creators-of-Create/Create/tree/mc1.20.1-6.0.8
+Maven metadata：https://maven.createmod.net/com/simibubi/create/create-1.20.1/maven-metadata.xml
+核对日期：2026-07-17
+```
+
+GTCEu 7.5.3（Minecraft 1.20.1）
+
+```text
+用途：Advanced Pattern Encoding Terminal 可选导入确定性的 item/fluid GT recipe，包括 tick content × duration。Gradle 使用 full jar compile-only/runtime；mods.toml 不声明 GTCEu。
+官方 release：https://github.com/GregTechCEu/GregTech-Modern/releases/tag/v7.5.3-1.20.1
+官方仓库：https://github.com/GregTechCEu/GregTech-Modern
+Maven metadata：https://maven.gtceu.com/releases/com/gregtechceu/gtceu/gtceu-1.20.1/maven-metadata.xml
+核对日期：2026-07-17
+```
+
+GregTech Modern - StarT Fork 1.7.0b（Minecraft 1.20.1）
+
+```text
+用途：验证 GTCEu 可选适配器可在 StarT Fork 上运行。正常 compile API 固定为上游 GTCEu 7.5.3；PowerShell 命令使用 & .\gradlew.bat 'runGameTestServer' '-PgtceuRuntimeJar=<versioned-jar>'，把全部 ModDevGradle run 切换到独立 run-gtceu-fork 目录，不把 Fork 写成发布硬依赖。属性参数必须整体加引号，避免 .bat 调用把带版本号的路径拆开。本轮对照 Fork 与上游 jar，确认适配器使用的 GTRecipe、Content、ItemRecipeCapability、FluidRecipeCapability 公共成员保持兼容。
+项目页：https://www.curseforge.com/minecraft/mc-mods/gregtech-modern-start-fork
+核对文件：https://www.curseforge.com/minecraft/mc-mods/gregtech-modern-start-fork/files/8160693
+核对日期：2026-07-17
+```
+
+常见模组 JEI/配方语义源码审计
+
+```text
+用途：通用 JEI 角色映射之外的保守语义门禁。下列仓库只用于核对 1.20.1 配方公开字段和 JEI role；它们不是 Applied Packaging 的 Gradle 或发布依赖。
+Mekanism 1.20.x @ 96c736241e308a9cf1c73f7dcfa9aa221ea559d3：https://github.com/mekanism/Mekanism/tree/1.20.x
+Immersive Engineering 1.20.1 @ e63e4824800945eccf3684200a2c2270e2e1cdf2：https://github.com/BluSunrize/ImmersiveEngineering/tree/1.20.1
+CoFH ThermalCore 1.20.x @ cc7c230146a71d177767a8f9d6b26f0a52e9aeed：https://github.com/CoFH/ThermalCore/tree/1.20.x
+CoFH ThermalExpansion 1.20.1 @ 9dc6061173c6732fd3bcdbf4d3c2baf3dc82f089：https://github.com/CoFH/ThermalExpansion/tree/1.20.1
+Botania 1.20.x @ 62a548d8dbf511f87c769b0af633846e23f37c05：https://github.com/VazkiiMods/Botania/tree/1.20.x
+PneumaticCraft 1.20.1 @ 2639a983eb9e3352517aed6dc03994a50e84883f：https://github.com/TeamPneumatic/pnc-repressurized/tree/1.20.1
+Ars Nouveau 1.20 @ 2c74064bc753600d9b6600f102f8163e2d6764dd：https://github.com/baileyholl/Ars-Nouveau/tree/1.20
+Industrial Foregoing 1.20 @ 1369806de4ceee84a86fcc0e57cc8f4724ad716f：https://github.com/InnovativeOnlineIndustries/Industrial-Foregoing/tree/1.20
+Ender IO 1.20.1 @ 18ee1b17bf6879298e911fff751204b07f2e4228：https://github.com/Team-EnderIO/EnderIO/tree/1.20.1
+结论：正确标记 CATALYST/RENDER_ONLY 的工具和展示槽不会被消费；公开 chance/probability、结果池、PneumaticCraft explosion loss、Ars reagent NBT 保留、IF laser drill 世界/权重产出、Botania Orechid 权重产出等无法精确编码的语义保守拒绝。若某模组把非消耗工具误标 INPUT，或只在 tooltip 隐藏概率而未暴露公开语义，需要再增加窄规则，不能宣称已自动推断。
+核对日期：2026-07-17
 ```
 
 AE2 GitHub / Maven 信息

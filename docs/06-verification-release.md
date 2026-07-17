@@ -34,6 +34,11 @@ marker 冲突拒绝
 序列缓存器普通样板保留 sparse 空位、高级样板稠密顺序且 Pattern Provider 原子消费
 样板包裹布局参与身份/NBT/hash，拆包总线原子保留空位输入序列缓存器
 序列缓存器 item/fluid handler 分别拒绝错误 key 类型，MEStorage 保留泛型 key
+JEI 高级/包裹计划 payload 往返、原子替换旧状态并保留页面自身颜色
+标准 JEI INPUT/OUTPUT/CATALYST/RENDER_ONLY 角色映射、歧义输出和随机产出拒绝
+真实 Create 确定性 Sequenced Assembly 按初始输入和工序顺序展开
+真实 Create Mechanical Crafting 自动选择更少分组的行或列，并保持组内顺序
+真实 GTCEu 确定性 item/fluid recipe 映射且不超过终端边界
 ```
 
 当前已覆盖：
@@ -313,7 +318,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-release-self-tests.ps1` 串行运行 `test-docs-audit.ps1`、`test-assets-audit.ps1`、`test-release-audit.ps1`、`test-release-readiness.ps1`、`test-release-check-plan.ps1`、`test-release-manifest.ps1` 和 `test-release-bundle.ps1`。它不运行 Gradle、客户端或服务端，只验证发布脚本自测套件本身；工作区干净时 manifest/bundle 子测试会额外覆盖 clean-git 路径。
 
-`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认 `package_pattern` / `advanced_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，确认旧 packaged/colored pattern 存储与机器存档兼容路径没有重新引入，确认已取消的 `package_pattern_terminal` / `package_export_bus` 不再注册或进入创造栏，并确认 `package_storage_bus` / `package_unpacking_bus` 与高级样板终端继续注册为 AE2 `PartItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败作为 WARN 忽略，Applied Packaging、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、人工 `runClient` 或 `runServer`。
+`scripts/verify-release.ps1` 检查 `gradle.properties`、jar 文件名、jar manifest、`META-INF/mods.toml`、jar 必需条目、jar 内 README/CHANGELOG/LICENSE 与仓库源文件同步、jar 内语言文件与源码同步、jar 内 Applied Packaging `assets/` / `data/` 发布资源与 `src/main/resources` / `src/generated/resources` 源文件同步、dev/test/reference 条目、jar 文本本机路径泄漏、资源 JSON、玩家入口产品不变量、PNG 非空、asset contract、英文/简体中文语言 key 和占位符、Applied Packaging 模型贴图引用、可选 latest.log 服务端 world-load 关键证据，以及可选 git 工作树干净证据。它会确认 `mods.toml` 中的 Minecraft、Forge、AE2 和 GuideME dependency range 与 `gradle.properties` 一致，确认 `package_pattern` / `advanced_processing_pattern` 没有作为 recipe/creative-tab 玩家入口，确认旧 packaged/colored pattern 存储与机器存档兼容路径没有重新引入，确认已取消的 `package_pattern_terminal` / `package_export_bus` 不再注册或进入创造栏，并确认 `package_storage_bus` / `package_unpacking_bus` 与高级样板终端继续注册为 AE2 `PartItem`。asset contract 校验会自动寻找 PATH 中的 `assetgen` 或当前用户 Codex skill 中的 `minecraft-mod-asset-generation/scripts/assetgen`；使用 `-RequireAssetContracts` 时找不到或校验失败都会让脚本失败。使用 `-RootPath` 时可对临时 fixture 执行同一套机械发布审计。使用 `-RequireCleanGit` 时会执行 `git status --porcelain=v1 --untracked-files=all` 并要求无输出，适合全部变更提交后、发布 tag 创建前运行。日志诊断会把 Mojang/Yggdrasil 外部公钥获取失败，以及 Create/AE2/GTCEu 对 PonderWorld、Xaero GuiMap、ModernFixClientIntegration 三个已核实的第三方可选兼容类缺失警告作为 WARN 忽略；其它 `ClassNotFoundException`、Applied Packaging 错误、客户端类加载、崩溃、missing texture 等关键字仍会失败。它不替代 `build`、`runData`、`runGameTestServer`、人工 `runClient` 或 `runServer`。
 
 当前玩家入口产品不变量还要求 `advanced_pattern_encoding_terminal` 出现在创造栏，并继续注册为 AE2 `PartItem`；高级终端 base/sprite atlas 纳入必需 PNG 与 256x256 尺寸审计，独立 `advanced_processing_pattern` 不得作为配方或创造栏直接产物。
 
@@ -420,6 +425,12 @@ Minecraft 1.20.1 Forge + AE2 15.4.10 可进入游戏
 Tooltip 每包/总计正确
 机器 GUI 无错位
 方块模型无 missing texture
+JEI、Create 6.0.8 与 GTCEu 7.5.3 同时加载且无 Applied Packaging optional-integration classloading 错误
+打开 Advanced Pattern Encoding Terminal 时，当前高级页可导入常规确定性 JEI 配方；当前包裹页可把同一配方的输入展平为一个包裹计划
+Create Sequenced Assembly 保持工序列；Mechanical Crafting 按非空行/列中较少者分包，数量相同时按行
+GTCEu 上游 7.5.3 与 StarT Fork 1.7.0b 的确定性 item/fluid recipe 均可导入
+随机、区间、动态世界产出、歧义、不可表示或越界 recipe 显示本地化拒绝 tooltip，不改变终端内容
+导入后当前页的列/输入顺序、数量、输出/marker 和颜色正确；另一页状态保持不变
 ```
 
 推荐命令：
@@ -427,6 +438,8 @@ Tooltip 每包/总计正确
 ```powershell
 .\gradlew.bat runClient
 ```
+
+2026-07-17 执行真实 `runClient`，JEI 15.20.0.134、Create 6.0.8、GTCEu 7.5.3 与 Applied Packaging 同时完成 Forge 初始化、资源重载、OpenAL 和图集创建并到达主菜单；日志未记录 Applied Packaging classloading、missing model/texture、ERROR 或 FATAL。确认主菜单稳定后主动结束本次开发客户端，因此 Gradle 进程的 `-1` 是人工终止结果，不表示启动失败。JEI transfer handler 的注册回调和“+”按钮只在进入世界并同步 recipe 后可交互，本轮没有自动 UI 驱动，按钮导入、拒绝 tooltip 及导入后页面/列状态继续作为人工验收项，不能写成已通过。
 
 已删除的自动客户端 smoke 历史记录（仅保留既往验收证据，不是当前命令）：
 
@@ -603,7 +616,7 @@ R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack
 R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
 R6 ME 包裹装配室：已满足，任意 AE2 可解码已编码样板、普通样板 Fluix + 主输出 marker、按样板动态确定的稠密输入槽、17×81 高级样板编码上限、4x4 输入代理窗口、完成时扣料与缺料暂停、输出队列、样板门禁、样板权威颜色/marker、合成进度、pending queue、输出模式和顺序抽取均已覆盖。
 R7 ME 打包机：已满足，只接入固定底部与模型背面的 AE2 MEStorage，空容量槽 9 单位/9 类型和 16k/64k/256k storage component、红石模式、独立的 fake marker 与内容过滤、反转过滤和整包拆包均已覆盖。
-R8 样板终端：已满足，Advanced Pattern Encoding Terminal 使用一个 part/menu/screen 承载高级与包裹两页；右侧按钮切换并持久化当前页，放入两个专用载体会自动选择对应页。高级页的 1377 输入/32 输出与包裹页的 81 输入/marker/颜色/预览完全隔离；高级页使用 146px 编辑框，包裹页保留 124x66 面板原宽，菜单不创建 VIEW_CELL 槽。普通 AE2 Pattern Encoding Terminal 不增加包裹 UI，并拒绝 package_pattern 与 advanced_processing_pattern。独立 advanced_processing_pattern 使用自定义处理样板详情突破原版单样板 81 输入总上限，原版 AE2 processing_pattern 不承载高级列数据。
+R8 样板终端：已满足，Advanced Pattern Encoding Terminal 使用一个 part/menu/screen 承载高级与包裹两页；右侧按钮切换并持久化当前页，放入两个专用载体会自动选择对应页。高级页的 1377 输入/4 输出与包裹页的 81 输入/marker/颜色/预览完全隔离；高级页使用 146px 编辑框，包裹页保留 124x66 面板原宽，菜单不创建 VIEW_CELL 槽。普通 AE2 Pattern Encoding Terminal 不增加包裹 UI，并拒绝 package_pattern 与 advanced_processing_pattern。独立 advanced_processing_pattern 使用自定义处理样板详情突破原版单样板 81 输入总上限，原版 AE2 processing_pattern 不承载高级列数据。
 R9 包裹总线：已满足，正式玩家入口只保留 Storage/Unpacking Bus 两个 AE2 cable part，均只处理合法包裹且不把内部内容暴露为 ME 散装库存；两者要求 AE channel，Storage Bus 在线缓存增删与过滤刷新已有真实网络测试。Unpacking Bus 已按 ME Packager 拆包模式接入真实 held 包裹与 20 tick 进度，最终提交失败时保留并重试同一个包裹，NBT、GUI 取回和 part 拆除返还边界已实现。
 R10 整包验证：已满足，MEStorage 打包/拆包先模拟后提交；Forge item handler 路径覆盖整包累计模拟拒绝与 check-then-push，不包含自定义逐槽回滚事务。
 R11 Tooltip：已满足，包裹、样板、AE2 blank_pattern carrier 和 packaged-processing 输出提示已接入。
@@ -926,7 +939,7 @@ ME Packager 内侧端点从 `x=2.5/16` 后移到 `x=1/16`，使出现/消失处�
 
 序列缓存器结构轴从仅 X/Z 扩展为 X/Y/Z，`facing` 与 `directional` 只表达每个方块自己的扳手方向，结构顺序单独使用 `sequence_direction`。成型、尾端扩展、拓扑重建和解体都不再改写本地方向；已有方向与结构轴平行时只隐藏带箭头的成员外观，方向值继续保留并在解体后恢复显示。旧存档中仅有 directed visual state、缺少新方向标记的方块会补回标记，同时保持原 `facing` 不变。单块和成员对上下/水平合法侧继续执行“点击面对面 -> 点击面 -> 无方向”三段循环。
 
-`scripts/generate-sequence-buffer-models.py` 依据 Minecraft 1.20.1 每个面的 UV 基向量生成 57 个完整方块模型和 58 个 multipart 条目，覆盖六个未成型方向、六个端点方向、X/Y/Z 中段、六个尾部方向及所有垂直于结构轴的定向成员组合。方向侧面贴图的 `+U` 箭头统一旋转到方块自身正面，成型侧面的 `+V` 沿结构轴。直接模型渲染已解析真实 JSON/PNG，并复核 north 单块、Y 轴定向中段及向上尾部；资产门禁同时新增缺失 Y 轴模型负例。
+`scripts/generate-sequence-buffer-models.py` 依据 Minecraft 1.20.1 每个面的 UV 基向量生成 57 个完整方块模型和 58 个 multipart 条目，覆盖六个未成型方向、六个端点方向、X/Y/Z 中段、六个尾部方向及所有垂直于结构轴的定向成员组合。方向侧面贴图的 `+U` 箭头统一旋转到方块自身正面；中段侧面 `+V` 沿结构正轴，边缘/尾部侧面 `+V` 朝主方块、`-V` 封口朝结构外。直接模型渲染已解析真实 JSON/PNG，并复核 north 单块、Y 轴定向中段及向上尾部；资产门禁同时新增缺失 Y 轴模型负例。
 
 验证结果：`.\gradlew.bat compileJava --stacktrace`、`.\gradlew.bat runGameTestServer --stacktrace` 和 `.\gradlew.bat build --stacktrace` 通过，135/135 required GameTest 全部成功。新增测试覆盖单块上下方向、竖直成型/扩展、端点和成员方向保持、平行方向隐藏后恢复、旧 directed 状态迁移，以及断裂解体后端点仍保留原方向。`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1` 与 `scripts/verify-release.ps1 -RequireAssetContracts` 通过；发布审计确认 295 个发布资源与 JAR 一致、141 个 JSON 可解析、158 张 PNG、6 个 asset contract 和 143 个双语 key 有效。IntelliJ 开发客户端 PID 3204 仍是修改前启动的进程，本轮没有终止或并发启动第二客户端；它必须重启后才会载入新的 Java 状态属性和模型资源。
 
@@ -937,3 +950,41 @@ ME Packager 内侧端点从 `x=2.5/16` 后移到 `x=1/16`，使出现/消失处�
 右侧标签固定为 `x=173`，从网络区结束后 6px 开始，以 21px 步进排列：包裹在上，高级在下。两个标签仍使用 AE2 v19 水平 `TabButton` 的 22x22 normal/selected/focus 背景，但内容完全由 sprite 绘制，不渲染物品栈：包裹图标读取本地 sprite `[32,0,16,16]`，高级图标读取 states atlas 的 processing/furnace `[16,32,16,16]`，两者均按水平标签偏移 `(3,2)` 绘制。离线合成预览确认两页的上下顺序、选中背景和图标裁片一致。
 
 `.\gradlew.bat compileJava --rerun-tasks --stacktrace` 已强制重编译通过；`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1` 正/负夹具与 `scripts/verify-docs.ps1` 通过。资源审计固定两张用户 PNG 的 SHA-256，并断言统一 frame、修正后的高级槽位、包裹滚动条、载体槽和 Encode 坐标。本轮只改变客户端底图分段、widget/slot geometry、模式标签 sprite 与同尺寸切页生命周期，不改变菜单 action、状态持久化、编码数据或服务端行为，因此不新增或重复运行 GameTest；最终游戏内缩放、hover 与点击命中仍需在重启开发客户端后人工复核。
+
+### 2026-07-17 JEI 通用高级/包裹适配与 StarT Fork 验证
+
+Advanced Pattern Encoding Terminal 的唯一 universal transfer handler 现按当前页面选择目标。标准 fallback 依照 JEI 常规 role，只消费 INPUT、读取确定性 OUTPUT 并跳过 CATALYST / RENDER_ONLY；高级页生成单列，包裹页展平到最多 81 项并选第一个确定性物品输出为 marker。Create Sequenced Assembly 继续按步骤列展开；Mechanical Crafting 裁去空边后比较非空行/列数量，选择更少包裹的方向并保持组内网格顺序，平局按行。GTCEu 专用映射继续支持 item/fluid 与 tick content，同时修正不同 content 间的区间倍率泄漏。
+
+源代码语义审计覆盖 Mekanism、Immersive Engineering、Thermal、Botania、PneumaticCraft、Ars Nouveau、Industrial Foregoing 和 Ender IO。公开概率、结果池、爆炸损耗、动态世界/权重产出、reagent NBT 保留等不能被样板精确表达的 recipe 在 client action 前保守拒绝；Thermal 的额外 INPUT catalyst 按 recipe 公开的真实 item/fluid 输入数量配额跳过。若第三方把工具错误标为 INPUT 且没有公开语义，或只在 tooltip 隐藏概率，仍需对具体 recipe 增加窄规则。
+
+验证结果：
+
+- `.\gradlew.bat runGameTestServer --stacktrace`：上游 GTCEu 7.5.3 组合 142/142 required tests 通过。
+
+- `& .\gradlew.bat 'runGameTestServer' '-PgtceuRuntimeJar=build/reference/compat-src/gtceu-st-1.20.1-1.7.0b.jar' '--stacktrace'`：StarT Fork 1.7.0b 组合 142/142 通过。
+
+- Fork 日志确认 `GAMEDIR=run-gtceu-fork`、实际选中 gtceu-st 1.7.0b，且没有 version differences、missing id from the world 或 Unidentified mapping。
+
+- `.\gradlew.bat build --stacktrace` 与 `.\gradlew.bat runData --stacktrace` 通过。
+
+- `.\gradlew.bat runClient --stacktrace`：JEI 15.20.0.134、Create 6.0.8-291、GTCEu 7.5.3 与 Applied Packaging 完成资源重载、OpenAL、block atlas 和 JEI GUI atlas 创建后主动终止。
+
+- `scripts/test-release-self-tests.ps1`、`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1` 与 `scripts/verify-release.ps1 -RequireAssetContracts` 通过；机械审计确认 295 个发布资源、141 个 JSON、158 张 PNG、6 个资产合同和 157 个双语 key。
+
+- `git diff --check` 通过，仅输出现有 LF/CRLF 提示。
+
+- JAR 包含两种 transfer plan、JEI plugin、通用/Create/GTCEu adapter；`mods.toml` 中 JEI/Create/GTCEu 硬依赖行数为 0。
+
+客户端启动验证覆盖注册、类加载和资源初始化，不等同于世界内交互。JEI “+”按钮在高级页/包裹页的实际点击、拒绝 tooltip 和导入后的槽位/颜色/marker 最终显示仍是人工验收项。
+
+### 2026-07-17 序列缓存器尾部与物品栏模型视觉回归
+
+用户截图触发两项资源回归修正。边缘/尾部第三列贴图的 `+V` 开口现在始终朝主方块、`-V` 封口朝外；普通 east/up 尾部及带方向 east/up 尾部均有固定 JSON 断言，反转 east 尾部角度的负例会被拒绝。序列缓存器物品仍直接引用未成型方块模型，但公共外壳新增 `minecraft:block/block` 父模型，从而继承原版 GUI `[30,225,0]` 旋转、`0.625` 缩放以及手持/地面变换，不再显示为正面的平面方格；删除父模型的负例会被资产自测拒绝。
+
+验证通过：`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、`scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts`。本次不改变 Java、方块状态或服务端事务，GameTest 不重复运行；客户端需资源重载或重启后才会丢弃已烘焙的旧物品模型。
+
+### 2026-07-17 合并终端槽位 sprite 与列头边界验证
+
+高级编辑区不再以纯色填充输入/输出槽。动态启用的输入列使用 AE2 v19 states atlas `[192,192,18,18]` 的完整 `SLOT_BACKGROUND` 精灵并按 `(slot.x-1,slot.y-1)` 对齐；未启用列和输出槽保留用户底图。像素检查确认该精灵的 256 个不透明像素与底图首槽一致，两张用户 GUI PNG 与运行时副本 SHA-256 未变化。列头颜色/清空/循环按钮为 `bottom=174`、列操作按钮为 `bottom=173`，其底边均严格结束在 y=80 输入框顶边前；资产审计加入旧 `bottom=172` 必须失败的负例。
+
+`.\gradlew.bat compileJava --rerun-tasks --stacktrace`、`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、`scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1` 和 `git diff --check` 通过。真实 `.\gradlew.bat runClient --stacktrace` 完成初始化、资源重载、OpenAL 和全部图集创建；日志仅有既知第三方 Ponder/Xaero/ModernFix optional-integration 缺类警告，没有 Applied Packaging 类加载、missing model/texture、ERROR 或 FATAL。该修正不改变服务端行为，GameTest 不重复运行；实际打开终端后的像素观感仍为人工客户端验收项。

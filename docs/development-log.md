@@ -3532,7 +3532,7 @@ GameTest `mePackagerSpeedCardsUsePackingWorkTable` 覆盖完整打包表、2 卡
 
 根据用户实机截图和补充语义，把序列缓存器的本地方向与多方块结构方向彻底拆开。`SequenceBufferBlock` 改用六向 `BlockStateProperties.FACING`，新增独立 `directional` 标记；`sequence_direction` 扩展到六向，`axis` 支持 X/Y/Z。邻居调度扫描六面，竖直连续线可与水平线一样成型、延长和断裂。拓扑提交只更新 `state/axis/sequence_direction/tail/controllerPos`，不旋转或清空任何方块原有 `facing`；平行于结构轴的预存方向在成型时使用普通连接模型隐藏，解体后按原值恢复。旧 directed visual state 会迁移方向标记但不改变 facing。
 
-用户贴图的方向侧面箭头确认沿纹理 `+U`。新增 `scripts/generate-sequence-buffer-models.py`，按 Minecraft 1.20.1 六个面的 UV 方向显式生成 57 个模型和 58 个 multipart 条目，覆盖六向单块/端点/尾部、X/Y/Z 中段和全部合法定向成员；箭头 `+U` 指向本地方块正面，成型条带 `+V` 沿结构轴。移除依赖水平 blockstate 旋转的旧顶层定向模型，保留一个完整 `0..16` cuboid。直接导出模型预览解析了真实 JSON 与 16x16 PNG，north 单块、Y 轴 east 输出中段和向上尾部均不再显示 missing-model 占位。
+用户贴图的方向侧面箭头确认沿纹理 `+U`。新增 `scripts/generate-sequence-buffer-models.py`，按 Minecraft 1.20.1 六个面的 UV 方向显式生成 57 个模型和 58 个 multipart 条目，覆盖六向单块/端点/尾部、X/Y/Z 中段和全部合法定向成员；箭头 `+U` 指向本地方块正面，中段条带 `+V` 沿结构正轴，边缘/尾部条带 `+V` 朝结构内部。移除依赖水平 blockstate 旋转的旧顶层定向模型，保留一个完整 `0..16` cuboid。直接导出模型预览解析了真实 JSON 与 16x16 PNG，north 单块、Y 轴 east 输出中段和向上尾部均不再显示 missing-model 占位。
 
 第一次全量 GameTest 暴露旧断言仍要求断裂后的端点失去方向；实现实际已正确保留 EAST 且没有跨缺口重组，因此把断言改为新需求。重跑 `.\gradlew.bat runGameTestServer --stacktrace` 后 135/135 required tests 全部通过。`.\gradlew.bat compileJava --stacktrace`、`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、包含缺失 Y 轴模型新负例的完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1` 与 `scripts/verify-release.ps1 -RequireAssetContracts` 全部通过；发布审计确认 295 个资源、141 个 JSON、158 张 PNG、6 个 asset contract 和 143 个双语 key。修改前启动的 IntelliJ 客户端 PID 3204 仍在运行，本轮没有终止用户进程或并发启动第二客户端，需重启后进行最终世界内视觉复核。
 
@@ -3545,3 +3545,35 @@ ScreenStyle 与动态槽位按新图重算：高级输入/输出为 `(21,bottom=
 按用户澄清，右侧模式按钮不再使用包裹样板、高级样板等物品图标。`PatternModeButton` 只持有 `Blitter`：上方包裹标签读取 `advanced_pattern_encoding_terminal_sprites.png` 的 `[32,0,16,16]`，下方高级标签读取 states atlas 的 processing/furnace `[16,32,16,16]`，并按 AE2 v19 水平标签 `(3,2)` 偏移绘制；代码中没有对这两个标签调用 `renderItem` 或物品装饰渲染。离线预览输出到忽略目录 `build/asset-preview/combined-terminal-new-gui/`，确认包裹在上、熔炉在下及两页 selected 状态。
 
 验证结果：`.\gradlew.bat compileJava --rerun-tasks --stacktrace` 强制重编译成功，`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1` 正/负夹具与 `scripts/verify-docs.ps1` 通过。GameTest 已考虑；本轮不改变菜单、编码数据、网络同步、状态持久化或服务端事务，故不新增或重复运行。最终游戏内像素缩放、hover/focus 与点击区域仍需重启开发客户端后人工确认。
+
+### 2026-07-17 JEI、Create 与 GTCEu 高级配方导入
+
+按 Minecraft 1.20.1 官方发布线加入 JEI `15.20.0.134`、Create `6.0.8-291` 和 GTCEu `7.5.3` 开发依赖。三者都不写入 `mods.toml` mandatory dependency：JEI API 与 Create/GTCEu API 只参与编译，完整 Mod 只进入开发 runtime；JEI 插件仅在 JEI 存在时发现，Create/GTCEu 适配器又分别由 ModList 和反射隔离加载。最初用 Create slim jar 启动真实 runtime 时暴露缺少 mandatory Ponder 的问题，随后保持 slim compileOnly、把完整 `all` jar 用于 runtime，客户端与 GameTest server 均能正常启动。
+
+新增 Advanced Pattern Encoding Terminal 专用 JEI 通用 recipe-transfer handler。客户端先把 recipe 转换为无世界副作用的 `AdvancedPatternTransferPlan`，检查最多 17 列、每列 81 输入、4 输出、单项 SNBT 4096 字符和 AE2 client action 32767 字符上限；服务端先验证总 payload 再解析各 GenericStack，并通过一次 `replaceRecipe` 原子替换，失败时不留下部分终端状态。Create Sequenced Assembly 把初始输入与各循环/步骤的外部消耗按列展开，普通 ProcessingRecipe 映射为单列；GTCEu 把确定性 item/fluid 一次性 content 与 tick content 乘 duration 后映射。随机输出、区间数量、多结果池、不可表示能力和任何越界 recipe 都以双语 JEI tooltip 保守拒绝；非消耗 Create held tool 与 GTCEu chance 0 catalyst 不错误写入输入。
+
+验证结果：`.\gradlew.bat compileJava`、`.\gradlew.bat build`、`.\gradlew.bat runData` 成功；`.\gradlew.bat runGameTestServer` 138/138 required tests 通过，新增测试覆盖计划 payload 往返/原子替换、真实 `create:sequenced_assembly/sturdy_sheet` 顺序展开和真实 GTCEu 确定性 recipe 映射。真实 `.\gradlew.bat runClient` 同时加载 JEI、Create、GTCEu 与 Applied Packaging，完成 Forge 初始化、资源重载、OpenAL 和图集创建并到达主菜单，随后主动结束客户端；没有 Applied Packaging classloading、missing model/texture、ERROR 或 FATAL。JAR 复核确认 JEI plugin、Create adapter、GTCEu adapter 已打包，同时 `mods.toml` 没有三项硬依赖。
+
+发布日志审计第一次准确发现 Create/GTCEu 自带的已知第三方 optional-integration 缺类告警。`verify-release.ps1` 现在只忽略明确列出的 `PonderWorld`、Xaero Map 和 ModernFix client integration 三类第三方 warning，其他未知缺类（尤其 Applied Packaging 自身类）仍失败；`test-release-audit.ps1` 增加对应正负夹具。机械发布审计、发布审计自测、文档/资产审计和聚合 release self-tests 均纳入本轮最终复验。当前唯一未自动完成的是进入世界后的 JEI “+”按钮、拒绝 tooltip 和导入后页面/列状态；仓库没有自动 UI 驱动，这些项目保留为明确的人工客户端验收，不伪写成已通过。
+
+用户继续要求“包裹模式依照 JEI 常规兼容方式做万能适配”后，handler 扩展为按当前 ADVANCED/PACKAGE 页导入。标准 fallback 直接解释 JEI `INPUT`、`OUTPUT`、`CATALYST`、`RENDER_ONLY`：只有 INPUT 进入消耗列表，OUTPUT 进入确定性结果，催化剂和展示槽跳过；高级页生成一个普通列，包裹页把输入展平到 81 格并用第一个确定性物品输出作 marker。两页分别使用 `AdvancedPatternTransferPlan` / `PackagePatternTransferPlan` 和原子 `replaceRecipe`，导入当前页不会清空另一页。输出槽有多个不同候选、未知类型、超限或 payload 过大时在发送 action 前拒绝。
+
+Create 专用路径新增 Mechanical Crafting：裁去空行/列后统计非空行和非空列，选择能产生更少包裹的方向，数量相同固定按行；每个分组保持原网格次序，随后高级页保留为列、包裹页按列顺序展平。GTCEu 修正 ranged content 的倍率变量泄漏，且保持 chance/区间保守门禁。Gradle 新增可选 `-PgtceuRuntimeJar=<versioned-jar>`，compile API 仍固定上游 7.5.3，替代 runtime 使用 ModDevGradle 可重映射的本地 flatDir module，并把全部 run 隔离到 `run-gtceu-fork`，避免上游/Fork 注册表存档互相污染。
+
+兼容探索对照了 Mekanism、Immersive Engineering、Thermal、Botania、PneumaticCraft、Ars Nouveau、Industrial Foregoing 和 Ender IO 的 1.20.x/1.20.1 官方源码。通用 JEI role 已覆盖它们的常规 item/fluid 输入输出；额外反射门禁拒绝 Mekanism 锯木副产概率、IE/Thermal/Ender IO/Ars 的公开概率结果、PneumaticCraft 爆炸损耗、Botania Orechid 权重产出、IF Laser Drill 世界/权重产出、Ars reagent NBT 保留等不能精确编码的语义。Thermal 部分 category 把非消耗 catalyst 也标为 INPUT，因此按 recipe 暴露的 item/fluid 输入数量配额只取真实消耗槽。仍不能可靠判断“模组把工具误标 INPUT 且没有任何公开语义”或“概率只藏在 tooltip”这两类不规范实现；发现具体 recipe 后应加窄规则而不是猜测。
+
+新增 GameTest 覆盖包裹计划 payload/颜色/marker 原子替换、标准 JEI 四种 role、歧义输出、反射概率拒绝、真实 Create Mechanical Crafting 行列选择与包裹展平；总数扩展到 142。上游 GTCEu 7.5.3 runtime 和独立 run-gtceu-fork 中的 StarT Fork 1.7.0b runtime 均完成 142/142；Fork debug.log 确认实际选中 StarT jar，且没有 version differences、missing id 或 unidentified mapping。build、runData 成功；真实 runClient 完成 JEI/Create/GTCEu/Applied Packaging 初始化、资源重载、OpenAL、block atlas 和 JEI GUI atlas 创建后主动终止，日志没有 Applied Packaging 类加载、ERROR/FATAL 或 missing model/texture。发布脚本聚合自测、资产审计、文档审计、verify-release.ps1 -RequireAssetContracts 和 git diff --check 全部通过；JAR 包含全部计划/适配器，mods.toml 没有 JEI/Create/GTCEu 硬依赖。世界内 JEI “+”点击和 tooltip 仍按事实保留为人工验收。
+
+### 2026-07-17 序列缓存器尾部 UV 与方块物品模型回归修正
+
+用户世界截图确认边缘/尾部第三列贴图曾把开口朝向结构外侧。源格实际为 `-V` 封口、`+V` 开口，生成器现把所有边缘/尾部侧面的 `+V` 指向主方块；定向尾部在相对面的 UV 手性冲突处使用仅 V 镜像，使本地方向箭头和结构封口同时正确。水平向东、竖直向上和带方向向东尾部均加入固定资源断言，负例把 east 尾部旋回旧角度后必须失败。
+
+同一轮截图还暴露序列缓存器物品栏外观被正投影成平面方格。原因是自定义 `sequence_buffer/shell.json` 没有继承 Minecraft 的基础方块模型，因而整个 item parent 链缺少 GUI/手持/地面展示变换。外壳现继承 `minecraft:block/block`，物品仍使用未成型六面外观，但 GUI 会取得原版 `[30,225,0]`、`0.625` 等距三维变换。资产审计增加标准父模型断言以及删除 parent 后必须失败的 flat-item 负例。
+
+`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1` 正/负夹具、`scripts/verify-docs.ps1` 和 `scripts/verify-release.ps1 -RequireAssetContracts` 均通过；JAR 内 295 个发布资源与源码一致，141 个 JSON 可解析，158 张 PNG、6 个资产合同有效。本轮仅修改模型 UV/展示继承和资产门禁，不改变方块状态或服务端行为，因此不重复运行 GameTest。游戏中已加载的旧模型需要资源重载或重启客户端后再查看物品栏。
+
+### 2026-07-17 合并终端槽位材质与列头按钮回归修正
+
+用户实机截图确认高级编辑区的横向分隔线和底边被运行时绘制覆盖。根因是 Screen 曾对输入/输出槽内区调用 `GuiGraphics.fill`，这既绕过了 AE2 的槽位材质，也会覆盖用户 atlas 的边界像素。实现现改为 AE2 v19 `Icon.SLOT_BACKGROUND` 路径：只对当前启用的高级输入列，把 states atlas `[192,192,18,18]` 完整精灵绘制到 `(slot.x-1,slot.y-1)`；未启用列不额外绘制，输出槽直接保留 full-screen base 已有材质。列操作和清空按钮上没有上游依据的白色 hover 填充也已删除；Screen 内唯一剩余纯色绘制是逐项对照 AE2 v19 `AEBaseScreen.renderSlotHighlight` 的槽位悬停高亮。
+
+高级列头颜色/清空/循环按钮改为 `bottom=174`，列操作按钮改为 `bottom=173`：两行网络库存时分别占 y=71..78 和 y=72..79，编辑框顶边为 y=80。源图与运行时副本 SHA-256 仍分别一致为 `9586E6422D039A58C1188F5DA4F504FDE04870E4383F29E56FA9FE2752CCDD00`、`65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096`；states 槽位精灵的 256 个不透明像素与底图首个槽位完全相同。`.\gradlew.bat compileJava --rerun-tasks --stacktrace`、`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1` 和 `scripts/verify-docs.ps1` 通过，`git diff --check` 仅有现存换行提示。真实 `.\gradlew.bat runClient --stacktrace` 完成 Applied Packaging 初始化、资源重载、OpenAL 和全部图集创建；日志无本模组类加载、missing model/texture、ERROR 或 FATAL，随后主动结束客户端。该变更只影响客户端绘制与 ScreenStyle 坐标，不改变菜单、网络或服务端状态，故不重复运行 GameTest；仓库没有自动打开终端的 UI 驱动，最终编辑区像素仍需人工进入世界复核。

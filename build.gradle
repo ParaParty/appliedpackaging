@@ -17,6 +17,24 @@ tasks.named('wrapper', Wrapper).configure {
 version = mod_version
 group = mod_group_id
 
+// Optional local fork used only by development runs. Flat-dir module notation keeps the jar on
+// ModDevGradle's remapping path; raw file dependencies cannot be mirrored as dependency constraints.
+def gtceuRuntimeJar = providers.gradleProperty('gtceuRuntimeJar').orNull
+def gtceuRuntimeFile = gtceuRuntimeJar ? file(gtceuRuntimeJar) : null
+def gtceuRuntimeBaseName = gtceuRuntimeFile?.name?.replaceFirst(/\.jar$/, '')
+def gtceuRuntimeVersionSeparator = gtceuRuntimeBaseName?.lastIndexOf('-') ?: -1
+if (gtceuRuntimeFile != null
+        && (!gtceuRuntimeFile.isFile() || gtceuRuntimeVersionSeparator <= 0)) {
+    throw new GradleException('gtceuRuntimeJar must point to an existing versioned jar')
+}
+def gtceuRuntimeArtifact = gtceuRuntimeFile == null
+        ? null
+        : gtceuRuntimeBaseName.substring(0, gtceuRuntimeVersionSeparator)
+def gtceuRuntimeVersion = gtceuRuntimeFile == null
+        ? null
+        : gtceuRuntimeBaseName.substring(gtceuRuntimeVersionSeparator + 1)
+def developmentRunDirectory = gtceuRuntimeFile == null ? file('run') : file('run-gtceu-fork')
+
 repositories {
     mavenLocal()
     mavenCentral()
@@ -40,6 +58,34 @@ repositories {
         }
         filter {
             includeGroup "mezz.jei"
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Create Maven"
+                url = "https://maven.createmod.net"
+            }
+        }
+        filter {
+            includeGroup "com.simibubi.create"
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "GTCEu Maven"
+                url = "https://maven.gtceu.com"
+            }
+        }
+        filter {
+            includeGroup "com.gregtechceu.gtceu"
+        }
+    }
+    if (gtceuRuntimeFile != null) {
+        flatDir {
+            name = "Local GTCEu fork"
+            dirs gtceuRuntimeFile.parentFile
         }
     }
 }
@@ -115,6 +161,8 @@ legacyForge {
 
         // applies to all the run configs above
         configureEach {
+            gameDirectory = developmentRunDirectory
+
             // Recommended logging data for a userdev environment
             // The markers can be added/remove as needed separated by commas.
             // "SCAN": For mods scan.
@@ -158,13 +206,6 @@ dependencies {
     // If you wish to declare dependencies against mods, make sure to use the 'mod*' configurations so that they're remapped.
 	// See https://github.com/neoforged/ModDevGradle/blob/main/LEGACY.md#remapping-mod-dependencies for more information.
 	
-    // Example optional mod dependency with JEI
-    // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
-    // modCompileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
-    // modCompileOnly "mezz.jei:jei-${mc_version}-neoforge-api:${jei_version}"
-    // We add the full version to localRuntime, not runtimeOnly, so that we do not publish a dependency on it
-    // modLocalRuntime "mezz.jei:jei-${mc_version}-neoforge:${jei_version}"
-
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
     // The group id is ignored when searching -- in this case, it is "blank"
@@ -181,7 +222,21 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
     modImplementation "maven.modrinth:${ae2_modrinth_project}:${ae2_modrinth_version}"
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
+
+    // Optional recipe-viewer and advanced-recipe integrations. API/recipe classes are compile-only;
+    // complete mods are loaded only in development runs and are not published as transitive dependencies.
+    modCompileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+    modCompileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
     modLocalRuntime "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
+    modCompileOnly "com.simibubi.create:create-${minecraft_version}:${create_version}:slim"
+    // The Maven slim jar is suitable for compilation; the all jar carries Create's bundled runtime libraries.
+    modLocalRuntime "com.simibubi.create:create-${minecraft_version}:${create_version}:all"
+    modCompileOnly "com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}"
+    if (gtceuRuntimeFile != null) {
+        modLocalRuntime "local.gtceu:${gtceuRuntimeArtifact}:${gtceuRuntimeVersion}"
+    } else {
+        modLocalRuntime "com.gregtechceu.gtceu:gtceu-${minecraft_version}:${gtceu_version}"
+    }
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
@@ -222,7 +277,7 @@ legacyForge.ideSyncTask generateModMetadata
 
 var copyGameTestStructures = tasks.register("copyGameTestStructures", Copy) {
     from "gameteststructures"
-    into "run/gameteststructures"
+    into new File(developmentRunDirectory, "gameteststructures")
 }
 tasks.named("prepareGameTestServerRun").configure {
     dependsOn copyGameTestStructures

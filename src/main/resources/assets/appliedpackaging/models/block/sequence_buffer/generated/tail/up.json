@@ -31,23 +31,19 @@
         },
         "north": {
           "texture": "#north",
-          "cullface": "north",
-          "rotation": 180
+          "cullface": "north"
         },
         "south": {
           "texture": "#south",
-          "cullface": "south",
-          "rotation": 180
+          "cullface": "south"
         },
         "west": {
           "texture": "#west",
-          "cullface": "west",
-          "rotation": 180
+          "cullface": "west"
         },
         "east": {
           "texture": "#east",
-          "cullface": "east",
-          "rotation": 180
+          "cullface": "east"
         }
       }
     }

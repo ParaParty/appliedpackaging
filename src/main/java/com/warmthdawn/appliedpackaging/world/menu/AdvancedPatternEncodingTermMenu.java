@@ -18,6 +18,8 @@ import appeng.parts.encoding.EncodingMode;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
+import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
+import com.warmthdawn.appliedpackaging.core.pattern.PackagePatternTransferPlan;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingState;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalHost;
@@ -54,6 +56,8 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
     private static final String ACTION_CYCLE_ADVANCED_OUTPUT = "apAdvancedCycleOutput";
     private static final String ACTION_ENCODE_PACKAGE = "apEncodePackagePattern";
     private static final String ACTION_SET_PACKAGE_COLOR = "apSetPackagePatternColor";
+    private static final String ACTION_IMPORT_ADVANCED_RECIPE = "apImportAdvancedRecipe";
+    private static final String ACTION_IMPORT_PACKAGE_RECIPE = "apImportPackageRecipe";
 
     private final AdvancedPatternEncodingTerminalHost specializedHost;
     private final FakeSlot[] advancedInputSlots =
@@ -113,6 +117,14 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         registerClientAction(ACTION_ENCODE_ADVANCED, this::encodeAdvanced);
         registerClientAction(ACTION_ENCODE_PACKAGE, this::encodePackage);
         registerClientAction(ACTION_SET_PACKAGE_COLOR, String.class, this::applyPackageColor);
+        registerClientAction(
+                ACTION_IMPORT_ADVANCED_RECIPE,
+                AdvancedPatternTransferPlan.Payload.class,
+                this::applyAdvancedRecipeImport);
+        registerClientAction(
+                ACTION_IMPORT_PACKAGE_RECIPE,
+                PackagePatternTransferPlan.Payload.class,
+                this::applyPackageRecipeImport);
 
         forceProcessingMode();
         specializedMode = host.getSpecializedPatternMode();
@@ -374,6 +386,22 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         }
     }
 
+    public void importAdvancedRecipe(AdvancedPatternTransferPlan plan) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_IMPORT_ADVANCED_RECIPE, plan.toPayload());
+        } else {
+            applyAdvancedRecipeImport(plan.toPayload());
+        }
+    }
+
+    public void importPackageRecipe(PackagePatternTransferPlan plan) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_IMPORT_PACKAGE_RECIPE, plan.toPayload());
+        } else {
+            applyPackageRecipeImport(plan.toPayload());
+        }
+    }
+
     public ItemStack encodeAdvancedPattern() {
         GenericStack[] inputs = new GenericStack[AdvancedProcessingPatternDataStorage.MAX_INPUT_SLOTS];
         boolean hasInput = false;
@@ -411,6 +439,38 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         }
         updateSpecializedSlotActivity();
         updatePackagePreview();
+    }
+
+    private void applyAdvancedRecipeImport(AdvancedPatternTransferPlan.Payload payload) {
+        if (payload == null) {
+            return;
+        }
+        try {
+            AdvancedPatternTransferPlan plan = payload.decode();
+            advancedState().replaceRecipe(plan);
+            applySpecializedMode(SpecializedPatternMode.ADVANCED);
+            columnData = ColumnSyncData.from(advancedState());
+            broadcastChanges();
+        } catch (RuntimeException | com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+            com.warmthdawn.appliedpackaging.AppliedPackaging.LOGGER.warn(
+                    "Rejected invalid advanced recipe import payload", e);
+        }
+    }
+
+    private void applyPackageRecipeImport(PackagePatternTransferPlan.Payload payload) {
+        if (payload == null) {
+            return;
+        }
+        try {
+            PackagePatternTransferPlan plan = payload.decode();
+            packageState().replaceRecipe(plan);
+            applySpecializedMode(SpecializedPatternMode.PACKAGE);
+            updatePackagePreview();
+            broadcastChanges();
+        } catch (RuntimeException | com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+            com.warmthdawn.appliedpackaging.AppliedPackaging.LOGGER.warn(
+                    "Rejected invalid package recipe import payload", e);
+        }
     }
 
     private void clearActiveEditor() {

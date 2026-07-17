@@ -36,17 +36,21 @@
         "south": {
           "texture": "#south",
           "cullface": "south",
-          "rotation": 180
+          "rotation": 180,
+          "uv": [
+            0,
+            16,
+            16,
+            0
+          ]
         },
         "west": {
           "texture": "#west",
-          "cullface": "west",
-          "rotation": 180
+          "cullface": "west"
         },
         "east": {
           "texture": "#east",
-          "cullface": "east",
-          "rotation": 180
+          "cullface": "east"
         }
       }
     }

@@ -280,6 +280,17 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "Combined specialized pattern terminal declares the package-mode scrollbar geometry"
 
+    $overlappingAdvancedHeaderFixture = New-AssetsFixture "overlapping-specialized-terminal-header-controls"
+    $overlappingAdvancedHeaderPath = Join-Path $overlappingAdvancedHeaderFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json"
+    $overlappingAdvancedHeader = Get-Content -Raw -LiteralPath $overlappingAdvancedHeaderPath | ConvertFrom-Json
+    $overlappingAdvancedHeader.widgets.processingCycleOutput.bottom = 172
+    $overlappingAdvancedHeader | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $overlappingAdvancedHeaderPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "overlapping specialized terminal header controls fixture" `
+        -RootPath $overlappingAdvancedHeaderFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Combined specialized pattern terminal keeps advanced header controls above the input-grid border"
+
     $badSequenceBufferBlockstateFixture = New-AssetsFixture "bad-sequence-buffer-blockstate"
     $badSequenceBufferBlockstatePath = Join-Path $badSequenceBufferBlockstateFixture "src/main/resources/assets/appliedpackaging/blockstates/sequence_buffer.json"
     $badSequenceBufferBlockstate = Get-Content -Raw -LiteralPath $badSequenceBufferBlockstatePath | ConvertFrom-Json
@@ -299,6 +310,28 @@ try {
         -RootPath $missingVerticalSequenceBufferModelFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Sequence Buffer model asset exists: src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/member/y.json"
+
+    $reversedSequenceBufferTailFixture = New-AssetsFixture "reversed-sequence-buffer-tail-edge"
+    $reversedSequenceBufferTailPath = Join-Path $reversedSequenceBufferTailFixture "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/tail/east.json"
+    $reversedSequenceBufferTail = Get-Content -Raw -LiteralPath $reversedSequenceBufferTailPath | ConvertFrom-Json
+    $reversedSequenceBufferTail.elements[0].faces.up.rotation = 270
+    $reversedSequenceBufferTail | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $reversedSequenceBufferTailPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "reversed Sequence Buffer tail edge fixture" `
+        -RootPath $reversedSequenceBufferTailFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer east tail keeps its cap outward and its open edge toward the controller"
+
+    $flatSequenceBufferItemFixture = New-AssetsFixture "flat-sequence-buffer-item"
+    $flatSequenceBufferShellPath = Join-Path $flatSequenceBufferItemFixture "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/shell.json"
+    $flatSequenceBufferShell = Get-Content -Raw -LiteralPath $flatSequenceBufferShellPath | ConvertFrom-Json
+    $flatSequenceBufferShell.PSObject.Properties.Remove("parent")
+    $flatSequenceBufferShell | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $flatSequenceBufferShellPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "flat Sequence Buffer inventory item fixture" `
+        -RootPath $flatSequenceBufferItemFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer shell inherits the standard 3D block item transforms"
 
     $badPackageModelFixture = New-AssetsFixture "bad-package-box-cropped-uv"
     $badPackageModelPath = Join-Path $badPackageModelFixture "src/main/resources/assets/appliedpackaging/models/item/package_box/fluix.json"

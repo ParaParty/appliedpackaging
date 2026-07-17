@@ -9,6 +9,7 @@ import appeng.util.inv.filter.IAEItemFilter;
 import appeng.util.ConfigInventory;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
+import com.warmthdawn.appliedpackaging.core.pattern.PackagePatternTransferPlan;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import java.util.Optional;
@@ -57,6 +58,27 @@ public final class PackagePatternEncodingState implements InternalInventoryHost 
 
     public ConfigInventory inputs() {
         return inputs;
+    }
+
+    /** Replaces JEI-imported contents and marker atomically while retaining the selected package color. */
+    public void replaceRecipe(PackagePatternTransferPlan plan) {
+        loading = true;
+        inputs.beginBatch();
+        try {
+            inputs.clear();
+            for (int slot = 0; slot < plan.inputs().size(); slot++) {
+                inputs.setStack(slot, plan.inputs().get(slot));
+            }
+            ItemStack markerStack = plan.marker() != null
+                            && plan.marker().what() instanceof appeng.api.stacks.AEItemKey itemKey
+                    ? itemKey.toStack()
+                    : ItemStack.EMPTY;
+            markerInventory.setItemDirect(0, markerStack);
+        } finally {
+            inputs.endBatch();
+            loading = false;
+        }
+        changeListener.run();
     }
 
     public void loadMarker(Optional<MarkerSpec> marker) {

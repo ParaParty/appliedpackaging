@@ -596,11 +596,11 @@ columns[].marker: optional GenericStack compound，只允许数量为 1 的 AEIt
 ```text
 package_pattern 的 tooltip、解码与输出预览都由正式注册的 `PackageCraftingPatternItem` 自己实现，并由 `PackageCraftingPatternDataStorage` 写入/读取当前 package_crafting_pattern 数据；不得通过未注册的遗留物品类静态转发 tooltip。
 AE2 原版 Pattern Encoding Terminal 继续由 AE2 的 `InitScreens` factory 创建原生 `PatternEncodingTermScreen`，四种原生模式、ScreenStyle、终端底图、recipe preview、数量编辑、tooltip 和编码按钮全部执行 AE2 原路径。本模组不向该 Screen 注册包裹按钮或包裹 panel，也不替换、委托或条件接管其绘制。唯一原版终端注入位于 `AEBaseMenu.isValidForSlot`：仅当实际菜单是普通 `PatternEncodingTermMenu`、语义是 `ENCODED_PATTERN` 且物品是两个 Applied Packaging 专用载体之一时返回 false；其它菜单和槽位继续走 AE2 原逻辑。
-`AdvancedPatternEncodingTerminalPart` 同时持有 `AdvancedPatternEncodingState`、`PackagePatternEncodingState` 与持久化 `SpecializedPatternMode`。高级状态独立保存 1377 个输入、32 个输出、启用列数与列颜色；包裹状态独立保存 81 个输入、颜色和 marker。页面切换只改变模式字段和两组槽位的 active/屏幕坐标，不复制、迁移、清空或复用任一页数据。part 拆除时只有包裹 marker 作为真实物品返还；两页 fake/config 输入输出不作为掉落。
+`AdvancedPatternEncodingTerminalPart` 同时持有 `AdvancedPatternEncodingState`、`PackagePatternEncodingState` 与持久化 `SpecializedPatternMode`。高级状态独立保存 1377 个输入、4 个输出、启用列数与列颜色；包裹状态独立保存 81 个输入、颜色和 marker。页面切换只改变模式字段和两组槽位的 active/屏幕坐标，不复制、迁移、清空或复用任一页数据。part 拆除时只有包裹 marker 作为真实物品返还；两页 fake/config 输入输出不作为掉落。
 `AdvancedPatternEncodingTermMenu` 仍继承 AE2 `PatternEncodingTermMenu` 以复用网络库存、空白/已编码载体、容器交互与数量包语义，但强制底层 `EncodingMode.PROCESSING`，并把继承的 crafting、smithing、stonecutting 和默认 processing 编辑槽全部停用。菜单为高级页和包裹页分别创建自有 fake slot；两个页面唯一共享的是 `BLANK_PATTERN` 与 `ENCODED_PATTERN` 载体槽。覆盖 `hideViewCells()` 返回 true，使构造阶段完全不创建 `VIEW_CELL` 槽。
 模式权威只有 `SpecializedPatternMode.ADVANCED/PACKAGE`。点击右侧模式按钮时客户端先做同值本地投影并发送一次 `apSetSpecializedPatternMode`，服务端保存到 part 后由 GuiSync 回传最终状态；切换过程中 Screen 和 Menu 实例始终不变。已编码槽放入 `advanced_processing_pattern` 时只解码到高级状态并切至 ADVANCED，放入 `package_pattern` 时只解码到包裹状态并切至 PACKAGE。载入包裹样板后，预览直接从包裹状态的 sparse 输入、颜色和 marker 生成，不调用 crafting recipe 或高级输出逻辑。
 `AdvancedPatternEncodingTermScreen` 是合并终端唯一 Screen。两页共享同一个外框尺寸和所有外围锚点：两行网络库存时均为 195x245、bottom 区 192px；网络行增加时只按每行 18px 向下扩展。用户 `advanced_pattern_encoding_terminal.png` 的高级编辑面板位于 screen `(8,68)`，尺寸 132x78；`pattern_mode_packaging.png` 的上半区 `[0,0,132,78]` 是包裹面板，下半区 `[0,128,132,78]` 与底图高级面板逐像素一致。包裹页只在 `(8,68)` 覆盖这块面板，不更换 full-screen base，不改变窗口中心、标题、搜索、网络滚动条、玩家栏、载体槽、Encode 或合成状态位置。
-模式改变时禁止调用 `resize/init` 或创建新 Screen；当前 Screen 在同一帧切换面板、widget 可见性和 slot active/坐标。高级输入首槽为 `(21,bottom=164)`、输出首槽为 `(119,bottom=164)`；包裹输入首槽为 `(24,bottom=164)`、marker 为 `(109,bottom=164)`、自动输出物品原点为 `(112,bottom=140)`。两页编辑槽库存完全隔离，非当前页槽移到屏幕外，切换不复制、迁移或清空内容。共同的空白样板、已编码样板和 Encode 分别为 `(150,bottom=165)`、`(150,bottom=118)`、`(150,bottom=145)`。
+模式改变时禁止调用 `resize/init` 或创建新 Screen；当前 Screen 在同一帧切换面板、widget 可见性和 slot active/坐标。高级输入首槽为 `(21,bottom=164)`、输出首槽为 `(119,bottom=164)`；包裹输入首槽为 `(24,bottom=164)`、marker 为 `(109,bottom=164)`、自动输出物品原点为 `(112,bottom=140)`。高级列头颜色/清空/循环按钮使用 `bottom=174`，列操作按钮使用 `bottom=173`，全部结束在输入框 `y=80` 顶边之前；不得沿用旧布局的 172/171。高级槽不得使用纯色填充覆盖用户底图；动态启用的输入列按 AE2 v19 `Icon.SLOT_BACKGROUND [192,192,18,18]` 在 `(slot.x-1,slot.y-1)` 绘制完整槽位精灵，未启用列不额外绘制并保留底图原像素，输出槽直接使用底图已有槽位材质。两页编辑槽库存完全隔离，非当前页槽移到屏幕外，切换不复制、迁移或清空内容。共同的空白样板、已编码样板和 Encode 分别为 `(150,bottom=165)`、`(150,bottom=118)`、`(150,bottom=145)`。
 右侧两个模式按钮逐项对应 AE2 v19 Pattern Encoding Terminal 的 `TabButton.Style.HORIZONTAL`：位于 `left=173`，使用 22x22 normal/selected/focus 背景，相邻标签使用 21px 步进；包裹按钮在上并固定于网络行结束后 6px，高级按钮在下。按钮不得渲染 ItemStack；高级页图标取 `advanced_pattern_encoding_terminal_states.png [16,32,16,16]` 的 processing/furnace sprite，包裹页图标取用户 `advanced_pattern_encoding_terminal_sprites.png [32,0,16,16]`，两者都按 horizontal tab 的 `(3,2)` sprite 原点绘制。包裹页显示 3x3 输入窗口并用小滚动条覆盖 27 行，marker 与自动输出使用包裹页专属槽；高级页显示四个可见列和三行输入/输出；无显示元件面板。
 点击颜色按钮只打开统一拾色弹窗。弹层打开时当前页输入、marker 和输出槽保持 active 并继续正常绘制物品，底层 tooltip 取消，鼠标点击/释放/拖拽/滚轮、键盘和字符输入由弹层拦截，点击外部只关闭弹层且不透传；主面板按钮保持可见但暂时停用。弹层通过前景 Z 层遮挡与其重叠的 slot/item，不通过隐藏物品制造遮挡。
 包裹样板模式编码时输出独立 `appliedpackaging:package_pattern` 物品，并写入 appliedpackaging.package_crafting_pattern NBT；tooltip、AE2 pattern decoder、Pattern Provider 和 Crafting CPU 通过该 NBT 识别输出包裹，装配室之外的机器不会把它当作可执行的分子装配室 crafting pattern。
@@ -783,3 +783,58 @@ PackageCraftingPatternDetails.sparseInputs()   81 格
 ### 12.7 第一版 GUI 边界
 
 第一版不注册 `SequenceBufferMenu`、Screen 或网络按钮。普通空手右键不打开伪 GUI；代码只提供“任意成员解析端点”和端点配置读写入口，后续 GUI 必须通过该入口打开端点并更新端点权威配置。过滤器、自动输出、阻挡、同步、样板模式和输入延迟均已进入持久化 schema 与 GameTest，不以未实现 GUI 为理由省略服务端逻辑。
+
+## 13. JEI 通用配方导入
+
+### 13.1 计划与传输
+
+`AdvancedPatternTransferPlan` 与 `PackagePatternTransferPlan` 是 JEI 和菜单状态之间的依赖中立模型。高级计划的 `columns` 最多 17 项，每列最多 81 个非空 `GenericStack`，`outputs` 最多 4 项；包裹计划最多 81 个有序输入和一个可空 item marker，marker 数量固定归一为 1。计划不保存第三方 recipe object、JEI ingredient type 或运行时 capability。网络 payload 使用 JSON，只保存每个 `GenericStack.writeTag()` 的 SNBT 和列边界，序列化长度不得超过 AE2 client action 的 32767 字符上限。客户端构造与服务端解码都拒绝空计划、非正数量、不可读 NBT、越界计数和超长 payload；服务端在解析各 stack SNBT 前先检查总长度与各层集合边界。
+
+`AdvancedPatternEncodingTermMenu.importAdvancedRecipe` / `importPackageRecipe` 只在客户端发送对应 action；服务端 action handler 解码出完整计划后才调用当前状态的 `replaceRecipe`。高级替换先清空旧输入/输出、写入新列和输出、保留重叠列颜色、给新增列设 Fluix，并切到 ADVANCED。包裹替换清空旧内容和 marker、写入新输入/marker、保留原包裹颜色，并切到 PACKAGE。两者都在完整验证后只触发一次状态变化并广播，另一页不参与替换。
+
+### 13.2 JEI 标准槽位回退
+
+未被专用适配器认领的 recipe 使用 `IRecipeSlotsView`：
+
+```text
+INPUT       -> 消耗资源；每槽使用 JEI 当前显示的首个可表示 item/fluid typed ingredient
+OUTPUT      -> 结果；该槽全部候选转换后必须只有一个不同 GenericStack
+CATALYST    -> 跳过
+RENDER_ONLY -> 跳过
+其它 ingredient type -> 拒绝
+```
+
+高级页把所有输入保持槽位顺序写入一个列，要求至少一个确定性输出；包裹页把所有输入保持槽位顺序写入 contents，并使用第一个 item 输出作为 marker，纯流体输出允许 marker 为空。通用层不会把多个 output 候选擅自选成当前动画帧，也不会把无输出燃料/世界生成信息伪装为加工配方。Thermal Series 的部分 JEI 分类把可选 catalyst 标为 INPUT，因此先从 recipe 的 `getInputItems` / `getInputFluids` 取得实际消耗数量，再分别保留前 N 个 item/fluid 输入，不能简单截取前 N 个混合槽。
+
+### 13.3 Create 映射
+
+`SequencedAssemblyRecipe` 的第 0 列是 `getIngredient()` 当前第一个可表示候选；之后按 `loops` 外层、`sequence` 内层的执行顺序追加每个工序的外部消耗。工序若包含多个 item/fluid ingredient，则该工序作为一列写入；`ItemApplicationRecipe` 的 held item 作为非消耗工具跳过。最终结果只允许一个确定性 item stack；结果池存在多个候选、概率不为 1 或结果为空时拒绝。该规则会接受确定性的 `create:sequenced_assembly/sturdy_sheet`，并保守拒绝带随机最终池的精密构件一类配方。
+
+`MechanicalCraftingRecipe` 先按配方实际 width/height 标记非空行和非空列。若非空行数小于等于非空列数，则按行拆分；否则按列拆分。选择方向中的每个非空行/列按网格自然顺序成为一个包裹列，空位跳过但非空 ingredient 不合并；因此 Create 自带 5 行、3 列均非空的 `mechanical_crafting/extendo_grip` 会产生 3 个列包裹，内容数依次为 2、5、2。该策略只最小化包裹数，不改变选中行/列内部顺序；相同包裹数时固定按行，保证结果稳定。
+
+其它 Create `ProcessingRecipe` 映射为单列：按 declared order 写入所有可表示 item/fluid ingredient，输出按 declared order 写入 item/fluid result。chance 不为 1 的输出、区间/随机数量、空 ingredient 候选和超过终端上限的内容都拒绝。Create 未安装或 recipe object 不属于受支持类型时适配器返回 not-applicable，不触发 Create 类加载。包裹页复用专用适配得到的确定性结果，再把各列按顺序展平成一个包裹 contents，并把首个 item 输出用作 marker。
+
+### 13.4 GTCEu 映射
+
+GTCEu 适配器只把确定性的 item/fluid capability content 写入样板。一次性输入直接写入单列；tick input 先把固定 amount 乘 recipe duration 后写入同列；输出采用相同规则。每个 `Content` 使用独立乘数，不能让前一个区间 ingredient 的固定数量污染后续 content。`chance == 0` 的输入视为不消耗催化剂而跳过；其它概率值、`min != max` 的区间数量、乘法溢出、缺少可表示候选或超出终端边界时拒绝。固定值 `IntProvider` 按其唯一数值换算；能量等机器运行 capability 不是待封装资源，保持在 JEI 配方显示中但不写入高级样板。GTCEu 未安装或 recipe object 不是 GT recipe 时返回 not-applicable。
+
+开发编译固定使用 GTCEu 7.5.3 API。GregTech Modern - StarT Fork 1.7.0b 仍声明 `modId=gtceu`，且本集成使用的 `GTRecipe`、`Content`、`ItemRecipeCapability`、`FluidRecipeCapability` 公共成员保持兼容；`-PgtceuRuntimeJar=<jar>` 只替换开发运行时，不改变发布 metadata 或引入 fork 硬依赖。fork 运行使用独立目录，避免与上游 GTCEu world registry 快照互相产生 missing mapping 噪音。
+
+### 13.5 已审查的通用兼容边界
+
+```text
+Mekanism Sawmill                       secondaryChance 只能为 0 或 1
+Immersive Engineering Crusher/Arc     StackWithChance 必须为 1
+Thermal machine recipes               output chance 必须是正整数；可选 catalyst 不计输入
+Botania Mana/Petal/Terra Plate        按 JEI INPUT/CATALYST/OUTPUT；Orechid 拒绝
+PneumaticCraft Explosion Crafting     lossRate 必须为 0；Pressure/Assembly/Fluid Mixer 按标准角色
+Ars Nouveau Crush                     chance 必须为 1 且 maxRange 必须为 1；动态 reagent NBT 拒绝
+Industrial Foregoing Laser Drill      拒绝非消耗/权重生成器；普通机器按标准角色
+Ender IO Sag Mill                     chance 必须为 1 且 grinding-ball bonus 为 NONE；切片工具按 CATALYST 跳过
+```
+
+检查通过反射读取公开语义，不对这些 Mod 添加编译或发布依赖。反射异常一律返回不支持，不回退为可能错误的确定性计划。
+
+### 13.6 JEI 转移结果
+
+`AdvancedRecipeTransferHandler` 只注册 `AdvancedPatternEncodingTermMenu.TYPE` 和 `RecipeType<?>` 通配入口，避免覆盖 AE2 原版终端已有转移器。专用适配器成功时保留其高级语义；没有专用适配器时进入 JEI 标准槽位回退。适配器明确拒绝时返回用户可见的本地化 error tooltip。JEI 调用 `doTransfer=false` 只进行完整可行性检查，不修改菜单；`doTransfer=true` 也只发送一次当前页面 action，最终状态仍以服务端校验结果为准。

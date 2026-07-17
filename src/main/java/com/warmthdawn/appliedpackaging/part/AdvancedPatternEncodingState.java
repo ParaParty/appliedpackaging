@@ -5,6 +5,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.util.ConfigInventory;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.MarkerSpec;
+import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -118,6 +119,36 @@ public final class AdvancedPatternEncodingState {
         try {
             resetValues();
         } finally {
+            loading = false;
+        }
+        changed();
+    }
+
+    /** Replaces only recipe contents; existing colors are retained for columns that still exist. */
+    public void replaceRecipe(AdvancedPatternTransferPlan plan) {
+        loading = true;
+        inputs.beginBatch();
+        outputs.beginBatch();
+        try {
+            inputs.clear();
+            outputs.clear();
+            activeColumns = plan.columns().size();
+            for (int column = 0; column < plan.columns().size(); column++) {
+                List<GenericStack> columnInputs = plan.columns().get(column);
+                int firstSlot = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+                for (int row = 0; row < columnInputs.size(); row++) {
+                    inputs.setStack(firstSlot + row, columnInputs.get(row));
+                }
+            }
+            for (int output = 0; output < plan.outputs().size(); output++) {
+                outputs.setStack(output, plan.outputs().get(output));
+            }
+            for (int column = activeColumns; column < colors.length; column++) {
+                colors[column] = PackageColor.FLUIX;
+            }
+        } finally {
+            outputs.endBatch();
+            inputs.endBatch();
             loading = false;
         }
         changed();

@@ -52,8 +52,10 @@ orientation_requirements:
   generated_model_count: 57
   multipart_entry_count: 58
   directed_side_arrow: texture +U points toward the block facing/front
-  formed_side_length: texture +V follows the sequence axis
+  formed_middle_length: texture +V follows the positive structure axis
+  formed_edge_length: texture +V points inward toward the controller
   preserve_block_facing_when_formed: true
+  item_display_parent: minecraft:block/block
 forbidden_visual_parts:
   - generated replacement pixels
   - resampling

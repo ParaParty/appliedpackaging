@@ -17,10 +17,11 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - Packaged-processing output ghost slots for item stacks and Forge fluid containers, including adjustable fluid amounts.
 - Package Storage Bus, Package Export Bus, and Package Unpacking Bus with valid-package-only behavior.
 - Package Bus configuration UI with ghost package template, color, marker, required-content filtering, and adjustable fluid required amounts.
+- Optional JEI transfer for both Advanced Pattern Encoding Terminal pages using standard JEI recipe roles, plus structure-preserving Create sequenced assembly, row/column-grouped mechanical crafting, and deterministic GTCEu item/fluid support verified against upstream GTCEu and the StarT Fork.
 - English and Simplified Chinese language files.
 - Recipes, loot tables, models, item textures, block textures, GUI icons, and Forge mod metadata.
 - Forge mod metadata declares the required Minecraft, Forge, AE2, and GuideME version ranges.
-- GameTest coverage for package data, transactions, filters, capacity, package machines, package buses, AE2 carriers, AE2 Pattern Provider integration, and fluid transactions.
+- GameTest coverage for package data, transactions, filters, capacity, package machines, package buses, AE2 carriers, AE2 Pattern Provider integration, fluid transactions, both JEI transfer plans, standard JEI roles and conservative rejection, real Create sequenced/mechanical recipes, and real GTCEu deterministic recipes.
 - `scripts/run-release-checks.ps1 -ReleaseCandidate` preset for the full final gate: build, data generation, GameTest server, server smoke, release audit, docs audit, release manifest, and release bundle.
 - `scripts/verify-release-readiness.ps1` and `run-release-checks.ps1 -RequireReadyForTag` gate final tagging on a frozen intake table, completed release status, explicit positive release-ready signals, and no pending, blocked, failed, unresolved-migration, missing-migration-target-path, traversal-migration-target-path, or misclassified requirement/asset migration-target intake rows.
 - `scripts/test-release-readiness.ps1` self-tests the release-readiness gate against ready, pending/blocked, failed-intake, unresolved-migration, missing-migration-target-path, traversal-migration-target-path, misclassified requirement/asset target, structural-failure, and missing-positive-signal fixtures.
@@ -49,7 +50,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 ### Verification
 
 - `.\gradlew.bat compileJava` passed.
-- `.\gradlew.bat runGameTestServer` passed with 112 required GameTests.
+- `.\gradlew.bat runGameTestServer` passed with 138 required GameTests.
 - `.\gradlew.bat runData` passed.
 - `.\gradlew.bat build` passed and generated `build/libs/appliedpackaging-0.1.0-dev.jar`.
 - `.\gradlew.bat runClient` smoke reached Applied Packaging initialization, SoundEngine startup, and block atlas creation with no recorded missing model or missing texture errors.
@@ -66,6 +67,7 @@ Initial publishable development build for Minecraft 1.20.1 Forge and Applied Ene
 - `scripts/verify-release-readiness.ps1` reports the current pending requirement/asset intake, and `scripts/verify-release-readiness.ps1 -RequireReadyForTag` fails as expected until that intake is resolved.
 - `scripts/test-release-readiness.ps1` passed, confirming the readiness gate can pass ready fixtures and fail pending, blocked, failed, unresolved-migration, missing-migration-target-path, traversal-migration-target-path, misclassified requirement/asset target, structurally invalid, or missing-positive-signal fixtures.
 - `scripts/test-release-check-plan.ps1` passed, confirming the full final release plan includes build, data, GameTest, server smoke, release audit, docs audit, readiness audit, manifest, and bundle in order, rejects all skip flags, and protects server world-load audit usage.
+- JEI 15.20.0.134, Create 6.0.8, and GTCEu 7.5.3 loaded together in the development client through main-menu resource initialization without an Applied Packaging classloading or resource failure; the in-world JEI transfer-button interaction remains a manual acceptance check.
 
 ### Removed
 

@@ -348,7 +348,8 @@ function Invoke-ReleaseAuditCase {
         [string] $RootPath,
         [string] $JarPath,
         [int] $ExpectedExitCode,
-        [string] $ExpectedText = ""
+        [string] $ExpectedText = "",
+        [switch] $RequireLog
     )
 
     $arguments = @(
@@ -358,6 +359,9 @@ function Invoke-ReleaseAuditCase {
         "-RootPath", $RootPath,
         "-JarPath", $JarPath
     )
+    if ($RequireLog) {
+        $arguments += "-RequireLog"
+    }
     $output = & pwsh @arguments 2>&1 | Out-String
     $exitCode = $LASTEXITCODE
 
@@ -385,6 +389,33 @@ try {
         -RootPath $validFixture.RootPath `
         -JarPath $validFixture.JarPath `
         -ExpectedExitCode 0
+
+    $optionalCompatLogFixture = New-ReleaseAuditFixture "known-optional-compat-log"
+    Write-Utf8File -Path (Join-Path $optionalCompatLogFixture.RootPath "run/logs/latest.log") -Text @"
+[Render thread/WARN] [mixin/]: Error loading class: com/simibubi/create/foundation/ponder/PonderWorld (java.lang.ClassNotFoundException: com.simibubi.create.foundation.ponder.PonderWorld)
+[main/WARN] [mixin/]: Error loading class: xaero/map/gui/GuiMap (java.lang.ClassNotFoundException: xaero.map.gui.GuiMap)
+[modloading-worker-0/WARN] [mixin/]: Error loading class: org/embeddedt/modernfix/api/entrypoint/ModernFixClientIntegration (java.lang.ClassNotFoundException: org.embeddedt.modernfix.api.entrypoint.ModernFixClientIntegration)
+[Worker-Main-1/INFO] [com.warmthdawn.appliedpackaging.AppliedPackaging/]: Applied Packaging initialized.
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "known third-party optional integration warnings fixture" `
+        -RootPath $optionalCompatLogFixture.RootPath `
+        -JarPath $optionalCompatLogFixture.JarPath `
+        -ExpectedExitCode 0 `
+        -ExpectedText "Ignored 3 known third-party optional-integration class warning(s)" `
+        -RequireLog
+
+    $unknownMissingClassLogFixture = New-ReleaseAuditFixture "unknown-missing-class-log"
+    Write-Utf8File -Path (Join-Path $unknownMissingClassLogFixture.RootPath "run/logs/latest.log") -Text @"
+[Render thread/ERROR] [appliedpackaging/]: Error loading class: com/warmthdawn/appliedpackaging/MissingIntegration (java.lang.ClassNotFoundException: com.warmthdawn.appliedpackaging.MissingIntegration)
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "unknown missing class log fixture" `
+        -RootPath $unknownMissingClassLogFixture.RootPath `
+        -JarPath $unknownMissingClassLogFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Log contains release-blocking diagnostic keywords" `
+        -RequireLog
 
     $missingReadmeFixture = New-ReleaseAuditFixture "missing-readme"
     Remove-ZipEntry -ZipPath $missingReadmeFixture.JarPath -EntryName "README.md"

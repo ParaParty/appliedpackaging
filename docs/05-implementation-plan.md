@@ -407,6 +407,43 @@ verify-docs.ps1 成功
 发布 tag 可追溯且只在最终范围冻结后创建
 ```
 
+## 阶段 9：JEI 通用高级/包裹配方导入
+
+交付：
+
+```text
+JEI 15.20.0.134 可选 API/runtime 开发依赖
+Create 6.0.8-291 与 GTCEu 7.5.3 可选 compile/runtime 开发依赖
+Advanced Pattern Encoding Terminal 专用 JEI 通用 recipe transfer handler
+标准 JEI INPUT/OUTPUT/CATALYST/RENDER_ONLY 角色到高级页与包裹页的通用映射
+Create Sequenced Assembly / ProcessingRecipe 确定性映射，以及 Mechanical Crafting 按行/列自动分包
+GTCEu item/fluid、一次性/tick content 确定性映射和 StarT Fork 独立 runtime 验证
+常见科技/魔法模组概率、动态产出和非消耗工具语义的保守门禁
+客户端计划校验、32767 字符 AE2 client-action 上限和服务端重校验
+双语拒绝原因、真实第三方配方 GameTest 与客户端人工验收
+```
+
+当前状态：
+
+```text
+已实现：Gradle 可选依赖、JEI 插件/handler、标准 JEI 角色适配、Create/GTCEu 专用适配器、纯高级/包裹传输计划、菜单 action、原子状态替换和双语错误。
+已验证：compileJava、build、runData 成功；真实 Forge GameTest runtime 分别加载上游 GTCEu 7.5.3 和独立 run-gtceu-fork 中的 StarT Fork 1.7.0b，两套组合均为 142/142。runClient 完成 JEI/Create/GTCEu/Applied Packaging 初始化、资源重载、OpenAL 和图集创建；资产、文档、机械发布审计及发布脚本聚合自测通过。
+GameTest 已覆盖：两种计划 payload 往返与原子替换、标准 JEI 四种角色、歧义输出/随机产出拒绝、真实 Create Sequenced Assembly、Mechanical Crafting 行列分组和真实 GTCEu 确定性 recipe。
+JEI “+”按钮、拒绝 tooltip 和导入后页面/列状态没有自动 UI 驱动，仍保留为客户端人工交互验收；其余文档/发布审计结果记录在 docs/06-verification-release.md 和 docs/development-log.md。
+```
+
+验收：
+
+```text
+三项可选 Mod 未声明为 mods.toml mandatory dependency
+只有 Advanced Pattern Encoding Terminal 获得新的 JEI recipe transfer；handler 按终端当前 ADVANCED/PACKAGE 页面选择目标
+常规确定性 JEI 配方无需逐模组硬编码即可导入；专用高级结构保持顺序和分组
+随机、区间、动态世界产出、歧义、不可表示或越界配方显示拒绝原因
+服务端拒绝损坏/恶意 payload，任何失败不留下部分菜单状态
+缺少 Create 或 GTCEu 时对应适配器不造成主模组类加载失败
+runGameTestServer、build、runData、runClient 和机械审计按风险通过
+```
+
 ## 风险
 
 AE2 样板集成风险：

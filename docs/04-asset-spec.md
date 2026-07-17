@@ -138,7 +138,7 @@ blockstate 由 state/facing/axis/sequence_direction/tail 组合选择显式六�
 unformed 是完整独立外壳；unformed_directed 在六个方向之一显示输出/指向口
 endpoint 只在指向结构内部的一侧显示端点连接口，不绘制自动输出口
 member 在结构轴两侧使用连续连接材质；member_directed 额外在垂直于轴的一侧显示输出口
-物品模型使用 unformed 独立外壳，不显示虚假的连接或输出方向
+物品模型使用 unformed 独立外壳，不显示虚假的连接或输出方向；外壳必须继承 `minecraft:block/block` 的标准 GUI/手持/地面三维变换，物品栏中不得正投影成单张平面方格
 ```
 
 正式资源路径：
@@ -150,7 +150,7 @@ assets/appliedpackaging/models/item/sequence_buffer.json
 assets/appliedpackaging/textures/block/sequence_buffer/faces/*.png
 ```
 
-序列缓存器正式贴图来自 `E:/resources/textures/appliedpackaging/ret/sequance_buffer_all.png`，源图固定为 64x64 RGBA、4x4 网格，每格 16x16。拆分时不得缩放、重采样、调色或量化；16 个格子按从上到下“无方向、方向正面、方向侧面、方向背面”，从左到右“未成型、中间成员侧面、边缘/尾部成员侧面、特殊面”命名。特殊列依次是主方块背面、连接遮挡面、主方块侧面和尾部背面。方向侧面原图的箭头沿贴图 `+U`；每个显式模型必须旋转该面，使箭头指向本方块 `facing` 的正面。五类状态、X/Y/Z 轴、六个 facing、中间/尾部和六个结构方向的全部合法组合都要经过资源审计；方向与结构轴平行时保留逻辑方向，但 blockstate 不选择带可见输出面的成员模型。
+序列缓存器正式贴图来自 `E:/resources/textures/appliedpackaging/ret/sequance_buffer_all.png`，源图固定为 64x64 RGBA、4x4 网格，每格 16x16。拆分时不得缩放、重采样、调色或量化；16 个格子按从上到下“无方向、方向正面、方向侧面、方向背面”，从左到右“未成型、中间成员侧面、边缘/尾部成员侧面、特殊面”命名。特殊列依次是主方块背面、连接遮挡面、主方块侧面和尾部背面。方向侧面原图的箭头沿贴图 `+U`；每个显式模型必须旋转该面，使箭头指向本方块 `facing` 的正面。中间侧面贴图的 `+V` 沿结构正轴，边缘/尾部侧面贴图的 `+V` 朝结构内部、`-V` 封口朝外；为同时满足箭头和尾部封口方向，必要时允许仅镜像 V。五类状态、X/Y/Z 轴、六个 facing、中间/尾部和六个结构方向的全部合法组合都要经过资源审计；方向与结构轴平行时保留逻辑方向，但 blockstate 不选择带可见输出面的成员模型。
 
 ## 5. 终端与总线资产
 
@@ -164,7 +164,7 @@ assets/appliedpackaging/textures/block/sequence_buffer/faces/*.png
 高级页和包裹页共享同一个 195px 宽 Screen/Menu、网络数据、左侧工具栏与 192px bottom。两行网络库存时两页都为 195x245；切换只替换中部 132x78 模式面板并重排当前页 slot，不调用 resize/init，不重新居中。右侧模式按钮使用 current-AE Pattern Encoding Terminal 的 22x22 `HORIZONTAL_TAB` / selected / focus sprites，固定 `left=173`、相邻步进 21px，包裹在上、高级在下；`package_bus_vertical_buttons_bg.png` 只用于左侧工具栏，不用于模式标签。菜单不创建 `VIEW_CELL` 槽，ScreenStyle 把继承的 view-cell 区域移出可见区，不绘制显示元件面板或空槽。
 GUI atlas: assets/appliedpackaging/textures/gui/pattern_mode_packaging.png
 atlas 固定为 256x256 RGBA；包裹面板位于 `[0,0,132,78]`，高级面板位于 `[0,128,132,78]`，后者与 full-screen base 的 `(8,68,132,78)` 逐像素相同。运行时把包裹面板原尺寸绘制到 `left=8,bottom=177`；不得缩放、裁成旧 124x66 或另换 full-screen base。运行时副本分别与用户 `adv-pattern-terminal-base.png`、`pattern_mode_packaging.png` 保持字节一致，SHA-256 为 `9586E6422D039A58C1188F5DA4F504FDE04870E4383F29E56FA9FE2752CCDD00`、`65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096`。
-高级输入/输出首槽分别为 `(21,bottom=164)`、`(119,bottom=164)`；包裹 3x3 输入首槽为 `(24,bottom=164)`，marker 为 `(109,bottom=164)`，自动输出物品原点为 `(112,bottom=140)`。包裹滚动条为 `(15,bottom=164)`，清空/颜色按钮为 `(80,bottom=164)` / `(90,bottom=164)`；两页共同的空白样板、已编码样板与 Encode 为 `(150,bottom=165)`、`(150,bottom=118)`、`(150,bottom=145)`。marker 为空时叠加用户 `package-storagebus-sprites.png` 的 `(32,16,16,16)` 自绘槽图标，并提供 current-main hover 与双行说明 tooltip。
+高级输入/输出首槽分别为 `(21,bottom=164)`、`(119,bottom=164)`；高级列头颜色/清空/循环按钮为 `bottom=174`，列操作按钮为 `bottom=173`，不得与输入框 `y=80` 顶边重叠。高级槽不得以纯色重绘槽内区：动态启用的输入列必须使用 `advanced_pattern_encoding_terminal_states.png [192,192,18,18]` 的 AE2 v19 `SLOT_BACKGROUND` 完整精灵，并绘制到 `(slot.x-1,slot.y-1)`；未启用列不叠加内容，输出槽使用 full-screen base 中已有的槽位材质。包裹 3x3 输入首槽为 `(24,bottom=164)`，marker 为 `(109,bottom=164)`，自动输出物品原点为 `(112,bottom=140)`。包裹滚动条为 `(15,bottom=164)`，清空/颜色按钮为 `(80,bottom=164)` / `(90,bottom=164)`；两页共同的空白样板、已编码样板与 Encode 为 `(150,bottom=165)`、`(150,bottom=118)`、`(150,bottom=145)`。marker 为空时叠加用户 `package-storagebus-sprites.png` 的 `(32,16,16,16)` 自绘槽图标，并提供 current-main hover 与双行说明 tooltip。
 清空按钮使用新版 states sprite `[224,200,8,8]`，颜色设置按钮复用统一 `PackageColorPicker.TriggerButton` 并在内部绘制当前颜色。模式标签不得渲染 ItemStack：高级标签使用 `advanced_pattern_encoding_terminal_states.png [16,32,16,16]` processing/furnace sprite，包裹标签使用 `advanced_pattern_encoding_terminal_sprites.png [32,0,16,16]` package sprite，按 horizontal tab 的 `(3,2)` 原点绘制。合并 Screen 的 Encode、合成状态、样板槽占位、左侧竖向工具栏、右侧水平模式标签和网络 scrollbar 复用项目内已记录 LGPL 来源的 states/toolbar/scrollbar 资源；不使用显示元件空槽资源。
 共享 sprite 中的 AE2 高版本滚动条适配像素以 LGPL-3.0-or-later 例外标记。
 ```

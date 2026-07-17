@@ -29,17 +29,23 @@
         "up": {
           "texture": "#up",
           "cullface": "up",
-          "rotation": 90
+          "rotation": 90,
+          "uv": [
+            0,
+            16,
+            16,
+            0
+          ]
         },
         "north": {
           "texture": "#north",
           "cullface": "north",
-          "rotation": 270
+          "rotation": 90
         },
         "south": {
           "texture": "#south",
           "cullface": "south",
-          "rotation": 90
+          "rotation": 270
         },
         "west": {
           "texture": "#west",

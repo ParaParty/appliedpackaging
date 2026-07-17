@@ -9,6 +9,9 @@ java=17
 ae2_version=15.4.10
 guideme_version=20.1.7
 guideme_version_range=[20.1.7,20.2.0)
+jei_version=15.20.0.134
+create_version=6.0.8-291
+gtceu_version=7.5.3
 moddevgradle_legacyforge=2.0.91 或更新的兼容 2.x
 ```
 
@@ -33,6 +36,8 @@ GuideME: [20.1.7,20.2.0)
 ```
 
 开发运行时还需显式加入 GuideME 20.1.7。AE2 15.4.10 的 mod metadata 要求 `guideme` 版本范围 `[20.1.7,20.2.0)`；当前 Gradle 使用的 AE2 Modrinth runtime 坐标不会自动带出这个传递依赖。因此 Applied Packaging 的发布 metadata 也直接声明 `guideme` mandatory dependency，避免发布页或整合包解析时漏装 GuideME。
+
+JEI 15.20.0.134、Create 6.0.8-291 和 GTCEu 7.5.3 只用于可选配方导入。Gradle 对 JEI 使用 API compile-only 加完整 Forge runtime，对 Create 使用 slim compile-only 加 all runtime，对 GTCEu 使用 compile-only 加可替换 runtime；它们不进入 Applied Packaging 的 mandatory 发布依赖范围，`mods.toml` 不声明三者。运行时只有 JEI 会发现 `@JeiPlugin`；Create/GTCEu 专用适配器位于独立类中，只在 `ModList` 确认对应 mod id 后通过类名加载。其它 Mod 不加入 Gradle 依赖，而是经 JEI `IRecipeSlotsView` 的标准角色和 typed ingredient API 通用兼容。`-PgtceuRuntimeJar=<versioned-jar>` 可把开发运行时替换为本地兼容 fork，并使用独立 `run-gtceu-fork` 目录；编译 API baseline 仍保持 GTCEu 7.5.3。
 
 ## 2. 核心架构
 
@@ -245,3 +250,25 @@ PackagePlanBuilder
 ```
 
 `PackageDataStorage` 隔离 NBT；实际网络读写只在 MEStorage 适配层中调用 AE2 runtime API。项目不保留尚未实现的 `AEGenericStackAdapter` 或 `GenericStorageEndpoint` 抽象。
+
+## 7. JEI 通用配方导入架构
+
+```text
+JEI recipe category / transfer context
+  -> AppliedPackagingJeiPlugin
+  -> AdvancedRecipeTransferHandler（只绑定 AdvancedPatternEncodingTermMenu）
+  -> 专用 AdvancedRecipeTransferAdapter 链（优先）
+       CreateRecipeTransferAdapter
+       GtceuRecipeTransferAdapter
+  -> StandardRecipeTransferAdapter（JEI INPUT/OUTPUT 通用回退）
+  -> AdvancedPatternTransferPlan / PackagePatternTransferPlan
+  -> 32 KiB 上限的 JSON action payload
+  -> AdvancedPatternEncodingTermMenu 服务端重新解码和完整校验
+  -> 当前页面状态的原子 replaceRecipe
+```
+
+JEI handler 不新增或复制第三方 recipe category，而是从当前分类提供的 recipe object 与 `IRecipeSlotsView` 构造 Applied Packaging 编辑状态。Create/GTCEu 专用适配器优先保留工序、tick content、随机概率等 recipe object 语义；其余配方由标准适配器读取 JEI `INPUT` / `OUTPUT`，自然跳过 `CATALYST` / `RENDER_ONLY`。通用层仅接受物品和 Forge 流体 typed ingredient；输入候选沿用 JEI 当前显示值，输出候选必须收敛到唯一 `GenericStack`。通用 JEI handler 自身只在 JEI 发现插件后加载；未安装 JEI 时主模组不引用该插件类。
+
+客户端计划先经过列数、每列输入数、输出数、数量、AEKey 和 32767 字符 AE2 client-action 上限检查；服务端收到 action 后先重复 payload 大小与结构边界检查，再通过 `TagParser` / `GenericStack.readTag` 重建每个 stack。高级页成功后强制模式为 ADVANCED，保留同索引列颜色并批量替换列/输出；包裹页成功后强制模式为 PACKAGE，保留当前包裹颜色并批量替换最多 81 个内容和可选 item marker。两个状态层都只发出一次 change callback，服务端校验失败只记录拒绝，不应用任何部分计划。
+
+`RecipeTransferSemantics` 是通用槽位层前的保守语义闸门。当前源码审查覆盖 Mekanism、Immersive Engineering、Thermal Series、Botania、PneumaticCraft、Ars Nouveau、Industrial Foregoing 与 Ender IO：明确拒绝概率副产物、动态数量/NBT、Orechid/激光钻等非普通消耗型生成器；修正 Thermal 把可选 catalyst 标成 INPUT 的已知分类问题，按实际 item/fluid 输入数量分别截取。未知 Mod 若遵守 JEI 标准角色且输出确定，可直接兼容；若把工具错误标为 INPUT 或把概率只画在 tooltip、recipe object 又不暴露语义，则不宣称已验证，需新增窄适配或拒绝规则。
