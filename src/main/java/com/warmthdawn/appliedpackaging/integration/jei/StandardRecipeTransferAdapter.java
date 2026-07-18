@@ -36,19 +36,22 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
     }
 
     @Override
-    public AdvancedRecipeTransferResult createPlan(Object recipe, IRecipeSlotsView recipeSlots) {
-        ParseResult parsed = parse(recipe, recipeSlots);
+    public AdvancedRecipeTransferResult createPlan(
+            Object recipe,
+            IRecipeSlotsView recipeSlots,
+            RecipeIngredientSelector ingredientSelector) {
+        ParseResult parsed = parse(recipe, recipeSlots, ingredientSelector);
         if (parsed.error() != null) {
             return new AdvancedRecipeTransferResult(null, parsed.error());
         }
         if (parsed.outputs().isEmpty()) {
             return AdvancedRecipeTransferResult.error(NO_OUTPUT);
         }
-        if (parsed.inputs().size() > AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE) {
+        if (parsed.inputs().size() > AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS) {
             return AdvancedRecipeTransferResult.error(
-                    "gui.appliedpackaging.jei_transfer.too_many_inputs",
+                    "gui.appliedpackaging.jei_transfer.too_many_columns",
                     parsed.inputs().size(),
-                    AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE);
+                    AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS);
         }
         if (parsed.outputs().size() > AdvancedProcessingPatternDataStorage.MAX_OUTPUT_SLOTS) {
             return AdvancedRecipeTransferResult.error(
@@ -58,14 +61,23 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         }
         try {
             return AdvancedRecipeTransferResult.success(
-                    new AdvancedPatternTransferPlan(List.of(parsed.inputs()), parsed.outputs()));
+                    new AdvancedPatternTransferPlan(
+                            parsed.inputs().stream().map(List::of).toList(),
+                            parsed.outputs()));
         } catch (IllegalArgumentException e) {
             return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
         }
     }
 
     public PackageRecipeTransferResult createPackagePlan(Object recipe, IRecipeSlotsView recipeSlots) {
-        ParseResult parsed = parse(recipe, recipeSlots);
+        return createPackagePlan(recipe, recipeSlots, RecipeIngredientSelector.empty());
+    }
+
+    public PackageRecipeTransferResult createPackagePlan(
+            Object recipe,
+            IRecipeSlotsView recipeSlots,
+            RecipeIngredientSelector ingredientSelector) {
+        ParseResult parsed = parse(recipe, recipeSlots, ingredientSelector);
         if (parsed.error() != null) {
             return new PackageRecipeTransferResult(null, parsed.error());
         }
@@ -87,7 +99,10 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         }
     }
 
-    private static ParseResult parse(Object recipe, IRecipeSlotsView recipeSlots) {
+    private static ParseResult parse(
+            Object recipe,
+            IRecipeSlotsView recipeSlots,
+            RecipeIngredientSelector ingredientSelector) {
         String rejectionKey = RecipeTransferSemantics.rejectionKey(recipe);
         if (rejectionKey != null) {
             return ParseResult.error(rejectionKey);
@@ -102,7 +117,7 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         int thermalFluidInputs = 0;
         List<GenericStack> inputs = new ArrayList<>();
         for (IRecipeSlotView slot : recipeSlots.getSlotViews(RecipeIngredientRole.INPUT)) {
-            SlotResult converted = convertInput(slot);
+            SlotResult converted = convertInput(slot, ingredientSelector);
             if (converted.errorKey() != null) {
                 return ParseResult.error(converted.errorKey());
             }
@@ -146,7 +161,9 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         return ParseResult.success(List.copyOf(inputs), List.copyOf(outputs));
     }
 
-    private static SlotResult convertInput(IRecipeSlotView slot) {
+    private static SlotResult convertInput(
+            IRecipeSlotView slot,
+            RecipeIngredientSelector ingredientSelector) {
         List<ITypedIngredient<?>> ingredients = slot.getAllIngredients().toList();
         if (ingredients.isEmpty()) {
             return SlotResult.empty();
@@ -154,14 +171,16 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         GenericStack displayed = slot.getDisplayedIngredient()
                 .map(StandardRecipeTransferAdapter::toGenericStack)
                 .orElse(null);
-        if (displayed != null) {
-            return SlotResult.success(displayed);
-        }
+        List<GenericStack> candidates = new ArrayList<>();
         for (ITypedIngredient<?> ingredient : ingredients) {
             GenericStack stack = toGenericStack(ingredient);
             if (stack != null) {
-                return SlotResult.success(stack);
+                candidates.add(stack);
             }
+        }
+        GenericStack selected = ingredientSelector.select(candidates, displayed);
+        if (selected != null) {
+            return SlotResult.success(selected);
         }
         return SlotResult.error(UNSUPPORTED_INGREDIENT);
     }

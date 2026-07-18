@@ -25,9 +25,6 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
     private static final int COLOR_BUTTON_X = 18;
     private static final int COLOR_BUTTON_Y = 28;
     private static final int COLOR_BUTTON_SIZE = 8;
-    private static final int SLOT_BACKGROUND_TOP = 0xff9a9fb4;
-    private static final int SLOT_BACKGROUND_BODY = 0xffadb0c4;
-    private static final int OPTIONAL_SLOT_DISABLED_ALPHA = 0x33;
 
     private final FilterModeButton filterModeButton;
     private final ActivationModeButton activationModeButton;
@@ -197,17 +194,10 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
     private void drawOptionalConfigSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
         for (Slot slot : menu.getSlots(SlotSemantics.CONFIG)) {
             if (slot instanceof IOptionalSlot optionalSlot) {
-                int alpha = optionalSlot.isSlotEnabled() ? 0xff : OPTIONAL_SLOT_DISABLED_ALPHA;
-                int x = offsetX + slot.x - 1;
-                int y = offsetY + slot.y - 1;
-                graphics.fill(x + 1, y + 1, x + 17, y + 2, withAlpha(SLOT_BACKGROUND_TOP, alpha));
-                graphics.fill(x + 1, y + 2, x + 17, y + 17, withAlpha(SLOT_BACKGROUND_BODY, alpha));
+                float opacity = optionalSlot.isSlotEnabled() ? 1.0F : 0.2F;
+                ModernSlotRendering.drawSlotBackground(graphics, offsetX, offsetY, slot, opacity);
             }
         }
-    }
-
-    private static int withAlpha(int argb, int alpha) {
-        return (argb & 0x00ffffff) | (alpha << 24);
     }
 
     private void openColorPicker() {

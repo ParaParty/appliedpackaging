@@ -10,6 +10,7 @@ import appeng.api.parts.IPartModel;
 import appeng.api.parts.PartModels;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
@@ -53,7 +54,8 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
             AppliedPackaging.id("part/package_bus_status_has_channel"));
 
     /**
-     * Formation-Plane-style network input: it accepts one package for output work but never exposes inventory.
+     * Formation-Plane-style network input backed by the one real held work package. New packages can only be inserted
+     * while the bus can start unpacking, but the package already being processed remains visible and extractable.
      */
     private final MEStorage packageInput = new MEStorage() {
         @Override
@@ -64,6 +66,18 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         @Override
         public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
             return insertPackageFromNetwork(what, amount, mode);
+        }
+
+        @Override
+        public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+            return extractHeldPackageFromNetwork(what, amount, mode);
+        }
+
+        @Override
+        public void getAvailableStacks(KeyCounter out) {
+            if (PackageItemStorage.isLegalPackageStack(heldPackage)) {
+                out.add(AEItemKey.of(heldPackage), 1);
+            }
         }
 
         @Override
@@ -109,7 +123,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
             validateHeldSlot(slot);
-            if (amount <= 0 || working || heldPackage.isEmpty()) {
+            if (amount <= 0 || heldPackage.isEmpty()) {
                 return ItemStack.EMPTY;
             }
             ItemStack extracted = heldPackage.copy();
@@ -205,6 +219,21 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
             unpackBlocked = false;
             retryCooldown = 0;
             startWorkingOperation();
+            configurationChanged();
+        }
+        return 1;
+    }
+
+    private long extractHeldPackageFromNetwork(AEKey what, long amount, Actionable mode) {
+        if (amount <= 0
+                || heldPackage.isEmpty()
+                || !(what instanceof AEItemKey itemKey)
+                || !itemKey.matches(heldPackage)) {
+            return 0;
+        }
+
+        if (!mode.isSimulate()) {
+            clearHeldPackageState();
             configurationChanged();
         }
         return 1;

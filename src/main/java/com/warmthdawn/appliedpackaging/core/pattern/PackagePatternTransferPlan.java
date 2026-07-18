@@ -49,6 +49,7 @@ public record PackagePatternTransferPlan(
     public static PackagePatternTransferPlan fromAdvanced(AdvancedPatternTransferPlan plan) {
         List<GenericStack> flattened = plan.columns().stream()
                 .flatMap(List::stream)
+                .filter(stack -> stack != null)
                 .toList();
         GenericStack marker = plan.outputs().stream()
                 .filter(stack -> stack.what() instanceof AEItemKey)

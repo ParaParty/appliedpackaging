@@ -63,6 +63,7 @@ public class AppliedPackaging {
             Upgrades.add(AEItems.SPEED_CARD, APBlocks.ME_PACKAGER.get(), 6);
             Upgrades.add(AEItems.INVERTER_CARD, APBlocks.ME_PACKAGER.get(), 1);
             Upgrades.add(AEItems.SPEED_CARD, APBlocks.PACKAGE_ASSEMBLER.get(), 5);
+            Upgrades.add(AEItems.REDSTONE_CARD, APBlocks.SEQUENCE_BUFFER.get(), 1);
             Upgrades.add(AEItems.FUZZY_CARD, APItems.PACKAGE_STORAGE_BUS.get(), 1);
             Upgrades.add(AEItems.INVERTER_CARD, APItems.PACKAGE_STORAGE_BUS.get(), 1);
             Upgrades.add(

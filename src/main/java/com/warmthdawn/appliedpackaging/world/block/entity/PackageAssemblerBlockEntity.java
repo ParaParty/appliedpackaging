@@ -40,16 +40,19 @@ import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Containers;
 import net.minecraft.world.entity.player.Inventory;
@@ -57,6 +60,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.ticks.TickPriority;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
@@ -78,6 +85,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     public static final int EXTRA_OUTPUT_SLOT_START = 3;
     public static final int UPGRADE_SLOT_COUNT = 5;
     public static final int MAX_CRAFT_PROGRESS = 100;
+    private static final int COMPARATOR_WORKING_SIGNAL = 1;
+    private static final int COMPARATOR_COMPLETED_SIGNAL = 2;
     private static final int SLOT_COUNT = EXTRA_OUTPUT_SLOT_START + OUTPUT_SLOT_COUNT - 1;
     private static final String ITEMS_TAG = "items";
     private static final String UPGRADES_TAG = "upgrades";
@@ -89,6 +98,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private static final String PENDING_COLOR_TAG = "color";
     private static final String PENDING_DATA_TAG = "data";
     private static final String OUTPUT_MODE_TAG = "output_mode";
+    private static final String BLOCKING_MODE_TAG = "blocking_mode";
+    private static final String AUTO_EXPORT_BATCH_ACTIVE_TAG = "auto_export_batch_active";
+    private static final String AUTO_EXPORT_BATCH_MODE_TAG = "auto_export_batch_mode";
+    private static final String AUTO_EXPORT_BATCH_DIRECTION_TAG = "auto_export_batch_direction";
     private static final String CRAFT_PROGRESS_TAG = "craft_progress";
     private static final String ACTIVE_PACKAGES_TAG = "active_packages";
     private static final String ACTIVE_MENU_PATTERN_TAG = "active_menu_pattern";
@@ -121,6 +134,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         protected void onContentsChanged(int slot) {
             if (slot == SLOT_PATTERN && activePackages.isEmpty()) {
                 craftingProgress = 0;
+            }
+            if (isOutputSlot(slot)) {
+                notifyComparatorOutputChanged();
             }
             setChanged();
         }
@@ -182,6 +198,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private ItemStack cachedCapacityComponent = ItemStack.EMPTY;
     private boolean cachedPatternCapacityValid = true;
     private OutputMode outputMode = OutputMode.ME_NETWORK;
+    private boolean blockingMode;
+    private boolean autoExportBatchActive;
+    private OutputMode autoExportBatchMode = OutputMode.NONE;
+    private Direction autoExportBatchDirection;
     private int craftingProgress;
 
     public PackageAssemblerBlockEntity(BlockPos pos, BlockState blockState) {
@@ -197,20 +217,27 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (level == null || level.isClientSide) {
             return;
         }
-        exportOutputIfEnabled();
+        finishAutoExportBatchIfEmpty();
+        int completedBeforeExport = completedOutputCount();
+        boolean exported = exportOutputIfEnabled();
+        boolean completedOutputCleared = exported
+                && completedBeforeExport > 0
+                && completedOutputCount() == 0;
+        if (completedOutputCleared) {
+            scheduleComparatorSamplingNextTick();
+        }
         if (!pendingPackages.isEmpty()) {
             outputPendingPackage();
-            exportOutputIfEnabled();
+            return;
+        }
+        if (completedOutputCount() > 0 || completedOutputCleared) {
             return;
         }
         if (!activePackages.isEmpty()) {
             advanceCraftingProgress();
-            exportOutputIfEnabled();
             return;
         }
-        if (tryStartAssembly() == AssemblyResult.ASSEMBLED) {
-            exportOutputIfEnabled();
-        }
+        tryStartAssembly();
     }
 
     public ItemStackHandler getItems() {
@@ -229,6 +256,70 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
     public int queuedOutputCount() {
         return pendingPackages.size();
+    }
+
+    public int completedOutputCount() {
+        long count = pendingPackages.size();
+        for (int outputIndex = 0; outputIndex < OUTPUT_SLOT_COUNT; outputIndex++) {
+            count += items.getStackInSlot(outputHandlerSlot(outputIndex)).getCount();
+        }
+        return count >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) count;
+    }
+
+    public int comparatorOutputSignal() {
+        if (completedOutputCount() > 0) {
+            return COMPARATOR_COMPLETED_SIGNAL;
+        }
+        return activePackages.isEmpty() ? 0 : COMPARATOR_WORKING_SIGNAL;
+    }
+
+    private void notifyComparatorOutputChanged() {
+        if (level != null && !level.isClientSide) {
+            level.updateNeighbourForOutputSignal(worldPosition, getBlockState().getBlock());
+        }
+    }
+
+    private void scheduleComparatorSamplingNextTick() {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            BlockPos adjacentPos = worldPosition.relative(direction);
+            if (!serverLevel.hasChunkAt(adjacentPos)) {
+                continue;
+            }
+            BlockState adjacentState = serverLevel.getBlockState(adjacentPos);
+            if (scheduleComparatorSample(serverLevel, adjacentPos, adjacentState, direction)) {
+                continue;
+            }
+            if (!adjacentState.isRedstoneConductor(serverLevel, adjacentPos)) {
+                continue;
+            }
+            BlockPos comparatorPos = adjacentPos.relative(direction);
+            if (serverLevel.hasChunkAt(comparatorPos)) {
+                scheduleComparatorSample(
+                        serverLevel,
+                        comparatorPos,
+                        serverLevel.getBlockState(comparatorPos),
+                        direction);
+            }
+        }
+    }
+
+    private static boolean scheduleComparatorSample(
+            ServerLevel level,
+            BlockPos comparatorPos,
+            BlockState comparatorState,
+            Direction sourceDirection) {
+        if (!comparatorState.is(Blocks.COMPARATOR)
+                || comparatorState.getValue(HorizontalDirectionalBlock.FACING) != sourceDirection.getOpposite()) {
+            return false;
+        }
+        if (level.getBlockTicks().hasScheduledTick(comparatorPos, Blocks.COMPARATOR)) {
+            level.getBlockTicks().clearArea(new BoundingBox(comparatorPos));
+        }
+        level.scheduleTick(comparatorPos, Blocks.COMPARATOR, 0, TickPriority.HIGH);
+        return true;
     }
 
     @Override
@@ -521,19 +612,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private static List<AdvancedMenuInputFilter> buildAdvancedMenuInputFilters(
             ItemStack patternStack,
             AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern encoded) {
-        List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(patternStack);
-        int sparseLimit = Math.min(
-                sparseInputs.size(),
-                encoded.activeColumnCount() * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE);
         List<AdvancedMenuInputFilter> filters = new ArrayList<>();
-        for (int sparseSlot = 0; sparseSlot < sparseLimit; sparseSlot++) {
-            GenericStack stack = sparseInputs.get(sparseSlot);
-            if (stack == null || stack.amount() <= 0) {
-                continue;
+        for (var column : encoded.columns()) {
+            for (GenericStack stack : column.inputs()) {
+                if (stack != null && stack.amount() > 0) {
+                    filters.add(new AdvancedMenuInputFilter(column.index(), stack));
+                }
             }
-            filters.add(new AdvancedMenuInputFilter(
-                    sparseSlot / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE,
-                    stack));
         }
         return List.copyOf(filters);
     }
@@ -657,6 +742,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         } else {
             return Optional.empty();
         }
+        return sparseInputLayout(sparse);
+    }
+
+    private static Optional<PackageLayout> sparseInputLayout(List<GenericStack> sparse) {
         List<Integer> contentSlots = new ArrayList<>();
         for (int slot = 0; slot < sparse.size(); slot++) {
             GenericStack input = sparse.get(slot);
@@ -826,6 +915,11 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     public void setOutputMode(OutputMode outputMode) {
         OutputMode next = outputMode == null ? OutputMode.ME_NETWORK : outputMode;
         if (this.outputMode != next) {
+            if (autoExportBatchActive
+                    && next != OutputMode.NONE
+                    && autoExportBatchMode != next) {
+                resetAutoExportBatch();
+            }
             this.outputMode = next;
             setChanged();
         }
@@ -833,6 +927,21 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
     public void toggleAutoExport() {
         setOutputMode(outputMode.next());
+    }
+
+    public boolean blockingMode() {
+        return blockingMode;
+    }
+
+    public void setBlockingMode(boolean blockingMode) {
+        if (this.blockingMode != blockingMode) {
+            this.blockingMode = blockingMode;
+            setChanged();
+        }
+    }
+
+    public void toggleBlockingMode() {
+        setBlockingMode(!blockingMode);
     }
 
     @Override
@@ -931,6 +1040,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         activePackages.addAll(packages);
         activeMenuPattern = ItemStack.EMPTY;
         craftingProgress = 0;
+        scheduleComparatorSamplingNextTick();
+        notifyComparatorOutputChanged();
         setChanged();
         syncClientVisualState();
     }
@@ -997,6 +1108,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         activePackages.clear();
         activeMenuPattern = ItemStack.EMPTY;
         craftingProgress = 0;
+        scheduleComparatorSamplingNextTick();
+        notifyComparatorOutputChanged();
         setChanged();
         syncClientVisualState();
     }
@@ -1053,30 +1166,214 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return false;
         }
 
-        promoteNextOutput();
-        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
-        if (output.isEmpty()) {
+        return switch (outputMode) {
+            case ME_NETWORK -> findOutputMEStorage()
+                    .filter(target -> ensureAutoExportBatchStarted(OutputMode.ME_NETWORK, target))
+                    .map(this::exportOutputOnceToMEStorage)
+                    .orElse(false);
+            case ADJACENT_BLOCK -> findAutoExportItemTarget()
+                    .map(target -> exportOutputOnceToItemHandler(target.handler()))
+                    .orElse(false);
+            case NONE -> false;
+        };
+    }
+
+    private boolean exportOutputIfEnabled() {
+        if (level == null
+                || level.isClientSide
+                || outputMode == OutputMode.NONE) {
             return false;
         }
-        Optional<MEStorage> meStorage = outputMode == OutputMode.ME_NETWORK ? findOutputMEStorage() : Optional.empty();
-        Optional<IItemHandler> itemTarget = outputMode == OutputMode.ADJACENT_BLOCK
-                ? findOutputItemHandler()
-                : Optional.empty();
-        if (meStorage.isPresent() && exportOutputToMEStorage(SLOT_OUTPUT, meStorage.get(), output)) {
-            return true;
+        return switch (outputMode) {
+            case ME_NETWORK -> findOutputMEStorage()
+                    .filter(target -> ensureAutoExportBatchStarted(OutputMode.ME_NETWORK, target))
+                    .map(this::exportAllOutputsToMEStorage)
+                    .orElse(false);
+            case ADJACENT_BLOCK -> findAutoExportItemTarget()
+                    .map(target -> exportAllOutputsToItemHandler(target.handler()))
+                    .orElse(false);
+            case NONE -> false;
+        };
+    }
+
+    private boolean exportAllOutputsToMEStorage(MEStorage target) {
+        boolean exported = false;
+        while (exportOutputOnceToMEStorage(target)) {
+            exported = true;
         }
-        if (itemTarget.isPresent() && exportOutputToItemHandler(SLOT_OUTPUT, itemTarget.get(), output)) {
-            return true;
+        finishAutoExportBatchIfEmpty();
+        return exported;
+    }
+
+    private boolean exportAllOutputsToItemHandler(IItemHandler target) {
+        boolean exported = false;
+        while (exportOutputOnceToItemHandler(target)) {
+            exported = true;
+        }
+        finishAutoExportBatchIfEmpty();
+        return exported;
+    }
+
+    private boolean exportOutputOnceToMEStorage(MEStorage target) {
+        promoteNextOutput();
+        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
+        return !output.isEmpty() && exportOutputToMEStorage(SLOT_OUTPUT, target, output);
+    }
+
+    private boolean exportOutputOnceToItemHandler(IItemHandler target) {
+        promoteNextOutput();
+        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
+        return !output.isEmpty() && exportOutputToItemHandler(SLOT_OUTPUT, target, output);
+    }
+
+    private boolean ensureAutoExportBatchStarted(OutputMode mode, MEStorage target) {
+        promoteNextOutput();
+        List<ItemStack> outputs = completedOutputStacks();
+        if (outputs.isEmpty()) {
+            finishAutoExportBatchIfEmpty();
+            return false;
+        }
+        if (autoExportBatchActive) {
+            return autoExportBatchMode == mode;
+        }
+        Set<AEKey> outputTypes = outputTypes(outputs);
+        if (blockingMode && containsAnyOutputType(target, outputTypes)) {
+            return false;
+        }
+        if (!acceptsAllOutputs(target, outputs)) {
+            return false;
+        }
+        startAutoExportBatch(mode, null);
+        return true;
+    }
+
+    private boolean ensureAutoExportBatchStarted(Direction direction, IItemHandler target) {
+        promoteNextOutput();
+        List<ItemStack> outputs = completedOutputStacks();
+        if (outputs.isEmpty()) {
+            finishAutoExportBatchIfEmpty();
+            return false;
+        }
+        if (autoExportBatchActive) {
+            return autoExportBatchMode == OutputMode.ADJACENT_BLOCK
+                    && autoExportBatchDirection == direction;
+        }
+        Set<AEKey> outputTypes = outputTypes(outputs);
+        if (blockingMode && containsAnyOutputType(target, outputTypes)) {
+            return false;
+        }
+        if (!acceptsAllOutputs(target, outputs)) {
+            return false;
+        }
+        startAutoExportBatch(OutputMode.ADJACENT_BLOCK, direction);
+        return true;
+    }
+
+    private Optional<AdjacentItemTarget> findAutoExportItemTarget() {
+        if (autoExportBatchActive) {
+            if (autoExportBatchMode != OutputMode.ADJACENT_BLOCK || autoExportBatchDirection == null) {
+                return Optional.empty();
+            }
+            return findOutputItemHandler(autoExportBatchDirection)
+                    .filter(target -> ensureAutoExportBatchStarted(autoExportBatchDirection, target))
+                    .map(target -> new AdjacentItemTarget(autoExportBatchDirection, target));
+        }
+        for (Direction direction : Direction.values()) {
+            Optional<IItemHandler> target = findOutputItemHandler(direction);
+            if (target.isPresent() && ensureAutoExportBatchStarted(direction, target.get())) {
+                return Optional.of(new AdjacentItemTarget(direction, target.get()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private List<ItemStack> completedOutputStacks() {
+        List<ItemStack> outputs = new ArrayList<>();
+        for (int outputIndex = 0; outputIndex < OUTPUT_SLOT_COUNT; outputIndex++) {
+            ItemStack output = items.getStackInSlot(outputHandlerSlot(outputIndex));
+            if (!output.isEmpty()) {
+                outputs.add(output.copy());
+            }
+        }
+        for (QueuedPackage pendingPackage : pendingPackages) {
+            outputs.add(packageStack(pendingPackage.color(), pendingPackage.data()));
+        }
+        return outputs;
+    }
+
+    private static Set<AEKey> outputTypes(List<ItemStack> outputs) {
+        Set<AEKey> outputTypes = new HashSet<>();
+        for (ItemStack output : outputs) {
+            outputTypes.add(AEItemKey.of(output).dropSecondary());
+        }
+        return outputTypes;
+    }
+
+    private static boolean containsAnyOutputType(MEStorage target, Set<AEKey> outputTypes) {
+        for (var entry : target.getAvailableStacks()) {
+            if (entry.getLongValue() > 0 && outputTypes.contains(entry.getKey().dropSecondary())) {
+                return true;
+            }
         }
         return false;
     }
 
-    private boolean exportOutputIfEnabled() {
-        boolean exported = false;
-        while (outputMode != OutputMode.NONE && exportOutputOnce()) {
-            exported = true;
+    private static boolean containsAnyOutputType(IItemHandler target, Set<AEKey> outputTypes) {
+        for (int slot = 0; slot < target.getSlots(); slot++) {
+            ItemStack stack = target.getStackInSlot(slot);
+            if (!stack.isEmpty() && outputTypes.contains(AEItemKey.of(stack).dropSecondary())) {
+                return true;
+            }
         }
-        return exported;
+        return false;
+    }
+
+    private static boolean acceptsAllOutputs(MEStorage target, List<ItemStack> outputs) {
+        for (ItemStack output : outputs) {
+            long accepted = target.insert(
+                    AEItemKey.of(output),
+                    output.getCount(),
+                    Actionable.SIMULATE,
+                    IActionSource.empty());
+            if (accepted < output.getCount()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean acceptsAllOutputs(IItemHandler target, List<ItemStack> outputs) {
+        for (ItemStack output : outputs) {
+            if (!ItemHandlerHelper.insertItemStacked(target, output.copy(), true).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void startAutoExportBatch(OutputMode mode, Direction direction) {
+        autoExportBatchActive = true;
+        autoExportBatchMode = mode;
+        autoExportBatchDirection = direction;
+        setChanged();
+    }
+
+    private void finishAutoExportBatchIfEmpty() {
+        if (autoExportBatchActive && completedOutputCount() == 0) {
+            resetAutoExportBatch();
+        }
+    }
+
+    private void resetAutoExportBatch() {
+        if (!autoExportBatchActive
+                && autoExportBatchMode == OutputMode.NONE
+                && autoExportBatchDirection == null) {
+            return;
+        }
+        autoExportBatchActive = false;
+        autoExportBatchMode = OutputMode.NONE;
+        autoExportBatchDirection = null;
+        setChanged();
     }
 
     private boolean exportOutputToMEStorage(int itemSlot, MEStorage target, ItemStack output) {
@@ -1146,6 +1443,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         AssemblyResult result = outputPackage(pendingPackages.get(0));
         if (result == AssemblyResult.ASSEMBLED) {
             pendingPackages.remove(0);
+            notifyComparatorOutputChanged();
             setChanged();
         }
         return result;
@@ -1271,7 +1569,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             Optional<QueuedPackage> queued = buildPatternPackage(
                     column.color(),
                     column.marker(),
-                    inputs);
+                    inputs,
+                    sparseInputLayout(column.inputs()),
+                    configuredCapacityProfile());
             if (queued.isEmpty()) {
                 return Optional.empty();
             }
@@ -1412,7 +1712,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     continue;
                 }
                 hasPackage = true;
-                if (buildPatternPackage(column.color(), column.marker(), inputs, capacity).isEmpty()) {
+                if (buildPatternPackage(
+                                column.color(),
+                                column.marker(),
+                                inputs,
+                                sparseInputLayout(column.inputs()),
+                                capacity)
+                        .isEmpty()) {
                     return false;
                 }
             }
@@ -1520,39 +1826,31 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (encoded.isEmpty()) {
             return Optional.empty();
         }
-        List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(definitionStack);
-        int encodedSlots = encoded.get().activeColumnCount()
-                * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
-        for (int slot = encodedSlots; slot < sparseInputs.size(); slot++) {
-            if (sparseInputs.get(slot) != null) {
-                return Optional.empty();
-            }
-        }
-
         Map<AEKey, Long> remainingInputs = new HashMap<>(aggregateInputs(inputHolder).orElse(Map.of()));
         List<List<GenericStack>> columnInputs = new ArrayList<>();
         for (int column = 0; column < encoded.get().activeColumnCount(); column++) {
             columnInputs.add(new ArrayList<>());
         }
         List<GenericStack> consumedInputs = new ArrayList<>();
-        for (int slot = 0; slot < encodedSlots; slot++) {
-            GenericStack input = slot < sparseInputs.size() ? sparseInputs.get(slot) : null;
-            if (input == null || input.amount() <= 0) {
-                continue;
+        for (var column : encoded.get().columns()) {
+            for (GenericStack input : column.inputs()) {
+                if (input == null || input.amount() <= 0) {
+                    continue;
+                }
+                long available = remainingInputs.getOrDefault(input.what(), 0L);
+                if (available < input.amount()) {
+                    return Optional.empty();
+                }
+                long remaining = available - input.amount();
+                if (remaining == 0) {
+                    remainingInputs.remove(input.what());
+                } else {
+                    remainingInputs.put(input.what(), remaining);
+                }
+                GenericStack consumed = new GenericStack(input.what(), input.amount());
+                columnInputs.get(column.index()).add(consumed);
+                consumedInputs.add(consumed);
             }
-            long available = remainingInputs.getOrDefault(input.what(), 0L);
-            if (available < input.amount()) {
-                return Optional.empty();
-            }
-            long remaining = available - input.amount();
-            if (remaining == 0) {
-                remainingInputs.remove(input.what());
-            } else {
-                remainingInputs.put(input.what(), remaining);
-            }
-            GenericStack consumed = new GenericStack(input.what(), input.amount());
-            columnInputs.get(slot / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE).add(consumed);
-            consumedInputs.add(consumed);
         }
         if (hasRemainingInputs(remainingInputs)) {
             return Optional.empty();
@@ -1567,7 +1865,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             Optional<QueuedPackage> queued = buildPatternPackage(
                     column.color(),
                     column.marker(),
-                    inputs);
+                    inputs,
+                    sparseInputLayout(column.inputs()),
+                    configuredCapacityProfile());
             if (queued.isEmpty()) {
                 return Optional.empty();
             }
@@ -1612,7 +1912,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (packages.isEmpty() || !pendingPackages.isEmpty() || !hasOutputRoom()) {
             return false;
         }
+        resetAutoExportBatch();
         QueuedPackage first = packages.get(0);
+        scheduleComparatorSamplingNextTick();
         if (!insertOutputPackage(packageStack(first.color(), first.data())).isEmpty()) {
             return false;
         }
@@ -1805,8 +2107,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         return Optional.of(grid.getStorageService().getInventory());
     }
 
-    private Optional<IItemHandler> findOutputItemHandler() {
-        Direction targetDirection = outputDirection();
+    private Optional<IItemHandler> findOutputItemHandler(Direction targetDirection) {
         BlockEntity targetBlockEntity = level.getBlockEntity(worldPosition.relative(targetDirection));
         if (targetBlockEntity == null) {
             return Optional.empty();
@@ -1823,11 +2124,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         } catch (IllegalStateException e) {
             return Optional.empty();
         }
-    }
-
-    private Direction outputDirection() {
-        Direction facing = getBlockState().getValue(AbstractHorizontalMachineBlock.FACING);
-        return facing.getOpposite();
     }
 
     @Override
@@ -1876,6 +2172,14 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         tag.putInt(CRAFT_PROGRESS_TAG, craftingProgress);
         tag.putString(OUTPUT_MODE_TAG, outputMode.id());
+        tag.putBoolean(BLOCKING_MODE_TAG, blockingMode);
+        tag.putBoolean(AUTO_EXPORT_BATCH_ACTIVE_TAG, autoExportBatchActive);
+        if (autoExportBatchActive) {
+            tag.putString(AUTO_EXPORT_BATCH_MODE_TAG, autoExportBatchMode.id());
+            if (autoExportBatchDirection != null) {
+                tag.putInt(AUTO_EXPORT_BATCH_DIRECTION_TAG, autoExportBatchDirection.get3DDataValue());
+            }
+        }
     }
 
     @Override
@@ -1887,6 +2191,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         upgrades.readFromNBT(tag, UPGRADES_TAG);
         loadMenuInputs(tag);
         outputMode = OutputMode.byId(tag.getString(OUTPUT_MODE_TAG)).orElse(OutputMode.ME_NETWORK);
+        blockingMode = tag.getBoolean(BLOCKING_MODE_TAG);
         craftingProgress = Math.max(0, Math.min(MAX_CRAFT_PROGRESS, tag.getInt(CRAFT_PROGRESS_TAG)));
         loadQueuedPackages(tag, ACTIVE_PACKAGES_TAG, activePackages);
         activeMenuPattern = tag.contains(ACTIVE_MENU_PATTERN_TAG, Tag.TAG_COMPOUND)
@@ -1897,6 +2202,22 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         loadPendingPackages(tag);
         promoteNextOutput();
+        autoExportBatchActive = tag.getBoolean(AUTO_EXPORT_BATCH_ACTIVE_TAG);
+        autoExportBatchMode = OutputMode.byId(tag.getString(AUTO_EXPORT_BATCH_MODE_TAG))
+                .filter(mode -> mode != OutputMode.NONE)
+                .orElse(OutputMode.NONE);
+        autoExportBatchDirection = tag.contains(AUTO_EXPORT_BATCH_DIRECTION_TAG, Tag.TAG_INT)
+                ? Direction.from3DDataValue(tag.getInt(AUTO_EXPORT_BATCH_DIRECTION_TAG))
+                : null;
+        if (!autoExportBatchActive
+                || autoExportBatchMode == OutputMode.NONE
+                || completedOutputCount() == 0
+                || (autoExportBatchMode == OutputMode.ADJACENT_BLOCK && autoExportBatchDirection == null)
+                || (outputMode != OutputMode.NONE && outputMode != autoExportBatchMode)) {
+            autoExportBatchActive = false;
+            autoExportBatchMode = OutputMode.NONE;
+            autoExportBatchDirection = null;
+        }
     }
 
     @Override
@@ -2147,6 +2468,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         ItemStack extracted = items.extractItem(SLOT_OUTPUT, 1, simulate);
         if (!simulate && !extracted.isEmpty()) {
             promoteNextOutput();
+            finishAutoExportBatchIfEmpty();
             setChanged();
         }
         return extracted;
@@ -2249,6 +2571,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private record QueuedPackage(PackageColor color, PackageData data) {
+    }
+
+    private record AdjacentItemTarget(Direction direction, IItemHandler handler) {
     }
 
     private record ProviderPlan(List<QueuedPackage> packages, List<GenericStack> consumedInputs) {

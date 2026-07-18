@@ -11,8 +11,10 @@ import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatte
 import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
 import com.warmthdawn.appliedpackaging.integration.jei.AdvancedRecipeTransferAdapter;
 import com.warmthdawn.appliedpackaging.integration.jei.AdvancedRecipeTransferResult;
+import com.warmthdawn.appliedpackaging.integration.jei.RecipeIngredientSelector;
 import com.warmthdawn.appliedpackaging.integration.jei.RecipeStackConversions;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import net.minecraft.core.RegistryAccess;
@@ -32,17 +34,22 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
     }
 
     @Override
-    public AdvancedRecipeTransferResult createPlan(Object recipe, IRecipeSlotsView recipeSlots) {
+    public AdvancedRecipeTransferResult createPlan(
+            Object recipe,
+            IRecipeSlotsView recipeSlots,
+            RecipeIngredientSelector ingredientSelector) {
         if (recipe instanceof SequencedAssemblyRecipe sequencedAssembly) {
-            return createSequencedPlan(sequencedAssembly);
+            return createSequencedPlan(sequencedAssembly, ingredientSelector);
         }
         if (recipe instanceof MechanicalCraftingRecipe mechanicalCrafting) {
-            return createMechanicalCraftingPlan(mechanicalCrafting);
+            return createMechanicalCraftingPlan(mechanicalCrafting, ingredientSelector);
         }
-        return createProcessingPlan((ProcessingRecipe<?>) recipe);
+        return createProcessingPlan((ProcessingRecipe<?>) recipe, ingredientSelector);
     }
 
-    private AdvancedRecipeTransferResult createMechanicalCraftingPlan(MechanicalCraftingRecipe recipe) {
+    private AdvancedRecipeTransferResult createMechanicalCraftingPlan(
+            MechanicalCraftingRecipe recipe,
+            RecipeIngredientSelector ingredientSelector) {
         int width = recipe.getWidth();
         int height = recipe.getHeight();
         List<Ingredient> ingredients = recipe.getIngredients();
@@ -65,22 +72,24 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
         int groups = splitByRows ? height : width;
         int positions = splitByRows ? width : height;
         for (int group = 0; group < groups; group++) {
-            List<GenericStack> packageInputs = new ArrayList<>();
+            List<GenericStack> packageInputs = new ArrayList<>(positions);
             for (int position = 0; position < positions; position++) {
                 int row = splitByRows ? group : position;
                 int column = splitByRows ? position : group;
                 Ingredient ingredient = ingredients.get(row * width + column);
                 if (ingredient.isEmpty()) {
+                    packageInputs.add(null);
                     continue;
                 }
-                GenericStack stack = RecipeStackConversions.firstItem(ingredient);
+                GenericStack stack = ingredientSelector.select(ingredient);
                 if (stack == null) {
                     return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
                 }
                 packageInputs.add(stack);
             }
+            trimTrailingNulls(packageInputs);
             if (!packageInputs.isEmpty()) {
-                columns.add(List.copyOf(packageInputs));
+                columns.add(Collections.unmodifiableList(packageInputs));
             }
         }
 
@@ -89,6 +98,12 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
             return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
         }
         return finish(columns, List.of(output));
+    }
+
+    private static void trimTrailingNulls(List<GenericStack> stacks) {
+        while (!stacks.isEmpty() && stacks.get(stacks.size() - 1) == null) {
+            stacks.remove(stacks.size() - 1);
+        }
     }
 
     private static int countTrue(boolean[] values) {
@@ -101,12 +116,14 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
         return count;
     }
 
-    private AdvancedRecipeTransferResult createSequencedPlan(SequencedAssemblyRecipe recipe) {
+    private AdvancedRecipeTransferResult createSequencedPlan(
+            SequencedAssemblyRecipe recipe,
+            RecipeIngredientSelector ingredientSelector) {
         if (recipe.resultPool.size() != 1
                 || Float.compare(recipe.resultPool.get(0).getChance(), 1.0f) != 0) {
             return AdvancedRecipeTransferResult.error(RANDOM_OUTPUT);
         }
-        GenericStack initialInput = RecipeStackConversions.firstItem(recipe.getIngredient());
+        GenericStack initialInput = ingredientSelector.select(recipe.getIngredient());
         GenericStack output = GenericStack.fromItemStack(recipe.resultPool.get(0).getStack());
         if (initialInput == null || output == null) {
             return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
@@ -128,14 +145,15 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
 
                 List<GenericStack> column = new ArrayList<>();
                 for (Ingredient ingredient : itemIngredients) {
-                    GenericStack stack = RecipeStackConversions.firstItem(ingredient);
+                    GenericStack stack = ingredientSelector.select(ingredient);
                     if (stack == null) {
                         return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
                     }
                     column.add(stack);
                 }
                 for (var ingredient : fluidIngredients) {
-                    GenericStack stack = RecipeStackConversions.firstFluid(ingredient.getMatchingFluidStacks());
+                    GenericStack stack = ingredientSelector.select(
+                            RecipeStackConversions.fluidCandidates(ingredient.getMatchingFluidStacks()));
                     if (stack == null) {
                         return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
                     }
@@ -149,7 +167,9 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
         return finish(columns, List.of(output));
     }
 
-    private AdvancedRecipeTransferResult createProcessingPlan(ProcessingRecipe<?> recipe) {
+    private AdvancedRecipeTransferResult createProcessingPlan(
+            ProcessingRecipe<?> recipe,
+            RecipeIngredientSelector ingredientSelector) {
         List<GenericStack> inputs = new ArrayList<>();
         List<Ingredient> itemIngredients = recipe.getIngredients();
         boolean keepsTool = recipe instanceof ItemApplicationRecipe itemApplication
@@ -158,14 +178,15 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
             if (keepsTool && index == 1) {
                 continue;
             }
-            GenericStack stack = RecipeStackConversions.firstItem(itemIngredients.get(index));
+            GenericStack stack = ingredientSelector.select(itemIngredients.get(index));
             if (stack == null) {
                 return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
             }
             inputs.add(stack);
         }
         for (var ingredient : recipe.getFluidIngredients()) {
-            GenericStack stack = RecipeStackConversions.firstFluid(ingredient.getMatchingFluidStacks());
+            GenericStack stack = ingredientSelector.select(
+                    RecipeStackConversions.fluidCandidates(ingredient.getMatchingFluidStacks()));
             if (stack == null) {
                 return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
             }
@@ -191,7 +212,7 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
             }
             outputs.add(stack);
         }
-        return finish(List.of(inputs), outputs);
+        return finish(inputs.stream().map(List::of).toList(), outputs);
     }
 
     private static AdvancedRecipeTransferResult finish(

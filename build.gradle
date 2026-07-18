@@ -34,6 +34,10 @@ def gtceuRuntimeVersion = gtceuRuntimeFile == null
         ? null
         : gtceuRuntimeBaseName.substring(gtceuRuntimeVersionSeparator + 1)
 def developmentRunDirectory = gtceuRuntimeFile == null ? file('run') : file('run-gtceu-fork')
+def recipeViewerRuntime = providers.gradleProperty('recipeViewerRuntime').getOrElse('jei').toLowerCase(Locale.ROOT)
+if (!(recipeViewerRuntime in ['jei', 'emi', 'none'])) {
+    throw new GradleException('recipeViewerRuntime must be one of: jei, emi, none')
+}
 
 repositories {
     mavenLocal()
@@ -58,6 +62,17 @@ repositories {
         }
         filter {
             includeGroup "mezz.jei"
+        }
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "TerraformersMC"
+                url = "https://maven.terraformersmc.com/releases"
+            }
+        }
+        filter {
+            includeGroup "dev.emi"
         }
     }
     exclusiveContent {
@@ -130,9 +145,9 @@ legacyForge {
     runs {
         client {
             client()
-
-            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
-            systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+            // Keep GameTests from executing in ordinary clients. Forge still discovers annotated
+            // holders reflectively, so optional integration signatures live in an unannotated helper.
+            systemProperty 'forge.enabledGameTestNamespaces', 'appliedpackaging_client_disabled'
         }
 
         server {
@@ -223,11 +238,17 @@ dependencies {
     modImplementation "maven.modrinth:${ae2_modrinth_project}:${ae2_modrinth_version}"
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
 
-    // Optional recipe-viewer and advanced-recipe integrations. API/recipe classes are compile-only;
-    // complete mods are loaded only in development runs and are not published as transitive dependencies.
+    // One JEI plugin implementation serves both viewers. TMRV maps that plugin to EMI without JEI.
+    // Complete viewer mods are development-only and are not published as transitive dependencies.
     modCompileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     modCompileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
-    modLocalRuntime "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
+    if (recipeViewerRuntime == 'jei') {
+        modLocalRuntime "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
+    }
+    if (recipeViewerRuntime == 'emi') {
+        modLocalRuntime "dev.emi:emi-forge:${emi_version}"
+        modLocalRuntime "maven.modrinth:tmrv:${tmrv_version}"
+    }
     modCompileOnly "com.simibubi.create:create-${minecraft_version}:${create_version}:slim"
     // The Maven slim jar is suitable for compilation; the all jar carries Create's bundled runtime libraries.
     modLocalRuntime "com.simibubi.create:create-${minecraft_version}:${create_version}:all"

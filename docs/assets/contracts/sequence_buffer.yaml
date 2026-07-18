@@ -77,3 +77,41 @@ harness_assumptions:
   report_path: docs/assets/reports/sequence-buffer.md
   split_script: scripts/split-sequence-buffer-textures.py
   model_generator: scripts/generate-sequence-buffer-models.py
+gui_assets:
+  main:
+    source: E:/resources/textures/appliedpackaging/ret/seq_buffer_ui.png
+    runtime_path: src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png
+    sha256: 075E3329882A3AAE7FE7EBDAAB32EBF799531DC4224F3F37B563CD6B537A2C67
+    size: [256, 256]
+    mode: ARGB32
+    visible_rect: [0, 0, 195, 170]
+    dynamic_grid:
+      columns: 9
+      visible_rows: 3
+      first_slot: [8, 19]
+      slot_background_origin: [7, 18]
+      slot_step: 18
+      disabled_alpha: 0.2
+      scrollbar: [175, 18, 12, 54]
+  side:
+    source: build/reference/ae2-neoforge-v19.2.17/src/main/resources/assets/ae2/textures/guis/me_chest.png
+    runtime_path: src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer_side.png
+    sha256: 2749D7BDAB5E3B9BFF240B6F618AB55AE14A3C2252D9DEB63D959874456D91A0
+    size: [256, 256]
+    mode: ARGB32
+    visible_rect: [0, 0, 176, 168]
+    storage_slot: [80, 37]
+  screen_styles:
+    - src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_main.json
+    - src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_side.json
+  deferred_input_filter_panel: hidden
+  settings_toolbar:
+    placement: ae2_current_vertical_button_bar
+    controls: [automatic_output, blocking_mode, synchronized_output, pattern_mode, input_delay]
+  shared_right_panels:
+    upgrade_anchor: {right: 2, top: 0}
+  scrollbar_states:
+    style: ae2_standard
+    handle_size: [12, 15]
+    always_visible_when_disabled: true
+  license: LGPL-3.0-or-later applies to the byte-preserved AE2 side texture; the main texture is user-provided.

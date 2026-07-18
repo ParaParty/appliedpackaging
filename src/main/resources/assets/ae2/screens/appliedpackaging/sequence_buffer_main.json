@@ -1,0 +1,40 @@
+{
+  "$schema": "../schema.json",
+  "includes": ["../common/common.json"],
+  "background": {
+    "texture": "appliedpackaging:textures/gui/sequence_buffer.png",
+    "srcRect": [0, 0, 195, 170]
+  },
+  "slots": {
+    "APPLIEDPACKAGING_SEQUENCE_BUFFER_CONTENTS": {
+      "left": 8,
+      "top": 19,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PLAYER_INVENTORY": {
+      "left": 8,
+      "top": 86,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PLAYER_HOTBAR": {
+      "left": 8,
+      "top": 144,
+      "grid": "HORIZONTAL"
+    }
+  },
+  "text": {
+    "dialog_title": {
+      "text": { "translate": "gui.appliedpackaging.sequence_buffer.main" },
+      "position": { "left": 8, "top": 6 }
+    },
+    "player_inventory_title": {
+      "text": { "translate": "container.inventory" },
+      "position": { "left": 8, "top": 75 },
+      "scale": 1
+    }
+  },
+  "widgets": {
+    "sequenceBufferScrollbar": { "left": 175, "top": 18, "height": 54 },
+    "upgrades": { "right": 2, "top": 0 }
+  }
+}

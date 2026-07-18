@@ -28,6 +28,7 @@ import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.ModernVerticalToolbar;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
+import com.warmthdawn.appliedpackaging.part.AdvancedPatternColorMode;
 import com.warmthdawn.appliedpackaging.part.SpecializedPatternMode;
 import com.warmthdawn.appliedpackaging.mixin.client.MEStorageScreenAccessor;
 import com.warmthdawn.appliedpackaging.mixin.client.ScrollbarAccessor;
@@ -48,6 +49,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
@@ -72,6 +74,9 @@ public class AdvancedPatternEncodingTermScreen
     private static final int COLUMN_SCROLLBAR_TRACK_WIDTH = 75;
     private static final int CLEAR_BUTTON_X = 97;
     private static final int CLEAR_BUTTON_BOTTOM = 174;
+    private static final int TRANSPOSE_BUTTON_BOTTOM = 165;
+    private static final int COLOR_MODE_BUTTON_X = 106;
+    private static final long MOVE_HOLD_MILLIS = 350;
     private static final int ENCODE_BUTTON_X = 150;
     private static final int ENCODE_BUTTON_BOTTOM = 145;
     private static final int SCREEN_WIDTH = 195;
@@ -146,6 +151,7 @@ public class AdvancedPatternEncodingTermScreen
     private static final Blitter CLEAR_BUTTON = Blitter.texture(SPRITES).src(0, 0, 8, 8);
     private static final Blitter ADD_COLUMN_BUTTON = Blitter.texture(SPRITES).src(0, 8, 8, 8);
     private static final Blitter DELETE_COLUMN_BUTTON = Blitter.texture(SPRITES).src(8, 8, 8, 8);
+    private static final Blitter TRANSPOSE_BUTTON = Blitter.texture(SPRITES).src(16, 0, 8, 8);
     private static final Blitter LATEST_SLOT_BACKGROUND =
             Blitter.texture(LATEST_AE2_STATES).src(192, 192, 18, 18);
     private static final Blitter LATEST_PRIMARY_OUTPUT = Blitter.texture(LATEST_AE2_STATES).src(224, 0, 16, 16);
@@ -185,6 +191,8 @@ public class AdvancedPatternEncodingTermScreen
     private final LatestEncodeButton encodeButton = new LatestEncodeButton();
     private final LatestCraftingStatusButton craftingStatusButton = new LatestCraftingStatusButton();
     private final CompactClearButton clearButton = new CompactClearButton();
+    private final CompactTransposeButton transposeButton = new CompactTransposeButton();
+    private final ColorModeButton colorModeButton = new ColorModeButton();
     private final ModernVerticalToolbar modernToolbar = new ModernVerticalToolbar();
     private final ActionButton cycleOutputButton;
     private final Scrollbar rowScrollbar;
@@ -195,6 +203,11 @@ public class AdvancedPatternEncodingTermScreen
     private int scrollColumn;
     private int editedColumn = -1;
     private boolean draggingColumnScrollbar;
+    private int pendingAutoScrollColumns = -1;
+    private Slot heldMoveSource;
+    private int heldMoveSourceSlot = -1;
+    private long heldMoveStarted;
+    private ItemStack heldMoveStack = ItemStack.EMPTY;
     private TabButton legacyCraftingStatusButton;
     private SpecializedPatternMode renderedMode;
 
@@ -287,6 +300,8 @@ public class AdvancedPatternEncodingTermScreen
         addRenderableWidget(advancedModeButton);
         addRenderableWidget(packageModeButton);
         addRenderableWidget(clearButton);
+        addRenderableWidget(transposeButton);
+        addRenderableWidget(colorModeButton);
         addRenderableWidget(encodeButton);
         if (legacyCraftingStatusButton != null) {
             addRenderableWidget(craftingStatusButton);
@@ -309,7 +324,14 @@ public class AdvancedPatternEncodingTermScreen
         }
 
         boolean advanced = activeMode == SpecializedPatternMode.ADVANCED;
+        if (!draggingColumnScrollbar && heldMoveSource == null) {
+            scrollColumn = menu.advancedScrollColumn();
+        }
         scrollColumn = Math.max(0, Math.min(scrollColumn, maxScrollColumn()));
+        if (pendingAutoScrollColumns > 0 && menu.activeColumns() >= pendingAutoScrollColumns) {
+            setScrollColumn(maxScrollColumn());
+            pendingAutoScrollColumns = -1;
+        }
         if (advanced && editedColumn >= menu.activeColumns()) {
             closeColumnEditor();
         }
@@ -321,6 +343,11 @@ public class AdvancedPatternEncodingTermScreen
         encodeButton.active = editorClosed;
         clearButton.visible = true;
         clearButton.active = editorClosed;
+        transposeButton.visible = advanced;
+        transposeButton.active = advanced && editorClosed;
+        colorModeButton.visible = advanced;
+        colorModeButton.active = advanced && editorClosed;
+        colorModeButton.updateTooltip();
         cycleOutputButton.setVisibility(advanced && menu.canCycleProcessingOutputs());
         cycleOutputButton.active = advanced && editorClosed;
         rowScrollbar.setVisible(advanced);
@@ -393,6 +420,14 @@ public class AdvancedPatternEncodingTermScreen
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
         super.render(graphics, mouseX, mouseY, partialTicks);
+        if (heldMoveSource != null
+                && System.currentTimeMillis() - heldMoveStarted >= MOVE_HOLD_MILLIS
+                && !heldMoveStack.isEmpty()) {
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, 0, 500);
+            graphics.renderItem(heldMoveStack, mouseX - 8, mouseY - 8);
+            graphics.pose().popPose();
+        }
         colorPicker.render(graphics, font, mouseX, mouseY);
     }
 
@@ -454,11 +489,42 @@ public class AdvancedPatternEncodingTermScreen
             updateColumnScrollFromMouse(mouseX);
             return true;
         }
+        Slot slot = getSlotUnderMouse();
+        int absoluteSlot = menu.absoluteAdvancedInputSlot(slot);
+        if (menu.getSpecializedMode() == SpecializedPatternMode.ADVANCED
+                && button == 0
+                && menu.getCarried().isEmpty()
+                && absoluteSlot >= 0
+                && slot != null
+                && slot.hasItem()) {
+            heldMoveSource = slot;
+            heldMoveSourceSlot = absoluteSlot;
+            heldMoveStarted = System.currentTimeMillis();
+            heldMoveStack = slot.getItem().copy();
+            return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && heldMoveSource != null) {
+            Slot source = heldMoveSource;
+            int sourceSlot = heldMoveSourceSlot;
+            boolean moving = System.currentTimeMillis() - heldMoveStarted >= MOVE_HOLD_MILLIS;
+            heldMoveSource = null;
+            heldMoveSourceSlot = -1;
+            heldMoveStack = ItemStack.EMPTY;
+            if (moving) {
+                int targetSlot = menu.absoluteAdvancedInputSlot(getSlotUnderMouse());
+                if (targetSlot >= 0 && targetSlot != sourceSlot) {
+                    menu.moveAdvancedInput(sourceSlot, targetSlot);
+                }
+            } else {
+                slotClicked(source, source.index, button, ClickType.PICKUP);
+            }
+            return true;
+        }
         if (draggingColumnScrollbar) {
             draggingColumnScrollbar = false;
             return true;
@@ -471,6 +537,9 @@ public class AdvancedPatternEncodingTermScreen
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (heldMoveSource != null && button == 0) {
+            return true;
+        }
         if (draggingColumnScrollbar) {
             updateColumnScrollFromMouse(mouseX);
             return true;
@@ -499,7 +568,7 @@ public class AdvancedPatternEncodingTermScreen
                 || isOverColumnHeaders(mouseX, mouseY)
                 || (Screen.hasShiftDown() && isOverInputPanel(mouseX, mouseY));
         if (horizontalScroll && maxScrollColumn() > 0) {
-            scrollColumn = Math.max(0, Math.min(maxScrollColumn(), scrollColumn + (delta < 0 ? 1 : -1)));
+            setScrollColumn(scrollColumn + (delta < 0 ? 1 : -1));
             return true;
         }
         if (isOverProcessingGrid(mouseX, mouseY)
@@ -584,6 +653,8 @@ public class AdvancedPatternEncodingTermScreen
 
     @Override
     public void onClose() {
+        heldMoveSource = null;
+        heldMoveStack = ItemStack.EMPTY;
         if (AEConfig.instance().isClearGridOnClose()) {
             menu.clear();
         }
@@ -732,9 +803,9 @@ public class AdvancedPatternEncodingTermScreen
         var inputs = menu.getAdvancedInputSlots();
         for (int slotIndex = 0; slotIndex < inputs.length; slotIndex++) {
             var slot = inputs[slotIndex];
-            int column = slotIndex / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+            int visibleColumn = slotIndex / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+            int column = scrollColumn + visibleColumn;
             int row = slotIndex % AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
-            int visibleColumn = column - scrollColumn;
             int visibleRow = row - rowScroll;
             boolean active = column < menu.activeColumns()
                     && visibleColumn >= 0
@@ -837,6 +908,10 @@ public class AdvancedPatternEncodingTermScreen
 
         clearButton.setX(leftPos + (advanced ? CLEAR_BUTTON_X : PACKAGE_PANEL_LEFT + 72));
         clearButton.setY(topPos + imageHeight - (advanced ? CLEAR_BUTTON_BOTTOM : PACKAGE_INPUT_BOTTOM));
+        transposeButton.setX(leftPos + CLEAR_BUTTON_X);
+        transposeButton.setY(topPos + imageHeight - TRANSPOSE_BUTTON_BOTTOM);
+        colorModeButton.setX(leftPos + COLOR_MODE_BUTTON_X);
+        colorModeButton.setY(topPos + imageHeight - CLEAR_BUTTON_BOTTOM);
         encodeButton.setX(leftPos + ENCODE_BUTTON_X);
         encodeButton.setY(topPos + imageHeight - ENCODE_BUTTON_BOTTOM);
 
@@ -1117,12 +1192,21 @@ public class AdvancedPatternEncodingTermScreen
     private void updateColumnScrollFromMouse(double mouseX) {
         int max = maxScrollColumn();
         if (max <= 0) {
-            scrollColumn = 0;
+            setScrollColumn(0);
             return;
         }
         double relative = mouseX - (leftPos + COLUMN_SCROLLBAR_X) - 7.5;
         double travel = COLUMN_SCROLLBAR_TRACK_WIDTH - 15.0;
-        scrollColumn = Math.max(0, Math.min(max, (int) Math.round(relative / travel * max)));
+        setScrollColumn((int) Math.round(relative / travel * max));
+    }
+
+    private void setScrollColumn(int column) {
+        int value = Math.max(0, Math.min(maxScrollColumn(), column));
+        if (scrollColumn != value) {
+            closeColumnEditor();
+            scrollColumn = value;
+            menu.setAdvancedScrollColumn(value);
+        }
     }
 
     private static void setSlotPosition(Slot slot, int x, int y) {
@@ -1187,6 +1271,9 @@ public class AdvancedPatternEncodingTermScreen
         @Override
         public void onPress() {
             if (plus) {
+                pendingAutoScrollColumns = scrollColumn == maxScrollColumn()
+                        ? menu.activeColumns() + 1
+                        : -1;
                 menu.addColumn();
             } else {
                 menu.clearOrDeleteColumn(column);
@@ -1218,6 +1305,80 @@ public class AdvancedPatternEncodingTermScreen
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             CLEAR_BUTTON.dest(getX(), getY()).blit(graphics);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
+    }
+
+    private final class CompactTransposeButton extends AbstractButton {
+        private CompactTransposeButton() {
+            super(
+                    0,
+                    0,
+                    8,
+                    8,
+                    Component.translatable("gui.appliedpackaging.advanced_pattern_terminal.transpose"));
+            setTooltip(Tooltip.create(getMessage()));
+        }
+
+        @Override
+        public void onPress() {
+            closeColumnEditor();
+            menu.transposeAdvanced();
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            TRANSPOSE_BUTTON.dest(getX(), getY()).blit(graphics);
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            defaultButtonNarrationText(output);
+        }
+    }
+
+    private final class ColorModeButton extends AbstractButton {
+        private ColorModeButton() {
+            super(
+                    0,
+                    0,
+                    8,
+                    8,
+                    Component.translatable("gui.appliedpackaging.advanced_pattern_terminal.color_mode"));
+            updateTooltip();
+        }
+
+        private void updateTooltip() {
+            setTooltip(Tooltip.create(Component.translatable(
+                    "gui.appliedpackaging.advanced_pattern_terminal.color_mode.value",
+                    Component.translatable(menu.getAdvancedColorMode() == AdvancedPatternColorMode.CYCLING
+                            ? "gui.appliedpackaging.advanced_pattern_terminal.color_mode.cycling"
+                            : "gui.appliedpackaging.advanced_pattern_terminal.color_mode.default"))));
+        }
+
+        @Override
+        public void onPress() {
+            AdvancedPatternColorMode next = menu.getAdvancedColorMode() == AdvancedPatternColorMode.DEFAULT
+                    ? AdvancedPatternColorMode.CYCLING
+                    : AdvancedPatternColorMode.DEFAULT;
+            menu.setAdvancedColorMode(next);
+            updateTooltip();
+        }
+
+        @Override
+        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            graphics.fill(getX(), getY(), getX() + 8, getY() + 8, 0xff4d4d67);
+            graphics.fill(getX() + 1, getY() + 1, getX() + 7, getY() + 7, 0xff696d88);
+            if (menu.getAdvancedColorMode() == AdvancedPatternColorMode.CYCLING) {
+                graphics.fill(getX() + 2, getY() + 2, getX() + 4, getY() + 6, PackageColor.RED.swatchArgb());
+                graphics.fill(getX() + 4, getY() + 2, getX() + 6, getY() + 6, PackageColor.BLUE.swatchArgb());
+            } else {
+                graphics.fill(getX() + 2, getY() + 2, getX() + 6, getY() + 6, PackageColor.FLUIX.swatchArgb());
+            }
         }
 
         @Override

@@ -98,6 +98,24 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "expected 16x16 Sequence Buffer face texture"
 
+    $badSequenceBufferGuiDimensionFixture = New-AssetsFixture "bad-sequence-buffer-gui-dimension"
+    $badSequenceBufferGuiDimensionPath = Join-Path $badSequenceBufferGuiDimensionFixture "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png"
+    [System.IO.File]::WriteAllBytes($badSequenceBufferGuiDimensionPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad Sequence Buffer GUI atlas dimension fixture" `
+        -RootPath $badSequenceBufferGuiDimensionFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 256x256 Sequence Buffer GUI atlas"
+
+    $replacedSequenceBufferGuiFixture = New-AssetsFixture "replaced-sequence-buffer-gui"
+    $replacedSequenceBufferGuiPath = Join-Path $replacedSequenceBufferGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png"
+    Copy-Item -LiteralPath (Join-Path $replacedSequenceBufferGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png") -Destination $replacedSequenceBufferGuiPath -Force
+    Invoke-AssetsCase `
+        -Name "replaced Sequence Buffer user GUI fixture" `
+        -RootPath $replacedSequenceBufferGuiFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png"
+
     $badGuiAtlasDimensionFixture = New-AssetsFixture "bad-gui-atlas-dimension"
     $badGuiAtlasDimensionPath = Join-Path $badGuiAtlasDimensionFixture "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png"
     [System.IO.File]::WriteAllBytes($badGuiAtlasDimensionPath, $tinyPngBytes)
@@ -106,6 +124,18 @@ try {
         -RootPath $badGuiAtlasDimensionFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "expected 256x256 ME Package Assembler GUI atlas"
+
+    $replacedPackageAssemblerGuiFixture = New-AssetsFixture "replaced-package-assembler-gui"
+    $replacedPackageAssemblerGuiPath = Join-Path $replacedPackageAssemblerGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png"
+    Copy-Item `
+        -LiteralPath (Join-Path $replacedPackageAssemblerGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png") `
+        -Destination $replacedPackageAssemblerGuiPath `
+        -Force
+    Invoke-AssetsCase `
+        -Name "replaced Package Assembler user GUI fixture" `
+        -RootPath $replacedPackageAssemblerGuiFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png"
 
     $badAdvancedTerminalGuiFixture = New-AssetsFixture "bad-advanced-terminal-gui-dimension"
     $badAdvancedTerminalGuiPath = Join-Path $badAdvancedTerminalGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png"
@@ -301,6 +331,83 @@ try {
         -RootPath $badSequenceBufferBlockstateFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Sequence Buffer blockstate renders all five visual states"
+
+    $badSequenceBufferMainStyleFixture = New-AssetsFixture "bad-sequence-buffer-main-style"
+    $badSequenceBufferMainStylePath = Join-Path $badSequenceBufferMainStyleFixture "src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_main.json"
+    $badSequenceBufferMainStyle = Get-Content -Raw -LiteralPath $badSequenceBufferMainStylePath | ConvertFrom-Json
+    $badSequenceBufferMainStyle.widgets.sequenceBufferScrollbar.height = 72
+    $badSequenceBufferMainStyle | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badSequenceBufferMainStylePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad Sequence Buffer main scrollbar fixture" `
+        -RootPath $badSequenceBufferMainStyleFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer main screen keeps the high-version three-row scrollbar geometry"
+
+    $legacyOptionalSlotFixture = New-AssetsFixture "legacy-optional-slot-renderer"
+    $packageAssemblerMenuRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/world/menu/PackageAssemblerMenu.java"
+    $packageAssemblerMenuSourcePath = Join-Path $repoRoot $packageAssemblerMenuRelativePath
+    $legacyOptionalSlotPath = Join-Path $legacyOptionalSlotFixture $packageAssemblerMenuRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $legacyOptionalSlotPath) | Out-Null
+    $legacyOptionalSlotText = (Get-Content -Raw -LiteralPath $packageAssemblerMenuSourcePath).Replace(
+        "return false;",
+        "return true;")
+    Set-Content -LiteralPath $legacyOptionalSlotPath -Value $legacyOptionalSlotText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "legacy AE2 optional-slot renderer fixture" `
+        -RootPath $legacyOptionalSlotFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Applied Packaging optional slots never enable AE2 15's legacy slot-background renderer"
+
+    $badSequenceBufferUpgradeSideFixture = New-AssetsFixture "bad-sequence-buffer-upgrade-side"
+    $badSequenceBufferUpgradeSidePath = Join-Path $badSequenceBufferUpgradeSideFixture "src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_main.json"
+    $badSequenceBufferUpgradeSide = Get-Content -Raw -LiteralPath $badSequenceBufferUpgradeSidePath | ConvertFrom-Json
+    $badSequenceBufferUpgradeSide.widgets.upgrades.PSObject.Properties.Remove("right")
+    $badSequenceBufferUpgradeSide.widgets.upgrades | Add-Member -NotePropertyName left -NotePropertyValue -28
+    $badSequenceBufferUpgradeSide | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badSequenceBufferUpgradeSidePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad Sequence Buffer upgrade side fixture" `
+        -RootPath $badSequenceBufferUpgradeSideFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer main upgrade panel stays attached to the right side"
+
+    $badSequenceBufferDeferredConfigFixture = New-AssetsFixture "bad-sequence-buffer-deferred-config"
+    $badSequenceBufferDeferredConfigPath = Join-Path $badSequenceBufferDeferredConfigFixture "src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_side.json"
+    $badSequenceBufferDeferredConfig = Get-Content -Raw -LiteralPath $badSequenceBufferDeferredConfigPath | ConvertFrom-Json
+    $badSequenceBufferDeferredConfig.slots | Add-Member `
+        -NotePropertyName CONFIG `
+        -NotePropertyValue ([pscustomobject]@{ left = -60; top = 33; grid = "BREAK_AFTER_3COLS" })
+    $badSequenceBufferDeferredConfig | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badSequenceBufferDeferredConfigPath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad Sequence Buffer deferred configuration fixture" `
+        -RootPath $badSequenceBufferDeferredConfigFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer side screen leaves the deferred input-filter panel hidden"
+
+    $missingSequenceBufferSettingFixture = New-AssetsFixture "missing-sequence-buffer-setting"
+    $sequenceBufferSharedScreenRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/AbstractSequenceBufferScreen.java"
+    $sequenceBufferSharedScreenSourcePath = Join-Path $repoRoot $sequenceBufferSharedScreenRelativePath
+    $missingSequenceBufferSettingPath = Join-Path $missingSequenceBufferSettingFixture $sequenceBufferSharedScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $missingSequenceBufferSettingPath) | Out-Null
+    $missingSequenceBufferSettingText = (Get-Content -Raw -LiteralPath $sequenceBufferSharedScreenSourcePath).Replace(
+        "menu::togglePatternMode",
+        "menu::toggleAutoOutput")
+    Set-Content -LiteralPath $missingSequenceBufferSettingPath -Value $missingSequenceBufferSettingText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "missing Sequence Buffer setting fixture" `
+        -RootPath $missingSequenceBufferSettingFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer main and side screens expose all five endpoint settings in the shared AE2 toolbar"
+
+    $badSequenceBufferSideStyleFixture = New-AssetsFixture "bad-sequence-buffer-side-style"
+    $badSequenceBufferSideStylePath = Join-Path $badSequenceBufferSideStyleFixture "src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_side.json"
+    $badSequenceBufferSideStyle = Get-Content -Raw -LiteralPath $badSequenceBufferSideStylePath | ConvertFrom-Json
+    $badSequenceBufferSideStyle.slots.APPLIEDPACKAGING_SEQUENCE_BUFFER_CONTENTS.left = 79
+    $badSequenceBufferSideStyle | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badSequenceBufferSideStylePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad Sequence Buffer side storage slot fixture" `
+        -RootPath $badSequenceBufferSideStyleFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer side screen keeps the single central storage slot"
 
     $missingVerticalSequenceBufferModelFixture = New-AssetsFixture "missing-vertical-sequence-buffer-model"
     $missingVerticalSequenceBufferModelPath = Join-Path $missingVerticalSequenceBufferModelFixture "src/main/resources/assets/appliedpackaging/models/block/sequence_buffer/generated/member/y.json"

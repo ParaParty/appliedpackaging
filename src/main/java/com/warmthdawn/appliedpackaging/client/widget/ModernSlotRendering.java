@@ -24,6 +24,10 @@ public final class ModernSlotRendering {
     private static final ResourceLocation CURRENT_AE2_STATES = new ResourceLocation(
             AppliedPackaging.MOD_ID, "textures/gui/ae2-states.png");
 
+    // Exact current-AE2 transparent-border slot sprite supplied in the project atlas.
+    private static final Blitter SLOT_BACKGROUND =
+            Blitter.texture(PACKAGE_SPRITES).src(0, 64, 18, 18);
+
     // User-drawn marker empty-slot icon in the supplied sprite sheet.
     private static final Blitter MARKER_SLOT_ICON =
             Blitter.texture(PACKAGE_SPRITES).src(32, 16, 16, 16);
@@ -90,6 +94,24 @@ public final class ModernSlotRendering {
             int offsetY,
             Slot slot) {
         drawEmptySlotIcon(graphics, offsetX, offsetY, slot, ENCODED_PATTERN_SLOT_ICON);
+    }
+
+    /**
+     * Draws the current-AE2 slot background in absolute screen coordinates.
+     * Its transparent perimeter deliberately leaves the owning GUI atlas border untouched.
+     */
+    public static void drawSlotBackground(
+            GuiGraphics graphics,
+            int offsetX,
+            int offsetY,
+            Slot slot,
+            float opacity) {
+        if (slot != null) {
+            SLOT_BACKGROUND.copy()
+                    .dest(offsetX + slot.x - 1, offsetY + slot.y - 1)
+                    .opacity(opacity)
+                    .blit(graphics);
+        }
     }
 
     /** Draws the user-provided marker placeholder in absolute screen coordinates. */

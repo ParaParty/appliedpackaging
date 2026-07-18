@@ -27,8 +27,10 @@ import net.minecraftforge.items.SlotItemHandler;
 public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockEntity> implements IProgressProvider {
     public static final int BUTTON_OUTPUT_MODE = 0;
     public static final int BUTTON_AUTO_EXPORT = BUTTON_OUTPUT_MODE;
+    public static final int BUTTON_BLOCKING_MODE = 1;
     public static final int BUTTON_SCROLL_BASE = 100;
     private static final String ACTION_CYCLE_OUTPUT_MODE = "cycleOutputMode";
+    private static final String ACTION_TOGGLE_BLOCKING_MODE = "toggleBlockingMode";
 
     public static final int VISIBLE_ROWS = 4;
     public static final int VISIBLE_INPUT_COLUMNS = PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS;
@@ -56,6 +58,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
     private final ContainerLevelAccess access;
     private final DataSlot outputModeSlot;
+    private final DataSlot blockingModeSlot;
     @GuiSync(12)
     public int craftProgress = 0;
     @GuiSync(13)
@@ -91,9 +94,22 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
                 blockEntity.setOutputMode(modes[Math.max(0, Math.min(value, modes.length - 1))]);
             }
         };
+        this.blockingModeSlot = new DataSlot() {
+            @Override
+            public int get() {
+                return blockEntity.blockingMode() ? 1 : 0;
+            }
+
+            @Override
+            public void set(int value) {
+                blockEntity.setBlockingMode(value != 0);
+            }
+        };
 
         registerClientAction(ACTION_CYCLE_OUTPUT_MODE, this::cycleOutputMode);
+        registerClientAction(ACTION_TOGGLE_BLOCKING_MODE, this::toggleBlockingMode);
         addDataSlot(outputModeSlot);
+        addDataSlot(blockingModeSlot);
         refreshMenuInputDimensions();
     }
 
@@ -130,13 +146,19 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
             setScrollOffset(id - BUTTON_SCROLL_BASE);
             return true;
         }
-        if (id != BUTTON_OUTPUT_MODE) {
-            return false;
+        if (id == BUTTON_OUTPUT_MODE) {
+            if (!player.level().isClientSide) {
+                cycleOutputMode();
+            }
+            return true;
         }
-        if (!player.level().isClientSide) {
-            cycleOutputMode();
+        if (id == BUTTON_BLOCKING_MODE) {
+            if (!player.level().isClientSide) {
+                toggleBlockingMode();
+            }
+            return true;
         }
-        return true;
+        return false;
     }
 
     @Override
@@ -238,6 +260,20 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         }
 
         getHost().toggleAutoExport();
+        broadcastChanges();
+    }
+
+    public boolean blockingMode() {
+        return blockingModeSlot.get() != 0;
+    }
+
+    public void toggleBlockingMode() {
+        if (isClientSide()) {
+            sendClientAction(ACTION_TOGGLE_BLOCKING_MODE);
+            return;
+        }
+
+        getHost().toggleBlockingMode();
         broadcastChanges();
     }
 
@@ -484,7 +520,8 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         @Override
         public boolean isRenderDisabled() {
-            return true;
+            // The screen owns the current-AE2 slot sprite; suppress AE2 15's legacy states.png fallback.
+            return false;
         }
 
         @Override

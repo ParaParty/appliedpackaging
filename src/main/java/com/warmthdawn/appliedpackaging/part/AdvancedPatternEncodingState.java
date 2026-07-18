@@ -24,12 +24,14 @@ public final class AdvancedPatternEncodingState {
     private static final String COLOR = "color";
     private static final String INPUTS = "inputs";
     private static final String OUTPUTS = "outputs";
+    private static final String COLOR_MODE = "colorMode";
 
     private final Runnable changeListener;
     private final PackageColor[] colors = new PackageColor[AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS];
     private final ConfigInventory inputs;
     private final ConfigInventory outputs;
     private int activeColumns = 1;
+    private AdvancedPatternColorMode colorMode = AdvancedPatternColorMode.DEFAULT;
     private boolean loading;
 
     public AdvancedPatternEncodingState(Runnable changeListener) {
@@ -54,6 +56,9 @@ public final class AdvancedPatternEncodingState {
     public void setActiveColumns(int activeColumns) {
         int value = Math.max(1, Math.min(activeColumns, colors.length));
         if (this.activeColumns != value) {
+            for (int column = this.activeColumns; column < value; column++) {
+                colors[column] = colorMode.colorForColumn(column);
+            }
             this.activeColumns = value;
             changed();
         }
@@ -63,7 +68,7 @@ public final class AdvancedPatternEncodingState {
         if (activeColumns >= colors.length) {
             return false;
         }
-        colors[activeColumns] = PackageColor.FLUIX;
+        colors[activeColumns] = colorMode.colorForColumn(activeColumns);
         clearColumnInputs(activeColumns);
         setActiveColumns(activeColumns + 1);
         return true;
@@ -88,7 +93,7 @@ public final class AdvancedPatternEncodingState {
                 copyColumnInputs(current + 1, current);
             }
             int oldLastColumn = activeColumns - 1;
-            colors[oldLastColumn] = PackageColor.FLUIX;
+            colors[oldLastColumn] = colorMode.colorForColumn(oldLastColumn);
             int oldLastStart = oldLastColumn * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
             for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
                 inputs.setStack(oldLastStart + row, null);
@@ -126,6 +131,8 @@ public final class AdvancedPatternEncodingState {
 
     /** Replaces only recipe contents; existing colors are retained for columns that still exist. */
     public void replaceRecipe(AdvancedPatternTransferPlan plan) {
+        int previousColumns = activeColumns;
+        PackageColor[] previousColors = colors.clone();
         loading = true;
         inputs.beginBatch();
         outputs.beginBatch();
@@ -134,6 +141,9 @@ public final class AdvancedPatternEncodingState {
             outputs.clear();
             activeColumns = plan.columns().size();
             for (int column = 0; column < plan.columns().size(); column++) {
+                colors[column] = column < previousColumns
+                        ? previousColors[column]
+                        : colorMode.colorForColumn(column);
                 List<GenericStack> columnInputs = plan.columns().get(column);
                 int firstSlot = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
                 for (int row = 0; row < columnInputs.size(); row++) {
@@ -144,7 +154,7 @@ public final class AdvancedPatternEncodingState {
                 outputs.setStack(output, plan.outputs().get(output));
             }
             for (int column = activeColumns; column < colors.length; column++) {
-                colors[column] = PackageColor.FLUIX;
+                colors[column] = colorMode.colorForColumn(column);
             }
         } finally {
             outputs.endBatch();
@@ -168,6 +178,85 @@ public final class AdvancedPatternEncodingState {
         }
     }
 
+    public AdvancedPatternColorMode colorMode() {
+        return colorMode;
+    }
+
+    public void setColorMode(AdvancedPatternColorMode colorMode) {
+        AdvancedPatternColorMode value = colorMode == null ? AdvancedPatternColorMode.DEFAULT : colorMode;
+        if (this.colorMode == value) {
+            return;
+        }
+        this.colorMode = value;
+        for (int column = 0; column < activeColumns; column++) {
+            colors[column] = value.colorForColumn(column);
+        }
+        changed();
+    }
+
+    /** Moves an input to another cell, swapping when the destination is occupied. */
+    public boolean moveInput(int sourceSlot, int targetSlot) {
+        int activeSlots = activeColumns * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+        if (sourceSlot < 0 || sourceSlot >= activeSlots || targetSlot < 0 || targetSlot >= activeSlots
+                || sourceSlot == targetSlot || inputs.getStack(sourceSlot) == null) {
+            return false;
+        }
+        GenericStack source = inputs.getStack(sourceSlot);
+        GenericStack target = inputs.getStack(targetSlot);
+        inputs.beginBatch();
+        try {
+            inputs.setStack(targetSlot, source);
+            inputs.setStack(sourceSlot, target);
+        } finally {
+            inputs.endBatch();
+        }
+        return true;
+    }
+
+    /** Transposes package columns and per-package material rows. */
+    public boolean transpose() {
+        int highestUsedRow = -1;
+        for (int column = 0; column < activeColumns; column++) {
+            int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+            for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
+                if (inputs.getStack(start + row) != null) {
+                    highestUsedRow = Math.max(highestUsedRow, row);
+                }
+            }
+        }
+        int transposedColumns = Math.max(1, highestUsedRow + 1);
+        GenericStack[][] transposed = new GenericStack[transposedColumns]
+                [AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE];
+        for (int column = 0; column < activeColumns; column++) {
+            int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+            for (int row = 0; row < transposedColumns; row++) {
+                transposed[row][column] = inputs.getStack(start + row);
+            }
+        }
+
+        loading = true;
+        inputs.beginBatch();
+        try {
+            inputs.clear();
+            activeColumns = transposedColumns;
+            for (int column = 0; column < activeColumns; column++) {
+                colors[column] = colorMode.colorForColumn(column);
+                int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+                for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
+                    inputs.setStack(start + row, transposed[column][row]);
+                }
+            }
+            for (int column = activeColumns; column < colors.length; column++) {
+                colors[column] = colorMode.colorForColumn(column);
+            }
+        } finally {
+            inputs.endBatch();
+            loading = false;
+        }
+        changed();
+        return true;
+    }
+
     public ConfigInventory inputs() {
         return inputs;
     }
@@ -182,10 +271,16 @@ public final class AdvancedPatternEncodingState {
                 : Optional.empty();
         List<AdvancedProcessingPatternDataStorage.PackageColumn> result = new ArrayList<>(activeColumns);
         for (int column = 0; column < activeColumns; column++) {
+            List<GenericStack> columnInputs = new ArrayList<>();
+            int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+            for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
+                columnInputs.add(inputs.getStack(start + row));
+            }
             result.add(new AdvancedProcessingPatternDataStorage.PackageColumn(
                     column,
                     colors[column],
-                    marker));
+                    marker,
+                    columnInputs));
         }
         return List.copyOf(result);
     }
@@ -197,11 +292,13 @@ public final class AdvancedPatternEncodingState {
             Optional<AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern> encoded =
                     AdvancedProcessingPatternDataStorage.read(pattern);
             if (encoded.isPresent()) {
-                List<GenericStack> sparseInputs = AdvancedProcessingPatternDataStorage.readSparseInputs(pattern);
                 inputs.beginBatch();
                 try {
-                    for (int slot = 0; slot < Math.min(sparseInputs.size(), inputs.size()); slot++) {
-                        inputs.setStack(slot, sparseInputs.get(slot));
+                    for (var column : encoded.get().columns()) {
+                        int start = column.index() * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+                        for (int row = 0; row < column.inputs().size(); row++) {
+                            inputs.setStack(start + row, column.inputs().get(row));
+                        }
                     }
                 } finally {
                     inputs.endBatch();
@@ -232,6 +329,13 @@ public final class AdvancedPatternEncodingState {
             resetValues();
             CompoundTag state = data.getCompound(STATE_TAG);
             activeColumns = Math.max(1, Math.min(state.getInt(ACTIVE_COLUMNS), colors.length));
+            try {
+                colorMode = AdvancedPatternColorMode.valueOf(state.getString(COLOR_MODE));
+            } catch (IllegalArgumentException ignored) {
+                colorMode = AdvancedPatternColorMode.DEFAULT;
+            }
+            boolean hasColumnInputs = false;
+            inputs.beginBatch();
             for (Tag element : state.getList(COLUMNS, Tag.TAG_COMPOUND)) {
                 if (!(element instanceof CompoundTag columnTag)) {
                     continue;
@@ -241,8 +345,22 @@ public final class AdvancedPatternEncodingState {
                     continue;
                 }
                 colors[column] = PackageColor.byId(columnTag.getString(COLOR)).orElse(PackageColor.FLUIX);
+                if (columnTag.contains(INPUTS, Tag.TAG_LIST)) {
+                    hasColumnInputs = true;
+                    ListTag inputTags = columnTag.getList(INPUTS, Tag.TAG_COMPOUND);
+                    int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+                    for (int row = 0;
+                            row < Math.min(inputTags.size(), AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE);
+                            row++) {
+                        GenericStack input = GenericStack.readTag(inputTags.getCompound(row));
+                        inputs.setStack(start + row, input != null && input.amount() > 0 ? input : null);
+                    }
+                }
             }
-            inputs.readFromChildTag(state, INPUTS);
+            inputs.endBatch();
+            if (!hasColumnInputs) {
+                inputs.readFromChildTag(state, INPUTS);
+            }
             outputs.readFromChildTag(state, OUTPUTS);
         } finally {
             loading = false;
@@ -252,15 +370,26 @@ public final class AdvancedPatternEncodingState {
     public void writeToNBT(CompoundTag data) {
         CompoundTag state = new CompoundTag();
         state.putInt(ACTIVE_COLUMNS, activeColumns);
+        state.putString(COLOR_MODE, colorMode.name());
         ListTag columns = new ListTag();
         for (int column = 0; column < activeColumns; column++) {
             CompoundTag columnTag = new CompoundTag();
             columnTag.putInt(INDEX, column);
             columnTag.putString(COLOR, colors[column].id());
+            ListTag inputTags = new ListTag();
+            int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
+            for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
+                inputTags.add(GenericStack.writeTag(inputs.getStack(start + row)));
+            }
+            while (!inputTags.isEmpty() && inputTags.getCompound(inputTags.size() - 1).isEmpty()) {
+                inputTags.remove(inputTags.size() - 1);
+            }
+            if (!inputTags.isEmpty()) {
+                columnTag.put(INPUTS, inputTags);
+            }
             columns.add(columnTag);
         }
         state.put(COLUMNS, columns);
-        inputs.writeToChildTag(state, INPUTS);
         outputs.writeToChildTag(state, OUTPUTS);
         data.put(STATE_TAG, state);
     }
@@ -287,7 +416,9 @@ public final class AdvancedPatternEncodingState {
 
     private void resetValues() {
         activeColumns = 1;
-        Arrays.fill(colors, PackageColor.FLUIX);
+        for (int column = 0; column < colors.length; column++) {
+            colors[column] = colorMode.colorForColumn(column);
+        }
         inputs.clear();
         outputs.clear();
     }

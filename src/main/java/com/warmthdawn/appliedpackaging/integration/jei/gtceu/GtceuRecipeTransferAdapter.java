@@ -12,6 +12,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatte
 import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
 import com.warmthdawn.appliedpackaging.integration.jei.AdvancedRecipeTransferAdapter;
 import com.warmthdawn.appliedpackaging.integration.jei.AdvancedRecipeTransferResult;
+import com.warmthdawn.appliedpackaging.integration.jei.RecipeIngredientSelector;
 import com.warmthdawn.appliedpackaging.integration.jei.RecipeStackConversions;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,15 +28,38 @@ public final class GtceuRecipeTransferAdapter implements AdvancedRecipeTransferA
     }
 
     @Override
-    public AdvancedRecipeTransferResult createPlan(Object rawRecipe, IRecipeSlotsView recipeSlots) {
+    public AdvancedRecipeTransferResult createPlan(
+            Object rawRecipe,
+            IRecipeSlotsView recipeSlots,
+            RecipeIngredientSelector ingredientSelector) {
         GTRecipe recipe = (GTRecipe) rawRecipe;
         List<GenericStack> inputs = new ArrayList<>();
         List<GenericStack> outputs = new ArrayList<>();
         try {
-            addItemContents(recipe.inputs.getOrDefault(ItemRecipeCapability.CAP, List.of()), 1, true, inputs);
-            addFluidContents(recipe.inputs.getOrDefault(FluidRecipeCapability.CAP, List.of()), 1, true, inputs);
-            addItemContents(recipe.outputs.getOrDefault(ItemRecipeCapability.CAP, List.of()), 1, false, outputs);
-            addFluidContents(recipe.outputs.getOrDefault(FluidRecipeCapability.CAP, List.of()), 1, false, outputs);
+            addItemContents(
+                    recipe.inputs.getOrDefault(ItemRecipeCapability.CAP, List.of()),
+                    1,
+                    true,
+                    inputs,
+                    ingredientSelector);
+            addFluidContents(
+                    recipe.inputs.getOrDefault(FluidRecipeCapability.CAP, List.of()),
+                    1,
+                    true,
+                    inputs,
+                    ingredientSelector);
+            addItemContents(
+                    recipe.outputs.getOrDefault(ItemRecipeCapability.CAP, List.of()),
+                    1,
+                    false,
+                    outputs,
+                    ingredientSelector);
+            addFluidContents(
+                    recipe.outputs.getOrDefault(FluidRecipeCapability.CAP, List.of()),
+                    1,
+                    false,
+                    outputs,
+                    ingredientSelector);
 
             if ((!recipe.tickInputs.getOrDefault(ItemRecipeCapability.CAP, List.of()).isEmpty()
                             || !recipe.tickInputs.getOrDefault(FluidRecipeCapability.CAP, List.of()).isEmpty()
@@ -48,33 +72,37 @@ public final class GtceuRecipeTransferAdapter implements AdvancedRecipeTransferA
                     recipe.tickInputs.getOrDefault(ItemRecipeCapability.CAP, List.of()),
                     recipe.duration,
                     true,
-                    inputs);
+                    inputs,
+                    ingredientSelector);
             addFluidContents(
                     recipe.tickInputs.getOrDefault(FluidRecipeCapability.CAP, List.of()),
                     recipe.duration,
                     true,
-                    inputs);
+                    inputs,
+                    ingredientSelector);
             addItemContents(
                     recipe.tickOutputs.getOrDefault(ItemRecipeCapability.CAP, List.of()),
                     recipe.duration,
                     false,
-                    outputs);
+                    outputs,
+                    ingredientSelector);
             addFluidContents(
                     recipe.tickOutputs.getOrDefault(FluidRecipeCapability.CAP, List.of()),
                     recipe.duration,
                     false,
-                    outputs);
+                    outputs,
+                    ingredientSelector);
         } catch (PlanFailure failure) {
             return AdvancedRecipeTransferResult.error(failure.translationKey);
         } catch (ArithmeticException overflow) {
             return AdvancedRecipeTransferResult.error("gui.appliedpackaging.jei_transfer.amount_overflow");
         }
 
-        if (inputs.size() > AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE) {
+        if (inputs.size() > AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS) {
             return AdvancedRecipeTransferResult.error(
-                    "gui.appliedpackaging.jei_transfer.too_many_inputs",
+                    "gui.appliedpackaging.jei_transfer.too_many_columns",
                     inputs.size(),
-                    AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE);
+                    AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS);
         }
         if (outputs.size() > AdvancedProcessingPatternDataStorage.MAX_OUTPUT_SLOTS) {
             return AdvancedRecipeTransferResult.error(
@@ -84,7 +112,7 @@ public final class GtceuRecipeTransferAdapter implements AdvancedRecipeTransferA
         }
         try {
             return AdvancedRecipeTransferResult.success(
-                    new AdvancedPatternTransferPlan(List.of(inputs), outputs));
+                    new AdvancedPatternTransferPlan(inputs.stream().map(List::of).toList(), outputs));
         } catch (IllegalArgumentException e) {
             return AdvancedRecipeTransferResult.error(INVALID_INGREDIENT);
         }
@@ -94,7 +122,8 @@ public final class GtceuRecipeTransferAdapter implements AdvancedRecipeTransferA
             List<Content> contents,
             long multiplier,
             boolean input,
-            List<GenericStack> target) {
+            List<GenericStack> target,
+            RecipeIngredientSelector ingredientSelector) {
         for (Content entry : contents) {
             if (entry.chance == 0) {
                 continue;
@@ -117,7 +146,9 @@ public final class GtceuRecipeTransferAdapter implements AdvancedRecipeTransferA
                 amountMultiplier = Math.multiplyExact(amountMultiplier, minimum);
                 ingredient = ranged.getInner();
             }
-            GenericStack stack = RecipeStackConversions.firstItem(ingredient);
+            GenericStack stack = input
+                    ? ingredientSelector.select(ingredient)
+                    : RecipeStackConversions.firstItem(ingredient);
             if (stack == null) {
                 throw new PlanFailure(INVALID_INGREDIENT);
             }
@@ -129,7 +160,8 @@ public final class GtceuRecipeTransferAdapter implements AdvancedRecipeTransferA
             List<Content> contents,
             long multiplier,
             boolean input,
-            List<GenericStack> target) {
+            List<GenericStack> target,
+            RecipeIngredientSelector ingredientSelector) {
         for (Content entry : contents) {
             if (entry.chance == 0) {
                 continue;
@@ -152,7 +184,9 @@ public final class GtceuRecipeTransferAdapter implements AdvancedRecipeTransferA
                 amountMultiplier = Math.multiplyExact(amountMultiplier, minimum);
                 ingredient = ranged.getInner();
             }
-            GenericStack stack = RecipeStackConversions.firstFluid(ingredient.getStacks());
+            GenericStack stack = input
+                    ? ingredientSelector.select(RecipeStackConversions.fluidCandidates(ingredient.getStacks()))
+                    : RecipeStackConversions.firstFluid(ingredient.getStacks());
             if (stack == null) {
                 throw new PlanFailure(INVALID_INGREDIENT);
             }

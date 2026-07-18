@@ -252,6 +252,12 @@ function Get-ExpectedPngSize {
         return @{ Width = 256; Height = 256; Label = "ME Package Assembler GUI atlas" }
     }
 
+    if ($RelativePath -in @(
+            "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png",
+            "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer_side.png")) {
+        return @{ Width = 256; Height = 256; Label = "Sequence Buffer GUI atlas" }
+    }
+
     if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png") {
         return @{ Width = 256; Height = 256; Label = "advanced pattern encoding terminal GUI atlas" }
     }
@@ -506,7 +512,9 @@ $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/textures/block/me_packager/curtain.png",
     "src/main/resources/assets/appliedpackaging/textures/block/me_packager/belt_scroll.png",
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png",
-    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png"
+    "src/main/resources/assets/appliedpackaging/textures/block/package_assembler_lights.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer_side.png"
 )
 foreach ($sequenceBufferFaceName in $sequenceBufferFaceNames) {
     $requiredPngPaths += "src/main/resources/assets/appliedpackaging/textures/block/sequence_buffer/faces/$sequenceBufferFaceName.png"
@@ -587,12 +595,15 @@ $bytePreservedPngHashes = [ordered]@{
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png" = "345A070081B556D2EF44AE0DAB65210F7728C33BB7C29FD46B526C607605FCE0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png" = "506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635"
+    "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png" = "118681C89EED078494D4C7371309543AC0F39184FE9F20D30B2D5A874AD5F18D"
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png" = "9586E6422D039A58C1188F5DA4F504FDE04870E4383F29E56FA9FE2752CCDD00"
     "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png" = "65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096"
     "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png" = "0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55"
     "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png" = "573E8852E2590262FD5405121549F48B7B78ED79199F615FC0B068C773A1F6BE"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png" = "C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png" = "62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715"
+    "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png" = "075E3329882A3AAE7FE7EBDAAB32EBF799531DC4224F3F37B563CD6B537A2C67"
+    "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer_side.png" = "2749D7BDAB5E3B9BFF240B6F618AB55AE14A3C2252D9DEB63D959874456D91A0"
 }
 foreach ($entry in $bytePreservedPngHashes.GetEnumerator()) {
     if (Test-Path -LiteralPath $entry.Key) {
@@ -823,6 +834,144 @@ foreach ($sequenceBufferFaceName in $sequenceBufferFaceNames) {
     Assert-True `
         ($sequenceBufferModelText.Contains("appliedpackaging:block/sequence_buffer/faces/$sequenceBufferFaceName")) `
         "Sequence Buffer models reference split face texture: $sequenceBufferFaceName"
+}
+
+$sequenceBufferMainStylePath = "src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_main.json"
+$sequenceBufferSideStylePath = "src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_side.json"
+foreach ($sequenceBufferStylePath in @($sequenceBufferMainStylePath, $sequenceBufferSideStylePath)) {
+    Assert-True (Test-Path -LiteralPath $sequenceBufferStylePath) "Sequence Buffer screen style exists: $sequenceBufferStylePath"
+}
+if (Test-Path -LiteralPath $sequenceBufferMainStylePath) {
+    $sequenceBufferMainStyle = Get-JsonFile $sequenceBufferMainStylePath
+    if ($null -ne $sequenceBufferMainStyle) {
+        $mainContents = $sequenceBufferMainStyle.slots.APPLIEDPACKAGING_SEQUENCE_BUFFER_CONTENTS
+        Assert-True `
+            ($sequenceBufferMainStyle.background.texture -eq "appliedpackaging:textures/gui/sequence_buffer.png" -and
+                ((@($sequenceBufferMainStyle.background.srcRect) -join ",") -eq "0,0,195,170")) `
+            "Sequence Buffer main screen uses the user 195x170 terminal base"
+        Assert-True `
+            ($mainContents.left -eq 8 -and $mainContents.top -eq 19 -and $mainContents.grid -eq "BREAK_AFTER_9COLS") `
+            "Sequence Buffer main screen declares the 3x9 dynamic storage origin"
+        Assert-True `
+            ($sequenceBufferMainStyle.widgets.sequenceBufferScrollbar.left -eq 175 -and
+                $sequenceBufferMainStyle.widgets.sequenceBufferScrollbar.top -eq 18 -and
+                $sequenceBufferMainStyle.widgets.sequenceBufferScrollbar.height -eq 54) `
+            "Sequence Buffer main screen keeps the high-version three-row scrollbar geometry"
+        Assert-True `
+            ($null -eq $sequenceBufferMainStyle.slots.CONFIG -and
+                $null -eq $sequenceBufferMainStyle.widgets.inputFilter -and
+                $null -eq $sequenceBufferMainStyle.images.inputFilter) `
+            "Sequence Buffer main screen leaves the deferred input-filter panel hidden"
+        Assert-True `
+            ($sequenceBufferMainStyle.widgets.upgrades.right -eq 2 -and
+                $null -eq $sequenceBufferMainStyle.widgets.upgrades.left) `
+            "Sequence Buffer main upgrade panel stays attached to the right side"
+    }
+}
+if (Test-Path -LiteralPath $sequenceBufferSideStylePath) {
+    $sequenceBufferSideStyle = Get-JsonFile $sequenceBufferSideStylePath
+    if ($null -ne $sequenceBufferSideStyle) {
+        $sideContents = $sequenceBufferSideStyle.slots.APPLIEDPACKAGING_SEQUENCE_BUFFER_CONTENTS
+        Assert-True `
+            ($sequenceBufferSideStyle.background.texture -eq "appliedpackaging:textures/gui/sequence_buffer_side.png" -and
+                ((@($sequenceBufferSideStyle.background.srcRect) -join ",") -eq "0,0,176,168")) `
+            "Sequence Buffer side screen uses the byte-preserved ME Chest base"
+        Assert-True `
+            ($sideContents.left -eq 80 -and $sideContents.top -eq 37) `
+            "Sequence Buffer side screen keeps the single central storage slot"
+        Assert-True `
+            ($null -eq $sequenceBufferSideStyle.slots.CONFIG -and
+                $null -eq $sequenceBufferSideStyle.widgets.inputFilter -and
+                $null -eq $sequenceBufferSideStyle.images.inputFilter) `
+            "Sequence Buffer side screen leaves the deferred input-filter panel hidden"
+        Assert-True `
+            ($sequenceBufferSideStyle.widgets.upgrades.right -eq 2 -and
+                $null -eq $sequenceBufferSideStyle.widgets.upgrades.left) `
+            "Sequence Buffer side upgrade panel stays attached to the right side"
+    }
+}
+
+$sequenceBufferMainScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/SequenceBufferMainScreen.java"
+if (Test-Path -LiteralPath $sequenceBufferMainScreenPath) {
+    $sequenceBufferMainScreenText = Get-Content -Raw -LiteralPath $sequenceBufferMainScreenPath
+    Assert-True `
+        ($sequenceBufferMainScreenText -match 'addScrollBar\("sequenceBufferScrollbar",\s*Scrollbar\.DEFAULT\)') `
+        "Sequence Buffer scrollbar uses the aligned standard 12x15 enabled and disabled handles"
+}
+
+$modernSlotRenderingPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernSlotRendering.java"
+if (Test-Path -LiteralPath $modernSlotRenderingPath) {
+    $modernSlotRenderingText = Get-Content -Raw -LiteralPath $modernSlotRenderingPath
+    Assert-True `
+        ($modernSlotRenderingText -match 'Blitter\.texture\(PACKAGE_SPRITES\)\.src\(0,\s*64,\s*18,\s*18\)') `
+        "Shared slot renderer uses the current-AE2 transparent-border slot sprite"
+}
+
+$modernScrollbarStylesPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernScrollbarStyles.java"
+if (Test-Path -LiteralPath $modernScrollbarStylesPath) {
+    $modernScrollbarStylesText = Get-Content -Raw -LiteralPath $modernScrollbarStylesPath
+    Assert-True `
+        ($modernScrollbarStylesText -match '(?s)Scrollbar\.Style\.create\(.*?7,\s*15,\s*0,\s*32,\s*16,\s*32\)') `
+        "Shared small scrollbar style uses the current-AE2 enabled and disabled sprites"
+}
+
+$packageAssemblerScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/PackageAssemblerScreen.java"
+if (Test-Path -LiteralPath $packageAssemblerScreenPath) {
+    $packageAssemblerScreenText = Get-Content -Raw -LiteralPath $packageAssemblerScreenPath
+    Assert-True `
+        ($packageAssemblerScreenText.Contains("ModernSlotRendering.drawSlotBackground") -and
+            $packageAssemblerScreenText.Contains("ModernScrollbarStyles.SMALL") -and
+            -not $packageAssemblerScreenText.Contains("SLOT_DISABLED_OVERLAY")) `
+        "Package Assembler screen uses shared current-AE2 slot and scrollbar rendering"
+}
+
+$mePackagerScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/MePackagerScreen.java"
+if (Test-Path -LiteralPath $mePackagerScreenPath) {
+    $mePackagerScreenText = Get-Content -Raw -LiteralPath $mePackagerScreenPath
+    Assert-True `
+        ($mePackagerScreenText.Contains("ModernSlotRendering.drawSlotBackground") -and
+            -not $mePackagerScreenText.Contains("SLOT_BACKGROUND_TOP") -and
+            -not $mePackagerScreenText.Contains("SLOT_BACKGROUND_BODY")) `
+        "ME Packager optional slots use the shared sprite instead of flat-color reconstruction"
+}
+
+$clientJavaRoot = "src/main/java/com/warmthdawn/appliedpackaging"
+if (Test-Path -LiteralPath $clientJavaRoot) {
+    $javaSourceTexts = Get-ChildItem -LiteralPath $clientJavaRoot -Filter "*.java" -File -Recurse |
+        ForEach-Object { Get-Content -Raw -LiteralPath $_.FullName }
+    $legacyOptionalSlotRenderers = @($javaSourceTexts | Where-Object {
+        $_ -match '(?s)isRenderDisabled\s*\(\s*\)\s*\{[^}]*return\s+true\s*;'
+    })
+    $legacySlotIcons = @($javaSourceTexts | Where-Object {
+        $_.Contains("Icon.SLOT_BACKGROUND")
+    })
+    Assert-True `
+        ($legacyOptionalSlotRenderers.Count -eq 0) `
+        "Applied Packaging optional slots never enable AE2 15's legacy slot-background renderer"
+    Assert-True `
+        ($legacySlotIcons.Count -eq 0) `
+        "Applied Packaging screens never bind the legacy Icon.SLOT_BACKGROUND texture"
+}
+
+$sequenceBufferSharedScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/AbstractSequenceBufferScreen.java"
+if (Test-Path -LiteralPath $sequenceBufferSharedScreenPath) {
+    $sequenceBufferSharedScreenText = Get-Content -Raw -LiteralPath $sequenceBufferSharedScreenPath
+    $sequenceBufferSettingActions = @(
+        "menu::toggleAutoOutput",
+        "menu::toggleBlockingMode",
+        "menu::toggleSynchronizedOutput",
+        "menu::togglePatternMode",
+        "menu.cycleInputDelay"
+    )
+    $hasAllSequenceBufferSettingActions = $true
+    foreach ($sequenceBufferSettingAction in $sequenceBufferSettingActions) {
+        if (-not $sequenceBufferSharedScreenText.Contains($sequenceBufferSettingAction)) {
+            $hasAllSequenceBufferSettingActions = $false
+        }
+    }
+    Assert-True `
+        $hasAllSequenceBufferSettingActions `
+        "Sequence Buffer main and side screens expose all five endpoint settings in the shared AE2 toolbar"
 }
 
 foreach ($color in $packageColors) {

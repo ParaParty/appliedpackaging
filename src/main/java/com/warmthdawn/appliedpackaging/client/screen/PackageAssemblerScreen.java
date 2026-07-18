@@ -8,12 +8,12 @@ import appeng.client.gui.widgets.ProgressBar;
 import appeng.client.gui.widgets.ProgressBar.Direction;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.menu.SlotSemantics;
+import com.warmthdawn.appliedpackaging.client.widget.ModernScrollbarStyles;
 import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 
@@ -22,14 +22,11 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
     private static final int SCROLLBAR_HEIGHT = 72;
     private static final int SCROLLBAR_PANEL_X = 10;
     private static final int SCROLLBAR_PANEL_WIDTH = 83;
-    private static final int SLOT_DISABLED_OVERLAY = 0x99c7ccd5;
     private static final int SLOT_INVALID_OVERLAY = 0x55ff3333;
     private static final int SLOT_INVALID_BORDER = 0xffff5555;
-    private static final Scrollbar.Style LATEST_SCROLLBAR_STYLE = Scrollbar.Style.create(
-            new ResourceLocation("appliedpackaging", "textures/gui/advanced_pattern_encoding_terminal_sprites.png"),
-            7, 15, 0, 32, 7, 32);
 
     private final OutputModeToolbarButton outputModeButton;
+    private final BlockingModeToolbarButton blockingModeButton;
     private final Scrollbar rowScrollbar;
     private final ProgressBar progressBar;
 
@@ -39,12 +36,13 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
             Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        rowScrollbar = widgets.addScrollBar("packageQueueScrollbar", LATEST_SCROLLBAR_STYLE);
+        rowScrollbar = widgets.addScrollBar("packageQueueScrollbar", ModernScrollbarStyles.SMALL);
         rowScrollbar.setRange(0, menu.maxScrollOffset(), PackageAssemblerMenu.VISIBLE_ROWS);
         rowScrollbar.setCaptureMouseWheel(false);
         progressBar = new ProgressBar(menu, style.getImage("progressBar"), Direction.VERTICAL);
         widgets.add("progressBar", progressBar);
         outputModeButton = addToLeftToolbar(new OutputModeToolbarButton());
+        blockingModeButton = addToLeftToolbar(new BlockingModeToolbarButton());
 
     }
 
@@ -52,6 +50,7 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
     protected void updateBeforeRender() {
         super.updateBeforeRender();
         outputModeButton.setMessage(outputModeMessage());
+        blockingModeButton.setMessage(blockingModeMessage());
         progressBar.visible = menu.isCrafting();
         rowScrollbar.setRange(0, menu.maxScrollOffset(), PackageAssemblerMenu.VISIBLE_ROWS);
         if (rowScrollbar.getCurrentScroll() != menu.scrollOffset()) {
@@ -62,7 +61,7 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
     @Override
     public void drawBG(GuiGraphics graphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(graphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
-        renderDisabledInputOverlays(graphics, offsetX, offsetY);
+        drawInputSlotBackgrounds(graphics, offsetX, offsetY);
         ModernSlotRendering.drawEncodedPatternSlotIcon(
                 graphics,
                 offsetX,
@@ -135,15 +134,12 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
         return slots.isEmpty() ? null : slots.get(0);
     }
 
-    private void renderDisabledInputOverlays(GuiGraphics graphics, int offsetX, int offsetY) {
+    private void drawInputSlotBackgrounds(GuiGraphics graphics, int offsetX, int offsetY) {
         for (int index = 0; index < PackageAssemblerMenu.VISIBLE_INPUT_COUNT; index++) {
             int inputSlot = menu.inputSlotForVisibleIndex(index);
-            if (!menu.isInputSlotEnabled(inputSlot)) {
-                Slot slot = menu.getSlot(menu.menuInputMenuSlotIndex(index));
-                int x = offsetX + slot.x;
-                int y = offsetY + slot.y;
-                graphics.fill(x, y, x + 16, y + 16, SLOT_DISABLED_OVERLAY);
-            }
+            Slot slot = menu.getSlot(menu.menuInputMenuSlotIndex(index));
+            float opacity = menu.isInputSlotEnabled(inputSlot) ? 1.0F : 0.2F;
+            ModernSlotRendering.drawSlotBackground(graphics, offsetX, offsetY, slot, opacity);
         }
     }
 
@@ -171,6 +167,12 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
                         + menu.outputMode().id());
     }
 
+    private Component blockingModeMessage() {
+        return Component.translatable(
+                "gui.appliedpackaging.package_assembler.blocking_mode."
+                        + (menu.blockingMode() ? "enabled" : "disabled"));
+    }
+
     private class OutputModeToolbarButton extends IconButton {
         private OutputModeToolbarButton() {
             super(button -> menu.cycleOutputMode());
@@ -184,6 +186,18 @@ public class PackageAssemblerScreen extends ModernUpgradeableScreen<PackageAssem
                 case ADJACENT_BLOCK -> Icon.ARROW_RIGHT;
                 case NONE -> Icon.AUTO_EXPORT_OFF;
             };
+        }
+    }
+
+    private class BlockingModeToolbarButton extends IconButton {
+        private BlockingModeToolbarButton() {
+            super(button -> menu.toggleBlockingMode());
+            setMessage(blockingModeMessage());
+        }
+
+        @Override
+        protected Icon getIcon() {
+            return menu.blockingMode() ? Icon.BLOCKING_MODE_YES : Icon.BLOCKING_MODE_NO;
         }
     }
 

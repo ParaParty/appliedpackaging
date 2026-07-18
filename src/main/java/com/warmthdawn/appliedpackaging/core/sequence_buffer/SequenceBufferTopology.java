@@ -146,12 +146,20 @@ public final class SequenceBufferTopology {
             return false;
         }
         SequenceBufferConfiguration authoritativeConfig = endpoint.configurationCopy();
-        for (int index = 0; index < positions.size(); index++) {
-            BlockPos pos = positions.get(index);
+        List<SequenceBufferBlockEntity> blockEntities = new ArrayList<>(positions.size());
+        for (BlockPos pos : positions) {
             SequenceBufferBlockEntity blockEntity = blockEntity(level, pos).orElse(null);
             if (blockEntity == null) {
                 return false;
             }
+            blockEntities.add(blockEntity);
+        }
+        for (int index = 1; index < blockEntities.size(); index++) {
+            endpoint.absorbUpgradesFrom(blockEntities.get(index));
+        }
+        for (int index = 0; index < positions.size(); index++) {
+            BlockPos pos = positions.get(index);
+            SequenceBufferBlockEntity blockEntity = blockEntities.get(index);
             BlockState oldState = level.getBlockState(pos);
             BlockState newState;
             if (index == 0) {

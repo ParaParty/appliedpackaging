@@ -6,5 +6,12 @@ import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 public interface AdvancedRecipeTransferAdapter {
     boolean supports(Object recipe);
 
-    AdvancedRecipeTransferResult createPlan(Object recipe, IRecipeSlotsView recipeSlots);
+    default AdvancedRecipeTransferResult createPlan(Object recipe, IRecipeSlotsView recipeSlots) {
+        return createPlan(recipe, recipeSlots, RecipeIngredientSelector.empty());
+    }
+
+    AdvancedRecipeTransferResult createPlan(
+            Object recipe,
+            IRecipeSlotsView recipeSlots,
+            RecipeIngredientSelector ingredientSelector);
 }

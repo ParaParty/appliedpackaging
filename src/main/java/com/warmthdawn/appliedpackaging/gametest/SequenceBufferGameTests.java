@@ -30,7 +30,11 @@ import com.warmthdawn.appliedpackaging.registry.APItems;
 import com.warmthdawn.appliedpackaging.part.PackageUnpackingBusPart;
 import com.warmthdawn.appliedpackaging.world.block.SequenceBufferBlock;
 import com.warmthdawn.appliedpackaging.world.block.SequenceBufferVisualState;
+import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.SequenceBufferBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.SequenceBufferMainMenu;
+import com.warmthdawn.appliedpackaging.world.menu.SequenceBufferSideMenu;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +47,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -175,6 +180,116 @@ public final class SequenceBufferGameTests {
     }
 
     @GameTest(template = "sequence_buffer_empty")
+    public static void reservedFilterAndRedstoneUpgradeRoundTrip(GameTestHelper helper) {
+        SequenceBufferBlockEntity buffer = placeBuffer(
+                helper,
+                new BlockPos(1, 1, 1),
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+
+        buffer.inputFilter().setStack(0, new GenericStack(AEItemKey.of(Items.IRON_INGOT), 0));
+        helper.assertTrue(buffer.configurationCopy().accepts(AEItemKey.of(Items.IRON_INGOT))
+                        && !buffer.configurationCopy().accepts(AEItemKey.of(Items.GOLD_INGOT)),
+                "The reserved input filter must update the authoritative allowed-input configuration");
+        helper.assertTrue(buffer.getUpgrades().getMaxInstalled(AEItems.REDSTONE_CARD) == 1,
+                "Sequence Buffer must expose exactly one compatible redstone-card upgrade");
+        helper.assertTrue(buffer.getUpgrades().addItems(AEItems.REDSTONE_CARD.stack()).isEmpty(),
+                "The Sequence Buffer upgrade slot must accept one redstone card");
+        helper.assertFalse(buffer.getUpgrades().addItems(AEItems.REDSTONE_CARD.stack()).isEmpty(),
+                "The Sequence Buffer upgrade slot must reject a second redstone card");
+
+        SequenceBufferBlockEntity loaded = new SequenceBufferBlockEntity(BlockPos.ZERO, buffer.getBlockState());
+        loaded.load(buffer.saveWithoutMetadata());
+        helper.assertTrue(loaded.getUpgrades().isInstalled(AEItems.REDSTONE_CARD),
+                "The redstone-card upgrade must survive NBT round-trip");
+        helper.assertTrue(loaded.inputFilter().getKey(0).equals(AEItemKey.of(Items.IRON_INGOT))
+                        && loaded.configurationCopy().equals(buffer.configurationCopy()),
+                "The reserved filter inventory and configuration must reconstruct the same AEKey allow-list after load");
+        helper.assertTrue(SequenceBufferMainMenu.maxScrollOffsetForMemberCount(27) == 0
+                        && SequenceBufferMainMenu.maxScrollOffsetForMemberCount(28) == 1
+                        && SequenceBufferMainMenu.maxScrollOffsetForMemberCount(36) == 1
+                        && SequenceBufferMainMenu.maxScrollOffsetForMemberCount(37) == 2,
+                "The main GUI scrollbar must stay disabled through 3x9 and advance in complete nine-slot rows");
+
+        FakePlayer menuPlayer = FakePlayerFactory.getMinecraft((ServerLevel) helper.getLevel());
+        menuPlayer.getInventory().clearContent();
+        Inventory menuInventory = new Inventory(menuPlayer);
+        helper.assertTrue(buffer.insertMenuItem(new ItemStack(Items.IRON_INGOT, 5), 5, false) == 5,
+                "Side-menu transfer test requires one stored item stack");
+        SequenceBufferSideMenu sideMenu = new SequenceBufferSideMenu(
+                17,
+                menuInventory,
+                buffer,
+                buffer);
+        int displaySlot = sideMenu.slots.indexOf(
+                sideMenu.getSlots(SequenceBufferMainMenu.BUFFER_CONTENTS).get(0));
+
+        BlockPos endpointPos = new BlockPos(3, 1, 1);
+        BlockPos memberPos = endpointPos.east();
+        SequenceBufferBlockEntity endpoint = placeBuffer(
+                helper,
+                endpointPos,
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState()
+                        .setValue(SequenceBufferBlock.STATE, SequenceBufferVisualState.UNFORMED_DIRECTED)
+                        .setValue(SequenceBufferBlock.DIRECTIONAL, true)
+                        .setValue(SequenceBufferBlock.FACING, Direction.EAST));
+        SequenceBufferBlockEntity member = placeBuffer(
+                helper,
+                memberPos,
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+        helper.assertTrue(member.getUpgrades().addItems(AEItems.REDSTONE_CARD.stack()).isEmpty(),
+                "Formation upgrade migration requires a card in the future member");
+        helper.assertTrue(SequenceBufferTopology.tryForm(
+                                helper.getLevel(),
+                                helper.absolutePos(endpointPos),
+                                Direction.EAST)
+                        && endpoint.getUpgrades().isInstalled(AEItems.REDSTONE_CARD)
+                        && !member.getUpgrades().isInstalled(AEItems.REDSTONE_CARD),
+                "Formation must move a standalone member's physical upgrade into endpoint authority");
+        helper.startSequence()
+                .thenExecuteAfter(2, () -> {
+                    ItemStack moved = sideMenu.quickMoveStack(menuPlayer, displaySlot);
+                    helper.assertTrue(moved.getCount() == 5
+                                    && buffer.isEmpty()
+                                    && menuInventory.countItem(Items.IRON_INGOT) == 5,
+                            "Shift-clicking the side storage slot must target menu player slots after the input barrier");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty", timeoutTicks = 80)
+    public static void redstoneCardGatesAutomaticOutputAtAuthority(GameTestHelper helper) {
+        BlockPos bufferPos = new BlockPos(2, 1, 2);
+        BlockPos chestPos = bufferPos.north();
+        BlockPos powerPos = bufferPos.west();
+        SequenceBufferBlockEntity buffer = placeBuffer(
+                helper,
+                bufferPos,
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.assertTrue(buffer.getUpgrades().addItems(AEItems.REDSTONE_CARD.stack()).isEmpty(),
+                "Redstone gating test requires an installed redstone card");
+        helper.assertTrue(buffer.insertMenuItem(new ItemStack(Items.IRON_INGOT, 4), 4, false) == 4,
+                "Menu insertion should fill the single storage member before redstone output testing");
+
+        helper.startSequence()
+                .thenExecuteAfter(4, () -> {
+                    ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+                    helper.assertTrue(chest.isEmpty() && buffer.storedAmount() == 4,
+                            "An installed redstone card must block automatic output without a signal");
+                    helper.getLevel().setBlock(
+                            helper.absolutePos(powerPos),
+                            Blocks.REDSTONE_BLOCK.defaultBlockState(),
+                            3);
+                })
+                .thenExecuteAfter(3, () -> {
+                    ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+                    helper.assertTrue(chest.countItem(Items.IRON_INGOT) == 4 && buffer.isEmpty(),
+                            "A signal at the authority must release automatic output for the redstone-controlled buffer");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty")
     public static void formedEndpointHasNoStorageAndSequencesMembers(GameTestHelper helper) {
         List<SequenceBufferBlockEntity> blocks = formEastLine(helper, 4);
         SequenceBufferBlockEntity endpoint = blocks.get(0);
@@ -240,6 +355,50 @@ public final class SequenceBufferGameTests {
                             && members.get(2).isEmpty(),
                     "Aggregate extraction must leave unrelated member contents untouched");
         });
+    }
+
+    @GameTest(template = "sequence_buffer_empty")
+    public static void menuSettingsUpdateEndpointAndEveryMember(GameTestHelper helper) {
+        List<SequenceBufferBlockEntity> blocks = formEastLine(helper, 3);
+        SequenceBufferBlockEntity endpoint = blocks.get(0);
+        FakePlayer menuPlayer = FakePlayerFactory.getMinecraft((ServerLevel) helper.getLevel());
+        menuPlayer.getInventory().clearContent();
+        SequenceBufferMainMenu menu = new SequenceBufferMainMenu(
+                18,
+                new Inventory(menuPlayer),
+                endpoint);
+
+        menu.toggleAutoOutput();
+        menu.toggleBlockingMode();
+        menu.toggleSynchronizedOutput();
+        menu.togglePatternMode();
+        menu.cycleInputDelay(false);
+        menu.broadcastChanges();
+
+        var expected = endpoint.configurationCopy();
+        helper.assertTrue(!expected.autoOutput()
+                        && expected.blockingMode()
+                        && expected.synchronizedOutput()
+                        && expected.patternMode()
+                        && expected.inputDelayTicks() == 5,
+                "All five GUI settings must update the endpoint configuration");
+        helper.assertTrue(menu.autoOutput() == expected.autoOutput()
+                        && menu.blockingMode() == expected.blockingMode()
+                        && menu.synchronizedOutput() == expected.synchronizedOutput()
+                        && menu.patternMode() == expected.patternMode()
+                        && menu.inputDelayTicks() == expected.inputDelayTicks(),
+                "GuiSync fields must mirror the endpoint configuration");
+        for (SequenceBufferBlockEntity member : SequenceBufferTopology.members(endpoint)) {
+            helper.assertTrue(member.configurationCopy().equals(expected),
+                    "Every storage member must receive settings changed through either GUI");
+        }
+
+        menu.cycleInputDelay(true);
+        menu.broadcastChanges();
+        helper.assertTrue(endpoint.configurationCopy().inputDelayTicks() == 1
+                        && menu.inputDelayTicks() == 1,
+                "Right-click delay cycling must move to the previous preset");
+        helper.succeed();
     }
 
     @GameTest(template = "sequence_buffer_empty", timeoutTicks = 120)
@@ -658,6 +817,29 @@ public final class SequenceBufferGameTests {
     }
 
     @GameTest(template = "sequence_buffer_empty")
+    public static void packageLayoutDoesNotSkipSlotsWhenPatternModeIsDisabled(GameTestHelper helper) {
+        List<SequenceBufferBlockEntity> blocks = formEastLine(helper, 4);
+        SequenceBufferBlockEntity endpoint = blocks.get(0);
+        PackageData packageData = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 8),
+                        new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 4)),
+                Optional.of(new PackageLayout(3, List.of(0, 2))),
+                Optional.empty(),
+                0);
+
+        helper.assertTrue(endpoint.acceptPackage(packageData, false),
+                "A package with sparse metadata should still be accepted outside pattern mode");
+        List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(endpoint);
+        helper.assertTrue(members.get(0).storedKey().equals(AEItemKey.of(Items.IRON_INGOT))
+                        && members.get(1).storedKey().equals(AEItemKey.of(Items.GOLD_INGOT))
+                        && members.get(2).isEmpty(),
+                "Pattern mode off must distribute package contents densely without skipping the recorded blank");
+        helper.succeed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty")
     public static void endpointFluidHandlerSequencesTanks(GameTestHelper helper) {
         List<SequenceBufferBlockEntity> blocks = formEastLine(helper, 3);
         SequenceBufferBlockEntity endpoint = blocks.get(0);
@@ -721,10 +903,13 @@ public final class SequenceBufferGameTests {
 
     @GameTest(template = "sequence_buffer_empty", timeoutTicks = 160)
     @SuppressWarnings("unchecked")
-    public static void unpackingBusPreservesPackageLayoutIntoSequenceBuffer(GameTestHelper helper) {
+    public static void unpackingBusPreservesAdvancedPatternLayoutIntoSequenceBuffer(GameTestHelper helper) {
         BlockPos endpointPos = new BlockPos(1, 1, 0);
         List<SequenceBufferBlockEntity> blocks = formEastLineAt(helper, endpointPos, 4);
         SequenceBufferBlockEntity endpoint = blocks.get(0);
+        var configuration = endpoint.configurationCopy();
+        configuration.setPatternMode(true);
+        endpoint.updateConfiguration(configuration);
         BlockPos partPos = new BlockPos(1, 1, 1);
         BlockPos energyCellPos = partPos.relative(Direction.SOUTH);
         helper.getLevel().setBlock(
@@ -747,16 +932,38 @@ public final class SequenceBufferGameTests {
                 partItem);
         helper.assertTrue(part != null, "Package Unpacking Bus should place beside the sequence endpoint");
 
-        PackageData packageData = PackageData.create(
-                PackageColor.GREEN,
-                List.of(
-                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 8),
-                        new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 4)),
-                Optional.of(new PackageLayout(4, List.of(0, 2))),
-                Optional.empty(),
-                0);
-        ItemStack packageStack = new ItemStack(APItems.packageItems().get(PackageColor.GREEN).get());
-        PackageDataStorage.write(packageStack, packageData);
+        GenericStack plank = new GenericStack(AEItemKey.of(Items.OAK_PLANKS), 1);
+        List<GenericStack> sparseInputs = new ArrayList<>();
+        sparseInputs.add(plank);
+        sparseInputs.add(null);
+        sparseInputs.add(plank);
+        ItemStack patternStack = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
+                new GenericStack[] { plank, plank },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        AdvancedProcessingPatternDataStorage.write(
+                patternStack,
+                new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                0,
+                                PackageColor.GREEN,
+                                Optional.empty(),
+                                sparseInputs))));
+        AdvancedProcessingPatternDetails details = new AdvancedProcessingPatternDetails(AEItemKey.of(patternStack));
+        KeyCounter input = new KeyCounter();
+        input.add(AEItemKey.of(Items.OAK_PLANKS), 2);
+        PackageAssemblerBlockEntity assembler = new PackageAssemblerBlockEntity(
+                BlockPos.ZERO,
+                APBlocks.PACKAGE_ASSEMBLER.get().defaultBlockState());
+        helper.assertTrue(assembler.pushPattern(details, new KeyCounter[] { input }, Direction.UP),
+                "Package Assembler should accept the sparse advanced pattern");
+        ItemStack packageStack = assembler.getItems()
+                .getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT)
+                .copy();
+        PackageData packageData = PackageDataStorage.read(packageStack).orElseThrow();
+        helper.assertTrue(input.isEmpty()
+                        && packageData.contents().size() == 2
+                        && packageData.layout().orElseThrow().contentSlots().equals(List.of(0, 2)),
+                "The advanced wood, blank, wood column must become a package with sparse row metadata");
         AEItemKey packageKey = AEItemKey.of(packageStack);
 
         helper.startSequence()
@@ -786,12 +993,12 @@ public final class SequenceBufferGameTests {
                     List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(endpoint);
                     helper.assertTrue(part.heldPackage().isEmpty(),
                             "Successful sequence input must consume the held package");
-                    helper.assertTrue(members.get(0).storedKey().equals(AEItemKey.of(Items.IRON_INGOT)),
-                            "Package layout slot 1 should enter sequence member 1");
+                    helper.assertTrue(members.get(0).storedKey().equals(AEItemKey.of(Items.OAK_PLANKS)),
+                            "Advanced pattern row 1 should enter sequence member 1");
                     helper.assertTrue(members.get(1).isEmpty(),
-                            "Package layout must preserve the empty middle position");
-                    helper.assertTrue(members.get(2).storedKey().equals(AEItemKey.of(Items.GOLD_INGOT)),
-                            "Package layout slot 3 should enter sequence member 3");
+                            "Advanced pattern mode must preserve the empty second row");
+                    helper.assertTrue(members.get(2).storedKey().equals(AEItemKey.of(Items.OAK_PLANKS)),
+                            "Advanced pattern row 3 should enter sequence member 3");
                 })
                 .thenSucceed();
     }

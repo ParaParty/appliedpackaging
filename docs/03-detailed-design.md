@@ -108,7 +108,7 @@ contents in stored list order, each entry encoded by:
   amount
 ```
 
-`PackageData` 创建时逐项复制输入 contents，不合并同一 AEKey，也不改变条目顺序；`PackageDataStorage.writeTag` 按该顺序写入 NBT，canonical hash 同样对顺序敏感。`PackageLayout.contentSlots` 的长度必须与 contents 相等、严格递增、全部位于 `0..slotCount-1`；不存在布局表示普通稠密顺序。布局存在与否、总槽数或任一原槽位不同都会产生不同身份，因此只有有序列表和布局完全一致的包裹才能自然堆叠。ME 打包机在调用包裹数据层之前按 canonical stack key 主动排序选中的虚拟条目且不生成布局；普通/包裹样板路径保留 sparse 布局；高级处理样板明确只生成各列非空输入的稠密顺序。
+`PackageData` 创建时逐项复制输入 contents，不合并同一 AEKey，也不改变条目顺序；`PackageDataStorage.writeTag` 按该顺序写入 NBT，canonical hash 同样对顺序敏感。`PackageLayout.contentSlots` 的长度必须与 contents 相等、严格递增、全部位于 `0..slotCount-1`；不存在布局表示普通稠密顺序。布局存在与否、总槽数或任一原槽位不同都会产生不同身份，因此只有有序列表和布局完全一致的包裹才能自然堆叠。ME 打包机在调用包裹数据层之前按 canonical stack key 主动排序选中的虚拟条目且不生成布局；普通/包裹样板路径保留 sparse 布局；高级处理样板生成各列包裹时同样把该列非空条目对应的原行索引写入布局。
 
 Hash 算法：
 
@@ -290,9 +290,9 @@ pushPattern 会直接读取 KeyCounter 中的 GenericStack；AEItemKey、AEFluid
 全部正式样板共用 GUI 输入过滤逻辑：没有样板时所有输入槽锁定；有样板时按样板顺序生成连续的非空输入过滤列表，只解锁实际输入项数量对应的真实空格。过滤列表只参与槽位数量、启用状态和插入校验，不作为菜单槽内容同步，GUI 不绘制过滤物品或过滤数量。
 已编码 package_pattern 使用目标 PackageData 做 exact package plan；每个输入格必须严格匹配同位置样板内容的 AEKey 与数量，不允许额外输入。
 普通 AE2 已编码样板读取非空编码输入作为本地输入过滤；crafting pattern 直接保留 3×3 编码槽位顺序和重复项，processing pattern 保留 sparse 输入顺序，其它可解码样板按 PatternDetails 输入顺序展开；每个输入格必须严格匹配同位置样板输入，不允许额外输入。
-advanced_processing_pattern 的 NBT 与 Pattern Provider 路径保留 AE2 processing sparse input 语义；本地装配先按 `column * 81 + row` 扫描 17 个连续输入列，跳过空白后生成带原 column 索引的稠密过滤列表。GUI 和外部 item capability 使用该稠密索引，提交时再按 column 归组并保持原 row 顺序；同色列不得合并。
+advanced_processing_pattern 的列元数据保留 processing sparse input 语义；本地装配直接读取最多 81 个连续列各自的 `inputs`，跳过空白后生成带原 column 索引的稠密过滤列表。GUI 和外部 item capability 使用该稠密索引，提交时再按 column 归组并保持原 row 顺序；同色列不得合并。
 全部样板生成的每个包裹均按样板输入位置写入 contents；同一 AEKey 在多个位置出现时，装配室的稠密输入过滤、真实输入槽和最终 contents 都分别保留对应位置，不合并、不排序。普通样板完成校验逐位置比较 key 与 amount，不允许仅聚合总量后放行。
-一次计划产生多个包裹时，进度完成后按顺序写入 17 个真实输出槽；超过当前空输出槽数量的余量写入待输出队列，输出槽腾出后 server tick 继续顺序吐出。
+一次计划产生多个包裹时，进度完成后按顺序写入真实主输出；其余产物写入待输出队列。自动输出把这份真实有序列表视为一个完成批次：准入成功后在同一 server tick 内反复提升队首并提交，目标拒收时保留剩余列表和已准入状态供后续 tick 重试，列表清空后才结束批次。GUI/外部 capability 始终直接抽取同一真实队首，不存在 Pattern Provider `sendList` 的隐藏副本。
 待输出队列和进行中的合成包裹写入方块实体 NBT。Pattern Provider 已经扣料的进行中包裹在破坏方块时作为合法包裹掉落；本地合成的材料在完成前仍位于真实输入缓冲，因此破坏时只掉落材料，不额外掉落尚未提交的预览包裹。
 本地计划启动时只保存预计包裹与样板快照，不扣除真实输入。server tick 每次推进前重新规划并核对当前输入；缺料或数量不足时保留 `craftProgress` 并暂停，补齐后继续。样板快照改变时取消本地计划并把进度归零；达到 100 时再次逐位置核对，通过临时副本原子计算全部扣料，全部槽位都能扣除后才替换真实输入状态并提交输出包裹。任一扣料失败时保留输入与进行中计划，不生成输出。
 只要任意输出槽已有物品，装配室不会启动新的本地合成或接受新的 Pattern Provider plan。
@@ -304,7 +304,7 @@ advanced_processing_pattern 的 NBT 与 Pattern Provider 路径保留 AE2 proces
 方块实体状态：
 
 ```text
-menuInputBuffer: 按当前样板稠密非空输入数动态确定逻辑真实输入格，每格保存 ItemStack identity 与 long amount；17×81=1377 只是高级样板编码上限，不是装配室固定槽数；GUI 只用 4×4 代理窗口显示当前稠密输入行
+menuInputBuffer: 按当前样板稠密非空输入数动态确定逻辑真实输入格，每格保存 ItemStack identity 与 long amount；81×81 是高级样板逻辑上限而不是装配室预分配槽数，缓冲按实际输入增长；GUI 只用 4×4 代理窗口显示当前稠密输入行
 outputSlots: 17 个 item slots，只允许合法包裹
 patternSlot: 本地包裹样板/高级处理样板/任意 AE2 可解码已编码样板
 capacitySlot: 可选容量元件
@@ -313,6 +313,10 @@ craftProgress: 0-100
 activePackages: 进行中合成输出队列
 activeMenuPattern: 本地合成开始时的样板快照；非空表示 activePackages 尚未扣除 menuInputBuffer
 outputMode: ME_NETWORK | ADJACENT_BLOCK | NONE，默认 ME_NETWORK
+blockingMode: boolean，默认 false；只约束自动输出启动，不约束玩家或外部 capability 主动抽取
+autoExportBatchActive: boolean；表示当前真实完成列表已经通过一次自动输出准入，跨 tick 重试期间不重复读取阻挡条件
+autoExportBatchMode: ME_NETWORK | ADJACENT_BLOCK | NONE；记录已准入批次的目标类别
+autoExportBatchDirection: 仅 ADJACENT_BLOCK 批次使用，记录从六个相邻面中选中的容器方向；ME_NETWORK 不保存相邻方向
 pendingPackages: 输出槽被占用时等待吐出的有序包裹队列
 lastFailure: enum/string
 ```
@@ -330,9 +334,10 @@ AE2 CRAFTING_MACHINE capability 暴露装配室本体
 pending package queue 与 active package queue 持久化保存
 容量槽只识别 AE2 16k/64k/256k storage component；空槽使用 default 9/9，拒绝 1k component、完整 storage cell 与 portable cell
 装配室不保存额外颜色或 marker fallback；普通 AE2 已编码样板固定输出 Fluix 并取主输出为 marker，包裹样板和高级样板读取自身元数据
-outputMode、craftProgress、严格有序输出队列与 upgrade inventory 均持久化保存
+outputMode、blockingMode、autoExportBatchActive/Mode/Direction、craftProgress、严格有序输出队列与 upgrade inventory 均持久化保存
 输出由一个真实主输出和一个只读的下一包预览组成；其余成品保存在严格有序队列中。GUI、玩家、自动导出和 Forge item handler 每次都只能从主输出取 1 个包裹，取出后立即把队首提升为新的主输出
-输出模式为 ME_NETWORK 时只尝试写入本机接入的 AE 网络存储服务，为 ADJACENT_BLOCK 时只尝试背面 Forge item handler，为 NONE 时不自动导出；自动导出可在同一 tick 循环多次，但每次仍按队首顺序提交
+输出模式为 ME_NETWORK 时直接写入本机接入网格的 AE 网络存储服务，为 ADJACENT_BLOCK 时按 `Direction.values()` 的稳定顺序扫描六个相邻面的 Forge item handler 并选择第一个可准入目标，为 NONE 时不自动导出。容器批次准入后锁定该相邻方向，目标暂时消失或拒收时不切换到其它容器；列表清空后下一批重新扫描。自动导出覆盖真实主输出和 pendingPackages，不建立隐藏发送队列
+PackageAssemblerBlock 通过原版 `hasAnalogOutputSignal/getAnalogOutputSignal` 暴露三态比较器值：没有完成成品且未打包时为 0，`activePackages` 非空且没有完成成品时为 1，真实输出槽或 `pendingPackages` 中存在任一完成包裹时为 2；完成态优先于工作态，数值不表示包裹数量，同批多个包裹也只返回 2，不保存或返回虚拟历史信号。开始打包、成功提交首个真实输出以及自动导出清空完成列表时，装配室查找直连或隔一个红石导体、且输入面朝向装配室的原版比较器：清除其尚未执行的旧方块计划刻并以 HIGH 优先级预约 0-delay 计划刻。计划刻在下一世界 tick 的方块实体 tick 前采样相应真实状态，使最快连续装配仍逐次形成 `0 -> 1 -> 2 -> 0`；输出变化同时继续调用 `Level.updateNeighbourForOutputSignal`。自动导出若清空整个完成列表，该 server tick 不再启动下一次装配，下一 tick 才允许开始。该路径不延迟物品自动输出，也不保存比较器锁存值
 ```
 
 普通 AE2 合成/处理等已编码样板：
@@ -349,28 +354,40 @@ AE2 Pattern Provider / Planner 视角的可见输出仍是原样板主输出 X
 
 ```text
 载体是 Applied Packaging 独立物品 `advanced_processing_pattern`，其 item 类继承 AE2 `EncodedPatternItem` 并返回 Applied Packaging 的处理样板详情；AE2 输入、输出、tooltip、Pattern Provider 和 Crafting CPU 仍按处理样板接口工作。
-专属 NBT 描述 0..16 连续包裹列，每列映射 81 个 sparse processing input 槽并保存 PackageColor；当前高级终端写入空名称，并把处理样板主产物归一为每列 marker。AE2 原版 `processing_pattern` 不允许承载这段数据。
-装配室按列顺序生成 1..17 个包裹；空列不生成包裹，同色列保持为独立包裹。
+专属 NBT version 2 描述 0..80 连续包裹列，每列保存最多 81 个 sparse processing input、PackageColor 和可选 marker；AE2 根 `in` 只保存稠密执行输入，避免为末列材料写入数千个空 compound。读取器继续迁移 version 1 的扁平 `column * 81 + row` 数据。当前高级终端写入空名称，并把处理样板主产物归一为每列 marker；AE2 原版 `processing_pattern` 不允许承载这段数据。
+装配室按列顺序生成 1..81 个包裹；空列不生成包裹，同色列保持为独立包裹。内部一个真实主输出加持久有序 `pendingPackages` 队列负责顺序吐出，固定 GUI 输出位数量不构成高级样板列数上限。
 Pattern Provider push 时必须精确消费样板 sparse inputs，缺少输入或存在额外输入均整批拒绝。
 颜色和高级终端生成的主产物 marker 以列元数据为权威，不回退机器配置；高级终端不提供名称编辑。
 ```
 
-阻挡模式：
+本机输出阻挡与目标阻挡：
 
 ```text
 如果 17 个 outputSlots 任意一个非空：
   不启动新的本地合成
   不接受新的 Pattern Provider plan
   server tick 先按 outputMode 尝试输出/导出既有包裹
+
+blockingMode 默认关闭：
+  关闭时不检查所选输出目标已有内容
+  开启时，从真实主输出、其它真实输出槽和 pendingPackages 计算本完成批次的包裹物品 key 集合，并对每个 key 执行 `dropSecondary()`；目标只要已有任一匹配类型就拒绝本次准入，无关物品不阻挡
+  ME_NETWORK 直接检查本机所连网格的 MEStorage；ADJACENT_BLOCK 不读取机器 facing，也没有背面概念，而是依次检查六个相邻面的 item handler
+  无论是否开启阻挡，新批次准入前都像 Pattern Provider `adapterAcceptsAll` 一样逐项模拟当前目标能否完整接受列表中的每个成品；模拟不合并多个成品对共享容量的竞争
+  准入后记录 autoExportBatchActive 和目标模式；容器模式额外锁定相邻方向。本 tick 继续输出同一真实完成列表，后续包裹不会被刚写入的同批包裹反向阻挡
+  任一后续提交被目标容量或插入规则拒绝时立即停止，未提交包裹保持原有顺序和已准入状态等待后续 tick；重试不重新执行阻挡或整批模拟
+  GUI/外部 capability 可在活动批次中抽取真实队首；只要列表仍非空，剩余成品保持原批次状态，列表取空后清除批次状态
+  下一批成品提交前重置旧状态，必须重新执行目标选择、阻挡检查与整批模拟
 ```
 
-阻挡只检查本机输出槽，不扫描输出 AE 网络、包裹子网、相邻接口、目标机器或主网库存。
+ME_NETWORK 不通过相邻 Interface 的 item capability 间接输出，而是直接使用装配室主节点所属网格的存储服务；相邻 Interface 只可能作为该节点加入网格的连接方式。ADJACENT_BLOCK 只扫描六个紧邻方块，不递归扫描其它物流路径。玩家和外部 capability 的主动抽取仍只受严格队首顺序约束。活动批次中把 outputMode 切为 NONE 只暂停自动输出；改到另一目标类别时终止旧准入，恢复输出时对新目标重新准入。
 
 UI：
 
 ```text
-使用用户提供的 ME Package Assembler atlas 原图；样板与容量元件并列位于顶部，输出模式配置走 AE2 左侧悬浮 toolbar；原图中的旧颜色/marker 装饰区域不注册控件
+使用用户提供的 ME Package Assembler atlas 原图；样板与容量元件并列位于顶部，输出模式与阻挡模式配置走 AE2 左侧悬浮 toolbar；原图中的旧颜色/marker 装饰区域不注册控件
 输入区参考新版 AE2 样板终端 processing 模式滚动栏；滚动条位于输入栏左侧并显示 4 行×4 列，最大行数按样板非空输入数和残留真实输入动态计算
+输入格由用户 atlas 持有外框与分隔线，Screen 只在 `(slot.x-1,slot.y-1)` 叠加 `package-storagebus-sprites.png [0,64,18,18]` 的新版透明边框槽位 sprite；禁用格使用 0.2 opacity。菜单必须令 `IOptionalSlot.isRenderDisabled=false`，不得重新启用 AE2 15 `Icon.SLOT_BACKGROUND` 的旧 `states.png` 回退，也不得用纯色 fill 重建槽位内部
+装配室小滚动柄使用项目回移的 current-AE2 sprite：enabled 为 `advanced_pattern_encoding_terminal_sprites.png [0,32,7,15]`，disabled 为 `[16,32,7,15]`
 右侧固定显示一个真实主输出和一个不可交互的下一包预览；预览旁显示剩余队列数量，hover 显示剩余包裹提示
 下半区中部样板槽参考分子装配室：槽内只允许已编码样板；放入样板后，输入栏按样板非空输入顺序建立对应数量的真实槽并跳过 sparse 空白，服务端用样板材料与数量过滤插入。空槽不显示样板过滤物品或数量，只有已真实投入的输入才作为槽内容同步和绘制。样板可在容量不足时保留于槽内供检查，但菜单同步 `patternCapacityValid=false`，客户端以红色覆盖样板槽并锁定全部空输入位；已有残留输入保持可取出。高级样板的颜色与 marker 只读自样板列元数据，界面不提供可修改机器配置
 左侧输入栏不是 fake slot；点击或 shift-click 会真实转移玩家物品，可累计超过普通 stack size 的数量，只受包裹容量档和样板过滤约束
@@ -582,12 +599,13 @@ CapacityProfile
 
 ```text
 item id: appliedpackaging:advanced_processing_pattern
-tag.appliedpackaging.advanced_processing_pattern.version: int = 1
+tag.appliedpackaging.advanced_processing_pattern.version: int = 2
 tag.appliedpackaging.advanced_processing_pattern.columns: list<compound>
-columns[].index: int，必须从 0 开始连续且小于 17
+columns[].index: int，必须从 0 开始连续且小于 81
 columns[].color: string，PackageColor.id()
 columns[].marker: optional GenericStack compound，只允许数量为 1 的 AEItemKey marker
-根 NBT 的 in/out 沿用 AE2 processing pattern 编码；第 n 列输入槽固定映射 sparse inputs[n * 81 .. n * 81 + 80]
+columns[].inputs: sparse GenericStack list，尾部空位裁剪，长度最多 81
+根 NBT 的 in/out 沿用 AE2 processing pattern 编码，但 `in` 是按列/行顺序压缩后的稠密执行输入；version 1 仍按 `n * 81 + row` 读取并迁移到列数据
 高级终端只写入启用列范围；未启用列中的旧 ghost 数据不得进入新样板
 ```
 
@@ -596,7 +614,7 @@ columns[].marker: optional GenericStack compound，只允许数量为 1 的 AEIt
 ```text
 package_pattern 的 tooltip、解码与输出预览都由正式注册的 `PackageCraftingPatternItem` 自己实现，并由 `PackageCraftingPatternDataStorage` 写入/读取当前 package_crafting_pattern 数据；不得通过未注册的遗留物品类静态转发 tooltip。
 AE2 原版 Pattern Encoding Terminal 继续由 AE2 的 `InitScreens` factory 创建原生 `PatternEncodingTermScreen`，四种原生模式、ScreenStyle、终端底图、recipe preview、数量编辑、tooltip 和编码按钮全部执行 AE2 原路径。本模组不向该 Screen 注册包裹按钮或包裹 panel，也不替换、委托或条件接管其绘制。唯一原版终端注入位于 `AEBaseMenu.isValidForSlot`：仅当实际菜单是普通 `PatternEncodingTermMenu`、语义是 `ENCODED_PATTERN` 且物品是两个 Applied Packaging 专用载体之一时返回 false；其它菜单和槽位继续走 AE2 原逻辑。
-`AdvancedPatternEncodingTerminalPart` 同时持有 `AdvancedPatternEncodingState`、`PackagePatternEncodingState` 与持久化 `SpecializedPatternMode`。高级状态独立保存 1377 个输入、4 个输出、启用列数与列颜色；包裹状态独立保存 81 个输入、颜色和 marker。页面切换只改变模式字段和两组槽位的 active/屏幕坐标，不复制、迁移、清空或复用任一页数据。part 拆除时只有包裹 marker 作为真实物品返还；两页 fake/config 输入输出不作为掉落。
+`AdvancedPatternEncodingTerminalPart` 同时持有 `AdvancedPatternEncodingState`、`PackagePatternEncodingState` 与持久化 `SpecializedPatternMode`。高级状态逻辑上保存 81×81 个 sparse 输入、4 个输出、启用列数、列颜色与 `AdvancedPatternColorMode`；菜单只创建 4×81 个输入窗口槽并由同步的首列动态映射，避免为 6561 个逻辑位置创建 FakeSlot。包裹状态独立保存 81 个输入、颜色和 marker。页面切换只改变模式字段和两组槽位的 active/屏幕坐标，不复制、迁移、清空或复用任一页数据。
 `AdvancedPatternEncodingTermMenu` 仍继承 AE2 `PatternEncodingTermMenu` 以复用网络库存、空白/已编码载体、容器交互与数量包语义，但强制底层 `EncodingMode.PROCESSING`，并把继承的 crafting、smithing、stonecutting 和默认 processing 编辑槽全部停用。菜单为高级页和包裹页分别创建自有 fake slot；两个页面唯一共享的是 `BLANK_PATTERN` 与 `ENCODED_PATTERN` 载体槽。覆盖 `hideViewCells()` 返回 true，使构造阶段完全不创建 `VIEW_CELL` 槽。
 模式权威只有 `SpecializedPatternMode.ADVANCED/PACKAGE`。点击右侧模式按钮时客户端先做同值本地投影并发送一次 `apSetSpecializedPatternMode`，服务端保存到 part 后由 GuiSync 回传最终状态；切换过程中 Screen 和 Menu 实例始终不变。已编码槽放入 `advanced_processing_pattern` 时只解码到高级状态并切至 ADVANCED，放入 `package_pattern` 时只解码到包裹状态并切至 PACKAGE。载入包裹样板后，预览直接从包裹状态的 sparse 输入、颜色和 marker 生成，不调用 crafting recipe 或高级输出逻辑。
 `AdvancedPatternEncodingTermScreen` 是合并终端唯一 Screen。两页共享同一个外框尺寸和所有外围锚点：两行网络库存时均为 195x245、bottom 区 192px；网络行增加时只按每行 18px 向下扩展。用户 `advanced_pattern_encoding_terminal.png` 的高级编辑面板位于 screen `(8,68)`，尺寸 132x78；`pattern_mode_packaging.png` 的上半区 `[0,0,132,78]` 是包裹面板，下半区 `[0,128,132,78]` 与底图高级面板逐像素一致。包裹页只在 `(8,68)` 覆盖这块面板，不更换 full-screen base，不改变窗口中心、标题、搜索、网络滚动条、玩家栏、载体槽、Encode 或合成状态位置。
@@ -612,7 +630,8 @@ AE2 原版 Pattern Encoding Terminal 继续由 AE2 的 `InitScreens` factory 创
 
 统一 `PackageColorPicker` 是所有包裹颜色入口的唯一弹窗与触发按钮实现：无标题、无名称或 marker 控件，调用方显式传入 `allowNone`。左侧分隔组固定为两格竖排：Fluix 在上、None 在下；`allowNone=false` 时不绘制也不命中 None，但保留整格空间，因此弹窗宽高、分隔线和右侧颜色位置不移动。其余 16 个染料色固定在右侧按 8x2 排列。只有 Package Storage/Unpacking Bus 过滤行传入 `allowNone=true`，且其触发按钮右键直接清除颜色条件为 None；ME Packager 和合并后的 Advanced Pattern Terminal 两页均传入 false。默认、None、选中背景分别读取 `package-storagebus-sprites.png` 的 `(48,0,8,8)`、`(56,0,8,8)`、`(48,8,8,8)`；选中态只替换色格内部背景，不在格外增加 outline，hover 只用于颜色名称 tooltip，不改变像素。颜色格由弹窗单次手工绘制而不注册为普通 widget，只有弹窗自身绘制一次颜色名称 tooltip；父 Screen 先完整绘制槽位、物品和普通 widget，再取消底层 tooltip。打开时 picker 同时暂停锚点触发按钮自身的 hover tooltip，关闭后恢复，避免弹窗与“选择包裹颜色”提示重叠。Advanced Pattern Terminal 与其它父 Screen 一样在自身 `super.render(...)` 之后绘制 picker，不使用原 AE Screen 的 Render.Post 事件。打开 picker 不改变底层 slot active 状态，但 picker 必须吞掉 mouse click/release/drag/scroll、keyPressed 与 charTyped。ME Packager、Advanced Pattern Terminal 的包裹页与高级页、两个 Package Bus part 均复用该控件。
 高级终端编码结果是独立 `advanced_processing_pattern` 物品，并写入 AE2 processing in/out 与 appliedpackaging.advanced_processing_pattern 列数据；默认 AE2 Pattern Encoding Terminal 和其它普通编码路径只输出原版样板，不写高级列 NBT。
-高级终端读取普通 processing pattern 时装入第一列；读取高级 processing pattern 时恢复列数、颜色和最多 17x81 个 sparse inputs。编码时名称固定为空，每列 marker 固定取主产物并归一为 1 个 AEItemKey。
+高级终端读取普通 processing pattern 时装入第一列；读取高级 processing pattern 时恢复列数、颜色、颜色模式和最多 81×81 个 sparse inputs。编码时名称固定为空，每列 marker 固定取主产物并归一为 1 个 AEItemKey。新增列发生在当前水平窗口末尾时，客户端等待服务端 activeColumns 回传后自动滚到新的末尾。
+高级页的“转置配方”把活动矩阵 `(column,row)` 写到 `(row,column)`，新列数为原矩阵最高非空行加一，原活动列数不超过 81 因而可无损进入每列 81 行；输出不变，列色按当前颜色模式重新生成。默认色模式令所有列为 Fluix；循环颜色模式按列索引循环全部 17 个 PackageColor，切换模式立即重着色活动列。空手按住已占用输入格至少 350ms 后绘制随鼠标移动的拾起图标，松手于另一活动输入格时服务端执行移动；目标非空则交换。短按仍委托原 FakeSlot PICKUP。
 默认初始选择为 Fluix。
 当前正式载体只包含 package_pattern、普通 AE2 processing_pattern 与 advanced_processing_pattern；不含任意 AEKey 处理输出 ghost editor。
 ```
@@ -633,7 +652,7 @@ AE2 原版 Pattern Encoding Terminal 继续由 AE2 的 `InitScreens` factory 创
 ```text
 作为默认优先级 0 的 Formation Plane 式只写入端点接收网络路由包裹
 模拟过滤、Pattern Provider 阻挡条件和完整相邻目标容量
-把接受的一个包裹直接保存在本地 heldPackage，不暴露网络库存或抽取
+把接受的一个包裹直接保存在本地 heldPackage，并把这个未拆完的整包作为数量 1 的可抽取网络库存报告
 播放与 ME 打包机拆包模式相同的工作进度
 进度结束时重新验证过滤、阻挡与目标容量
 成功时按 Pattern Provider 的 check-then-push 约定，按 contents 条目顺序逐条推入全部散装内容并清空 heldPackage；重复 AEKey 条目不预先聚合
@@ -659,22 +678,22 @@ package_storage_bus:
   不暴露包裹内部内容。
 
 package_unpacking_bus:
-  自身注册 IStorageProvider，挂载只实现 insert 的 MEStorage；与 package_storage_bus 一样默认优先级为 0，挂载时直接使用玩家在右上角 Priority 子菜单配置的数值，不增加隐藏偏移。
+  自身注册 IStorageProvider，挂载使用一个只保存唯一 held 工作包裹的 MEStorage；与 package_storage_bus 一样默认优先级为 0，挂载时直接使用玩家在右上角 Priority 子菜单配置的数值，不增加隐藏偏移。
   对合法包裹返回 `isPreferredStorageFor=true`；因此与 package_storage_bus 数值相同时先尝试拆包端点，只有拆包端点因 held 忙碌、过滤、阻挡或目标容量拒绝时才继续路由到存储总线。
-  该挂载不枚举 available stack、拒绝 extract，且 held 状态不作为 ME 库存；总线不再周期扫描或抽取 Drive、Storage Bus、Cell 等既有网络存储。
+  该挂载不周期扫描或主动抽取 Drive、Storage Bus、Cell 等其它网络存储；仅当本机 `heldPackage` 非空时把它按精确 `AEItemKey`、数量 1 加入 available stack，并允许网络模拟或提交抽取同一个整包。空闲时不报告容量，不接收无法立即进入拆包流程的包裹，因此不具备一般存储功能。
   网络 insert 每次最多接受 1 个合法包裹；只有空闲、过滤匹配、相邻 item handler 存在、整包累计模拟通过且阻挡条件满足时，SIMULATE 才返回 1。MODULATE 把同一包裹直接转移到 part 自己的 `heldPackage` 并开始工作，此时目标仍不获得任何内容。
-  `heldPackage`、工作态、剩余工作 tick、阻塞态和重试冷却写入 part NBT；工作槽直接同步该真实 held 状态，不再使用空预览占位。
+  `heldPackage`、工作态、剩余工作 tick、阻塞态和重试冷却写入 part NBT；工作槽直接同步该真实 held 状态，不再使用空预览占位。held 从空到非空或从非空到空时请求重新挂载 IStorageProvider，使 ME 可见包裹和阻挡检查及时更新。
   阻挡模式类型与 AE2 Pattern Provider 一致，默认关闭。开启时把包裹内容物的 item key 视作 pattern inputs，按 `dropSecondary` 比较相邻目标现有 stack；目标包含任一输入类型即拒绝首次接收或最终提交。
   实际工作周期复用 ME 打包机的拆包速度表，0-4 张加速卡分别为 20/15/10/6/4 tick，最多识别 4 张且最快 4 tick。开始工作时锁定本次周期总长并与剩余 tick 一起持久化；菜单进度按该总长缩放为 15 级。进度结束时重新校验当前过滤规则、阻挡条件、目标存在性，并在保留 `slot limit` / `isItemValid` 的累计快照中模拟全部物品；全部通过后才逐项真实插入并清空 held 状态。
   最终模拟失败时不写入任何内容、不把包裹写回 ME 网络，也不切换到其它包裹；保持同一个 `heldPackage`，清空进度并进入阻塞态，按同一加速卡公式等待下一次重新验证，随后从新的完整加速周期重新开始。目标 handler 必须遵守 Forge 的 simulate/execute 一致性约定；本 Mod 不再构造逐槽计划或反向抽取回滚。
-  工作中拒绝玩家取出 held 包裹；阻塞或其它空闲 held 状态允许从 GUI 工作槽取回。part 被拆除时 held 包裹作为额外掉落返还，`clearContent` 同步清空，避免复制或丢失。
+  工作、阻塞或其它 held 状态都允许网络按精确 key 抽取，也允许玩家从 GUI 工作槽取回。SIMULATE 不改变状态；MODULATE 或玩家真实取回时返回完整的一个包裹并原子清空 working、blocked、进度、周期总长和 retry cooldown，目标不得获得任何部分内容。part 被拆除时 held 包裹作为额外掉落返还，`clearContent` 同步清空，避免复制或丢失。
   不接受部分拆包。
 
 两个总线共用 7 行 `PackageBusFilterRule`。每行保存颜色是否启用及颜色值、marker item key、6 个普通 item key、模糊开关和反转开关；颜色未启用是可见的空模式，表示不按颜色过滤，而不是 Fluix。空行不参与匹配，所有非空行按 OR 合并。内容过滤在反转关闭时要求包裹内容均属于该行白名单，在反转开启时要求包裹内容不属于该行列表；模糊开启时使用 AE2 `FuzzyMode` 比较物品 key。
 基础启用第 0、1 行；它们在 GUI 中对应底图最上方 `y=29`、`y=47` 两行。5 张容量卡依次启用第 2、3、4、5、6 行，第 5 张达到 7 行过滤容量上限。移除容量卡时被锁定行必须清空，菜单使用 `OptionalFakeSlot`/`IOptionalSlot` 提供禁用状态，并按 AE2 新版风格对正常 slot background 使用透明叠加，不制作独立 disabled-slot 贴图。
 模糊卡与反转卡各最多 1 张。对应按钮只在卡存在时显示；两者都存在时顺序为模糊、反转、颜色，只存在一个时该按钮紧靠颜色。模糊、反转、颜色三个 8px 按钮在每个 18px 过滤行内统一使用固定 2px 上边距，不按行高垂直居中。按钮分别保存每一行状态，绿色表示启用、红色表示停用。颜色按钮始终存在；颜色为空时绘制无色标记，统一拾色弹窗提供“任意颜色”空项，右键颜色按钮也可清除该行颜色约束。
 两个界面保留用户提供的 `package-storagebus.png` 与 `package-storagebus-sprites.png` 为两张独立、字节不变的运行时纹理；工作槽、空进度框与活动进度 sprite 分别从背景文件 `[176,0,18,18]`、`[196,0,6,18]`、`[176,32,6,18]` 取样到 `(119,8)` / `(139,8)`，活动 sprite 按 15 级进度从底部裁切原像素，不缩放、不重新着色，Package Storage Bus 不提交该工作区。过滤槽和模糊/反转按钮来自用户 sprite，其中锁定行使用 `SLOT_BACKGROUND` 的 `0.2` alpha；同一用户 sprite 的 `(32,16,16,16)` 是自绘 marker 空槽图标，空 marker 过滤槽按所在行透明度绘制，已解锁槽 hover 时显示双行说明 tooltip。新版 `states.png`、`extra_panels.png` 与 `vertical_buttons_bg.png` 作为三张未修改的 LGPL 资源独立加载，分别承担新版 toolbar 按钮/优先级标签、升级与工具箱面板、竖向按钮组外框；不向用户原图烘入任何 AE2 像素。AE2 当前 main 的 `Blitter` 为每个元素提交独立 `TextureSetup`/ARGB render state；1.20.1 回移使用立即式 `Blitter`，在 ScreenStyle 背景与自定义层之间 `GuiGraphics.flush()` 并复位混合/颜色状态，达到等价的跨纹理隔离。两者均在右上角 `(152,-5)` 放置 `20x20` 新版优先级标签并打开 AE2 Priority 子菜单。Package Storage Bus 左侧工具栏包含 Storage Bus Help、清除、Partition Storage 和四个存储设置按钮；Package Unpacking Bus 左侧固定为 Pattern Provider Help、清除和阻挡模式。两者均使用新版 toolbar normal/hover/focus 背景、新版状态图标及 6px 间距，并保留连接目标提示。右侧升级面板相对主界面使用 current-main 的 `top=0` 与 5px padding；旧依赖的灰色空升级槽图标被禁用，空槽改绘 `ae2-states.png` 的 current-main `BACKGROUND_UPGRADE` `(240,208,16,16)`。两个 part 都只提供 5 格共享升级库存，并允许这 5 格全部装入 capacity card。卸货总线在同一库存中额外接受最多 4 张 speed card，不把 fuzzy/inverter/capacity/speed 的兼容上限相加成更多物理槽。tooltip 阶段绘制 hover 时必须把菜单内相对槽坐标转换为 `leftPos/topPos` 窗口坐标，防止高亮落到屏幕左上角。
-右上角 Priority 子菜单直接读写两个 part 的 `IPriorityHost` 数值，不存在另一套隐藏用户优先级；两个 part 的默认值都为 0。AE2 `NetworkStorage` 先按数值从高到低分组，再在同一数值内先调用 `isPreferredStorageFor`；Package Unpacking Bus 的实际只写入端点对合法包裹进入该首轮，Package Storage Bus 保持普通第二轮存储，所以同值时稳定先拆包，拆包拒绝后仍可落到存储总线。过滤器或优先级变化时两个 IStorageProvider 都请求重新挂载；Package Unpacking Bus 在网络接收、最终提交和阻塞重试时都使用当前规则。过滤变化不会把 held 包裹替换成另一个包裹；不再匹配时保持阻塞，玩家可以取回。两者均以整包为操作边界，不能部分暴露或主动部分拆出包裹内容。
+右上角 Priority 子菜单直接读写两个 part 的 `IPriorityHost` 数值，不存在另一套隐藏用户优先级；两个 part 的默认值都为 0。AE2 `NetworkStorage` 先按数值从高到低分组，再在同一数值内先调用 `isPreferredStorageFor`；Package Unpacking Bus 的受限输入端点对合法包裹进入该首轮，Package Storage Bus 保持普通第二轮存储，所以同值时稳定先拆包，拆包拒绝后仍可落到存储总线。过滤器或优先级变化时两个 IStorageProvider 都请求重新挂载；Package Unpacking Bus 在网络接收、最终提交和阻塞重试时都使用当前规则。过滤变化不会把 held 包裹替换成另一个包裹；不再匹配时保持阻塞，网络或玩家可以取回。两者均以整包为操作边界；卸货总线只暴露唯一 held 包裹本身，不能部分暴露或主动部分拆出包裹内容。
 ```
 
 ## 11. 过滤规则
@@ -774,21 +793,34 @@ PackageCraftingPatternDetails.sparseInputs()   81 格
 其它 IPatternDetails                           关闭样板模式时使用 getInputs() 执行顺序
 ```
 
-`AdvancedProcessingPatternDetails` 是明确例外：无论样板模式开关如何，都忽略 17×81 sparse 空位，只把公开的实际输入按普通非空顺序映射到连续成员。其它已知 sparse 布局保留成员间隔，最高非空索引必须小于存储成员数量。第一版对可识别 sparse 样板要求 `KeyCounter` 中的 key 和数量与样板位置精确对应，不在序列缓存器内执行替代物选择；高级样板则按其公开的实际非空输入精确匹配。重复模板位置分别生成独立成员分配，不合并。全部 holder 内容必须恰好被计划消费；结构过短、目标成员已锁存、过滤拒绝、单格超容量、位置不匹配或存在剩余输入时整批返回 false。提交时先写入全部成员并设置全结构延迟，再按计划从原 `KeyCounter[]` 扣除；服务器主线程内成员状态再次校验失败时不得消费输入。
+`AdvancedProcessingPatternDetails` 是明确例外：无论样板模式开关如何，都忽略高级列矩阵的 sparse 空位，只把公开的实际输入按普通非空顺序映射到连续成员。其它已知 sparse 布局保留成员间隔，最高非空索引必须小于存储成员数量。第一版对可识别 sparse 样板要求 `KeyCounter` 中的 key 和数量与样板位置精确对应，不在序列缓存器内执行替代物选择；高级样板则按其公开的实际非空输入精确匹配。重复模板位置分别生成独立成员分配，不合并。全部 holder 内容必须恰好被计划消费；结构过短、目标成员已锁存、过滤拒绝、单格超容量、位置不匹配或存在剩余输入时整批返回 false。提交时先写入全部成员并设置全结构延迟，再按计划从原 `KeyCounter[]` 扣除；服务器主线程内成员状态再次校验失败时不得消费输入。
 
 ### 12.6 拆包总线与包裹位置布局
 
-`PackageData.layout` 缺省时，Package Unpacking Bus 按 contents 有序列表把每个条目映射到连续存储成员。布局存在时，第 `contentSlots[i]` 格只接收 `contents[i]`，未列出的槽位保持空白；端点不计入位置。拆包总线直接调用同 Mod 的端点原子计划入口，而不是把布局降级为普通 `IItemHandler` 插入。预检同时覆盖结构长度、成员锁存、AEKey filter 和单格容量；输入延迟只阻挡输出，不阻挡向其它空成员继续输入。任一失败时 held 包裹保持原样，目标成员也不得出现部分内容。
+`PackageData.layout` 缺省时，Package Unpacking Bus 按 contents 有序列表把每个条目映射到连续存储成员。布局存在且端点开启样板模式时，第 `contentSlots[i]` 格只接收 `contents[i]`，未列出的槽位保持空白；端点不计入位置。端点关闭样板模式时即使包裹带布局也按 contents 连续输入，不跳过空位置。拆包总线直接调用同 Mod 的端点原子计划入口，而不是把布局降级为普通 `IItemHandler` 插入。预检同时覆盖结构长度、成员锁存、AEKey filter 和单格容量；输入延迟只阻挡输出，不阻挡向其它空成员继续输入。任一失败时 held 包裹保持原样，目标成员也不得出现部分内容。
 
-### 12.7 第一版 GUI 边界
+### 12.7 双界面菜单、槽映射与升级权威
 
-第一版不注册 `SequenceBufferMenu`、Screen 或网络按钮。普通空手右键不打开伪 GUI；代码只提供“任意成员解析端点”和端点配置读写入口，后续 GUI 必须通过该入口打开端点并更新端点权威配置。过滤器、自动输出、阻挡、同步、样板模式和输入延迟均已进入持久化 schema 与 GameTest，不以未实现 GUI 为理由省略服务端逻辑。
+序列缓存器使用两个独立菜单类型，语义对应高版本 AE2 ME Chest 的 main/side 两个入口：
 
-## 13. JEI 通用配方导入
+```text
+SequenceBufferMainMenu  仅由成型端点打开；host=viewed=端点
+SequenceBufferSideMenu  由普通成员或未成型单块打开；host=解析后的端点权威或自身，viewed=被点击方块
+```
+
+主菜单固定创建 27 个显示槽，按 `memberIndex = scrollRow * 9 + visibleIndex` 映射逻辑成员，不包含端点。`memberCount <= 27` 时 `maxScrollOffset=0`；否则 `maxScrollOffset=max(0,ceil(memberCount/9)-3)`。最后一个可视页仍按整行移动，因此前两行可以与上一页重叠，只有 `memberIndex >= memberCount` 的位置禁用。Screen 对有效位置绘制完整 `SLOT_BACKGROUND`，对不足 3x9 和末行越界位置以 0.2 alpha 绘制同一精灵；禁用位置不响应 hover、放入、取出或快捷移动。侧面菜单只创建一个显示槽，服务端始终映射 `viewed` 本格，升级库存来自端点 `host`；两套菜单都不创建过滤假槽，五项模式设置通过 `GuiSync` 和 client action 直接操作端点配置。
+
+显示槽通过 `GenericStack.wrapInItemStack` 同步 `AEKey + long amount`，所以物品、流体和其它 AEKey 使用 AE2 的通用图标与数量渲染。普通光标只允许对 `AEItemKey` 执行真实放入/取出；放入调用本格一次输入锁存路径，取出受全结构输入延迟约束。主菜单从玩家物品栏快捷放入时从逻辑第 1 格开始选择首个空成员，侧面菜单只尝试被点击成员；从显示槽快捷取出先模拟玩家物品栏容量，再按实际移动量提交。非物品通用 key 只显示，不伪装成普通 ItemStack 搬运，仍通过 `IFluidHandler` / `MEStorage` 操作。
+
+每个方块实体保存 9 格 `GenericStackInv.Mode.CONFIG_TYPES` 过滤库存的可重建镜像，持久化权威仍是 `SequenceBufferConfiguration.allowedInputs`。该库存只作为后续 GUI 接口的预留数据结构：内部或后续接口写入时重建精确 AEKey allowlist，再调用端点 `updateConfiguration` 同步成员；外部配置或 NBT 载入则在抑制 change callback 的批处理中反向重建库存镜像。每个方块实体另保存 1 格 `IUpgradeInventory`，菜单对成型结构只打开端点库存；`Upgrades` 注册只允许一张红石卡。形成结构前先验证全部方块实体存在，再把未来成员已有的物理升级卡移入端点；端点槽已占用产生的重复卡在原成员位置掉落，不允许形成隐藏且不可访问的成员升级库存。未安装卡时自动输出忽略红石，安装后所有成员每 tick 解析端点并以端点 `hasNeighborSignal` 作为整组自动输出门禁；该门禁不绕过锁存、阻挡、同步或延迟规则，也不改变 capability 被动抽取语义。拆除方块时其本地升级卡与本格存储内容一起掉落。
+
+第一版 main/side 菜单不调用 `addExpandableConfigSlots`，两套 ScreenStyle 也不声明 `CONFIG` 槽或过滤背景；允许输入的精确 AEKey 过滤库存继续由端点 `SequenceBufferConfiguration` 和 `inputFilter` 保存，但不显示独立 3x3 面板。`AbstractSequenceBufferScreen` 使用项目现有 AE2 竖向按钮栏显示自动输出、阻挡、同步输出、样板模式和输入延迟；四个布尔按钮使用 AE2 对应状态图标，延迟按钮以 `1/5/10/20/40/100 tick` 循环并读取 AEBaseScreen 的右键方向。每次操作通过菜单 client action 在服务端复制并更新端点配置，随后由既有 `updateConfiguration` 同步所有成员；`GuiSync(31..35)` 只回传当前显示状态。红石卡升级面板使用 `{right:2,top:0}` 附着主面板右侧。主界面滚动条使用 AE2 `Scrollbar.DEFAULT` 的标准 12x15 handle，组件起点 `(175,18)` 使其相对底图 `x=178..183` 的窄轨道对称居中；范围为 0 时仍绘制 DEFAULT disabled handle，不得隐藏。
+
+## 13. JEI / EMI 单插件配方导入
 
 ### 13.1 计划与传输
 
-`AdvancedPatternTransferPlan` 与 `PackagePatternTransferPlan` 是 JEI 和菜单状态之间的依赖中立模型。高级计划的 `columns` 最多 17 项，每列最多 81 个非空 `GenericStack`，`outputs` 最多 4 项；包裹计划最多 81 个有序输入和一个可空 item marker，marker 数量固定归一为 1。计划不保存第三方 recipe object、JEI ingredient type 或运行时 capability。网络 payload 使用 JSON，只保存每个 `GenericStack.writeTag()` 的 SNBT 和列边界，序列化长度不得超过 AE2 client action 的 32767 字符上限。客户端构造与服务端解码都拒绝空计划、非正数量、不可读 NBT、越界计数和超长 payload；服务端在解析各 stack SNBT 前先检查总长度与各层集合边界。
+`AdvancedPatternTransferPlan` 与 `PackagePatternTransferPlan` 是配方查看器和菜单状态之间的依赖中立模型。高级计划的 `columns` 最多 81 项，每列最多 81 个 sparse 位置；非空位置保存 `GenericStack`，前导和内部空位保存 `null`，末尾空位规范化裁掉，`outputs` 最多 4 项。包裹计划最多 81 个有序非空输入和一个可空 item marker。计划不保存第三方 recipe object、JEI/EMI ingredient type 或运行时 capability。网络 payload 使用 JSON，保存每个非空位置的 `GenericStack.writeTag()` SNBT、空位 `null` 和列边界，序列化长度不得超过 AE2 client action 的 32767 字符上限。
 
 `AdvancedPatternEncodingTermMenu.importAdvancedRecipe` / `importPackageRecipe` 只在客户端发送对应 action；服务端 action handler 解码出完整计划后才调用当前状态的 `replaceRecipe`。高级替换先清空旧输入/输出、写入新列和输出、保留重叠列颜色、给新增列设 Fluix，并切到 ADVANCED。包裹替换清空旧内容和 marker、写入新输入/marker、保留原包裹颜色，并切到 PACKAGE。两者都在完整验证后只触发一次状态变化并广播，另一页不参与替换。
 
@@ -797,26 +829,28 @@ PackageCraftingPatternDetails.sparseInputs()   81 格
 未被专用适配器认领的 recipe 使用 `IRecipeSlotsView`：
 
 ```text
-INPUT       -> 消耗资源；每槽使用 JEI 当前显示的首个可表示 item/fluid typed ingredient
+INPUT       -> 消耗资源；每槽先选终端当前网络/玩家库存中最高优先级的可表示候选，无匹配再用 JEI 当前显示项
 OUTPUT      -> 结果；该槽全部候选转换后必须只有一个不同 GenericStack
 CATALYST    -> 跳过
 RENDER_ONLY -> 跳过
 其它 ingredient type -> 拒绝
 ```
 
-高级页把所有输入保持槽位顺序写入一个列，要求至少一个确定性输出；包裹页把所有输入保持槽位顺序写入 contents，并使用第一个 item 输出作为 marker，纯流体输出允许 marker 为空。通用层不会把多个 output 候选擅自选成当前动画帧，也不会把无输出燃料/世界生成信息伪装为加工配方。Thermal Series 的部分 JEI 分类把可选 catalyst 标为 INPUT，因此先从 recipe 的 `getInputItems` / `getInputFluids` 取得实际消耗数量，再分别保留前 N 个 item/fluid 输入，不能简单截取前 N 个混合槽。
+高级页按槽位顺序把每个确定性 item/fluid 输入分别写入一个列，要求至少一个确定性输出；包裹页仍把所有输入保持顺序写入单个 contents，并使用第一个 item 输出作为 marker。通用层不会把多个 output 候选擅自选成当前动画帧，也不会把无输出燃料/世界生成信息伪装为加工配方。Thermal Series 的部分 JEI 分类把可选 catalyst 标为 INPUT，因此先从 recipe 的 `getInputItems` / `getInputFluids` 取得实际消耗数量，再分别保留前 N 个 item/fluid 输入。
+
+`RecipeIngredientSelector` 在 JEI transfer 的可行性检查与实际导入时都从 `AdvancedPatternEncodingTermMenu.getClientRepo()` 读取当前 AE2 网络条目，并按 AE2 15.4.10 `EncodingHelper.ENTRY_COMPARATOR` 的同序规则生成递增优先级：可合成优先于不可合成、未损坏优先于已损坏、现存数量较多优先于较少；所有网络条目优先于玩家物品栏，玩家物品栏又优先于完全不存在的候选。物品 `Ingredient` 不只枚举声明栈，还让 client repo 中满足 `AEItemKey.matches(ingredient)` 的 NBT/损伤变体参与选择。标准 JEI 槽在库存无匹配时回退当前显示项，再回退第一个可表示候选；Create/GTCEu 原生 ingredient 在库存无匹配时回退声明首项。流体只在 recipe 声明的可表示 fluid candidates 中按相同 AEKey 优先级选择。输出不使用输入替代选择；歧义输出仍按确定性门禁拒绝。
 
 ### 13.3 Create 映射
 
-`SequencedAssemblyRecipe` 的第 0 列是 `getIngredient()` 当前第一个可表示候选；之后按 `loops` 外层、`sequence` 内层的执行顺序追加每个工序的外部消耗。工序若包含多个 item/fluid ingredient，则该工序作为一列写入；`ItemApplicationRecipe` 的 held item 作为非消耗工具跳过。最终结果只允许一个确定性 item stack；结果池存在多个候选、概率不为 1 或结果为空时拒绝。该规则会接受确定性的 `create:sequenced_assembly/sturdy_sheet`，并保守拒绝带随机最终池的精密构件一类配方。
+`SequencedAssemblyRecipe` 的第 0 列是 `getIngredient()` 按共享库存优先级选择的候选；之后按 `loops` 外层、`sequence` 内层的执行顺序追加每个工序的外部消耗。工序若包含多个 item/fluid ingredient，则该工序作为一列写入；`ItemApplicationRecipe` 的 held item 作为非消耗工具跳过。最终结果只允许一个确定性 item stack；结果池存在多个候选、概率不为 1 或结果为空时拒绝。该规则会接受确定性的 `create:sequenced_assembly/sturdy_sheet`，并保守拒绝带随机最终池的精密构件一类配方。
 
-`MechanicalCraftingRecipe` 先按配方实际 width/height 标记非空行和非空列。若非空行数小于等于非空列数，则按行拆分；否则按列拆分。选择方向中的每个非空行/列按网格自然顺序成为一个包裹列，空位跳过但非空 ingredient 不合并；因此 Create 自带 5 行、3 列均非空的 `mechanical_crafting/extendo_grip` 会产生 3 个列包裹，内容数依次为 2、5、2。该策略只最小化包裹数，不改变选中行/列内部顺序；相同包裹数时固定按行，保证结果稳定。
+`MechanicalCraftingRecipe` 先按配方实际 width/height 标记非空行和非空列。若非空行数小于等于非空列数，则按行拆分；否则按列拆分。选择方向中的每个非空行/列按网格自然顺序成为一个包裹列；首个 ingredient 前和 ingredient 之间的空位作为 sparse `null` 保留，只有最后一个 ingredient 后的空位裁掉。因此 Create 自带 5 行、3 列均非空的 `mechanical_crafting/extendo_grip` 会产生 3 个列包裹：左右列各为“空、空、木棍、木棍”，中列为 5 个连续材料，而不是把左右列的木棍压到第 0、1 格。该策略只最小化包裹数，不改变选中行/列的原始坐标；相同包裹数时固定按行，保证结果稳定。
 
-其它 Create `ProcessingRecipe` 映射为单列：按 declared order 写入所有可表示 item/fluid ingredient，输出按 declared order 写入 item/fluid result。chance 不为 1 的输出、区间/随机数量、空 ingredient 候选和超过终端上限的内容都拒绝。Create 未安装或 recipe object 不属于受支持类型时适配器返回 not-applicable，不触发 Create 类加载。包裹页复用专用适配得到的确定性结果，再把各列按顺序展平成一个包裹 contents，并把首个 item 输出用作 marker。
+其它 Create `ProcessingRecipe` 按 declared order 把每个可表示 item/fluid ingredient 分别映射成一个包裹列，输出按 declared order 写入 item/fluid result。chance 不为 1 的输出、区间/随机数量、空 ingredient 候选和超过终端上限的内容都拒绝。Create 未安装或 recipe object 不属于受支持类型时适配器返回 not-applicable，不触发 Create 类加载。包裹页复用专用适配得到的确定性结果，再把各列按顺序展平成一个包裹 contents，并把首个 item 输出用作 marker。
 
 ### 13.4 GTCEu 映射
 
-GTCEu 适配器只把确定性的 item/fluid capability content 写入样板。一次性输入直接写入单列；tick input 先把固定 amount 乘 recipe duration 后写入同列；输出采用相同规则。每个 `Content` 使用独立乘数，不能让前一个区间 ingredient 的固定数量污染后续 content。`chance == 0` 的输入视为不消耗催化剂而跳过；其它概率值、`min != max` 的区间数量、乘法溢出、缺少可表示候选或超出终端边界时拒绝。固定值 `IntProvider` 按其唯一数值换算；能量等机器运行 capability 不是待封装资源，保持在 JEI 配方显示中但不写入高级样板。GTCEu 未安装或 recipe object 不是 GT recipe 时返回 not-applicable。
+GTCEu 适配器只把确定性的 item/fluid capability content 写入样板。每个一次性输入独占一个包裹列；每个 tick input 先把固定 amount 乘 recipe duration 后同样独占一列；输入的替代 item/fluid 候选使用共享库存优先级，输出保持配方声明结果；输出采用相同数量换算。每个 `Content` 使用独立乘数，不能让前一个区间 ingredient 的固定数量污染后续 content。`chance == 0` 的输入视为不消耗催化剂而跳过；其它概率值、`min != max` 的区间数量、乘法溢出、缺少可表示候选或超出终端边界时拒绝。能量等机器运行 capability 不是待封装资源，不写入高级样板。
 
 开发编译固定使用 GTCEu 7.5.3 API。GregTech Modern - StarT Fork 1.7.0b 仍声明 `modId=gtceu`，且本集成使用的 `GTRecipe`、`Content`、`ItemRecipeCapability`、`FluidRecipeCapability` 公共成员保持兼容；`-PgtceuRuntimeJar=<jar>` 只替换开发运行时，不改变发布 metadata 或引入 fork 硬依赖。fork 运行使用独立目录，避免与上游 GTCEu world registry 快照互相产生 missing mapping 噪音。
 
@@ -838,3 +872,11 @@ Ender IO Sag Mill                     chance 必须为 1 且 grinding-ball bonus
 ### 13.6 JEI 转移结果
 
 `AdvancedRecipeTransferHandler` 只注册 `AdvancedPatternEncodingTermMenu.TYPE` 和 `RecipeType<?>` 通配入口，避免覆盖 AE2 原版终端已有转移器。专用适配器成功时保留其高级语义；没有专用适配器时进入 JEI 标准槽位回退。适配器明确拒绝时返回用户可见的本地化 error tooltip。JEI 调用 `doTransfer=false` 只进行完整可行性检查，不修改菜单；`doTransfer=true` 也只发送一次当前页面 action，最终状态仍以服务端校验结果为准。
+
+### 13.7 TMRV 单入口边界
+
+Applied Packaging 只发布 `AppliedPackagingJeiPlugin` 与 `AdvancedRecipeTransferHandler`，不声明 `@EmiEntrypoint`，也不维护 `EmiRecipeHandler` 副本。JEI 环境直接加载该插件；EMI 环境要求 EMI+TMRV，由 TMRV 提供 JEI API replacement 并把同一套插件注册、槽位角色与 recipe transfer 调用映射到 EMI。这样 Create/GTCEu 专用语义、通用确定性门禁与错误提示只有一个实现源。Gradle 只编译 JEI API；`recipeViewerRuntime=jei` 与 `recipeViewerRuntime=emi` 分别验证 JEI 和互不共存的 EMI+TMRV，三者都不写入发布硬依赖。
+
+### 13.8 Star Technology 星门装配评审边界
+
+Star Technology 的 `stargate_component_assembly` 由 KubeJS startup script 注册为 GTCEu recipe type，实际 server recipe 通过 `.layeredRecipe(...)` 声明层序列；它不是可直接依赖的独立 Java recipe category。现有 `GtceuRecipeTransferAdapter` 可以看到扁平 `GTRecipe` item/fluid content，但不能据此证明层边界得到保留。本轮不实现该映射。后续应先确定目标语义：每个 layer 一个包裹，或 layer 内仍每种材料一个包裹并额外保存层边界；只有 GTCEu Fork 的 layered 数据 API 稳定后才加入专用适配。泛 KubeJS 接口只在其它脚本配方确实需要显式声明分组时再设计。

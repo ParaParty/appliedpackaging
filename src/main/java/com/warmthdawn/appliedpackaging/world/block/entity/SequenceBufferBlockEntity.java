@@ -11,18 +11,25 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import appeng.api.upgrades.IUpgradeInventory;
+import appeng.api.upgrades.IUpgradeableObject;
+import appeng.api.upgrades.UpgradeInventories;
 import appeng.capabilities.Capabilities;
+import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AEProcessingPattern;
+import appeng.helpers.externalstorage.GenericStackInv;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.config.APServerConfig;
 import com.warmthdawn.appliedpackaging.core.item_handler.SimulatedItemHandler;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDetails;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDetails;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageLayout;
 import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferConfiguration;
 import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferTopology;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
+import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.world.block.SequenceBufferBlock;
 import com.warmthdawn.appliedpackaging.world.block.SequenceBufferVisualState;
 import java.util.ArrayList;
@@ -49,13 +56,16 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 
-public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingMachine {
+public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingMachine, IUpgradeableObject {
     private static final String STORED_STACK = "stored_stack";
     private static final String RELEASE_AT = "release_at";
     private static final String CONTROLLER_POS = "controller_pos";
     private static final String SEQUENCE_DIRECTION = "sequence_direction";
     private static final String SEQUENCE_INDEX = "sequence_index";
     private static final String CONFIGURATION = "configuration";
+    private static final String UPGRADES = "upgrades";
+    public static final int FILTER_SLOT_COUNT = 9;
+    public static final int UPGRADE_SLOT_COUNT = 1;
     private static final Direction[] OUTPUT_ORDER = {
         Direction.DOWN,
         Direction.UP,
@@ -72,6 +82,16 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     private BlockPos controllerPos;
     private Direction sequenceDirection = Direction.NORTH;
     private int sequenceIndex = -1;
+    private boolean synchronizingInputFilter;
+
+    private final GenericStackInv inputFilter = new GenericStackInv(
+            this::onInputFilterChanged,
+            GenericStackInv.Mode.CONFIG_TYPES,
+            FILTER_SLOT_COUNT);
+    private final IUpgradeInventory upgrades = UpgradeInventories.forMachine(
+            APBlocks.SEQUENCE_BUFFER.get(),
+            UPGRADE_SLOT_COUNT,
+            this::onUpgradesChanged);
 
     private final MEStorage storageView = new StorageView();
     private final IItemHandler itemView = new ItemView();
@@ -95,7 +115,10 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     private void serverTick() {
-        if (level == null || level.isClientSide || !configuration.autoOutput()) {
+        if (level == null
+                || level.isClientSide
+                || !configuration.autoOutput()
+                || !redstoneAllowsAutomaticOutput()) {
             return;
         }
         if (isEndpoint()) {
@@ -129,6 +152,42 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         return storedAmount;
     }
 
+    public GenericStackInv inputFilter() {
+        return inputFilter;
+    }
+
+    @Override
+    public IUpgradeInventory getUpgrades() {
+        return upgrades;
+    }
+
+    public boolean hasRedstoneCard() {
+        return upgrades.isInstalled(AEItems.REDSTONE_CARD);
+    }
+
+    public void absorbUpgradesFrom(SequenceBufferBlockEntity source) {
+        if (source == null || source == this || level == null || level.isClientSide) {
+            return;
+        }
+        for (int slot = 0; slot < source.upgrades.size(); slot++) {
+            ItemStack extracted = source.upgrades.extractItem(slot, Integer.MAX_VALUE, false);
+            if (extracted.isEmpty()) {
+                continue;
+            }
+            ItemStack remainder = upgrades.addItems(extracted);
+            if (!remainder.isEmpty()) {
+                Containers.dropItemStack(
+                        level,
+                        source.worldPosition.getX(),
+                        source.worldPosition.getY(),
+                        source.worldPosition.getZ(),
+                        remainder);
+            }
+        }
+        source.setChanged();
+        setChanged();
+    }
+
     public long releaseAtGameTime() {
         return releaseAtGameTime;
     }
@@ -156,6 +215,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         }
         SequenceBufferBlockEntity authority = SequenceBufferTopology.resolveEndpoint(this).orElse(this);
         authority.configuration.copyFrom(updated);
+        authority.synchronizeInputFilterFromConfiguration();
         authority.setChanged();
         for (SequenceBufferBlockEntity member : SequenceBufferTopology.members(authority)) {
             member.applyControllerConfiguration(updated);
@@ -165,8 +225,46 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     public void applyControllerConfiguration(SequenceBufferConfiguration updated) {
         if (updated != null && !configuration.equals(updated)) {
             configuration.copyFrom(updated);
+            synchronizeInputFilterFromConfiguration();
             setChanged();
         }
+    }
+
+    public int storageMemberCount() {
+        return storageMembers().size();
+    }
+
+    public SequenceBufferBlockEntity storageMemberAt(int slot) {
+        List<SequenceBufferBlockEntity> members = storageMembers();
+        return slot >= 0 && slot < members.size() ? members.get(slot) : null;
+    }
+
+    public ItemStack menuDisplayStack() {
+        return isEmpty()
+                ? ItemStack.EMPTY
+                : GenericStack.wrapInItemStack(new GenericStack(storedKey, storedAmount));
+    }
+
+    public int insertMenuItem(ItemStack stack, int amount, boolean simulate) {
+        if (stack.isEmpty() || amount <= 0) {
+            return 0;
+        }
+        long inserted = insertSingle(
+                AEItemKey.of(stack),
+                Math.min(amount, stack.getCount()),
+                simulate ? Actionable.SIMULATE : Actionable.MODULATE);
+        return (int) Math.min(Integer.MAX_VALUE, inserted);
+    }
+
+    public ItemStack extractMenuItem(int amount, boolean simulate) {
+        if (amount <= 0 || !(storedKey instanceof AEItemKey itemKey)) {
+            return ItemStack.EMPTY;
+        }
+        long extracted = extractSingle(
+                itemKey,
+                amount,
+                simulate ? Actionable.SIMULATE : Actionable.MODULATE);
+        return extracted <= 0 ? ItemStack.EMPTY : itemKey.toStack((int) extracted);
     }
 
     public void assignTopology(BlockPos controller, Direction direction, int index) {
@@ -199,7 +297,10 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             }
         }
         List<PlannedInput> plan = new ArrayList<>(data.contents().size());
-        List<Integer> slots = data.layout()
+        Optional<PackageLayout> activeLayout = configuration.patternMode()
+                ? data.layout()
+                : Optional.empty();
+        List<Integer> slots = activeLayout
                 .map(layout -> layout.contentSlots())
                 .orElseGet(() -> {
                     List<Integer> dense = new ArrayList<>(data.contents().size());
@@ -215,15 +316,27 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     public void dropStoredContents() {
-        if (level == null || level.isClientSide || isEmpty()) {
+        if (level == null || level.isClientSide) {
             return;
         }
-        List<ItemStack> drops = new ArrayList<>();
-        storedKey.addDrops(storedAmount, drops, level, worldPosition);
-        for (ItemStack drop : drops) {
-            Containers.dropItemStack(level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), drop);
+        if (!isEmpty()) {
+            List<ItemStack> drops = new ArrayList<>();
+            storedKey.addDrops(storedAmount, drops, level, worldPosition);
+            for (ItemStack drop : drops) {
+                Containers.dropItemStack(level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), drop);
+            }
+            clearStored();
         }
-        clearStored();
+        for (ItemStack upgrade : upgrades) {
+            if (!upgrade.isEmpty()) {
+                Containers.dropItemStack(
+                        level,
+                        worldPosition.getX(),
+                        worldPosition.getY(),
+                        worldPosition.getZ(),
+                        upgrade.copy());
+            }
+        }
     }
 
     private List<SequenceBufferBlockEntity> storageMembers() {
@@ -302,6 +415,53 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         }
         SequenceBufferBlockEntity authority = SequenceBufferTopology.resolveEndpoint(this).orElse(this);
         return level.getGameTime() < authority.releaseAtGameTime;
+    }
+
+    private boolean redstoneAllowsAutomaticOutput() {
+        SequenceBufferBlockEntity authority = SequenceBufferTopology.resolveEndpoint(this).orElse(this);
+        return !authority.hasRedstoneCard()
+                || authority.level == null
+                || authority.level.hasNeighborSignal(authority.worldPosition);
+    }
+
+    private void onInputFilterChanged() {
+        if (synchronizingInputFilter) {
+            return;
+        }
+        List<AEKey> allowed = new ArrayList<>(FILTER_SLOT_COUNT);
+        for (int slot = 0; slot < inputFilter.size(); slot++) {
+            AEKey key = inputFilter.getKey(slot);
+            if (key != null) {
+                allowed.add(key);
+            }
+        }
+        SequenceBufferConfiguration updated = configuration.copy();
+        updated.setAllowedInputs(allowed);
+        updateConfiguration(updated);
+    }
+
+    private void synchronizeInputFilterFromConfiguration() {
+        synchronizingInputFilter = true;
+        inputFilter.beginBatch();
+        try {
+            int slot = 0;
+            for (AEKey key : configuration.allowedInputs()) {
+                if (slot >= inputFilter.size()) {
+                    break;
+                }
+                inputFilter.setStack(slot++, new GenericStack(key, 0));
+            }
+            while (slot < inputFilter.size()) {
+                inputFilter.setStack(slot++, null);
+            }
+        } finally {
+            inputFilter.endBatchSuppressed();
+            synchronizingInputFilter = false;
+        }
+    }
+
+    private void onUpgradesChanged() {
+        setChanged();
     }
 
     private void markInputDelay() {
@@ -613,12 +773,15 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         tag.putInt(SEQUENCE_DIRECTION, sequenceDirection.get3DDataValue());
         tag.putInt(SEQUENCE_INDEX, sequenceIndex);
         tag.put(CONFIGURATION, configuration.writeTag());
+        upgrades.writeToNBT(tag, UPGRADES);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
         configuration.readTag(tag.getCompound(CONFIGURATION));
+        synchronizeInputFilterFromConfiguration();
+        upgrades.readFromNBT(tag, UPGRADES);
         GenericStack stored = tag.contains(STORED_STACK, Tag.TAG_COMPOUND)
                 ? GenericStack.readTag(tag.getCompound(STORED_STACK))
                 : null;

@@ -61,9 +61,10 @@ public final class AdvancedRecipeTransferHandler
             adapter = standardAdapter;
         }
 
+        RecipeIngredientSelector ingredientSelector = RecipeIngredientSelector.fromMenu(container);
         AdvancedRecipeTransferResult result;
         try {
-            result = adapter.createPlan(recipe, recipeSlots);
+            result = adapter.createPlan(recipe, recipeSlots, ingredientSelector);
         } catch (RuntimeException e) {
             AppliedPackaging.LOGGER.warn("Failed to create a JEI advanced-pattern transfer plan for {}", recipe, e);
             return helper.createInternalError();
@@ -92,9 +93,11 @@ public final class AdvancedRecipeTransferHandler
             AdvancedRecipeTransferAdapter specializedAdapter,
             boolean doTransfer) {
         PackageRecipeTransferResult result;
+        RecipeIngredientSelector ingredientSelector = RecipeIngredientSelector.fromMenu(container);
         try {
             if (specializedAdapter != null) {
-                AdvancedRecipeTransferResult advanced = specializedAdapter.createPlan(recipe, recipeSlots);
+                AdvancedRecipeTransferResult advanced =
+                        specializedAdapter.createPlan(recipe, recipeSlots, ingredientSelector);
                 if (advanced.error() != null) {
                     result = new PackageRecipeTransferResult(null, advanced.error());
                 } else if (advanced.plan() == null) {
@@ -104,7 +107,7 @@ public final class AdvancedRecipeTransferHandler
                             PackagePatternTransferPlan.fromAdvanced(advanced.plan()));
                 }
             } else {
-                result = standardAdapter.createPackagePlan(recipe, recipeSlots);
+                result = standardAdapter.createPackagePlan(recipe, recipeSlots, ingredientSelector);
             }
         } catch (RuntimeException e) {
             AppliedPackaging.LOGGER.warn("Failed to create a JEI package-pattern transfer plan for {}", recipe, e);

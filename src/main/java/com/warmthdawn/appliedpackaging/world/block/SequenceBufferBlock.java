@@ -4,12 +4,16 @@ import appeng.util.InteractionUtil;
 import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferTopology;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.world.block.entity.SequenceBufferBlockEntity;
+import com.warmthdawn.appliedpackaging.world.menu.SequenceBufferMainMenu;
+import com.warmthdawn.appliedpackaging.world.menu.SequenceBufferSideMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
@@ -28,6 +32,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.network.NetworkHooks;
 
 public class SequenceBufferBlock extends BaseEntityBlock {
     public static final EnumProperty<SequenceBufferVisualState> STATE =
@@ -84,18 +89,46 @@ public class SequenceBufferBlock extends BaseEntityBlock {
             Player player,
             InteractionHand hand,
             BlockHitResult hit) {
-        if (hand != InteractionHand.MAIN_HAND
-                || player.isShiftKeyDown()
-                || !InteractionUtil.canWrenchRotate(player.getItemInHand(hand))) {
+        if (hand != InteractionHand.MAIN_HAND || player.isShiftKeyDown()) {
             return InteractionResult.PASS;
         }
-        Direction clickedSide = hit.getDirection();
+        if (InteractionUtil.canWrenchRotate(player.getItemInHand(hand))) {
+            Direction clickedSide = hit.getDirection();
+            if (level.isClientSide) {
+                return InteractionResult.SUCCESS;
+            }
+            return handleWrench((ServerLevel) level, pos, state, clickedSide)
+                    ? InteractionResult.CONSUME
+                    : InteractionResult.FAIL;
+        }
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
-        return handleWrench((ServerLevel) level, pos, state, clickedSide)
-                ? InteractionResult.CONSUME
-                : InteractionResult.FAIL;
+        if (!(player instanceof ServerPlayer serverPlayer)
+                || serverPlayer.connection == null
+                || !(level.getBlockEntity(pos) instanceof SequenceBufferBlockEntity viewed)) {
+            return InteractionResult.PASS;
+        }
+        SequenceBufferBlockEntity authority = SequenceBufferTopology.resolveEndpoint(viewed).orElse(viewed);
+        if (viewed.isEndpoint()) {
+            var provider = new SimpleMenuProvider(
+                    (containerId, inventory, ignored) ->
+                            new SequenceBufferMainMenu(containerId, inventory, viewed),
+                    net.minecraft.network.chat.Component.translatable(
+                            "gui.appliedpackaging.sequence_buffer.main"));
+            NetworkHooks.openScreen(serverPlayer, provider, buffer -> buffer.writeBlockPos(viewed.getBlockPos()));
+        } else {
+            var provider = new SimpleMenuProvider(
+                    (containerId, inventory, ignored) ->
+                            new SequenceBufferSideMenu(containerId, inventory, authority, viewed),
+                    net.minecraft.network.chat.Component.translatable(
+                            "gui.appliedpackaging.sequence_buffer.side"));
+            NetworkHooks.openScreen(serverPlayer, provider, buffer -> {
+                buffer.writeBlockPos(authority.getBlockPos());
+                buffer.writeBlockPos(viewed.getBlockPos());
+            });
+        }
+        return InteractionResult.CONSUME;
     }
 
     private static boolean handleWrench(

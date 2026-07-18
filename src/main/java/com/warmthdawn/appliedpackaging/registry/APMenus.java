@@ -4,6 +4,8 @@ import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageAssemblerMenu;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
+import com.warmthdawn.appliedpackaging.world.menu.SequenceBufferMainMenu;
+import com.warmthdawn.appliedpackaging.world.menu.SequenceBufferSideMenu;
 import com.warmthdawn.appliedpackaging.world.menu.AdvancedPatternEncodingTermMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
@@ -27,6 +29,14 @@ public final class APMenus {
     public static final RegistryObject<MenuType<PackageBusMenu>> PACKAGE_BUS = MENUS.register(
             "package_bus",
             () -> IForgeMenuType.create(PackageBusMenu::fromNetwork));
+
+    public static final RegistryObject<MenuType<SequenceBufferMainMenu>> SEQUENCE_BUFFER_MAIN = MENUS.register(
+            "sequence_buffer_main",
+            () -> IForgeMenuType.create(SequenceBufferMainMenu::new));
+
+    public static final RegistryObject<MenuType<SequenceBufferSideMenu>> SEQUENCE_BUFFER_SIDE = MENUS.register(
+            "sequence_buffer_side",
+            () -> IForgeMenuType.create(SequenceBufferSideMenu::new));
 
     public static final RegistryObject<MenuType<AdvancedPatternEncodingTermMenu>> ADVANCED_PATTERN_ENCODING_TERMINAL =
             MENUS.register(

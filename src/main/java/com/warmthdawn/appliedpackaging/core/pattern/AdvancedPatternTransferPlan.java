@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import net.minecraft.nbt.TagParser;
 
@@ -35,11 +36,16 @@ public record AdvancedPatternTransferPlan(
             }
             List<GenericStack> copiedColumn = new ArrayList<>(column.size());
             for (GenericStack stack : column) {
+                if (stack == null) {
+                    copiedColumn.add(null);
+                    continue;
+                }
                 validateStack(stack);
                 copiedColumn.add(stack);
                 hasInput = true;
             }
-            copiedColumns.add(List.copyOf(copiedColumn));
+            trimTrailingNulls(copiedColumn);
+            copiedColumns.add(Collections.unmodifiableList(copiedColumn));
         }
         if (!hasInput) {
             throw new IllegalArgumentException("Advanced pattern import has no inputs");
@@ -64,7 +70,9 @@ public record AdvancedPatternTransferPlan(
         return new Payload(
                 columns.stream()
                         .map(column -> column.stream()
-                                .map(stack -> GenericStack.writeTag(stack).toString())
+                                .map(stack -> stack == null
+                                        ? null
+                                        : GenericStack.writeTag(stack).toString())
                                 .toList())
                         .toList(),
                 outputs.stream()
@@ -105,7 +113,7 @@ public record AdvancedPatternTransferPlan(
                 }
                 List<GenericStack> decodedColumn = new ArrayList<>(column.size());
                 for (String stack : column) {
-                    decodedColumn.add(decodeStack(stack));
+                    decodedColumn.add(stack == null ? null : decodeStack(stack));
                 }
                 decodedColumns.add(decodedColumn);
             }
@@ -126,6 +134,12 @@ public record AdvancedPatternTransferPlan(
                 throw new IllegalArgumentException("Advanced pattern import stack could not be decoded");
             }
             return stack;
+        }
+    }
+
+    private static void trimTrailingNulls(List<GenericStack> stacks) {
+        while (!stacks.isEmpty() && stacks.get(stacks.size() - 1) == null) {
+            stacks.remove(stacks.size() - 1);
         }
     }
 }

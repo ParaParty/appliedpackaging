@@ -308,6 +308,13 @@ public final class APItems {
                     AdvancedPatternEncodingTerminalPart::new));
 }
 "@
+    Write-Utf8File -Path (Join-Path $caseRoot "src/main/java/com/warmthdawn/appliedpackaging/world/block/entity/PackageAssemblerBlockEntity.java") -Text @"
+package com.warmthdawn.appliedpackaging.world.block.entity;
+
+public final class PackageAssemblerBlockEntity {
+    private static final String AUTO_EXPORT_BATCH_ACTIVE_TAG = "auto_export_batch_active";
+}
+"@
 
     $texturePath = Join-Path $caseRoot "src/main/resources/assets/appliedpackaging/textures/item/release_audit_fixture.png"
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $texturePath) | Out-Null
@@ -389,6 +396,23 @@ try {
         -RootPath $validFixture.RootPath `
         -JarPath $validFixture.JarPath `
         -ExpectedExitCode 0
+
+    $legacyAssemblerAutoExportFixture = New-ReleaseAuditFixture "legacy-assembler-auto-export"
+    Write-Utf8File `
+        -Path (Join-Path $legacyAssemblerAutoExportFixture.RootPath "src/main/java/com/warmthdawn/appliedpackaging/world/block/entity/PackageAssemblerBlockEntity.java") `
+        -Text @"
+package com.warmthdawn.appliedpackaging.world.block.entity;
+
+public final class PackageAssemblerBlockEntity {
+    private static final String LEGACY_AUTO_EXPORT_TAG = "auto_export";
+}
+"@
+    Invoke-ReleaseAuditCase `
+        -Name "legacy assembler auto-export save fixture" `
+        -RootPath $legacyAssemblerAutoExportFixture.RootPath `
+        -JarPath $legacyAssemblerAutoExportFixture.JarPath `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Assembler has no pre-release save or carrier compatibility path"
 
     $optionalCompatLogFixture = New-ReleaseAuditFixture "known-optional-compat-log"
     Write-Utf8File -Path (Join-Path $optionalCompatLogFixture.RootPath "run/logs/latest.log") -Text @"

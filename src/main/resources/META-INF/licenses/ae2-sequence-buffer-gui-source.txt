@@ -1,0 +1,23 @@
+Applied Energistics 2 ME Chest GUI provenance
+
+Repository: https://github.com/AppliedEnergistics/Applied-Energistics-2
+Tag: neoforge/v19.2.17
+Commit: 79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a
+License: LGPL-3.0-or-later
+Bundled license: META-INF/licenses/ae2-LGPL-3.0-or-later.txt
+
+Unmodified copied texture:
+
+- assets/ae2/textures/guis/me_chest.png
+  -> assets/appliedpackaging/textures/gui/sequence_buffer_side.png
+  SHA-256: 2749D7BDAB5E3B9BFF240B6F618AB55AE14A3C2252D9DEB63D959874456D91A0
+
+The endpoint main GUI texture is user-provided and is not copied from AE2:
+
+- E:/resources/textures/appliedpackaging/ret/seq_buffer_ui.png
+  -> assets/appliedpackaging/textures/gui/sequence_buffer.png
+  SHA-256: 075E3329882A3AAE7FE7EBDAAB32EBF799531DC4224F3F37B563CD6B537A2C67
+
+The main/side menu split and coordinates are adapted from the pinned ME Chest block,
+MEChestMenu, BasicCellChestMenu, MEChestScreen, me_chest.json, and terminal base style.
+Runtime menu/network APIs remain the project's AE2 15.4.10 Forge baseline.

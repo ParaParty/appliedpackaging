@@ -28,6 +28,19 @@ public class PackageAssemblerBlock extends AbstractHorizontalMachineBlock {
     }
 
     @Override
+    public boolean hasAnalogOutputSignal(BlockState state) {
+        return true;
+    }
+
+    @Override
+    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        return blockEntity instanceof PackageAssemblerBlockEntity assembler
+                ? assembler.comparatorOutputSignal()
+                : 0;
+    }
+
+    @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
         if (level.isClientSide) {
             return null;

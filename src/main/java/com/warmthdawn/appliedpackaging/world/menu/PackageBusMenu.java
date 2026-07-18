@@ -411,7 +411,7 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
 
         @Override
         public boolean mayPickup(Player player) {
-            return unpackingBus != null && !PackageBusMenu.this.isWorking() && hasItem();
+            return unpackingBus != null && hasItem();
         }
     }
 

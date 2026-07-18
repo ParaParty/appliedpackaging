@@ -7,6 +7,8 @@ import com.warmthdawn.appliedpackaging.client.renderer.PackageAssemblerRenderer;
 import com.warmthdawn.appliedpackaging.client.screen.MePackagerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageAssemblerScreen;
 import com.warmthdawn.appliedpackaging.client.screen.PackageBusScreen;
+import com.warmthdawn.appliedpackaging.client.screen.SequenceBufferMainScreen;
+import com.warmthdawn.appliedpackaging.client.screen.SequenceBufferSideScreen;
 import com.warmthdawn.appliedpackaging.client.screen.AdvancedPatternEncodingTermScreen;
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingTerminalPart;
 import com.warmthdawn.appliedpackaging.part.PackageStorageBusPart;
@@ -65,6 +67,14 @@ public final class AppliedPackagingClient {
                     APMenus.PACKAGE_BUS.get(),
                     PackageBusScreen::new,
                     "/screens/appliedpackaging/package_bus.json");
+            InitScreens.register(
+                    APMenus.SEQUENCE_BUFFER_MAIN.get(),
+                    SequenceBufferMainScreen::new,
+                    "/screens/appliedpackaging/sequence_buffer_main.json");
+            InitScreens.register(
+                    APMenus.SEQUENCE_BUFFER_SIDE.get(),
+                    SequenceBufferSideScreen::new,
+                    "/screens/appliedpackaging/sequence_buffer_side.json");
             ItemBlockRenderTypes.setRenderLayer(APBlocks.ME_PACKAGER.get(), RenderType.cutoutMipped());
             ItemBlockRenderTypes.setRenderLayer(APBlocks.PACKAGE_ASSEMBLER.get(), RenderType.cutout());
             EntityRenderers.register(APEntityTypes.PACKAGE.get(), PackageEntityRenderer::new);

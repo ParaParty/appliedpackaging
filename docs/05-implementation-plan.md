@@ -199,7 +199,7 @@ GameTest/客户端验证
   水平朝向 blockstate
   方块掉落表
   Package Assembler GUI/Menu
-  按样板实际非空输入数动态分配的逻辑输入缓冲（高级样板编码上限 17×81）+ 4×4 稠密可见窗口 + 1 格样板槽 + 17 格输出槽 + 1 格容量槽 + 5 格 AE2 加速卡升级槽
+  按样板实际非空输入数动态分配的逻辑输入缓冲（高级样板逻辑上限 81×81）+ 4×4 稠密可见窗口 + 1 格样板槽 + 主输出/有序队列 + 1 格容量槽 + 5 格 AE2 加速卡升级槽
   shift-click 已编码样板进样板槽，AE2 容量元件进容量槽，其它物品只有在样板过滤允许时进入 GUI 真实输入缓冲
   样板槽为空时拒绝本地输入和本地合成，不再自由封装
   输入合法包裹展开后再封装
@@ -226,7 +226,7 @@ GameTest/客户端验证
   装配室存在 0-100 合成进度，只允许 5 张 AE2 speed card；0/1/2/3/4/5 张按分子装配室速度表每 tick 尝试推进 10/13/17/20/25/50，并按 1.0/1.3/1.7/2.0/2.5/5.0 能量倍率从本机 AE 网络抽取能量
   本地合成期间输入槽保持真实可交互，材料到达 100 进度才提交；取出必需材料时保留进度并暂停，补齐后继续，样板变化时取消计划并归零
   装配室输出模式默认 ME_NETWORK，可通过 GUI 左侧 AE2 toolbar 图标循环切换 ME_NETWORK、ADJACENT_BLOCK 和 NONE 并持久化保存
-  装配室 server tick 会按输出槽顺序一次导出 1 个包裹；ME_NETWORK 只导出到本机接入的 AE 网络存储服务，ADJACENT_BLOCK 只导出到背面 Forge item handler，NONE 不自动导出
+  装配室 server tick 按真实有序输出列表导出包裹；ME_NETWORK 直接导出到本机接入网格的 AE 网络存储服务，ADJACENT_BLOCK 从六个相邻面选择并在本批内锁定一个 Forge item handler，NONE 不自动导出。批次准入复用 Pattern Provider 的阻挡/逐项模拟语义，准入后同 tick 尽量清空，跨 tick 剩余不重查阻挡，列表取空后的下一批重新准入
   自动导出失败时保留输出槽包裹，不丢弃、不继续消耗新输入
   外部 Forge item handler 按本地样板动态暴露 N 个稠密过滤输入位与紧随其后的 1 个有序输出位；输入位不可抽取，输出位每次只抽取 1 个合法包裹
   放入本地样板后颜色和 marker 以样板为权威；装配室不提供机器 fallback 配置或可编辑槽
@@ -271,13 +271,13 @@ GameTest 与客户端人工验证
 原版 Pattern Encoding Terminal、Screen factory 与四种原生模式保持 AE2 实现；只用一个窄菜单校验注入拒绝 package_pattern 与 advanced_processing_pattern，不增加按钮或绘制
 Advanced Pattern Encoding Terminal 使用同一个 part/menu/screen 承载 ADVANCED 与 PACKAGE 两页，右侧 current-AE Pattern Encoding Terminal 水平侧标签切换并持久化页面；两页各自拥有完整屏幕 profile（两行网络库存时 217x250 / 195x233）和完全隔离的槽位库存，切换时在同一 Screen 上 resize/init 并重排全部几何，放入对应载体时自动切换，菜单不创建 VIEW_CELL 槽
 package_storage_bus 使用新版 Storage Bus 形态，通过默认优先级 0 的 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage；Partition Storage 从相邻容器包裹生成过滤
-package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认优先级 0 的 Formation Plane 式只写入 IStorageProvider 接收网络路由包裹，不扫描、抽取或枚举 ME 存储
+package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认优先级 0 的 Formation Plane 式受限 IStorageProvider 接收网络路由包裹；不扫描或主动抽取其它 ME 存储，但把唯一未拆完的 held 包裹作为数量 1 的整包库存枚举并允许取回
 两个默认值都为 0，且就是右上 Priority 子菜单显示/修改的数值；数值相同时由卸货总线只写入端点的 preferred-storage 语义先尝试拆包，拆包拒绝后再尝试存储总线
 两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle 与右侧 5 格共享升级面板；存储总线保留 Storage Bus 工具栏，卸货总线左侧只有 Help、清空和 Pattern Provider 阻挡模式
 七行过滤每行包含动态模糊/反转按钮、可为空的颜色选择、marker ghost 和 6 个物品 ghost；颜色空模式不过滤，行间 OR、行内 AND；所有颜色入口复用统一触发按钮/弹窗，只有两种总线过滤区启用 None 与右键清空，Fluix/None 固定在分隔线左侧上下排列且隐藏 None 不改变布局
 默认解锁底图最上方两行，每张容量卡额外解锁一行，五张容量卡时达到七行上限；未解锁行使用 OptionalFakeSlot 半透明叠加
 模糊/反转按钮仅在对应升级卡存在时显示并始终紧邻颜色按钮，模糊/反转/颜色三个 8px 按钮在 18px 行内统一使用固定 2px 上边距；卸货总线在同一 5 格升级库存中额外接受最多 4 张加速卡
-存储总线遮掉右上工作区；卸货总线工作槽同步真实 held 包裹并显示 15 级进度条，工作中不可取、阻塞时可由玩家取回
+存储总线遮掉右上工作区；卸货总线工作槽同步真实 held 包裹并显示 15 级进度条，工作、阻塞和等待期间都可由网络或玩家取回，取回会取消本次拆包且不提交内容
 网络接收与最终提交都校验过滤、整包累计容量和 Pattern Provider 阻挡条件；最终目标变化时保留原 held 包裹并阻塞重试，held 状态写入 Part NBT，拆除 part 时作为额外掉落返还
 总线视觉变更按需在 runClient 中放置真实 AE2 part 并人工检查
 ```
@@ -305,7 +305,7 @@ SequenceBufferBlock / SequenceBufferBlockEntity 注册、物品、配方与 loot
 一次输入锁存的 AEKey 存储、Forge item/fluid handler 与 AE2 MEStorage
 端点顺序输入、合并抽取、自动输出、阻挡、同步和全结构输入延迟
 PackageData sparse 布局身份扩展、Pattern Provider 与拆包总线原子位置输入
-第一版服务端配置/过滤接口，不注册 GUI
+高版本 ME Chest 双界面语义、3x9 动态成员窗口、单成员侧面槽、左侧过滤/设置区、右侧升级区和红石卡门禁
 GameTest、runData、build、资源/文档/发布审计
 ```
 
@@ -317,9 +317,10 @@ GameTest、runData、build、资源/文档/发布审计
 3. 实现端点拓扑、成员排序、尾端加入和断裂恢复
 4. 实现端点聚合 capability 与普通/同步自动输出
 5. 扩展 PackageData 布局并实现 Pattern Provider/拆包总线的 sparse 位置输入
-6. 实现高级样板稠密顺序例外和三套 capability
+6. 实现高级样板直接 push 的稠密顺序例外、各列输出包裹的 sparse 行布局和三套 capability
 7. 补齐五类模型、语言、配方、loot 和资产 contract
 8. 扩展真实 Pattern Provider、拆包总线与多方块 GameTest，执行发布相关审计
+9. 接入 main/side 菜单、通用 AEKey 显示、可见禁用滚动条和右侧红石卡升级；过滤与模式设置只保留逻辑，不在第一版界面显示，执行客户端视觉验证
 ```
 
 验收：
@@ -330,18 +331,21 @@ GameTest、runData、build、资源/文档/发布审计
 X/Y/Z 三轴都可成型，且成型、扩展和解体不改写各方块原有方向
 端点不存储，逻辑第 1 格从首个成员开始；输入和抽取顺序稳定
 阻挡、同步和输入延迟同时约束主动与被动输出
-普通样板 push 保留 sparse 空位，高级样板只用稠密顺序；失败不消费 KeyCounter
-拆包总线把包裹布局原子映射到序列缓存器，失败不消费 held 包裹
+普通样板 push 保留 sparse 空位，高级样板直接 push 只用稠密顺序；失败不消费 KeyCounter
+高级样板各列输出包裹保留 sparse 行布局；拆包总线仅在序列缓存器开启样板模式时按布局跳过空位，失败不消费 held 包裹
 物品、流体与其它 AEKey 都有不丢失的受支持路径
 五类模型在三轴、六向合法组合下无 missing model/texture，侧面箭头始终指向自身正面
+端点主界面不显示端点本身，成员数超过 27 才启用滚动；不足整行的位置使用 0.2 alpha 禁用槽
+普通成员/单块侧面界面只操作被点击本格，过滤和升级仍写端点权威；红石卡门禁不会绕过延迟或同步规则
 ```
 
 当前状态：
 
 ```text
-已完成当前首版：方块/方块实体、五类模型状态、端点拓扑、三套存储能力、一次输入锁存、顺序输入/合并抽取、自动输出、阻挡、同步、输入延迟、普通 sparse 样板、高级样板稠密顺序、包裹布局身份与拆包总线原子保序输入均已实现。
-2026-07-16 全量 runGameTestServer 132/132 通过，包含真实 AE2 扳手三段方向循环；build、runData、资源审计及负例、文档审计、机械发布审计及负例通过；真实 runClient 完成资源重载、OpenAL 与图集创建，未发现 sequence_buffer missing model/texture 或 ModelBakery 错误。第一版按范围不含 GUI。
+已完成当前首版：方块/方块实体、五类模型状态、端点拓扑、三套存储能力、一次输入锁存、顺序输入/合并抽取、自动输出、阻挡、同步、输入延迟、普通 sparse 样板、高级样板直接 push 稠密顺序、高级样板列包裹 sparse 布局、包裹布局身份与拆包总线按样板模式原子保序输入均已实现。
+2026-07-16 全量 runGameTestServer 132/132 通过，包含真实 AE2 扳手三段方向循环；build、runData、资源审计及负例、文档审计、机械发布审计及负例通过；真实 runClient 完成资源重载、OpenAL 与图集创建，未发现 sequence_buffer missing model/texture 或 ModelBakery 错误。该轮按当时范围不含 GUI。
 2026-07-17 已用确定性脚本把用户 64x64 原图拆成 16 张 16x16 面贴图，并生成覆盖 X/Y/Z 三轴和六向 facing 的 57 个显式模型、58 个 multipart 项；结构方向与方块自身方向分离，成型/扩展/解体均保留原 `facing`。135/135 GameTest、build、资源审计及全部负例、文档审计、asset contract/发布资源审计通过；现有修改前启动的 IntelliJ 客户端未被中断，最终世界内像素效果需重启该客户端后人工复核。
+2026-07-18 新增 main/side 两套菜单与 ScreenStyle：端点显示 3x9 动态成员窗口和整行滚动，成员/未成型单块显示中央单槽；两套界面不显示仍处于预留阶段的过滤与模式设置，端点红石卡升级槽附着在右侧。行为验证覆盖预留过滤配置/NBT、红石无信号阻挡与有信号释放、成员卡成型迁移、27/28/36/37 槽滚动边界；GameTest、build、资源审计及完整负例按本阶段验证记录执行。
 ```
 
 ## 阶段 8：发布
@@ -407,17 +411,20 @@ verify-docs.ps1 成功
 发布 tag 可追溯且只在最终范围冻结后创建
 ```
 
-## 阶段 9：JEI 通用高级/包裹配方导入
+## 阶段 9：JEI / EMI 单插件高级/包裹配方导入
 
 交付：
 
 ```text
-JEI 15.20.0.134 可选 API/runtime 开发依赖
+JEI 15.20.0.134 compile-only API；JEI 或 EMI 1.1.24+TMRV 0.9.0 二选一开发 runtime
 Create 6.0.8-291 与 GTCEu 7.5.3 可选 compile/runtime 开发依赖
-Advanced Pattern Encoding Terminal 专用 JEI 通用 recipe transfer handler
+Advanced Pattern Encoding Terminal 唯一 JEI transfer handler；TMRV 映射到 EMI
 标准 JEI INPUT/OUTPUT/CATALYST/RENDER_ONLY 角色到高级页与包裹页的通用映射
-Create Sequenced Assembly / ProcessingRecipe 确定性映射，以及 Mechanical Crafting 按行/列自动分包
-GTCEu item/fluid、一次性/tick content 确定性映射和 StarT Fork 独立 runtime 验证
+AE2 client repository / 玩家物品栏优先的共享替代材料选择器
+Create Sequenced Assembly / ProcessingRecipe 确定性映射，以及 Mechanical Crafting 按行/列自动分包并保留组内 sparse 前导/中间空位
+GTCEu item/fluid、一次性/tick content 逐材料分包和 StarT Fork 独立 runtime 验证
+81×81 稀疏列存储、v1 读取迁移、4 列菜单窗口、转置/长按移动/自动滚动/颜色模式
+Star Technology 星门 layered recipe 只完成来源评审，分组语义确认后另行实现
 常见科技/魔法模组概率、动态产出和非消耗工具语义的保守门禁
 客户端计划校验、32767 字符 AE2 client-action 上限和服务端重校验
 双语拒绝原因、真实第三方配方 GameTest 与客户端人工验收
@@ -426,9 +433,9 @@ GTCEu item/fluid、一次性/tick content 确定性映射和 StarT Fork 独立 r
 当前状态：
 
 ```text
-已实现：Gradle 可选依赖、JEI 插件/handler、标准 JEI 角色适配、Create/GTCEu 专用适配器、纯高级/包裹传输计划、菜单 action、原子状态替换和双语错误。
-已验证：compileJava、build、runData 成功；真实 Forge GameTest runtime 分别加载上游 GTCEu 7.5.3 和独立 run-gtceu-fork 中的 StarT Fork 1.7.0b，两套组合均为 142/142。runClient 完成 JEI/Create/GTCEu/Applied Packaging 初始化、资源重载、OpenAL 和图集创建；资产、文档、机械发布审计及发布脚本聚合自测通过。
-GameTest 已覆盖：两种计划 payload 往返与原子替换、标准 JEI 四种角色、歧义输出/随机产出拒绝、真实 Create Sequenced Assembly、Mechanical Crafting 行列分组和真实 GTCEu 确定性 recipe。
+已实现：Gradle 可选依赖、唯一 JEI plugin/handler、TMRV 的 EMI 映射运行时、标准输入适配、Create/GTCEu 专用适配器、逐材料默认分包、81×81 稀疏样板、转置/移动/自动滚动/颜色模式、纯高级/包裹传输计划、菜单 action、原子状态替换和双语错误。
+已验证：compileJava、build、runData 成功；真实 Forge GameTest runtime 分别加载上游 GTCEu 7.5.3 和独立 run-gtceu-fork 中的 StarT Fork 1.7.0b，两套组合当前均为 148/148。JEI 与 EMI+TMRV 两种互斥 runtime 分别进行客户端验证；资产、文档、机械发布审计及发布脚本聚合自测通过。
+GameTest 已覆盖：两种计划 payload 往返与原子替换、高级计划 sparse 空位网络往返、标准 JEI 四种角色、网络现存 item/fluid 候选覆盖查看器显示候选、专用适配器 raw Ingredient 共用选择规则、歧义输出/随机产出拒绝、真实 Create Sequenced Assembly、Mechanical Crafting 行列分组及前导空位和真实 GTCEu 确定性 recipe。
 JEI “+”按钮、拒绝 tooltip 和导入后页面/列状态没有自动 UI 驱动，仍保留为客户端人工交互验收；其余文档/发布审计结果记录在 docs/06-verification-release.md 和 docs/development-log.md。
 ```
 
