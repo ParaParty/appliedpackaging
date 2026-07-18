@@ -89,7 +89,7 @@ public final class SequenceBufferConfiguration {
     }
 
     public void setInputDelayTicks(int value) {
-        inputDelayTicks = Math.max(1, Math.min(MAX_INPUT_DELAY_TICKS, value));
+        inputDelayTicks = Math.max(0, Math.min(MAX_INPUT_DELAY_TICKS, value));
     }
 
     public Set<AEKey> allowedInputs() {

@@ -3703,3 +3703,19 @@ GameTest 把装配室高级列用例改为 v2 “木板 + 空白 + 木板”，�
 网络真实抽取或 GUI 工作槽取回不再受 working 状态限制。两条路径都返回完整的一个包裹并原子清空 working、blocked、进度、周期总长和 retry cooldown；服务器单线程下后续工作 tick 因 held 已空不会提交任何内容。held 接收、提交或取回继续调用 `IStorageProvider.requestUpdate`，使可见库存及时刷新。菜单 `HeldPackageSlot` 同步允许工作中拾取，仍拒绝玩家向工作槽放入任意物品。
 
 既有真实总线测试改为断言工作中和阻塞中的 held 包裹均可由 ME 枚举/模拟抽取。新增 `packageAssemblerBlockingSeesExtractablePackageHeldByUnpackingBus`：在同一真实 Drive + Interface 网格中让拆包总线持有匹配包裹，确认装配室输出被阻挡；ME 取走后装配室立即输出下一包并由拆包总线接收；再从 GUI 后端工作槽中途取走，目标 Chest 仍没有任何部分内容。`.\gradlew.bat compileJava --stacktrace --no-configuration-cache`、`.\gradlew.bat runGameTestServer --stacktrace --no-configuration-cache`（156/156 required）、`.\gradlew.bat build --stacktrace --no-configuration-cache`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。
+
+### 2026-07-18 序列缓存器端点统一 tick 与同 tick 输入标记
+
+用户确认采用序列缓存器侧的确定时相方案：结构成型后成员方块实体不再各自执行 server tick，唯一端点每 tick 统一代理全部成员的空槽标记维护、普通自动输出和同步输出。这样同一结构不会因成员方块实体在装配室前后分散 tick 而只提前清空部分槽位。未成型单块仍保留自己的 tick；成型成员的 capability 输入/抽取仍直接操作真实本格内容，不建立隐藏库存。
+
+每次真实输入现在同时设置瞬时 `inputAdmissionLocked`，模拟输入不设置。内容在同 tick 被 0 tick 延迟自动输出或外部抽取清空后，该标记继续阻止再次输入；端点在后续 tick 统一观察所有空成员并清除旧标记。标记不写 NBT，载入非空内容时从真实内容恢复运行态锁定。输入延迟下限改为 0，GUI 预设为 `0/1/5/10/20/40/100 tick`；0 只取消输出等待，不绕过输入标记。诊断日志的成员快照同步输出 `inputLocked`。
+
+新增 `formedEndpointOwnsMemberTicksAndPreventsSameTickReentry`，直接确认成员 tick 不输出、一次端点 tick 同时代理所有普通输出、同 tick 所有已清空成员拒绝输入且后续端点 tick 一起开放；既有单格锁存测试改为覆盖抽空同 tick 拒绝和下一 tick 开放，菜单测试覆盖 0 tick 预设。第一次完整运行仅旧“抽空立即开放”断言失败，按新需求修正后 `.\gradlew.bat runGameTestServer --stacktrace --no-configuration-cache` 的 157/157 required GameTest 全部通过。`.\gradlew.bat compileJava --stacktrace --no-configuration-cache`、`.\gradlew.bat build --stacktrace --no-configuration-cache`、`scripts/verify-docs.ps1` 与 `git diff --check` 通过。GameTest 启动时用户现有客户端继续占用 `run/logs/latest.log` / `debug.log`，只产生日志轮换警告，控制台结果完整，本轮未停止用户客户端。
+
+### 2026-07-18 序列缓存器按 game time 开放与 GUI 抽取分离
+
+后续实机复测确认，上一轮的瞬时 `inputAdmissionLocked` 仍把正确性绑定到端点 tick 的执行阶段：多个成员即使在同一个 game tick 清空，若下一轮输入发生在端点重置 bool 之前，就仍会看到不一致的空槽可用集合。按最终需求，本轮撤销“输入时设 bool、后续权威 tick 观察并清除”的模型。每个成员现在只在内容于 game time `t` 从正数归零时记录持久化的绝对 `admissionOpenAtGameTime=t+1`；所有 item/fluid/ME、样板和拆包原子输入预检都按查询时的世界时间判断，因此清空 tick 的剩余阶段始终拒绝，而下一 game tick 无需端点或成员先 tick 即自动开放。成型成员仍不独立 tick，端点仍是普通/同步自动输出的唯一代理；拆包总线没有增加额外 cooldown。
+
+玩家 GUI 抽取同时从输出延迟门禁中分离。外部 `IItemHandler`、`IFluidHandler`、`MEStorage` 抽取和自动输出继续受全结构 `releaseAtGameTime` 限制；主/侧菜单使用的 `extractMenuItem` 只绕过该输出延迟，不检查阻挡或同步输出设置，并继续操作同一份真实列表/单格缓存。GUI 取走最后一份内容仍走统一清空路径，所以同 tick 输入门禁没有被绕过，下一 tick 才允许再次输入。
+
+新增 `menuExtractionBypassesOutputDelayAndKeepsAdmissionCooldown`，在自动输出关闭、阻挡开启、同步开启和 40 tick 输出延迟下确认外部抽取返回空、GUI 模拟与真实抽取立即成功、清空同 tick 拒绝输入、下一 tick 无需方块 tick 即开放，并确认绝对开放时间经 NBT 往返。`formedEndpointOwnsMemberTicksAndPreventsSameTickReentry` 去掉后续手动端点 tick，直接固定查询时开放语义。`.\gradlew.bat compileJava --stacktrace --no-configuration-cache`、`.\gradlew.bat runGameTestServer --stacktrace --no-configuration-cache`（158/158 required）、`.\gradlew.bat build --stacktrace --no-configuration-cache`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。

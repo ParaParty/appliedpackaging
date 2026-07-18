@@ -30,11 +30,11 @@ marker 冲突拒绝
 序列缓存器成型、拒绝与尾端扩展保持唯一端点和稳定顺序
 序列缓存器断裂不丢失缓存，端点侧保留、尾侧解散
 序列缓存器端点不存储、首个成员为逻辑第 1 格、端点顺序输入/合并抽取且不自动输出
-序列缓存器阻挡、同步和输入延迟同时约束主动/被动输出
+序列缓存器成型成员不独立执行 tick，端点统一代理普通/同步输出；清空 tick 拒绝重入并按绝对 game time 在下一 tick 开放，无需端点先 tick
 序列缓存器普通样板保留 sparse 空位、高级样板直接 push 使用稠密顺序且 Pattern Provider 原子消费
 普通/包裹/高级列样板包裹布局参与身份/NBT/hash；拆包总线在样板模式下原子保留空位，关闭时连续输入
 序列缓存器 item/fluid handler 分别拒绝错误 key 类型，MEStorage 保留泛型 key
-序列缓存器主/侧菜单分别映射端点成员序列与被点击本格，端点本身不生成存储槽
+序列缓存器主/侧菜单分别映射端点成员序列与被点击本格，端点本身不生成存储槽；GUI 抽取不受输出延迟、阻挡或同步输出限制
 序列缓存器过滤假槽、红石卡 NBT/成型迁移和红石门控自动输出正确
 序列缓存器 27 格不滚动、28 格开始滚动，未占用显示位置保持禁用
 JEI 高级/包裹计划 payload 往返、原子替换旧状态并保留页面自身颜色
@@ -1040,3 +1040,9 @@ Star Technology 的星门部件装配由 KubeJS startup script 注册 GTCEu `sta
 高级/包裹配方导入不再让 JEI 当前动画帧或专用适配器声明首项无条件决定替代材料。`RecipeIngredientSelector` 在每次 transfer 检查/导入时读取高级终端当前 AE2 client repository 与玩家物品栏，并复刻 AE2 15.4.10 `EncodingHelper` 的顺序：网络条目整体高于玩家物品栏；网络内部依次比较 craftable、undamaged、stored amount；库存均无匹配才回退 JEI 显示项或 recipe 声明首项。物品 `Ingredient` 同时允许 client repo 中满足 `AEItemKey.matches` 的实际 NBT/损伤变体参与选择，流体在配方声明的候选中按同一 AEKey 优先级选择。标准 JEI、Create Sequenced Assembly/Mechanical Crafting/ProcessingRecipe 和 GTCEu 一次性/tick 输入共用该选择器；输出确定性规则没有放宽。
 
 现有 `standardRecipeTransferUsesJeiRolesForBothPatternModes` GameTest 已扩展，覆盖 item/fluid 现存候选覆盖 JEI 展示候选、同类网络材料取现存数量更多者、玩家物品栏后备和专用适配器 raw Ingredient 共用选择规则。`.\gradlew.bat compileJava --stacktrace` 与 `.\gradlew.bat build --offline --no-configuration-cache --stacktrace` 通过；上游 GTCEu 7.5.3 的 `.\gradlew.bat runGameTestServer --offline --no-configuration-cache --stacktrace` 与 StarT Fork 1.7.0b 的同任务隔离运行均为 148/148 required tests。`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与完整 `scripts/test-release-self-tests.ps1` 通过，发布审计确认 297 个发布资源、143 个 JSON、160 张 PNG、6 个资产合同和 179 个双语 key/占位符有效。Fork 日志确认 `GAMEDIR=run-gtceu-fork` 且实际选中 `gtceu-st-1.20.1-1.7.0b.jar`。上游运行开始时用户既有客户端仍占用 `run/logs/latest.log` / `debug.log`，仅导致 Log4j 文件轮换警告；控制台 GameTest 正常完成，本轮未停止用户客户端。
+
+### 2026-07-18 序列缓存器统一 tick 时相回归
+
+成型成员的 server tick 不执行本地操作，端点统一代理全部成员的普通/同步输出。旧的瞬时 bool 输入标记已改为每格持久化的绝对 `admissionOpenAtGameTime`：内容在 game time `t` 清空时记录 `t+1`，同 tick 拒绝重入，到下一 game tick 后由输入查询直接开放，不要求端点或成员先 tick。0 tick 输入延迟仍允许当前 tick 自动输出；延迟 GUI 同步允许 `0/1/5/10/20/40/100 tick`。
+
+`formedEndpointOwnsMemberTicksAndPreventsSameTickReentry` 覆盖成员 tick 无输出、端点一次 tick 同时输出多个成员、同 tick 全部拒绝，以及不再手动调用端点 tick 也会在下一 game tick 一起开放。`menuExtractionBypassesOutputDelayAndKeepsAdmissionCooldown` 覆盖阻挡、同步和 40 tick 输出延迟开启时，外部 capability 抽取仍被阻挡，玩家 GUI 模拟/真实抽取立即成功，取空同 tick 拒绝输入、下一 tick 自动开放，并确认开放时间经 NBT 往返。最终验证结果见同日开发日志。

@@ -119,28 +119,104 @@ public final class SequenceBufferGameTests {
         helper.assertTrue(items.insertItem(0, new ItemStack(Items.GOLD_INGOT, 1), false).getCount() == 1,
                 "A latched buffer must reject the next insertion");
 
-        helper.succeedWhen(() -> {
-            ItemStack extracted = items.extractItem(0, 32, false);
-            helper.assertTrue(extracted.getCount() == 32 && buffer.isEmpty(),
-                    "Full extraction after the delay should unlock the buffer");
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    ItemStack extracted = items.extractItem(0, 32, false);
+                    helper.assertTrue(extracted.getCount() == 32 && buffer.isEmpty(),
+                            "Full extraction should empty the buffer after its configured delay");
 
-            IFluidHandler fluids = buffer.getCapability(ForgeCapabilities.FLUID_HANDLER)
-                    .orElseThrow(IllegalStateException::new);
-            helper.assertTrue(fluids.fill(new FluidStack(Fluids.WATER, 750), IFluidHandler.FluidAction.EXECUTE) == 750,
-                    "FluidHandler must accept the first fluid insertion");
-            helper.assertTrue(fluids.fill(new FluidStack(Fluids.LAVA, 1), IFluidHandler.FluidAction.EXECUTE) == 0,
-                    "FluidHandler must obey the same one-input latch");
+                    IFluidHandler fluids = buffer.getCapability(ForgeCapabilities.FLUID_HANDLER)
+                            .orElseThrow(IllegalStateException::new);
+                    helper.assertTrue(fluids.fill(
+                                            new FluidStack(Fluids.WATER, 750),
+                                            IFluidHandler.FluidAction.EXECUTE)
+                                    == 0,
+                            "An emptied buffer must still reject another input in the extraction tick");
+                    MEStorage storage = buffer.getCapability(Capabilities.STORAGE)
+                            .orElseThrow(IllegalStateException::new);
+                    helper.assertTrue(storage.insert(
+                                            AEItemKey.of(Items.DIAMOND),
+                                            1,
+                                            Actionable.SIMULATE,
+                                            IActionSource.empty())
+                                    == 0,
+                            "Every capability must observe the same-tick admission marker");
+                })
+                .thenExecuteAfter(1, () -> {
+                    IFluidHandler fluids = buffer.getCapability(ForgeCapabilities.FLUID_HANDLER)
+                            .orElseThrow(IllegalStateException::new);
+                    helper.assertTrue(fluids.fill(
+                                            new FluidStack(Fluids.WATER, 750),
+                                            IFluidHandler.FluidAction.EXECUTE)
+                                    == 750,
+                            "A later empty-buffer tick must release the admission marker");
+                    helper.assertTrue(fluids.fill(
+                                            new FluidStack(Fluids.LAVA, 1),
+                                            IFluidHandler.FluidAction.EXECUTE)
+                                    == 0,
+                            "FluidHandler must obey the same one-input latch");
 
-            MEStorage storage = buffer.getCapability(Capabilities.STORAGE)
-                    .orElseThrow(IllegalStateException::new);
-            helper.assertTrue(storage.insert(
-                            AEItemKey.of(Items.DIAMOND),
-                            1,
-                            Actionable.SIMULATE,
-                            IActionSource.empty())
-                            == 0,
-                    "MEStorage must see the same latched state as Forge capabilities");
-        });
+                    MEStorage storage = buffer.getCapability(Capabilities.STORAGE)
+                            .orElseThrow(IllegalStateException::new);
+                    helper.assertTrue(storage.insert(
+                                            AEItemKey.of(Items.DIAMOND),
+                                            1,
+                                            Actionable.SIMULATE,
+                                            IActionSource.empty())
+                                    == 0,
+                            "MEStorage must see the same latched state as Forge capabilities");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty")
+    public static void menuExtractionBypassesOutputDelayAndKeepsAdmissionCooldown(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(1, 1, 1);
+        SequenceBufferBlockEntity buffer = placeBuffer(
+                helper,
+                pos,
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+        var configuration = buffer.configurationCopy();
+        configuration.setAutoOutput(false);
+        configuration.setBlockingMode(true);
+        configuration.setSynchronizedOutput(true);
+        configuration.setInputDelayTicks(40);
+        buffer.updateConfiguration(configuration);
+
+        IItemHandler items = buffer.getCapability(ForgeCapabilities.ITEM_HANDLER)
+                .orElseThrow(IllegalStateException::new);
+        helper.assertTrue(items.insertItem(0, new ItemStack(Items.IRON_INGOT, 8), false).isEmpty(),
+                "The buffer should accept the delayed test input");
+        helper.assertTrue(items.extractItem(0, 8, false).isEmpty() && buffer.storedAmount() == 8,
+                "External capability extraction must remain blocked by the output delay");
+
+        ItemStack simulated = buffer.extractMenuItem(8, true);
+        helper.assertTrue(simulated.is(Items.IRON_INGOT)
+                        && simulated.getCount() == 8
+                        && buffer.storedAmount() == 8,
+                "A simulated player GUI extraction must bypass output delay without changing storage");
+        ItemStack extracted = buffer.extractMenuItem(8, false);
+        helper.assertTrue(extracted.is(Items.IRON_INGOT)
+                        && extracted.getCount() == 8
+                        && buffer.isEmpty(),
+                "Blocking, synchronized output, and output delay must not block player GUI extraction");
+
+        long expectedOpenAt = helper.getLevel().getGameTime() + 1;
+        helper.assertTrue(buffer.admissionOpenAtGameTime() == expectedOpenAt,
+                "GUI extraction of the final item must close admission until the next game tick");
+        helper.assertTrue(items.insertItem(0, new ItemStack(Items.GOLD_INGOT), false).getCount() == 1,
+                "The extraction tick must still reject a new input");
+
+        SequenceBufferBlockEntity loaded = new SequenceBufferBlockEntity(BlockPos.ZERO, buffer.getBlockState());
+        loaded.load(buffer.saveWithoutMetadata());
+        helper.assertTrue(loaded.admissionOpenAtGameTime() == expectedOpenAt,
+                "The absolute admission reopening time must round-trip through NBT");
+
+        helper.startSequence()
+                .thenExecuteAfter(1, () -> helper.assertTrue(
+                        items.insertItem(0, new ItemStack(Items.GOLD_INGOT), false).isEmpty(),
+                        "Admission must reopen by game time without requiring a buffer tick first"))
+                .thenSucceed();
     }
 
     @GameTest(template = "sequence_buffer_empty")
@@ -398,6 +474,16 @@ public final class SequenceBufferGameTests {
         helper.assertTrue(endpoint.configurationCopy().inputDelayTicks() == 1
                         && menu.inputDelayTicks() == 1,
                 "Right-click delay cycling must move to the previous preset");
+        menu.cycleInputDelay(true);
+        menu.broadcastChanges();
+        helper.assertTrue(endpoint.configurationCopy().inputDelayTicks() == 0
+                        && menu.inputDelayTicks() == 0,
+                "Input delay preset cycling must allow zero ticks");
+        menu.cycleInputDelay(false);
+        menu.broadcastChanges();
+        helper.assertTrue(endpoint.configurationCopy().inputDelayTicks() == 1
+                        && menu.inputDelayTicks() == 1,
+                "Increasing the zero-tick preset must return to one tick");
         helper.succeed();
     }
 
@@ -897,6 +983,78 @@ public final class SequenceBufferGameTests {
                             "First synchronized member should commit after every target is ready");
                     helper.assertTrue(secondChest.countItem(Items.GOLD_INGOT) == 3,
                             "Second synchronized member should commit in the same output round");
+                })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty", timeoutTicks = 120)
+    public static void formedEndpointOwnsMemberTicksAndPreventsSameTickReentry(GameTestHelper helper) {
+        BlockPos endpointPos = new BlockPos(1, 1, 1);
+        List<SequenceBufferBlockEntity> blocks = formEastLineAt(helper, endpointPos, 3);
+        SequenceBufferBlockEntity endpoint = blocks.get(0);
+        List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(endpoint);
+        var configuration = endpoint.configurationCopy();
+        configuration.setInputDelayTicks(0);
+        endpoint.updateConfiguration(configuration);
+
+        BlockPos firstChestPos = new BlockPos(2, 1, 0);
+        BlockPos secondChestPos = new BlockPos(3, 1, 0);
+        helper.getLevel().setBlock(helper.absolutePos(firstChestPos), Blocks.CHEST.defaultBlockState(), 3);
+        helper.getLevel().setBlock(helper.absolutePos(secondChestPos), Blocks.CHEST.defaultBlockState(), 3);
+
+        IItemHandler endpointItems = endpoint.getCapability(ForgeCapabilities.ITEM_HANDLER)
+                .orElseThrow(IllegalStateException::new);
+        helper.assertTrue(endpointItems.insertItem(0, new ItemStack(Items.IRON_INGOT, 5), false).isEmpty()
+                        && endpointItems.insertItem(1, new ItemStack(Items.GOLD_INGOT, 3), false).isEmpty(),
+                "The endpoint should sequence both zero-delay inputs into its members");
+
+        for (SequenceBufferBlockEntity member : members) {
+            SequenceBufferBlockEntity.serverTick(
+                    helper.getLevel(),
+                    member.getBlockPos(),
+                    member.getBlockState(),
+                    member);
+        }
+        ChestBlockEntity firstChest = (ChestBlockEntity) helper.getBlockEntity(firstChestPos);
+        ChestBlockEntity secondChest = (ChestBlockEntity) helper.getBlockEntity(secondChestPos);
+        helper.assertTrue(firstChest.isEmpty() && secondChest.isEmpty(),
+                "Formed members must not perform their own automatic-output tick");
+
+        SequenceBufferBlockEntity.serverTick(
+                helper.getLevel(),
+                endpoint.getBlockPos(),
+                endpoint.getBlockState(),
+                endpoint);
+        helper.assertTrue(firstChest.countItem(Items.IRON_INGOT) == 5
+                        && secondChest.countItem(Items.GOLD_INGOT) == 3
+                        && members.stream().allMatch(SequenceBufferBlockEntity::isEmpty),
+                "One endpoint tick must proxy ordinary automatic output for every formed member");
+
+        for (SequenceBufferBlockEntity member : members) {
+            MEStorage storage = member.getCapability(Capabilities.STORAGE)
+                    .orElseThrow(IllegalStateException::new);
+            helper.assertTrue(storage.insert(
+                                    AEItemKey.of(Items.DIAMOND),
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.empty())
+                            == 0,
+                    "A member emptied by the endpoint must still reject another input in the same tick");
+        }
+
+        helper.startSequence()
+                .thenExecuteAfter(1, () -> {
+                    for (SequenceBufferBlockEntity member : members) {
+                        MEStorage storage = member.getCapability(Capabilities.STORAGE)
+                                .orElseThrow(IllegalStateException::new);
+                        helper.assertTrue(storage.insert(
+                                                AEItemKey.of(Items.DIAMOND),
+                                                1,
+                                                Actionable.SIMULATE,
+                                                IActionSource.empty())
+                                        == 1,
+                                "Game time must reopen every empty member without another endpoint tick");
+                    }
                 })
                 .thenSucceed();
     }

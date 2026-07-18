@@ -745,9 +745,10 @@ member_directed       已成型普通成员，facing 是输出方向
 storedKey: optional AEKey
 storedAmount: long, 0..configuredCapacity
 releaseAtGameTime: long
+admissionOpenAtGameTime: long
 ```
 
-`storedAmount > 0` 就是锁存状态，不另存可漂移的布尔值。一次 `Actionable.MODULATE` / 非 simulate item insertion 最多接收 `min(requested, configuredCapacity)`；首次实际接收后，直到数量归零前所有 insert 都返回 0，包括相同 key。`SIMULATE` 只返回当前可接收量，不写 key、数量或延迟。抽取可以部分执行，最后一份被取走时同时清空 key。NBT 通过 `GenericStack.writeTag` / `readTag` 保存 key 与数量；无效或非正数载入值视为空。若管理员在已有内容后降低容量，超过新容量的旧值保留并记录警告，只允许继续抽取而不截断或复制资源；缓存清空后的下一次输入使用新容量。
+一次 `Actionable.MODULATE` / 非 simulate item insertion 最多接收 `min(requested, configuredCapacity)`；首次实际接收后，内容非空期间所有 insert 都返回 0，包括相同 key。`SIMULATE` 只返回当前可接收量，不写 key、数量或延迟。抽取可以部分执行；数量在 game time `t` 从正数归零时清空 key，并把本格 `admissionOpenAtGameTime` 更新为至少 `t + 1`。所有输入路径在查询时直接比较当前 game time：`current < admissionOpenAtGameTime` 时拒绝，达到该时间且内容仍为空时开放，不依赖本格或端点的 server tick 阶段。该绝对时间写入 NBT，保证清空后同 tick 卸载/载入也不会提前重入。NBT 通过 `GenericStack.writeTag` / `readTag` 保存 key 与数量；无效或非正数载入值视为空。若管理员在已有内容后降低容量，超过新容量的旧值保留并记录警告，只允许继续抽取而不截断或复制资源；缓存清空后的下一 game tick 使用新容量。
 
 已成型端点不保存 `storedKey/storedAmount`，成型时若候选端点已有内容则拒绝成型，避免隐式搬运或删除。端点指向的下一个方块才是逻辑第 1 格；结构物理长度至少 2，即一个端点加至少一个存储成员。
 
@@ -774,7 +775,9 @@ Forge `IFluidHandler` 只映射 `AEFluidKey`。单格视图固定为一个 tank�
 
 ### 12.4 输出、阻挡、同步与延迟
 
-实际输入发生在 game time `t` 时，把端点的全结构屏障更新为 `max(existing, t + max(1,inputDelayTicks))`；未成型单块在本地保存同一值。当前时间早于屏障时，主动自动输出和 capability 被动抽取都返回 0，但仍允许继续向其它空成员输入。
+实际输入发生在 game time `t` 时，把端点的全结构屏障更新为 `max(existing, t + max(0,inputDelayTicks))`；未成型单块在本地保存同一值。当前时间早于屏障时，主动自动输出和外部 capability 被动抽取都返回 0，但仍允许继续向其它已开放空成员输入。玩家在主/侧 GUI 中从真实物品缓存槽手动抽取走专用路径，不检查该输出屏障，也不检查阻挡或同步输出设置；若因此取空，仍按正常清空路径记录 `admissionOpenAtGameTime=t+1`。延迟为 0 时允许当前 tick 自动输出；成员即使随后被清空，也不会在该 tick 再次接收。
+
+未成型单块由自身方块实体 tick 执行自动输出。结构成型后，成员方块实体的 server tick 不执行任何操作；普通模式由唯一端点依次代理每个成员的自动输出，同步模式仍由端点构造全结构计划。输入重新开放不属于 tick 维护工作，而由每个成员在输入预检时按绝对 game time 判定。由此同一结构的输出只有一个端点 tick 时相，输入开放又不依赖端点、成员、包裹装配室或拆包总线之间的方块实体 tick 顺序。
 
 无方向单块/成员按固定 `DOWN, UP, NORTH, SOUTH, WEST, EAST` 顺序寻找除序列缓存器外的兼容目标；有方向状态只检查 `facing`。先尝试目标 `MEStorage`，没有时按 key 类型尝试 Forge item handler 或 fluid handler。阻挡模式使用目标完整可见内容为空作为门禁，不只检查同类 key。普通模式允许目标部分接收并保留余量；端点不参与自动输出且没有可输出内容。
 
@@ -797,7 +800,7 @@ PackageCraftingPatternDetails.sparseInputs()   81 格
 
 ### 12.6 拆包总线与包裹位置布局
 
-`PackageData.layout` 缺省时，Package Unpacking Bus 按 contents 有序列表把每个条目映射到连续存储成员。布局存在且端点开启样板模式时，第 `contentSlots[i]` 格只接收 `contents[i]`，未列出的槽位保持空白；端点不计入位置。端点关闭样板模式时即使包裹带布局也按 contents 连续输入，不跳过空位置。拆包总线直接调用同 Mod 的端点原子计划入口，而不是把布局降级为普通 `IItemHandler` 插入。预检同时覆盖结构长度、成员锁存、AEKey filter 和单格容量；输入延迟只阻挡输出，不阻挡向其它空成员继续输入。任一失败时 held 包裹保持原样，目标成员也不得出现部分内容。
+`PackageData.layout` 缺省时，Package Unpacking Bus 按 contents 有序列表把每个条目映射到连续存储成员。布局存在且端点开启样板模式时，第 `contentSlots[i]` 格只接收 `contents[i]`，未列出的槽位保持空白；端点不计入位置。端点关闭样板模式时即使包裹带布局也按 contents 连续输入，不跳过空位置。拆包总线直接调用同 Mod 的端点原子计划入口，而不是把布局降级为普通 `IItemHandler` 插入。预检同时覆盖结构长度、成员内容锁存、`admissionOpenAtGameTime`、AEKey filter 和单格容量；输入延迟只阻挡输出，不阻挡向其它已开放空成员继续输入。任一失败时 held 包裹保持原样，目标成员也不得出现部分内容。
 
 ### 12.7 双界面菜单、槽映射与升级权威
 
@@ -810,11 +813,11 @@ SequenceBufferSideMenu  由普通成员或未成型单块打开；host=解析后
 
 主菜单固定创建 27 个显示槽，按 `memberIndex = scrollRow * 9 + visibleIndex` 映射逻辑成员，不包含端点。`memberCount <= 27` 时 `maxScrollOffset=0`；否则 `maxScrollOffset=max(0,ceil(memberCount/9)-3)`。最后一个可视页仍按整行移动，因此前两行可以与上一页重叠，只有 `memberIndex >= memberCount` 的位置禁用。Screen 对有效位置绘制完整 `SLOT_BACKGROUND`，对不足 3x9 和末行越界位置以 0.2 alpha 绘制同一精灵；禁用位置不响应 hover、放入、取出或快捷移动。侧面菜单只创建一个显示槽，服务端始终映射 `viewed` 本格，升级库存来自端点 `host`；两套菜单都不创建过滤假槽，五项模式设置通过 `GuiSync` 和 client action 直接操作端点配置。
 
-显示槽通过 `GenericStack.wrapInItemStack` 同步 `AEKey + long amount`，所以物品、流体和其它 AEKey 使用 AE2 的通用图标与数量渲染。普通光标只允许对 `AEItemKey` 执行真实放入/取出；放入调用本格一次输入锁存路径，取出受全结构输入延迟约束。主菜单从玩家物品栏快捷放入时从逻辑第 1 格开始选择首个空成员，侧面菜单只尝试被点击成员；从显示槽快捷取出先模拟玩家物品栏容量，再按实际移动量提交。非物品通用 key 只显示，不伪装成普通 ItemStack 搬运，仍通过 `IFluidHandler` / `MEStorage` 操作。
+显示槽通过 `GenericStack.wrapInItemStack` 同步 `AEKey + long amount`，所以物品、流体和其它 AEKey 使用 AE2 的通用图标与数量渲染。普通光标只允许对 `AEItemKey` 执行真实放入/取出；放入调用本格一次输入锁存路径，取出调用仅供菜单使用的真实缓存抽取路径并绕过输出延迟、阻挡与同步输出门禁。主菜单从玩家物品栏快捷放入时从逻辑第 1 格开始选择首个已开放空成员，侧面菜单只尝试被点击成员；从显示槽快捷取出先模拟玩家物品栏容量，再按实际移动量提交，最后一份被取走时照常阻止同 tick 重入。非物品通用 key 只显示，不伪装成普通 ItemStack 搬运，仍通过 `IFluidHandler` / `MEStorage` 操作。
 
 每个方块实体保存 9 格 `GenericStackInv.Mode.CONFIG_TYPES` 过滤库存的可重建镜像，持久化权威仍是 `SequenceBufferConfiguration.allowedInputs`。该库存只作为后续 GUI 接口的预留数据结构：内部或后续接口写入时重建精确 AEKey allowlist，再调用端点 `updateConfiguration` 同步成员；外部配置或 NBT 载入则在抑制 change callback 的批处理中反向重建库存镜像。每个方块实体另保存 1 格 `IUpgradeInventory`，菜单对成型结构只打开端点库存；`Upgrades` 注册只允许一张红石卡。形成结构前先验证全部方块实体存在，再把未来成员已有的物理升级卡移入端点；端点槽已占用产生的重复卡在原成员位置掉落，不允许形成隐藏且不可访问的成员升级库存。未安装卡时自动输出忽略红石，安装后所有成员每 tick 解析端点并以端点 `hasNeighborSignal` 作为整组自动输出门禁；该门禁不绕过锁存、阻挡、同步或延迟规则，也不改变 capability 被动抽取语义。拆除方块时其本地升级卡与本格存储内容一起掉落。
 
-第一版 main/side 菜单不调用 `addExpandableConfigSlots`，两套 ScreenStyle 也不声明 `CONFIG` 槽或过滤背景；允许输入的精确 AEKey 过滤库存继续由端点 `SequenceBufferConfiguration` 和 `inputFilter` 保存，但不显示独立 3x3 面板。`AbstractSequenceBufferScreen` 使用项目现有 AE2 竖向按钮栏显示自动输出、阻挡、同步输出、样板模式和输入延迟；四个布尔按钮使用 AE2 对应状态图标，延迟按钮以 `1/5/10/20/40/100 tick` 循环并读取 AEBaseScreen 的右键方向。每次操作通过菜单 client action 在服务端复制并更新端点配置，随后由既有 `updateConfiguration` 同步所有成员；`GuiSync(31..35)` 只回传当前显示状态。红石卡升级面板使用 `{right:2,top:0}` 附着主面板右侧。主界面滚动条使用 AE2 `Scrollbar.DEFAULT` 的标准 12x15 handle，组件起点 `(175,18)` 使其相对底图 `x=178..183` 的窄轨道对称居中；范围为 0 时仍绘制 DEFAULT disabled handle，不得隐藏。
+第一版 main/side 菜单不调用 `addExpandableConfigSlots`，两套 ScreenStyle 也不声明 `CONFIG` 槽或过滤背景；允许输入的精确 AEKey 过滤库存继续由端点 `SequenceBufferConfiguration` 和 `inputFilter` 保存，但不显示独立 3x3 面板。`AbstractSequenceBufferScreen` 使用项目现有 AE2 竖向按钮栏显示自动输出、阻挡、同步输出、样板模式和输入延迟；四个布尔按钮使用 AE2 对应状态图标，延迟按钮以 `0/1/5/10/20/40/100 tick` 循环并读取 AEBaseScreen 的右键方向。每次操作通过菜单 client action 在服务端复制并更新端点配置，随后由既有 `updateConfiguration` 同步所有成员；`GuiSync(31..35)` 只回传当前显示状态。红石卡升级面板使用 `{right:2,top:0}` 附着主面板右侧。主界面滚动条使用 AE2 `Scrollbar.DEFAULT` 的标准 12x15 handle，组件起点 `(175,18)` 使其相对底图 `x=178..183` 的窄轨道对称居中；范围为 0 时仍绘制 DEFAULT disabled handle，不得隐藏。
 
 ## 13. JEI / EMI 单插件配方导入
 

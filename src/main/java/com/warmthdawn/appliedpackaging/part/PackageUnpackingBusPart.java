@@ -21,6 +21,7 @@ import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageUnpackingOperations;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferTopology;
+import com.warmthdawn.appliedpackaging.diagnostic.RoutingTrace;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.block.entity.SequenceBufferBlockEntity;
 import java.util.List;
@@ -200,17 +201,50 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
     }
 
     private long insertPackageFromNetwork(AEKey what, long amount, Actionable mode) {
-        if (amount <= 0
-                || !getMainNode().isOnline()
-                || !heldPackage.isEmpty()
-                || working
-                || !PackageItemStorage.isPackageKey(what)) {
+        trace(
+                "network_insert_attempt",
+                "action=" + mode + " key=" + RoutingTrace.key(what) + " amount=" + amount);
+        if (amount <= 0) {
+            trace("network_insert_rejected", "reason=non_positive_amount action=" + mode);
+            return 0;
+        }
+        if (!getMainNode().isOnline()) {
+            trace("network_insert_rejected", "reason=offline action=" + mode);
+            return 0;
+        }
+        if (!heldPackage.isEmpty()) {
+            trace("network_insert_rejected", "reason=held_package_present action=" + mode);
+            return 0;
+        }
+        if (working) {
+            trace("network_insert_rejected", "reason=working action=" + mode);
+            return 0;
+        }
+        if (!PackageItemStorage.isPackageKey(what)) {
+            trace("network_insert_rejected", "reason=not_package_key action=" + mode);
             return 0;
         }
 
         ItemStack packageStack = ((AEItemKey) what).toStack();
         packageStack.setCount(1);
-        if (!filterSet().matches(packageStack) || !canUnpackIntoTarget(packageStack)) {
+        boolean filterMatches = filterSet().matches(packageStack);
+        if (!filterMatches) {
+            trace(
+                    "network_insert_rejected",
+                    "reason=filter_mismatch action=" + mode + " package=" + RoutingTrace.stack(packageStack));
+            return 0;
+        }
+        boolean targetAccepts = canUnpackIntoTarget(packageStack);
+        trace(
+                "network_insert_check",
+                "action=" + mode
+                        + " filterMatches=true targetAccepts=" + targetAccepts
+                        + " package=" + RoutingTrace.stack(packageStack));
+        if (!targetAccepts) {
+            trace(
+                    "network_insert_rejected",
+                    "reason=target_preflight_failed action=" + mode
+                            + " package=" + RoutingTrace.stack(packageStack));
             return 0;
         }
 
@@ -221,26 +255,54 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
             startWorkingOperation();
             configurationChanged();
         }
+        trace(
+                mode.isSimulate() ? "network_insert_simulated" : "network_insert_committed",
+                "accepted=1 package=" + RoutingTrace.stack(packageStack));
         return 1;
     }
 
     private long extractHeldPackageFromNetwork(AEKey what, long amount, Actionable mode) {
-        if (amount <= 0
-                || heldPackage.isEmpty()
-                || !(what instanceof AEItemKey itemKey)
-                || !itemKey.matches(heldPackage)) {
+        trace(
+                "network_extract_attempt",
+                "action=" + mode + " key=" + RoutingTrace.key(what) + " amount=" + amount);
+        if (amount <= 0) {
+            trace("network_extract_rejected", "reason=non_positive_amount action=" + mode);
+            return 0;
+        }
+        if (heldPackage.isEmpty()) {
+            trace("network_extract_rejected", "reason=no_held_package action=" + mode);
+            return 0;
+        }
+        if (!(what instanceof AEItemKey itemKey)) {
+            trace("network_extract_rejected", "reason=not_item_key action=" + mode);
+            return 0;
+        }
+        if (!itemKey.matches(heldPackage)) {
+            trace("network_extract_rejected", "reason=held_package_mismatch action=" + mode);
             return 0;
         }
 
+        ItemStack extracted = heldPackage.copy();
         if (!mode.isSimulate()) {
             clearHeldPackageState();
             configurationChanged();
         }
+        trace(
+                mode.isSimulate() ? "network_extract_simulated" : "network_extract_committed",
+                "extracted=1 package=" + RoutingTrace.stack(extracted));
         return 1;
     }
 
     private void retryHeldPackage() {
-        if (!filterSet().matches(heldPackage) || !canUnpackIntoTarget(heldPackage)) {
+        trace("held_retry_attempt", "package=" + RoutingTrace.stack(heldPackage));
+        boolean filterMatches = filterSet().matches(heldPackage);
+        boolean targetAccepts = filterMatches && canUnpackIntoTarget(heldPackage);
+        if (!filterMatches || !targetAccepts) {
+            trace(
+                    "held_retry_blocked",
+                    "filterMatches=" + filterMatches
+                            + " targetAccepts=" + targetAccepts
+                            + " package=" + RoutingTrace.stack(heldPackage));
             if (!unpackBlocked) {
                 unpackBlocked = true;
                 configurationChanged();
@@ -251,6 +313,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         unpackBlocked = false;
         startWorkingOperation();
         configurationChanged();
+        trace("held_retry_started", "package=" + RoutingTrace.stack(heldPackage));
     }
 
     private void startWorkingOperation() {
@@ -259,6 +322,9 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
                 getUpgrades().getInstalledUpgrades(AEItems.SPEED_CARD));
         operationTicks = operationDurationTicks;
         setDisplayedPackage(heldPackage);
+        trace(
+                "unpack_work_started",
+                "duration=" + operationDurationTicks + " package=" + RoutingTrace.stack(heldPackage));
     }
 
     private void tickWorkingOperation() {
@@ -269,7 +335,13 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
             return;
         }
 
-        boolean committed = filterSet().matches(heldPackage) && unpackIntoTarget(heldPackage);
+        boolean filterMatches = filterSet().matches(heldPackage);
+        boolean committed = filterMatches && unpackIntoTarget(heldPackage);
+        trace(
+                "unpack_commit_result",
+                "filterMatches=" + filterMatches
+                        + " committed=" + committed
+                        + " package=" + RoutingTrace.stack(heldPackage));
         if (!committed) {
             working = false;
             unpackBlocked = true;
@@ -292,25 +364,72 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
     private boolean canUnpackIntoTarget(ItemStack packageStack) {
         Optional<SequenceBufferBlockEntity> sequenceBuffer = findTargetSequenceBuffer();
         if (sequenceBuffer.isPresent()) {
-            return PackageDataStorage.read(packageStack)
+            boolean accepted = PackageDataStorage.read(packageStack)
                     .map(data -> sequenceBuffer.get().acceptPackage(data, isBlockingMode(), true))
                     .orElse(false);
+            trace(
+                    "target_preflight",
+                    "target=sequence_buffer endpoint=" + sequenceBuffer.get().getBlockPos().toShortString()
+                            + " accepted=" + accepted
+                            + " package=" + RoutingTrace.stack(packageStack));
+            return accepted;
         }
-        return findTargetItemHandler()
+        boolean accepted = findTargetItemHandler()
                 .map(target -> PackageUnpackingOperations.canUnpack(packageStack, target, isBlockingMode()))
                 .orElse(false);
+        trace(
+                "target_preflight",
+                "target=item_handler targetPos=" + targetPos()
+                        + " accepted=" + accepted
+                        + " package=" + RoutingTrace.stack(packageStack));
+        return accepted;
     }
 
     private boolean unpackIntoTarget(ItemStack packageStack) {
         Optional<SequenceBufferBlockEntity> sequenceBuffer = findTargetSequenceBuffer();
         if (sequenceBuffer.isPresent()) {
-            return PackageDataStorage.read(packageStack)
+            boolean committed = PackageDataStorage.read(packageStack)
                     .map(data -> sequenceBuffer.get().acceptPackage(data, isBlockingMode(), false))
                     .orElse(false);
+            trace(
+                    "target_commit",
+                    "target=sequence_buffer endpoint=" + sequenceBuffer.get().getBlockPos().toShortString()
+                            + " committed=" + committed
+                            + " package=" + RoutingTrace.stack(packageStack));
+            return committed;
         }
-        return findTargetItemHandler()
+        boolean committed = findTargetItemHandler()
                 .map(target -> PackageUnpackingOperations.unpack(packageStack, target, isBlockingMode()))
                 .orElse(false);
+        trace(
+                "target_commit",
+                "target=item_handler targetPos=" + targetPos()
+                        + " committed=" + committed
+                        + " package=" + RoutingTrace.stack(packageStack));
+        return committed;
+    }
+
+    private void trace(String event, String details) {
+        RoutingTrace.log(
+                getLevel(),
+                getBlockEntity().getBlockPos(),
+                "unpacking_bus",
+                event,
+                "priority=" + getPriority()
+                        + " side=" + getSide()
+                        + " blocking=" + isBlockingMode()
+                        + " online=" + getMainNode().isOnline()
+                        + " working=" + working
+                        + " blocked=" + unpackBlocked
+                        + " held=" + RoutingTrace.stack(heldPackage)
+                        + " " + details);
+    }
+
+    private String targetPos() {
+        if (getSide() == null) {
+            return "unknown";
+        }
+        return getBlockEntity().getBlockPos().relative(getSide()).toShortString();
     }
 
     private Optional<SequenceBufferBlockEntity> findTargetSequenceBuffer() {

@@ -29,6 +29,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageLayout;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
+import com.warmthdawn.appliedpackaging.diagnostic.RoutingTrace;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
@@ -1034,8 +1035,17 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
     private void beginCrafting(List<QueuedPackage> packages) {
         if (packages.isEmpty()) {
+            RoutingTrace.log(level, worldPosition, "assembler", "craft_begin_rejected", "reason=empty_packages");
             return;
         }
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "craft_begin",
+                "packages=" + traceQueuedPackages(packages)
+                        + " outputMode=" + outputMode
+                        + " blocking=" + blockingMode);
         activePackages.clear();
         activePackages.addAll(packages);
         activeMenuPattern = ItemStack.EMPTY;
@@ -1077,6 +1087,12 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         List<QueuedPackage> packages = List.copyOf(activePackages);
         if (activeMenuPlan.isPresent()
                 && !commitMenuExtractions(activeMenuPlan.get().menuExtractions())) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "craft_complete_blocked",
+                    "reason=menu_extraction_failed packages=" + traceQueuedPackages(packages));
             craftingProgress = MAX_CRAFT_PROGRESS - 1;
             setChanged();
             return;
@@ -1084,7 +1100,15 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         activePackages.clear();
         activeMenuPattern = ItemStack.EMPTY;
         craftingProgress = 0;
-        commitProviderPackages(packages);
+        boolean committed = commitProviderPackages(packages);
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "craft_complete",
+                "committed=" + committed
+                        + " packages=" + traceQueuedPackages(packages)
+                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
         setChanged();
         syncClientVisualState();
     }
@@ -1233,17 +1257,47 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             finishAutoExportBatchIfEmpty();
             return false;
         }
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "export_batch_check",
+                "target=me mode=" + mode
+                        + " blocking=" + blockingMode
+                        + " active=" + autoExportBatchActive
+                        + " outputs=" + RoutingTrace.stacks(outputs));
         if (autoExportBatchActive) {
-            return autoExportBatchMode == mode;
+            boolean matches = autoExportBatchMode == mode;
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    matches ? "export_batch_continue" : "export_batch_rejected",
+                    "reason=" + (matches ? "active_batch" : "active_mode_mismatch")
+                            + " target=me activeMode=" + autoExportBatchMode);
+            return matches;
         }
         Set<AEKey> outputTypes = outputTypes(outputs);
         if (blockingMode && containsAnyOutputType(target, outputTypes)) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_batch_rejected",
+                    "reason=blocking_target_contains_output_type target=me");
             return false;
         }
         if (!acceptsAllOutputs(target, outputs)) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_batch_rejected",
+                    "reason=preflight_rejected_output target=me");
             return false;
         }
         startAutoExportBatch(mode, null);
+        RoutingTrace.log(level, worldPosition, "assembler", "export_batch_started", "target=me mode=" + mode);
         return true;
     }
 
@@ -1254,18 +1308,56 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             finishAutoExportBatchIfEmpty();
             return false;
         }
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "export_batch_check",
+                "target=container direction=" + direction
+                        + " blocking=" + blockingMode
+                        + " active=" + autoExportBatchActive
+                        + " outputs=" + RoutingTrace.stacks(outputs)
+                        + " targetContents=" + RoutingTrace.itemHandler(target));
         if (autoExportBatchActive) {
-            return autoExportBatchMode == OutputMode.ADJACENT_BLOCK
+            boolean matches = autoExportBatchMode == OutputMode.ADJACENT_BLOCK
                     && autoExportBatchDirection == direction;
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    matches ? "export_batch_continue" : "export_batch_rejected",
+                    "reason=" + (matches ? "active_batch" : "active_target_mismatch")
+                            + " target=container direction=" + direction
+                            + " activeMode=" + autoExportBatchMode
+                            + " activeDirection=" + autoExportBatchDirection);
+            return matches;
         }
         Set<AEKey> outputTypes = outputTypes(outputs);
         if (blockingMode && containsAnyOutputType(target, outputTypes)) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_batch_rejected",
+                    "reason=blocking_target_contains_output_type target=container direction=" + direction);
             return false;
         }
         if (!acceptsAllOutputs(target, outputs)) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_batch_rejected",
+                    "reason=preflight_rejected_output target=container direction=" + direction);
             return false;
         }
         startAutoExportBatch(OutputMode.ADJACENT_BLOCK, direction);
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "export_batch_started",
+                "target=container direction=" + direction);
         return true;
     }
 
@@ -1299,6 +1391,14 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             outputs.add(packageStack(pendingPackage.color(), pendingPackage.data()));
         }
         return outputs;
+    }
+
+    private String traceQueuedPackages(List<QueuedPackage> packages) {
+        List<ItemStack> stacks = new ArrayList<>(packages.size());
+        for (QueuedPackage queuedPackage : packages) {
+            stacks.add(packageStack(queuedPackage.color(), queuedPackage.data()));
+        }
+        return RoutingTrace.stacks(stacks);
     }
 
     private static Set<AEKey> outputTypes(List<ItemStack> outputs) {
@@ -1379,14 +1479,40 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private boolean exportOutputToMEStorage(int itemSlot, MEStorage target, ItemStack output) {
         AEItemKey key = AEItemKey.of(output);
         long simulated = target.insert(key, 1, Actionable.SIMULATE, IActionSource.empty());
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "export_attempt",
+                "target=me slot=" + itemSlot
+                        + " output=" + RoutingTrace.stack(output)
+                        + " simulated=" + simulated);
         if (simulated <= 0) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_rejected",
+                    "reason=simulation_zero target=me output=" + RoutingTrace.stack(output));
             return false;
         }
         long committed = target.insert(key, Math.min(1, simulated), Actionable.MODULATE, IActionSource.empty());
         if (committed <= 0) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_rejected",
+                    "reason=commit_zero target=me output=" + RoutingTrace.stack(output));
             return false;
         }
         items.extractItem(itemSlot, (int) committed, false);
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "export_committed",
+                "target=me committed=" + committed + " output=" + RoutingTrace.stack(output));
         promoteNextOutput();
         setChanged();
         return true;
@@ -1397,20 +1523,55 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         single.setCount(1);
         ItemStack simulatedRemainder = ItemHandlerHelper.insertItemStacked(target, single.copy(), true);
         int transferable = single.getCount() - simulatedRemainder.getCount();
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "export_attempt",
+                "target=container slot=" + itemSlot
+                        + " output=" + RoutingTrace.stack(output)
+                        + " simulated=" + transferable
+                        + " targetContents=" + RoutingTrace.itemHandler(target));
         if (transferable <= 0) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_rejected",
+                    "reason=simulation_zero target=container output=" + RoutingTrace.stack(output));
             return false;
         }
 
         ItemStack extracted = items.extractItem(itemSlot, transferable, true);
         if (extracted.isEmpty()) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_rejected",
+                    "reason=source_extract_zero target=container output=" + RoutingTrace.stack(output));
             return false;
         }
         ItemStack remainder = ItemHandlerHelper.insertItemStacked(target, extracted.copy(), false);
         int inserted = extracted.getCount() - remainder.getCount();
         if (inserted <= 0) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "export_rejected",
+                    "reason=commit_zero target=container output=" + RoutingTrace.stack(output));
             return false;
         }
         items.extractItem(itemSlot, inserted, false);
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "export_committed",
+                "target=container committed=" + inserted
+                        + " output=" + RoutingTrace.stack(output)
+                        + " targetContents=" + RoutingTrace.itemHandler(target));
         promoteNextOutput();
         setChanged();
         return true;
@@ -1909,18 +2070,60 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private boolean commitProviderPackages(List<QueuedPackage> packages) {
-        if (packages.isEmpty() || !pendingPackages.isEmpty() || !hasOutputRoom()) {
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "package_commit_attempt",
+                "packages=" + traceQueuedPackages(packages)
+                        + " pendingCount=" + pendingPackages.size()
+                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
+        if (packages.isEmpty()) {
+            RoutingTrace.log(level, worldPosition, "assembler", "package_commit_rejected", "reason=empty_packages");
+            return false;
+        }
+        if (!pendingPackages.isEmpty()) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "package_commit_rejected",
+                    "reason=pending_packages_not_empty pendingCount=" + pendingPackages.size());
+            return false;
+        }
+        if (!hasOutputRoom()) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "package_commit_rejected",
+                    "reason=no_output_room outputs=" + RoutingTrace.stacks(completedOutputStacks()));
             return false;
         }
         resetAutoExportBatch();
         QueuedPackage first = packages.get(0);
         scheduleComparatorSamplingNextTick();
         if (!insertOutputPackage(packageStack(first.color(), first.data())).isEmpty()) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "package_commit_rejected",
+                    "reason=primary_insert_remainder package="
+                            + RoutingTrace.stack(packageStack(first.color(), first.data())));
             return false;
         }
         if (packages.size() > 1) {
             pendingPackages.addAll(packages.subList(1, packages.size()));
         }
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "package_commit_succeeded",
+                "packages=" + traceQueuedPackages(packages)
+                        + " pendingCount=" + pendingPackages.size()
+                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
         setChanged();
         return true;
     }
@@ -2032,10 +2235,55 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             List<QueuedPackage> packages,
             KeyCounter[] inputHolder,
             List<GenericStack> consumedInputs) {
-        if (packages.isEmpty() || !pendingPackages.isEmpty() || !activePackages.isEmpty() || !outputSlotsEmpty()) {
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "provider_craft_attempt",
+                "packages=" + traceQueuedPackages(packages)
+                        + " inputs=" + RoutingTrace.counters(inputHolder)
+                        + " pendingCount=" + pendingPackages.size()
+                        + " activeCount=" + activePackages.size()
+                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
+        if (packages.isEmpty()) {
+            RoutingTrace.log(level, worldPosition, "assembler", "provider_craft_rejected", "reason=empty_packages");
+            return false;
+        }
+        if (!pendingPackages.isEmpty()) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "provider_craft_rejected",
+                    "reason=pending_packages_not_empty pendingCount=" + pendingPackages.size());
+            return false;
+        }
+        if (!activePackages.isEmpty()) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "provider_craft_rejected",
+                    "reason=craft_already_active activeCount=" + activePackages.size());
+            return false;
+        }
+        if (!outputSlotsEmpty()) {
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "provider_craft_rejected",
+                    "reason=outputs_not_empty outputs=" + RoutingTrace.stacks(completedOutputStacks()));
             return false;
         }
         consumePatternInputs(inputHolder, consumedInputs);
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "provider_inputs_consumed",
+                "remainingInputs=" + RoutingTrace.counters(inputHolder)
+                        + " packages=" + traceQueuedPackages(packages));
         if (level == null) {
             return commitProviderPackages(packages);
         }
@@ -2483,6 +2731,13 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             ItemStack next = items.extractItem(slot, 1, false);
             if (!next.isEmpty()) {
                 items.setStackInSlot(SLOT_OUTPUT, next);
+                RoutingTrace.log(
+                        level,
+                        worldPosition,
+                        "assembler",
+                        "output_promoted",
+                        "source=slot outputIndex=" + outputIndex
+                                + " package=" + RoutingTrace.stack(next));
                 return;
             }
         }
@@ -2490,10 +2745,25 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             return;
         }
         QueuedPackage next = pendingPackages.remove(0);
-        ItemStack remainder = items.insertItem(SLOT_OUTPUT, packageStack(next.color(), next.data()), false);
+        ItemStack nextStack = packageStack(next.color(), next.data());
+        ItemStack remainder = items.insertItem(SLOT_OUTPUT, nextStack, false);
         if (!remainder.isEmpty()) {
             pendingPackages.add(0, next);
+            RoutingTrace.log(
+                    level,
+                    worldPosition,
+                    "assembler",
+                    "output_promotion_rejected",
+                    "source=pending reason=insert_remainder package=" + RoutingTrace.stack(nextStack));
+            return;
         }
+        RoutingTrace.log(
+                level,
+                worldPosition,
+                "assembler",
+                "output_promoted",
+                "source=pending package=" + RoutingTrace.stack(nextStack)
+                        + " remainingPending=" + pendingPackages.size());
     }
 
     private final class ExternalItemHandler implements IItemHandler {

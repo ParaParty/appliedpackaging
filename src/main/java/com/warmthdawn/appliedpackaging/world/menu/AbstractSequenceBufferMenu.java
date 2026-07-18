@@ -34,7 +34,7 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     private static final String ACTION_TOGGLE_SYNCHRONIZED_OUTPUT = "toggleSynchronizedOutput";
     private static final String ACTION_TOGGLE_PATTERN_MODE = "togglePatternMode";
     private static final String ACTION_CYCLE_INPUT_DELAY = "cycleInputDelay";
-    private static final int[] INPUT_DELAY_PRESETS = { 1, 5, 10, 20, 40, 100 };
+    private static final int[] INPUT_DELAY_PRESETS = { 0, 1, 5, 10, 20, 40, 100 };
 
     private final SequenceBufferBlockEntity viewedBlock;
     private final ContainerLevelAccess access;
@@ -164,7 +164,7 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     }
 
     public final int inputDelayTicks() {
-        return Math.max(1, inputDelayTicks);
+        return Math.max(0, inputDelayTicks);
     }
 
     public final void toggleAutoOutput() {

@@ -55,7 +55,7 @@ Package Buses / 包裹总线家族：
   Package Export Bus 已移除；不再保留独立输出包裹到相邻库存的设备。
 
 Sequence Buffer / 序列缓存器：
-  单块是一次输入锁存的泛型 AEKey 缓存；沿 X/Y/Z 任一轴的直线结构由不存储资源的唯一端点协调拓扑、配置、顺序输入、合并抽取、同步输出、样板位置映射和全结构输入延迟。结构方向使用独立 `sequence_direction`，不会覆盖各方块自身六向 `facing`。Forge item/fluid capability 分别适配物品与流体，AE2 MEStorage 保留泛型 key，Pattern Provider 通过专用 ICraftingMachine 路径原子提交。
+  单块是一次输入锁存的泛型 AEKey 缓存；沿 X/Y/Z 任一轴的直线结构由不存储资源的唯一端点协调拓扑、配置、顺序输入、合并抽取、全部成员的 server-tick 输出、样板位置映射和全结构输入延迟。成型成员不再各自执行 tick 操作，端点统一维护空槽输入标记并代理普通/同步输出。结构方向使用独立 `sequence_direction`，不会覆盖各方块自身六向 `facing`。Forge item/fluid capability 分别适配物品与流体，AE2 MEStorage 保留泛型 key，Pattern Provider 通过专用 ICraftingMachine 路径原子提交。
 ```
 
 ## 3. 模块划分
@@ -170,7 +170,8 @@ wrench cycles an unformed endpoint's six-direction block-local facing
 item pipe / MEStorage inserts at endpoint
 -> choose first unlocked member in endpoint-to-tail order
 -> apply exact-key filter and per-member capacity
--> real insertion latches that member and raises the structure output barrier
+-> real insertion occupies that member and raises the structure output barrier
+-> when a member becomes empty at game time t, admission remains closed for the rest of t and reopens by timestamp at t+1 without waiting for an endpoint tick
 
 Pattern Provider ICraftingMachine.pushPattern
 -> recover sparse positions for known ordinary AE2/Applied Packaging pattern details, including empty positions
