@@ -417,6 +417,9 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         if (accepted <= 0) {
             return 0;
         }
+        if (configuration.antiClogMode() && findTransferTarget(key, accepted, true).isEmpty()) {
+            return 0;
+        }
         if (!mode.isSimulate()) {
             storedKey = key;
             storedAmount = accepted;
@@ -434,7 +437,10 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             if (!member.isEmpty() || member.inputAdmissionBlocked()) {
                 continue;
             }
-            return member.insertSingle(key, amount, mode);
+            long inserted = member.insertSingle(key, amount, mode);
+            if (inserted > 0) {
+                return inserted;
+            }
         }
         return 0;
     }
@@ -859,6 +865,17 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
                                 + " inputIndex=" + inputIndex
                                 + " memberSlot=" + input.memberSlot()
                                 + " key=" + RoutingTrace.key(stack.what()));
+                return false;
+            }
+            if (configuration.antiClogMode()
+                    && member.findTransferTarget(stack.what(), stack.amount(), true).isEmpty()) {
+                trace(
+                        "input_plan_rejected",
+                        "reason=anti_clog_output_unavailable action=" + (simulate ? "SIMULATE" : "MODULATE")
+                                + " inputIndex=" + inputIndex
+                                + " memberSlot=" + input.memberSlot()
+                                + " key=" + RoutingTrace.key(stack.what())
+                                + " amount=" + stack.amount());
                 return false;
             }
         }

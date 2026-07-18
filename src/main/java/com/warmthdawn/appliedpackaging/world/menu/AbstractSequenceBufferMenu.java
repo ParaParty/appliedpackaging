@@ -31,6 +31,7 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     private static final Container DISPLAY_CONTAINER = new SimpleContainer(1);
     private static final String ACTION_TOGGLE_AUTO_OUTPUT = "toggleAutoOutput";
     private static final String ACTION_TOGGLE_BLOCKING_MODE = "toggleBlockingMode";
+    private static final String ACTION_TOGGLE_ANTI_CLOG_MODE = "toggleAntiClogMode";
     private static final String ACTION_TOGGLE_SYNCHRONIZED_OUTPUT = "toggleSynchronizedOutput";
     private static final String ACTION_TOGGLE_PATTERN_MODE = "togglePatternMode";
     private static final String ACTION_CYCLE_INPUT_DELAY = "cycleInputDelay";
@@ -58,6 +59,9 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     @GuiSync(35)
     private int inputDelayTicks = SequenceBufferConfiguration.DEFAULT_INPUT_DELAY_TICKS;
 
+    @GuiSync(36)
+    private boolean antiClogMode;
+
     protected AbstractSequenceBufferMenu(
             MenuType<?> type,
             int containerId,
@@ -72,6 +76,7 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
 
         registerClientAction(ACTION_TOGGLE_AUTO_OUTPUT, this::toggleAutoOutput);
         registerClientAction(ACTION_TOGGLE_BLOCKING_MODE, this::toggleBlockingMode);
+        registerClientAction(ACTION_TOGGLE_ANTI_CLOG_MODE, this::toggleAntiClogMode);
         registerClientAction(ACTION_TOGGLE_SYNCHRONIZED_OUTPUT, this::toggleSynchronizedOutput);
         registerClientAction(ACTION_TOGGLE_PATTERN_MODE, this::togglePatternMode);
         registerClientAction(ACTION_CYCLE_INPUT_DELAY, Integer.class, this::cycleInputDelay);
@@ -155,6 +160,10 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
         return blockingMode;
     }
 
+    public final boolean antiClogMode() {
+        return antiClogMode;
+    }
+
     public final boolean synchronizedOutput() {
         return synchronizedOutput;
     }
@@ -181,6 +190,14 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
             return;
         }
         updateConfiguration(configuration -> configuration.setBlockingMode(!configuration.blockingMode()));
+    }
+
+    public final void toggleAntiClogMode() {
+        if (isClientSide()) {
+            sendClientAction(ACTION_TOGGLE_ANTI_CLOG_MODE);
+            return;
+        }
+        updateConfiguration(configuration -> configuration.setAntiClogMode(!configuration.antiClogMode()));
     }
 
     public final void toggleSynchronizedOutput() {
@@ -255,6 +272,7 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
         SequenceBufferConfiguration configuration = getHost().configurationCopy();
         autoOutput = configuration.autoOutput();
         blockingMode = configuration.blockingMode();
+        antiClogMode = configuration.antiClogMode();
         synchronizedOutput = configuration.synchronizedOutput();
         patternMode = configuration.patternMode();
         inputDelayTicks = configuration.inputDelayTicks();

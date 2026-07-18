@@ -2604,6 +2604,78 @@ public final class PackageDataGameTests {
                 .thenSucceed();
     }
 
+    @GameTest(template = "empty", timeoutTicks = 160)
+    public static void mePackagerAntiClogUsesBlockingOutputRule(GameTestHelper helper) {
+        BlockPos packagerPos = new BlockPos(3, 1, 0);
+        InterfaceBlockEntity aeInterface = placeMePackagerAe2Interface(helper, packagerPos, Direction.WEST);
+        MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
+        packager.setBlockingMode(MePackagerBlockEntity.BlockingMode.BLOCK_UNPACK_WHEN_NETWORK_HAS_ITEMS);
+        ItemStack input = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 64));
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    assertAe2InterfaceReady(helper, aeInterface, "anti-clog ME Packager test");
+                    assertMePackagerReady(helper, packager, "anti-clog ME Packager test");
+                })
+                .thenExecute(() -> {
+                    var storage = aeStorage(aeInterface);
+                    var source = IActionSource.ofMachine(aeInterface);
+                    helper.assertTrue(storage.insert(
+                                    AEItemKey.of(Items.COBBLESTONE),
+                                    1,
+                                    Actionable.MODULATE,
+                                    source) == 1,
+                            "Anti-clog ME Packager fixture should make the existing blocking rule fail");
+                    IItemHandler sideHandler = packager.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+                            .resolve()
+                            .orElseThrow();
+                    helper.assertTrue(packager.antiClogMode(),
+                            "ME Packager anti-clog mode should default to enabled");
+                    helper.assertTrue(!sideHandler.insertItem(0, input.copy(), true).isEmpty()
+                                    && !sideHandler.insertItem(0, input.copy(), false).isEmpty(),
+                            "Enabled anti-clog mode must reject input when blocking mode makes automatic output illegal");
+
+                    packager.setAntiClogMode(false);
+                    helper.assertTrue(sideHandler.insertItem(0, input.copy(), false).isEmpty(),
+                            "Disabled anti-clog mode should accept the same valid package for later output");
+                    helper.assertTrue(packager.unpackBlocked()
+                                    && packager.workingOperation() == MePackagerBlockEntity.WorkingOperation.NONE,
+                            "A package accepted without an available output must wait without starting progress");
+
+                    MePackagerBlockEntity loaded = new MePackagerBlockEntity(
+                            BlockPos.ZERO,
+                            APBlocks.ME_PACKAGER.get().defaultBlockState());
+                    loaded.load(packager.saveWithoutMetadata());
+                    helper.assertFalse(loaded.antiClogMode(),
+                            "ME Packager anti-clog setting should persist");
+                    MePackagerMenu menu = new MePackagerMenu(37, new Inventory(newFakePlayer(helper)), packager);
+                    menu.broadcastChanges();
+                    helper.assertFalse(menu.antiClogMode(),
+                            "ME Packager menu should synchronize anti-clog mode");
+                    menu.toggleAntiClogMode();
+                    helper.assertTrue(packager.antiClogMode() && menu.antiClogMode(),
+                            "ME Packager menu should toggle anti-clog mode");
+                    storage.extract(AEItemKey.of(Items.COBBLESTONE), 1, Actionable.MODULATE, source);
+                })
+                .thenExecuteAfter(
+                        MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS
+                                + MePackagerBlockEntity.UNPACKING_BASE_WORK_TICKS + 6,
+                        () -> {
+                            var storage = aeStorage(aeInterface);
+                            var source = IActionSource.ofMachine(aeInterface);
+                            helper.assertTrue(packager.getItems()
+                                            .getStackInSlot(MePackagerBlockEntity.SLOT_HELD_BOX)
+                                            .isEmpty()
+                                            && storage.extract(
+                                                            AEItemKey.of(Items.IRON_INGOT),
+                                                            64,
+                                                            Actionable.SIMULATE,
+                                                            source) == 64,
+                                    "Waiting ME Packager input should use the same automatic output rule after recovery");
+                        })
+                .thenSucceed();
+    }
+
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void packageAssemblerAutoExportProducesComparatorPulse(GameTestHelper helper) {
         BlockPos chestPos = new BlockPos(0, 0, 0);
@@ -3824,6 +3896,62 @@ public final class PackageDataGameTests {
                                     IActionSource.ofMachine(part)) == 1,
                             "Package unpacking bus should report its held work package to the network");
                 })
+                .thenSucceed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 160)
+    public static void packageUnpackingBusAntiClogCanAcceptAndWait(GameTestHelper helper) {
+        BlockPos chestPos = new BlockPos(1, 1, 0);
+        BlockPos partPos = new BlockPos(1, 1, 1);
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        chest.setItem(0, new ItemStack(Items.IRON_INGOT, 1));
+        PackageUnpackingBusPart part = placePoweredUnpackingBusPart(helper, partPos, Direction.NORTH);
+        part.getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.YES);
+        ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 32));
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(part.getMainNode().isOnline(),
+                            "Package unpacking part should join its powered AE grid");
+                    helper.assertTrue(part.getMainNode().getGrid() != null,
+                            "Package unpacking part should expose its connected grid");
+                })
+                .thenExecute(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    var source = IActionSource.ofMachine(part);
+                    helper.assertTrue(part.antiClogMode()
+                                    && storage.insert(packageKey, 1, Actionable.SIMULATE, source) == 0,
+                            "Unpacking Bus anti-clog mode should default on and include Pattern Provider blocking");
+
+                    part.setAntiClogMode(false);
+                    helper.assertTrue(storage.insert(packageKey, 1, Actionable.MODULATE, source) == 1,
+                            "Disabled anti-clog mode should accept one package even while output is blocked");
+                    helper.assertTrue(part.unpackBlocked() && !part.isWorking(),
+                            "The accepted package should wait without starting progress until output is available");
+
+                    CompoundTag saved = new CompoundTag();
+                    part.writeToNBT(saved);
+                    part.setAntiClogMode(true);
+                    part.readFromNBT(saved);
+                    helper.assertFalse(part.antiClogMode(),
+                            "Unpacking Bus anti-clog setting should persist");
+
+                    PackageBusMenu menu = new PackageBusMenu(41, new Inventory(newFakePlayer(helper)), part);
+                    menu.broadcastChanges();
+                    helper.assertFalse(menu.antiClogMode(),
+                            "Unpacking Bus menu should synchronize anti-clog mode");
+                    menu.toggleAntiClogMode();
+                    helper.assertTrue(part.antiClogMode() && menu.antiClogMode(),
+                            "Unpacking Bus menu should toggle anti-clog mode");
+                    chest.clearContent();
+                })
+                .thenWaitUntil(() -> helper.assertTrue(part.isWorking(),
+                        "Waiting Unpacking Bus package should start after the real output rule recovers"))
+                .thenExecuteAfter(PackageUnpackingBusPart.ANIMATION_CYCLE_TICKS + 2, () ->
+                        helper.assertTrue(part.heldPackage().isEmpty() && chest.countItem(Items.IRON_INGOT) == 32,
+                                "Recovered Unpacking Bus should commit the complete waiting package"))
                 .thenSucceed();
     }
 

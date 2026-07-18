@@ -48,6 +48,7 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
     private static final String ACTION_TOGGLE_INVERTED = "apPackageBusToggleInverted";
     private static final String ACTION_SET_COLOR = "apPackageBusSetColor";
     private static final String ACTION_CLEAR_COLOR = "apPackageBusClearColor";
+    private static final String ACTION_TOGGLE_ANTI_CLOG = "apPackageBusToggleAntiClog";
 
     private final int[] rowStates = new int[AbstractPackageBusPart.FILTER_ROWS];
     private final IItemHandlerModifiable workingPackage;
@@ -64,6 +65,8 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
     public Component connectedTo;
     @GuiSync(44)
     public YesNo blockingMode = YesNo.NO;
+    @GuiSync(45)
+    public boolean antiClogMode = true;
 
     public PackageBusMenu(int id, Inventory inventory, AbstractPackageBusPart host) {
         super(APMenus.PACKAGE_BUS.get(), id, inventory, host);
@@ -73,6 +76,7 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
         registerClientAction(ACTION_TOGGLE_INVERTED, Integer.class, this::applyToggleInverted);
         registerClientAction(ACTION_SET_COLOR, RowColorAction.class, this::applySetColor);
         registerClientAction(ACTION_CLEAR_COLOR, Integer.class, this::applyClearColor);
+        registerClientAction(ACTION_TOGGLE_ANTI_CLOG, this::applyToggleAntiClog);
         PackageUnpackingBusPart unpackingBus = host instanceof PackageUnpackingBusPart part ? part : null;
         workingPackage = unpackingBus == null ? new ItemStackHandler(1) : unpackingBus.getHeldPackageItems();
         addSlot(new HeldPackageSlot(workingPackage, unpackingBus), WORKING_PACKAGE);
@@ -226,6 +230,8 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
     public void broadcastChanges() {
         if (isServerSide()) {
             connectedTo = getHost().getConnectedToDescription();
+            antiClogMode = getHost() instanceof PackageUnpackingBusPart unpackingBus
+                    && unpackingBus.antiClogMode();
         }
         super.broadcastChanges();
     }
@@ -279,6 +285,14 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
         }
     }
 
+    public void toggleAntiClogMode() {
+        if (isClientSide()) {
+            sendClientAction(ACTION_TOGGLE_ANTI_CLOG);
+        } else {
+            applyToggleAntiClog();
+        }
+    }
+
     private void applyClear() {
         getHost().clearFilters();
     }
@@ -306,6 +320,14 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
 
     private void applyClearColor(Integer row) {
         getHost().clearRowColor(row == null ? -1 : row);
+    }
+
+    private void applyToggleAntiClog() {
+        if (getHost() instanceof PackageUnpackingBusPart unpackingBus) {
+            unpackingBus.toggleAntiClogMode();
+            antiClogMode = unpackingBus.antiClogMode();
+            broadcastChanges();
+        }
     }
 
     public boolean showsWorkingArea() {
@@ -383,6 +405,10 @@ public class PackageBusMenu extends UpgradeableMenu<AbstractPackageBusPart> {
 
     public YesNo getBlockingMode() {
         return blockingMode;
+    }
+
+    public boolean antiClogMode() {
+        return antiClogMode;
     }
 
     public Component getConnectedTo() {

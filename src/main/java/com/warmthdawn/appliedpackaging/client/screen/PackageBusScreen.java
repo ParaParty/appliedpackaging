@@ -18,18 +18,16 @@ import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.PaletteColor;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.ActionButton;
-import appeng.client.gui.widgets.OpenGuideButton;
 import appeng.client.gui.widgets.ServerSettingToggleButton;
 import appeng.client.gui.widgets.SettingToggleButton;
 import appeng.client.gui.widgets.TabButton;
 import appeng.client.gui.widgets.ToolboxPanel;
+import appeng.client.gui.widgets.ToggleButton;
 import appeng.core.localization.GuiText;
-import appeng.core.AppEng;
 import appeng.core.sync.network.NetworkHandler;
 import appeng.core.sync.packets.SwitchGuisPacket;
 import appeng.menu.SlotSemantics;
 import appeng.menu.implementations.PriorityMenu;
-import appeng.client.guidebook.PageAnchor;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
@@ -77,11 +75,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private static final Blitter PRIORITY_TAB = Blitter.texture(LATEST_AE2_STATES).src(160, 192, 20, 20);
     private static final Blitter PRIORITY_TAB_FOCUS =
             Blitter.texture(LATEST_AE2_STATES).src(160, 224, 22, 22);
-    private static final ResourceLocation STORAGE_BUS_GUIDE = new ResourceLocation(
-            "ae2", "items-blocks-machines/storage_bus.md");
-    private static final ResourceLocation PATTERN_PROVIDER_GUIDE = new ResourceLocation(
-            "ae2", "items-blocks-machines/pattern_provider.md");
-
     // The work slot, empty progress frame, and active progress sprite are all
     // supplied in the unused source area of the original Package Bus atlas.
     private static final Blitter WORK_SLOT_BACKGROUND = Blitter.texture(BACKGROUND).src(176, 0, 18, 18);
@@ -105,6 +98,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private final SettingToggleButton<YesNo> filterOnExtract;
     private final SettingToggleButton<FuzzyMode> fuzzyMode;
     private final SettingToggleButton<YesNo> blockingMode;
+    private final ToggleButton antiClogMode;
 
     public PackageBusScreen(
             PackageBusMenu menu,
@@ -137,12 +131,22 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
         // AE2 renamed WRENCH to COG in newer lines; the 15.4.10 action is the
         // same partition operation and uses the same cog artwork.
-        toolbarButtons.add(new ModernGuideButton(
-                menu.isUnpackingBus() ? PATTERN_PROVIDER_GUIDE : STORAGE_BUS_GUIDE));
         toolbarButtons.add(new ModernActionButton(ActionItems.CLOSE, button -> menu.clear()));
         if (menu.isUnpackingBus()) {
             blockingMode = new ModernServerSettingToggleButton<>(Settings.BLOCKING_MODE, YesNo.NO);
             toolbarButtons.add(blockingMode);
+            antiClogMode = new ToggleButton(
+                    Icon.AUTO_EXPORT_ON,
+                    Icon.AUTO_EXPORT_OFF,
+                    ignored -> menu.toggleAntiClogMode());
+            Component antiClogTitle = Component.translatable("gui.appliedpackaging.anti_clog_mode");
+            antiClogMode.setTooltipOn(List.of(
+                    antiClogTitle,
+                    Component.translatable("gui.appliedpackaging.anti_clog_mode.enabled")));
+            antiClogMode.setTooltipOff(List.of(
+                    antiClogTitle,
+                    Component.translatable("gui.appliedpackaging.anti_clog_mode.disabled")));
+            toolbarButtons.add(antiClogMode);
             storageFilter = null;
             filterOnExtract = null;
             fuzzyMode = null;
@@ -159,6 +163,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
             toolbarButtons.add(fuzzyMode);
             toolbarButtons.add(rwMode);
             blockingMode = null;
+            antiClogMode = null;
         }
         modernToolbar.setButtons(toolbarButtons);
 
@@ -196,6 +201,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         super.updateBeforeRender();
         if (blockingMode != null) {
             blockingMode.set(menu.getBlockingMode());
+            antiClogMode.setState(menu.antiClogMode());
         }
         if (storageFilter != null) {
             storageFilter.set(menu.getStorageFilter());
@@ -386,17 +392,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
                     .dest(getX(), getY())
                     .blit(graphics);
             PRIORITY_ICON.dest(getX() + 2, getY() + 1).blit(graphics);
-        }
-    }
-
-    private final class ModernGuideButton extends OpenGuideButton {
-        private ModernGuideButton(ResourceLocation guide) {
-            super(button -> AppEng.instance().openGuideAtAnchor(PageAnchor.page(guide)));
-        }
-
-        @Override
-        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            ModernVerticalToolbar.renderButton(graphics, this, getIcon());
         }
     }
 

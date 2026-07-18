@@ -37,6 +37,7 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
     private static final String ACTION_CYCLE_FILTER = "cycleFilter";
     private static final String ACTION_CYCLE_ACTIVATION = "cycleActivation";
     private static final String ACTION_CYCLE_BLOCKING = "cycleBlocking";
+    private static final String ACTION_TOGGLE_ANTI_CLOG = "toggleAntiClog";
 
     @GuiSync(10)
     public PackageColor selectedColor = PackageColor.FLUIX;
@@ -54,6 +55,9 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
     @GuiSync(14)
     public MePackagerBlockEntity.BlockingMode blockingMode =
             MePackagerBlockEntity.BlockingMode.IGNORE_NETWORK_CONTENTS;
+
+    @GuiSync(15)
+    public boolean antiClogMode = true;
 
     @GuiSync(16)
     public int workTicksRemaining = 0;
@@ -85,6 +89,7 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
         registerClientAction(ACTION_CYCLE_FILTER, this::cycleFilterMode);
         registerClientAction(ACTION_CYCLE_ACTIVATION, this::cycleActivationMode);
         registerClientAction(ACTION_CYCLE_BLOCKING, this::cycleBlockingMode);
+        registerClientAction(ACTION_TOGGLE_ANTI_CLOG, this::toggleAntiClogMode);
     }
 
     @Override
@@ -125,6 +130,7 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
             activationMode = getHost().redstoneMode();
             filterMode = getHost().filterApplicationMode();
             blockingMode = getHost().blockingMode();
+            antiClogMode = getHost().antiClogMode();
             workTicksRemaining = getHost().animationTicks();
             workDurationTicks = getHost().animationDurationTicks();
             workingOperation = getHost().workingOperation().ordinal();
@@ -278,6 +284,17 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
         broadcastChanges();
     }
 
+    public void toggleAntiClogMode() {
+        if (isClientSide()) {
+            sendClientAction(ACTION_TOGGLE_ANTI_CLOG);
+            return;
+        }
+
+        getHost().toggleAntiClogMode();
+        antiClogMode = getHost().antiClogMode();
+        broadcastChanges();
+    }
+
     public PackageColor selectedColor() {
         return selectedColor == null ? PackageColor.FLUIX : selectedColor;
     }
@@ -302,6 +319,10 @@ public class MePackagerMenu extends UpgradeableMenu<MePackagerBlockEntity> imple
         return blockingMode == null
                 ? MePackagerBlockEntity.BlockingMode.IGNORE_NETWORK_CONTENTS
                 : blockingMode;
+    }
+
+    public boolean antiClogMode() {
+        return antiClogMode;
     }
 
     public MePackagerBlockEntity.WorkingOperation workingOperation() {

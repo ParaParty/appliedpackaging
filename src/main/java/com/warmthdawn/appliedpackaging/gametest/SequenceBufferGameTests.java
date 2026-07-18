@@ -446,6 +446,7 @@ public final class SequenceBufferGameTests {
 
         menu.toggleAutoOutput();
         menu.toggleBlockingMode();
+        menu.toggleAntiClogMode();
         menu.toggleSynchronizedOutput();
         menu.togglePatternMode();
         menu.cycleInputDelay(false);
@@ -454,12 +455,14 @@ public final class SequenceBufferGameTests {
         var expected = endpoint.configurationCopy();
         helper.assertTrue(!expected.autoOutput()
                         && expected.blockingMode()
+                        && expected.antiClogMode()
                         && expected.synchronizedOutput()
                         && expected.patternMode()
                         && expected.inputDelayTicks() == 5,
-                "All five GUI settings must update the endpoint configuration");
+                "All six GUI settings must update the endpoint configuration");
         helper.assertTrue(menu.autoOutput() == expected.autoOutput()
                         && menu.blockingMode() == expected.blockingMode()
+                        && menu.antiClogMode() == expected.antiClogMode()
                         && menu.synchronizedOutput() == expected.synchronizedOutput()
                         && menu.patternMode() == expected.patternMode()
                         && menu.inputDelayTicks() == expected.inputDelayTicks(),
@@ -806,6 +809,51 @@ public final class SequenceBufferGameTests {
                 .thenExecuteAfter(3, () -> helper.assertTrue(
                         buffer.isEmpty() && chest.countItem(Items.IRON_INGOT) == 5,
                         "Blocking mode should output after the complete target becomes empty"))
+                .thenSucceed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty", timeoutTicks = 120)
+    public static void antiClogModeUsesCompleteAutomaticOutputRules(GameTestHelper helper) {
+        BlockPos bufferPos = new BlockPos(2, 1, 2);
+        BlockPos chestPos = bufferPos.north();
+        SequenceBufferBlockEntity buffer = placeBuffer(
+                helper,
+                bufferPos,
+                APBlocks.SEQUENCE_BUFFER.get()
+                        .defaultBlockState()
+                        .setValue(SequenceBufferBlock.STATE, SequenceBufferVisualState.UNFORMED_DIRECTED)
+                        .setValue(SequenceBufferBlock.DIRECTIONAL, true)
+                        .setValue(SequenceBufferBlock.FACING, Direction.NORTH));
+        helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
+        ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
+        chest.setItem(0, new ItemStack(Items.COBBLESTONE, 1));
+        var configuration = buffer.configurationCopy();
+        helper.assertFalse(configuration.antiClogMode(),
+                "Sequence Buffer anti-clog mode should default to disabled");
+        configuration.setBlockingMode(true);
+        configuration.setAntiClogMode(true);
+        buffer.updateConfiguration(configuration);
+        IItemHandler handler = buffer.getCapability(ForgeCapabilities.ITEM_HANDLER)
+                .orElseThrow(IllegalStateException::new);
+
+        ItemStack rejected = handler.insertItem(0, new ItemStack(Items.IRON_INGOT, 5), false);
+        helper.assertTrue(rejected.getCount() == 5 && buffer.isEmpty(),
+                "Anti-clog mode must reject input when the real blocking-mode output rule rejects the target");
+
+        configuration.setAntiClogMode(false);
+        buffer.updateConfiguration(configuration);
+        helper.assertTrue(handler.insertItem(0, new ItemStack(Items.IRON_INGOT, 5), false).isEmpty(),
+                "Disabling anti-clog mode should allow the same input to wait in the buffer");
+
+        helper.startSequence()
+                .thenExecuteAfter(3, () -> {
+                    helper.assertTrue(buffer.storedAmount() == 5 && chest.countItem(Items.IRON_INGOT) == 0,
+                            "Accepted input must continue waiting under the unchanged automatic-output rule");
+                    chest.clearContent();
+                })
+                .thenExecuteAfter(3, () -> helper.assertTrue(
+                        buffer.isEmpty() && chest.countItem(Items.IRON_INGOT) == 5,
+                        "Waiting input should output after the same automatic-output rule becomes satisfied"))
                 .thenSucceed();
     }
 

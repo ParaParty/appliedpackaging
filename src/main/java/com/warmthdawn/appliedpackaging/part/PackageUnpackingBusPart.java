@@ -43,6 +43,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
     private static final String OPERATION_DURATION_TICKS_TAG = "unpackOperationDurationTicks";
     private static final String RETRY_COOLDOWN_TAG = "unpackRetryCooldown";
     private static final String UNPACK_BLOCKED_TAG = "unpackBlocked";
+    private static final String ANTI_CLOG_MODE_TAG = "antiClogMode";
 
     private static final IPartModel MODELS_OFF = new PartModel(
             AppliedPackaging.id("part/package_unpacking_bus_base"),
@@ -55,8 +56,9 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
             AppliedPackaging.id("part/package_bus_status_has_channel"));
 
     /**
-     * Formation-Plane-style network input backed by the one real held work package. New packages can only be inserted
-     * while the bus can start unpacking, but the package already being processed remains visible and extractable.
+     * Formation-Plane-style network input backed by the one real held work package. Anti-clog mode requires the bus to
+     * be able to start unpacking immediately; when disabled, one package may wait here until the real output rules pass.
+     * The package already being processed or waiting remains visible and extractable.
      */
     private final MEStorage packageInput = new MEStorage() {
         @Override
@@ -155,6 +157,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
     private int operationTicks;
     private int operationDurationTicks = ANIMATION_CYCLE_TICKS;
     private int retryCooldown;
+    private boolean antiClogMode = true;
 
     public PackageUnpackingBusPart(IPartItem<?> partItem) {
         super(partItem, DEFAULT_PRIORITY);
@@ -240,7 +243,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
                 "action=" + mode
                         + " filterMatches=true targetAccepts=" + targetAccepts
                         + " package=" + RoutingTrace.stack(packageStack));
-        if (!targetAccepts) {
+        if (antiClogMode && !targetAccepts) {
             trace(
                     "network_insert_rejected",
                     "reason=target_preflight_failed action=" + mode
@@ -250,9 +253,13 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
 
         if (!mode.isSimulate()) {
             setHeldPackage(packageStack);
-            unpackBlocked = false;
             retryCooldown = 0;
-            startWorkingOperation();
+            if (targetAccepts) {
+                unpackBlocked = false;
+                startWorkingOperation();
+            } else {
+                unpackBlocked = true;
+            }
             configurationChanged();
         }
         trace(
@@ -418,6 +425,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
                 "priority=" + getPriority()
                         + " side=" + getSide()
                         + " blocking=" + isBlockingMode()
+                        + " antiClog=" + antiClogMode
                         + " online=" + getMainNode().isOnline()
                         + " working=" + working
                         + " blocked=" + unpackBlocked
@@ -446,6 +454,21 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
 
     public boolean isBlockingMode() {
         return getConfigManager().getSetting(Settings.BLOCKING_MODE) == YesNo.YES;
+    }
+
+    public boolean antiClogMode() {
+        return antiClogMode;
+    }
+
+    public void setAntiClogMode(boolean antiClogMode) {
+        if (this.antiClogMode != antiClogMode) {
+            this.antiClogMode = antiClogMode;
+            configurationChanged();
+        }
+    }
+
+    public void toggleAntiClogMode() {
+        setAntiClogMode(!antiClogMode);
     }
 
     @Override
@@ -502,6 +525,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         operationTicks = Math.max(0, Math.min(operationDurationTicks, tag.getInt(OPERATION_TICKS_TAG)));
         retryCooldown = Math.max(0, tag.getInt(RETRY_COOLDOWN_TAG));
         unpackBlocked = !heldPackage.isEmpty() && !working && tag.getBoolean(UNPACK_BLOCKED_TAG);
+        antiClogMode = !tag.contains(ANTI_CLOG_MODE_TAG, Tag.TAG_BYTE) || tag.getBoolean(ANTI_CLOG_MODE_TAG);
         if (heldPackage.isEmpty()) {
             working = false;
             unpackBlocked = false;
@@ -522,6 +546,7 @@ public class PackageUnpackingBusPart extends AbstractPackageBusPart implements I
         tag.putInt(OPERATION_DURATION_TICKS_TAG, operationDurationTicks);
         tag.putInt(RETRY_COOLDOWN_TAG, retryCooldown);
         tag.putBoolean(UNPACK_BLOCKED_TAG, unpackBlocked);
+        tag.putBoolean(ANTI_CLOG_MODE_TAG, antiClogMode);
     }
 
     @Override

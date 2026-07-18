@@ -96,6 +96,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private static final String REDSTONE_MODE_TAG = "redstone_mode";
     private static final String FILTER_APPLICATION_MODE_TAG = "filter_application_mode";
     private static final String BLOCKING_MODE_TAG = "blocking_mode";
+    private static final String ANTI_CLOG_MODE_TAG = "anti_clog_mode";
     private static final String ANIMATION_TICKS_TAG = "animation_ticks";
     private static final String ANIMATION_DURATION_TICKS_TAG = "animation_duration_ticks";
     private static final String ANIMATION_INWARD_TAG = "animation_inward";
@@ -259,6 +260,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     private RedstoneMode redstoneMode = RedstoneMode.HIGH_SIGNAL;
     private FilterApplicationMode filterApplicationMode = FilterApplicationMode.BOTH;
     private BlockingMode blockingMode = BlockingMode.IGNORE_NETWORK_CONTENTS;
+    private boolean antiClogMode = true;
     private boolean pendingPackTrigger;
 
     public MePackagerBlockEntity(BlockPos pos, BlockState blockState) {
@@ -365,6 +367,19 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     public void cycleBlockingMode() {
         BlockingMode[] values = BlockingMode.values();
         setBlockingMode(values[(blockingMode.ordinal() + 1) % values.length]);
+    }
+
+    public boolean antiClogMode() {
+        return antiClogMode;
+    }
+
+    public void setAntiClogMode(boolean antiClogMode) {
+        this.antiClogMode = antiClogMode;
+        setChanged();
+    }
+
+    public void toggleAntiClogMode() {
+        setAntiClogMode(!antiClogMode);
     }
 
     public int unlockedFilterRows() {
@@ -589,15 +604,17 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         if (isWorking() || heldBoxState != HeldBoxState.EMPTY || !heldBox().isEmpty()) {
             return stack;
         }
-        Optional<MEStorage> meStorage = findTargetMEStorage();
-        if (meStorage.isEmpty()) {
-            return stack;
-        }
-
         ItemStack one = stack.copy();
         one.setCount(1);
-        MachineResult validation = validateUnpackInput(meStorage.get(), one);
-        if (validation != MachineResult.UNPACKED) {
+        MachineResult inputValidation = validateUnpackInputIdentity(one, false);
+        if (inputValidation != MachineResult.UNPACKED) {
+            return stack;
+        }
+        Optional<MEStorage> meStorage = findTargetMEStorage();
+        MachineResult outputReadiness = meStorage
+                .map(storage -> validateUnpackOutput(storage, one))
+                .orElse(MachineResult.NO_TARGET);
+        if (antiClogMode && outputReadiness != MachineResult.UNPACKED) {
             return stack;
         }
 
@@ -605,9 +622,16 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         remainder.shrink(1);
         if (!simulate) {
             heldBoxState = HeldBoxState.UNPACK_INPUT;
-            unpackBlocked = false;
             items.setStackInSlot(SLOT_INPUT, one);
-            startWorkingOperation(WorkingOperation.UNPACKING, one);
+            if (outputReadiness == MachineResult.UNPACKED) {
+                unpackBlocked = false;
+                startWorkingOperation(WorkingOperation.UNPACKING, one);
+            } else {
+                unpackBlocked = true;
+                redstoneCooldown = 0;
+                renderedBox = displayStack(one);
+                syncVisualState();
+            }
             setChanged();
         }
         return remainder.isEmpty() ? ItemStack.EMPTY : remainder;
@@ -636,6 +660,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
     }
 
     private MachineResult validateUnpackInput(MEStorage target, ItemStack input, boolean allowCurrentWork) {
+        MachineResult inputValidation = validateUnpackInputIdentity(input, allowCurrentWork);
+        if (inputValidation != MachineResult.UNPACKED) {
+            return inputValidation;
+        }
+        return validateUnpackOutput(target, input);
+    }
+
+    private MachineResult validateUnpackInputIdentity(ItemStack input, boolean allowCurrentWork) {
         if (isWorking() && !allowCurrentWork) {
             return MachineResult.WORKING;
         }
@@ -657,6 +689,14 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         }
         if (!configuredFilter().matchesContents(data.get(), contentFilterInverted())) {
             return MachineResult.FILTER_REJECTED;
+        }
+        return MachineResult.UNPACKED;
+    }
+
+    private MachineResult validateUnpackOutput(MEStorage target, ItemStack input) {
+        Optional<PackageData> data = PackageDataStorage.read(input);
+        if (data.isEmpty()) {
+            return MachineResult.INVALID_INPUT;
         }
         if (blockingMode == BlockingMode.BLOCK_UNPACK_WHEN_NETWORK_HAS_ITEMS && targetHasContents(target)) {
             return MachineResult.TARGET_BLOCKED;
@@ -723,6 +763,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         setSelectedColor(PackageColor.FLUIX);
         setFilterApplicationMode(FilterApplicationMode.BOTH);
         setBlockingMode(BlockingMode.IGNORE_NETWORK_CONTENTS);
+        setAntiClogMode(true);
         setChanged();
     }
 
@@ -830,6 +871,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         tag.putString(REDSTONE_MODE_TAG, redstoneMode.name());
         tag.putString(FILTER_APPLICATION_MODE_TAG, filterApplicationMode.name());
         tag.putString(BLOCKING_MODE_TAG, blockingMode.name());
+        tag.putBoolean(ANTI_CLOG_MODE_TAG, antiClogMode);
         tag.putInt(ANIMATION_TICKS_TAG, animationTicks);
         tag.putInt(ANIMATION_DURATION_TICKS_TAG, animationDurationTicks);
         tag.putBoolean(ANIMATION_INWARD_TAG, animationInward);
@@ -863,6 +905,7 @@ public class MePackagerBlockEntity extends AENetworkBlockEntity
         redstoneMode = RedstoneMode.byName(tag.getString(REDSTONE_MODE_TAG));
         filterApplicationMode = FilterApplicationMode.byName(tag.getString(FILTER_APPLICATION_MODE_TAG));
         blockingMode = BlockingMode.byName(tag.getString(BLOCKING_MODE_TAG));
+        antiClogMode = !tag.contains(ANTI_CLOG_MODE_TAG, Tag.TAG_BYTE) || tag.getBoolean(ANTI_CLOG_MODE_TAG);
         animationDurationTicks = tag.contains(ANIMATION_DURATION_TICKS_TAG, Tag.TAG_INT)
                 ? Math.max(MIN_WORK_TICKS, Math.min(PACKING_BASE_WORK_TICKS, tag.getInt(ANIMATION_DURATION_TICKS_TAG)))
                 : PACKING_BASE_WORK_TICKS;

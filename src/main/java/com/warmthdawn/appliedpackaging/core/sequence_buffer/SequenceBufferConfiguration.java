@@ -15,6 +15,7 @@ public final class SequenceBufferConfiguration {
     private static final String VERSION = "version";
     private static final String AUTO_OUTPUT = "auto_output";
     private static final String BLOCKING_MODE = "blocking_mode";
+    private static final String ANTI_CLOG_MODE = "anti_clog_mode";
     private static final String SYNCHRONIZED_OUTPUT = "synchronized_output";
     private static final String PATTERN_MODE = "pattern_mode";
     private static final String INPUT_DELAY = "input_delay";
@@ -25,6 +26,7 @@ public final class SequenceBufferConfiguration {
 
     private boolean autoOutput = true;
     private boolean blockingMode;
+    private boolean antiClogMode;
     private boolean synchronizedOutput;
     private boolean patternMode;
     private int inputDelayTicks = DEFAULT_INPUT_DELAY_TICKS;
@@ -45,6 +47,7 @@ public final class SequenceBufferConfiguration {
         Objects.requireNonNull(source, "source");
         autoOutput = source.autoOutput;
         blockingMode = source.blockingMode;
+        antiClogMode = source.antiClogMode;
         synchronizedOutput = source.synchronizedOutput;
         patternMode = source.patternMode;
         inputDelayTicks = source.inputDelayTicks;
@@ -66,6 +69,14 @@ public final class SequenceBufferConfiguration {
 
     public void setBlockingMode(boolean value) {
         blockingMode = value;
+    }
+
+    public boolean antiClogMode() {
+        return antiClogMode;
+    }
+
+    public void setAntiClogMode(boolean value) {
+        antiClogMode = value;
     }
 
     public boolean synchronizedOutput() {
@@ -116,6 +127,7 @@ public final class SequenceBufferConfiguration {
         tag.putInt(VERSION, CURRENT_VERSION);
         tag.putBoolean(AUTO_OUTPUT, autoOutput);
         tag.putBoolean(BLOCKING_MODE, blockingMode);
+        tag.putBoolean(ANTI_CLOG_MODE, antiClogMode);
         tag.putBoolean(SYNCHRONIZED_OUTPUT, synchronizedOutput);
         tag.putBoolean(PATTERN_MODE, patternMode);
         tag.putInt(INPUT_DELAY, inputDelayTicks);
@@ -130,6 +142,7 @@ public final class SequenceBufferConfiguration {
     public void readTag(CompoundTag tag) {
         autoOutput = !tag.contains(AUTO_OUTPUT, Tag.TAG_BYTE) || tag.getBoolean(AUTO_OUTPUT);
         blockingMode = tag.getBoolean(BLOCKING_MODE);
+        antiClogMode = tag.getBoolean(ANTI_CLOG_MODE);
         synchronizedOutput = tag.getBoolean(SYNCHRONIZED_OUTPUT);
         patternMode = tag.getBoolean(PATTERN_MODE);
         setInputDelayTicks(tag.contains(INPUT_DELAY, Tag.TAG_INT)
@@ -155,6 +168,7 @@ public final class SequenceBufferConfiguration {
         }
         return autoOutput == that.autoOutput
                 && blockingMode == that.blockingMode
+                && antiClogMode == that.antiClogMode
                 && synchronizedOutput == that.synchronizedOutput
                 && patternMode == that.patternMode
                 && inputDelayTicks == that.inputDelayTicks
@@ -166,6 +180,7 @@ public final class SequenceBufferConfiguration {
         return Objects.hash(
                 autoOutput,
                 blockingMode,
+                antiClogMode,
                 synchronizedOutput,
                 patternMode,
                 inputDelayTicks,

@@ -7,11 +7,13 @@ import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.ProgressBar;
+import appeng.client.gui.widgets.ToggleButton;
 import appeng.client.gui.widgets.ProgressBar.Direction;
 import appeng.menu.SlotSemantics;
 import appeng.menu.slot.IOptionalSlot;
 import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
+import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import java.util.List;
@@ -29,6 +31,7 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
     private final FilterModeButton filterModeButton;
     private final ActivationModeButton activationModeButton;
     private final BlockingModeButton blockingModeButton;
+    private final ToggleButton antiClogModeButton;
     private final PackageColorPicker colorPicker = new PackageColorPicker();
     private final PackageColorPicker.TriggerButton colorButton;
     private final ProgressBar packingProgress;
@@ -54,12 +57,23 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
         widgets.add("packingProgress", packingProgress);
         widgets.add("unpackingProgress", unpackingProgress);
 
-        addToLeftToolbar(new LocalHelpButton());
         addToLeftToolbar(new ActionButton(ActionItems.CLOSE, ignored -> menu.clear()));
         addToLeftToolbar(new ActionButton(ActionItems.WRENCH, ignored -> menu.partition()));
         filterModeButton = addToLeftToolbar(new FilterModeButton());
         activationModeButton = addToLeftToolbar(new ActivationModeButton());
         blockingModeButton = addToLeftToolbar(new BlockingModeButton());
+        antiClogModeButton = new ToggleButton(
+                Icon.AUTO_EXPORT_ON,
+                Icon.AUTO_EXPORT_OFF,
+                ignored -> menu.toggleAntiClogMode());
+        Component antiClogTitle = Component.translatable("gui.appliedpackaging.anti_clog_mode");
+        antiClogModeButton.setTooltipOn(List.of(
+                antiClogTitle,
+                Component.translatable("gui.appliedpackaging.anti_clog_mode.enabled")));
+        antiClogModeButton.setTooltipOff(List.of(
+                antiClogTitle,
+                Component.translatable("gui.appliedpackaging.anti_clog_mode.disabled")));
+        addToLeftToolbar(antiClogModeButton);
 
     }
 
@@ -74,7 +88,7 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
 
     @Override
     protected PageAnchor getHelpTopic() {
-        return null;
+        return PageAnchor.page(AppliedPackaging.id("me_packager.md"));
     }
 
     @Override
@@ -87,6 +101,7 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
                 "gui.appliedpackaging.me_packager.redstone_mode." + menu.activationMode().id()));
         blockingModeButton.setMessage(Component.translatable(
                 "gui.appliedpackaging.me_packager.blocking_mode." + menu.blockingMode().id()));
+        antiClogModeButton.setState(menu.antiClogMode());
         colorButton.active = !colorPicker.isOpen();
         packingProgress.visible = menu.workingOperation() == MePackagerBlockEntity.WorkingOperation.PACKING;
         unpackingProgress.visible = menu.workingOperation() == MePackagerBlockEntity.WorkingOperation.UNPACKING;
@@ -224,24 +239,6 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
                 case PACK_ONLY -> Icon.STORAGE_FILTER_EXTRACTABLE_NONE;
                 case UNPACK_ONLY -> Icon.FILTER_ON_EXTRACT_ENABLED;
             };
-        }
-    }
-
-    private class LocalHelpButton extends IconButton {
-        private LocalHelpButton() {
-            super(button -> {
-                if (minecraft != null && minecraft.player != null) {
-                    minecraft.player.displayClientMessage(
-                            Component.translatable("gui.appliedpackaging.me_packager.help"),
-                            false);
-                }
-            });
-            setMessage(Component.translatable("gui.appliedpackaging.me_packager.help.title"));
-        }
-
-        @Override
-        protected Icon getIcon() {
-            return Icon.HELP;
         }
     }
 

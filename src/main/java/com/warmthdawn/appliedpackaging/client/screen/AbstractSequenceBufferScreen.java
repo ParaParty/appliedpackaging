@@ -22,6 +22,7 @@ public abstract class AbstractSequenceBufferScreen<T extends AbstractSequenceBuf
 
     private final ToggleButton autoOutputButton;
     private final ToggleButton blockingModeButton;
+    private final ToggleButton antiClogModeButton;
     private final ToggleButton synchronizedOutputButton;
     private final ToggleButton patternModeButton;
     private final InputDelayButton inputDelayButton;
@@ -47,6 +48,13 @@ public abstract class AbstractSequenceBufferScreen<T extends AbstractSequenceBuf
                 "gui.appliedpackaging.sequence_buffer.setting.blocking.enabled",
                 "gui.appliedpackaging.sequence_buffer.setting.blocking.disabled",
                 menu::toggleBlockingMode);
+        antiClogModeButton = addSettingToggle(
+                Icon.AUTO_EXPORT_ON,
+                Icon.AUTO_EXPORT_OFF,
+                "gui.appliedpackaging.anti_clog_mode",
+                "gui.appliedpackaging.anti_clog_mode.enabled",
+                "gui.appliedpackaging.anti_clog_mode.disabled",
+                menu::toggleAntiClogMode);
         synchronizedOutputButton = addSettingToggle(
                 Icon.SCHEDULING_ROUND_ROBIN,
                 Icon.SCHEDULING_DEFAULT,
@@ -69,6 +77,7 @@ public abstract class AbstractSequenceBufferScreen<T extends AbstractSequenceBuf
         super.updateBeforeRender();
         autoOutputButton.setState(menu.autoOutput());
         blockingModeButton.setState(menu.blockingMode());
+        antiClogModeButton.setState(menu.antiClogMode());
         synchronizedOutputButton.setState(menu.synchronizedOutput());
         patternModeButton.setState(menu.patternMode());
         inputDelayButton.setMessage(Component.translatable(
