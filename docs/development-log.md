@@ -3719,3 +3719,15 @@ GameTest 把装配室高级列用例改为 v2 “木板 + 空白 + 木板”，�
 玩家 GUI 抽取同时从输出延迟门禁中分离。外部 `IItemHandler`、`IFluidHandler`、`MEStorage` 抽取和自动输出继续受全结构 `releaseAtGameTime` 限制；主/侧菜单使用的 `extractMenuItem` 只绕过该输出延迟，不检查阻挡或同步输出设置，并继续操作同一份真实列表/单格缓存。GUI 取走最后一份内容仍走统一清空路径，所以同 tick 输入门禁没有被绕过，下一 tick 才允许再次输入。
 
 新增 `menuExtractionBypassesOutputDelayAndKeepsAdmissionCooldown`，在自动输出关闭、阻挡开启、同步开启和 40 tick 输出延迟下确认外部抽取返回空、GUI 模拟与真实抽取立即成功、清空同 tick 拒绝输入、下一 tick 无需方块 tick 即开放，并确认绝对开放时间经 NBT 往返。`formedEndpointOwnsMemberTicksAndPreventsSameTickReentry` 去掉后续手动端点 tick，直接固定查询时开放语义。`.\gradlew.bat compileJava --stacktrace --no-configuration-cache`、`.\gradlew.bat runGameTestServer --stacktrace --no-configuration-cache`（158/158 required）、`.\gradlew.bat build --stacktrace --no-configuration-cache`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。
+
+### 2026-07-18 防堵塞输入模式与 AE2 GuideME 文档补齐
+
+ME 打包机、包裹卸货总线和序列缓存器统一增加“防堵塞输入”配置，但保留各设备真实输出规则。ME 打包机默认开启：内部存在未输出成品时拒绝新输入；若同时开启阻挡模式且当前目标不满足输出准入，也视为“不能输出”，因此继续拒绝输入。包裹卸货总线默认开启：只要仍持有正在拆解、等待重试或可被网络/GUI 取回的完整包裹，就拒绝下一包。序列缓存器默认关闭；开启后，本格非空或仍处于 `admissionOpenAtGameTime` 同 tick 冷却时拒绝输入。三者都只约束自动化输入，不禁止玩家从真实 GUI 库存取走内容，也不把内容转移到隐藏队列。该行为及其 NBT、菜单同步、阻挡组合和下一 game tick 重开边界已作为 `6053bdc feat: add anti-clog input admission modes` 单独提交；完整 `runGameTestServer` 为 161/161 required tests。
+
+按照 AE2 15.4.10 的原生 GuideME 组织方式，在 `assets/appliedpackaging/ae2guide/` 新增 10 个英文页面及一一对应的 10 个简体中文页面。内容不是按钮提示的扩写，而是可独立阅读的使用手册：总览、完整工作流、包裹与样板、高级样板编码终端、ME 包裹装配室、ME 打包机、两类包裹总线、序列缓存器、示例布局和故障排查。设备页写明容量、模式、默认值、阻挡与防堵塞的组合、GUI/外部抽取边界、批次或 tick 时相，并用 `item_ids` 让 AE2 自带的唯一问号按钮直接定位到对应页面；没有为 Screen 再添加第二个帮助按钮。
+
+示例页提供三份可旋转的 `GameScene` 结构：Pattern Provider → ME 包裹装配室 → 容器的装配线、包裹存储总线与包裹卸货总线的路由对照、序列缓存器成型队列。场景旁逐项解释方向、目标、优先级、阻挡/防堵塞组合和适用目的；另有终端与总线单设备结构，共计 6 份 SNBT。故障排查按“输入被拒绝、输出等待、包裹路由错误、序列顺序异常、装配室不工作”组织检查顺序。本轮明确范围不包含 Ponder，现有 GuideME 场景承担机器与布局示例；Ponder 作为独立后续需求处理。
+
+文档门禁同步扩展：`verify-docs.ps1` 现在检查 20 个双语页面、6 份结构、英文/中文页面集合一致、导航元数据、26 个物品/方块索引映射、分类索引、最少 `BlockImage` / `GameScene` / `RecipeFor` 数量、结构引用和本地 Markdown 链接；`test-docs-audit.ps1` 新增缺失中文页面和损坏结构引用两个负例。`runData build`、`verify-assets.ps1`、`verify-release.ps1 -RequireAssetContracts`、`verify-docs.ps1`、完整 `test-docs-audit.ps1` 与 `git diff --check` 全部通过，构建 JAR 已确认包含完整 `ae2guide/` 资源。
+
+真实客户端验证使用项目现有 `run-gtceu-fork` 隔离目录，不触碰用户正在运行的 PID 33464。通过 GuideME 20.1.7 的开发源映射、`guideme.validateAtStartup=ae2:guide` 和 `guideme.showOnStartup=ae2:guide!appliedpackaging:index.md`，分别以 `en_us`、`zh_cn` 启动：每次都加载对应语言的 10 个页面，逐页编译全部页面及配方/场景标签，并实际渲染出 AE2 导航树中的 Applied Packaging / 应用封装分类和首页；日志没有 GuideME、Applied Packaging、missing model/texture、ERROR 或 FATAL。启动日志仍有既知 PonderJS、Xaero、KubeJS、ModernFix 可选集成缺类警告，与本轮 Guide 资源无关。

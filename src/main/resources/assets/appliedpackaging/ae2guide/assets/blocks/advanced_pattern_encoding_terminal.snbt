@@ -1,0 +1,11 @@
+{
+    DataVersion: 3337,
+    size: [1, 1, 1],
+    data: [
+        {pos: [0, 0, 0], state: "ae2:cable_bus{light_level:9,waterlogged:false}", nbt: {hasRedstone: 2, id: "ae2:cable_bus", north: {id: "appliedpackaging:advanced_pattern_encoding_terminal", visual: {missingChannel: 0b, powered: 1b}}, visual: {}}}
+    ],
+    entities: [],
+    palette: [
+        "ae2:cable_bus{light_level:9,waterlogged:false}"
+    ]
+}

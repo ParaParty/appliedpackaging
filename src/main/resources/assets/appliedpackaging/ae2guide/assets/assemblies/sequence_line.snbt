@@ -1,0 +1,20 @@
+{
+    DataVersion: 3337,
+    size: [4, 1, 2],
+    data: [
+        {pos: [0, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:false,facing:north,sequence_direction:east,state:endpoint,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer"}},
+        {pos: [1, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer"}},
+        {pos: [2, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer"}},
+        {pos: [3, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:true}", nbt: {id: "appliedpackaging:sequence_buffer"}},
+        {pos: [1, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}},
+        {pos: [2, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}},
+        {pos: [3, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}}
+    ],
+    entities: [],
+    palette: [
+        "appliedpackaging:sequence_buffer{axis:x,directional:false,facing:north,sequence_direction:east,state:endpoint,tail:false}",
+        "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}",
+        "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:true}",
+        "minecraft:chest{facing:north,type:single,waterlogged:false}"
+    ]
+}

@@ -153,7 +153,7 @@ GameTest
   contentFilter 使用 AE2 GenericStack fake slots，不读取隐藏旧过滤槽
   过滤应用模式可在打包拆包都启用、仅打包、仅拆包之间切换
   marker fake/config slot 在 override 模式下优先作为输出 marker；retain/override/clear 是当前正式配置
-  阻挡模式可在忽略网络内容与网络内已有物品时禁止拆包之间切换
+  阻挡模式可在忽略网络内容与网络内已有物品时禁止拆包之间切换；独立防堵塞默认开启并把完整自动拆包判定提升为输入门禁
   固定底部与模型背面只接入 AE2 主节点，可连接线缆或相邻 ME Interface 网络
   AE2 MEStorage 打包/拆包操作，支持 GenericStack/AEKey 和源包裹展开
   MEStorage endpoint GameTest
@@ -273,7 +273,7 @@ Advanced Pattern Encoding Terminal 使用同一个 part/menu/screen 承载 ADVAN
 package_storage_bus 使用新版 Storage Bus 形态，通过默认优先级 0 的 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage；Partition Storage 从相邻容器包裹生成过滤
 package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认优先级 0 的 Formation Plane 式受限 IStorageProvider 接收网络路由包裹；不扫描或主动抽取其它 ME 存储，但把唯一未拆完的 held 包裹作为数量 1 的整包库存枚举并允许取回
 两个默认值都为 0，且就是右上 Priority 子菜单显示/修改的数值；数值相同时由卸货总线只写入端点的 preferred-storage 语义先尝试拆包，拆包拒绝后再尝试存储总线
-两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle 与右侧 5 格共享升级面板；存储总线保留 Storage Bus 工具栏，卸货总线左侧只有 Help、清空和 Pattern Provider 阻挡模式
+两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle 与右侧 5 格共享升级面板；存储总线保留 Storage Bus 工具栏，卸货总线复用 AE2 基类唯一 Help 入口，并提供清空、Pattern Provider 阻挡模式和默认开启的独立防堵塞模式
 七行过滤每行包含动态模糊/反转按钮、可为空的颜色选择、marker ghost 和 6 个物品 ghost；颜色空模式不过滤，行间 OR、行内 AND；所有颜色入口复用统一触发按钮/弹窗，只有两种总线过滤区启用 None 与右键清空，Fluix/None 固定在分隔线左侧上下排列且隐藏 None 不改变布局
 默认解锁底图最上方两行，每张容量卡额外解锁一行，五张容量卡时达到七行上限；未解锁行使用 OptionalFakeSlot 半透明叠加
 模糊/反转按钮仅在对应升级卡存在时显示并始终紧邻颜色按钮，模糊/反转/颜色三个 8px 按钮在 18px 行内统一使用固定 2px 上边距；卸货总线在同一 5 格升级库存中额外接受最多 4 张加速卡
@@ -303,9 +303,9 @@ SequenceBufferBlock / SequenceBufferBlockEntity 注册、物品、配方与 loot
 五值模型状态、六向 facing、X/Y/Z axis 与扳手交互
 端点权威的直线拓扑、尾端自动加入、断裂/解散和配置同步
 一次输入锁存的 AEKey 存储、Forge item/fluid handler 与 AE2 MEStorage
-端点顺序输入、合并抽取、自动输出、阻挡、同步和全结构输入延迟
+端点顺序输入、合并抽取、自动输出、阻挡、默认关闭的独立防堵塞、同步和全结构输入延迟
 PackageData sparse 布局身份扩展、Pattern Provider 与拆包总线原子位置输入
-高版本 ME Chest 双界面语义、3x9 动态成员窗口、单成员侧面槽、左侧过滤/设置区、右侧升级区和红石卡门禁
+高版本 ME Chest 双界面语义、3x9 动态成员窗口、单成员侧面槽、左侧设置工具栏、右侧升级区和红石卡门禁
 GameTest、runData、build、资源/文档/发布审计
 ```
 
@@ -320,7 +320,7 @@ GameTest、runData、build、资源/文档/发布审计
 6. 实现高级样板直接 push 的稠密顺序例外、各列输出包裹的 sparse 行布局和三套 capability
 7. 补齐五类模型、语言、配方、loot 和资产 contract
 8. 扩展真实 Pattern Provider、拆包总线与多方块 GameTest，执行发布相关审计
-9. 接入 main/side 菜单、通用 AEKey 显示、可见禁用滚动条和右侧红石卡升级；过滤与模式设置只保留逻辑，不在第一版界面显示，执行客户端视觉验证
+9. 接入 main/side 菜单、通用 AEKey 显示、可见禁用滚动条、右侧红石卡升级，以及自动输出/阻挡/防堵塞/同步/样板/输入延迟工具栏；输入过滤仍只保留逻辑、不在当前界面显示，执行客户端视觉验证
 ```
 
 验收：
@@ -336,7 +336,7 @@ X/Y/Z 三轴都可成型，且成型、扩展和解体不改写各方块原有�
 物品、流体与其它 AEKey 都有不丢失的受支持路径
 五类模型在三轴、六向合法组合下无 missing model/texture，侧面箭头始终指向自身正面
 端点主界面不显示端点本身，成员数超过 27 才启用滚动；不足整行的位置使用 0.2 alpha 禁用槽
-普通成员/单块侧面界面只操作被点击本格，过滤和升级仍写端点权威；红石卡门禁不会绕过延迟或同步规则
+普通成员/单块侧面界面只操作被点击本格，设置和升级仍写端点权威；红石卡门禁不会绕过延迟或同步规则
 ```
 
 当前状态：
@@ -345,7 +345,7 @@ X/Y/Z 三轴都可成型，且成型、扩展和解体不改写各方块原有�
 已完成当前首版：方块/方块实体、五类模型状态、端点拓扑、三套存储能力、一次输入锁存、顺序输入/合并抽取、自动输出、阻挡、同步、输入延迟、普通 sparse 样板、高级样板直接 push 稠密顺序、高级样板列包裹 sparse 布局、包裹布局身份与拆包总线按样板模式原子保序输入均已实现。
 2026-07-16 全量 runGameTestServer 132/132 通过，包含真实 AE2 扳手三段方向循环；build、runData、资源审计及负例、文档审计、机械发布审计及负例通过；真实 runClient 完成资源重载、OpenAL 与图集创建，未发现 sequence_buffer missing model/texture 或 ModelBakery 错误。该轮按当时范围不含 GUI。
 2026-07-17 已用确定性脚本把用户 64x64 原图拆成 16 张 16x16 面贴图，并生成覆盖 X/Y/Z 三轴和六向 facing 的 57 个显式模型、58 个 multipart 项；结构方向与方块自身方向分离，成型/扩展/解体均保留原 `facing`。135/135 GameTest、build、资源审计及全部负例、文档审计、asset contract/发布资源审计通过；现有修改前启动的 IntelliJ 客户端未被中断，最终世界内像素效果需重启该客户端后人工复核。
-2026-07-18 新增 main/side 两套菜单与 ScreenStyle：端点显示 3x9 动态成员窗口和整行滚动，成员/未成型单块显示中央单槽；两套界面不显示仍处于预留阶段的过滤与模式设置，端点红石卡升级槽附着在右侧。行为验证覆盖预留过滤配置/NBT、红石无信号阻挡与有信号释放、成员卡成型迁移、27/28/36/37 槽滚动边界；GameTest、build、资源审计及完整负例按本阶段验证记录执行。
+2026-07-18 新增 main/side 两套菜单与 ScreenStyle：端点显示 3x9 动态成员窗口和整行滚动，成员/未成型单块显示中央单槽；端点红石卡升级槽附着在右侧。后续已开放自动输出、阻挡、防堵塞、同步、样板与输入延迟工具栏，输入过滤假槽仍不在当前界面显示。成员清空后的输入门禁已收口为绝对 `admissionOpenAtGameTime=t+1`，不依赖端点 tick 重置 bool；行为验证覆盖配置/NBT、红石无信号阻挡与有信号释放、成员卡成型迁移、27/28/36/37 槽滚动边界与三类防堵塞准入。
 ```
 
 ## 阶段 8：发布
@@ -388,9 +388,9 @@ runClient（需要视觉验收时人工执行）
   发布清单自测可由 test-release-manifest.ps1 覆盖有效 manifest、mod id 篡改、artifact hash 篡改和 clean-git manifest 路径
   发布附件包可由 write-release-bundle.ps1 生成到 build/release/ 并由 verify-release-bundle.ps1 复验 jar、manifest、README、CHANGELOG、LICENSE、SHA256SUMS、bundle manifest mod/version、jar SHA-256 和 clean-git 元数据
   发布附件包自测可由 test-release-bundle.ps1 覆盖有效 bundle、manifest 篡改和 bundled README 篡改路径
-  文档审计自测可由 test-docs-audit.ps1 覆盖有效 fixture、缺必需文件、正式文档未清理占位和本地 Markdown 断链路径
+  文档审计自测可由 test-docs-audit.ps1 覆盖有效 fixture、缺必需文件、正式文档未清理占位、本地 Markdown 断链、GuideME 缺少翻译页和场景结构断链路径
   发布脚本自测套件可由 test-release-self-tests.ps1 聚合运行 docs audit、asset audit、release audit、readiness、release plan、manifest 和 bundle 自测
-  文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口、正式设计文档未清理占位和本地 Markdown 链接
+  文档完整性已由 verify-docs.ps1 覆盖必需文档、文档入口、正式设计文档未清理占位、本地 Markdown 链接，以及 GuideME 双语页集合、导航元数据、物品索引、分类索引、机器/部件展示、配方标签和 SNBT 场景引用
   最终发布 tag 前可在全部变更提交后执行 run-release-checks.ps1 -ReleaseCandidate -RequireCleanGit -RequireReadyForTag
 
 暂缓：

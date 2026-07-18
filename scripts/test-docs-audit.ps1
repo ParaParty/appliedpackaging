@@ -107,6 +107,11 @@ function New-DocsFixture {
     Set-Content -LiteralPath (Join-Path $caseRoot "docs/design.md") -Value ($designDocNames -join "`n") -Encoding UTF8
     Set-Content -LiteralPath (Join-Path $caseRoot "docs/00-document-index.md") -Value ($indexDocNames -join "`n") -Encoding UTF8
 
+    $guideSource = Join-Path $repoRoot "src/main/resources/assets/appliedpackaging/ae2guide"
+    $guideTargetParent = Join-Path $caseRoot "src/main/resources/assets/appliedpackaging"
+    New-Item -ItemType Directory -Force -Path $guideTargetParent | Out-Null
+    Copy-Item -LiteralPath $guideSource -Destination $guideTargetParent -Recurse -Force
+
     return $caseRoot
 }
 
@@ -165,6 +170,32 @@ try {
         -RootPath $placeholderFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Unresolved placeholder in formal docs"
+
+    $missingGuideTranslationFixture = New-DocsFixture "missing-guide-translation"
+    Remove-Item -LiteralPath (
+        Join-Path $missingGuideTranslationFixture "src/main/resources/assets/appliedpackaging/ae2guide/_zh_cn/me_packager.md"
+    ) -Force
+    Invoke-DocsCase `
+        -Name "missing GuideME translation fixture" `
+        -RootPath $missingGuideTranslationFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "GuideME English and zh_cn page sets match"
+
+    $brokenGuideStructureFixture = New-DocsFixture "broken-guide-structure"
+    $brokenGuidePage = Join-Path $brokenGuideStructureFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/example_setups.md"
+    )
+    $brokenGuideText = Get-Content -LiteralPath $brokenGuidePage -Raw
+    $brokenGuideText = $brokenGuideText.Replace(
+        "assets/assemblies/package_assembly_line.snbt",
+        "assets/assemblies/missing_setup.snbt"
+    )
+    Set-Content -LiteralPath $brokenGuidePage -Value $brokenGuideText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "broken GuideME structure fixture" `
+        -RootPath $brokenGuideStructureFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Missing GuideME structure"
 
     Write-Host ""
     Write-Host "Documentation audit self-test passed." -ForegroundColor Green

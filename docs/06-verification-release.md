@@ -26,7 +26,7 @@ marker 冲突拒绝
 包裹堆叠拆包只接受完整数量
 过滤不匹配拒绝
 容量不足拒绝
-序列缓存器模拟输入不锁存，真实输入一次锁存，完全清空后解锁
+序列缓存器模拟输入不锁存，真实输入一次锁存；在 tick `t` 完全清空后，本 tick 剩余阶段拒绝输入并于 `t + 1` 解锁
 序列缓存器成型、拒绝与尾端扩展保持唯一端点和稳定顺序
 序列缓存器断裂不丢失缓存，端点侧保留、尾侧解散
 序列缓存器端点不存储、首个成员为逻辑第 1 格、端点顺序输入/合并抽取且不自动输出
@@ -37,6 +37,9 @@ marker 冲突拒绝
 序列缓存器主/侧菜单分别映射端点成员序列与被点击本格，端点本身不生成存储槽；GUI 抽取不受输出延迟、阻挡或同步输出限制
 序列缓存器过滤假槽、红石卡 NBT/成型迁移和红石门控自动输出正确
 序列缓存器 27 格不滚动、28 格开始滚动，未占用显示位置保持禁用
+ME 打包机防堵塞默认开启，现有网络阻挡或整包容量失败时拒收；关闭时接收一个真实 held 包裹等待，目标恢复后按相同自动拆包规则提交
+Package Unpacking Bus 防堵塞默认开启并把 Pattern Provider 阻挡/整包预检纳入输入门禁；关闭时允许 held 包裹等待且继续可由 ME/GUI 取回
+序列缓存器防堵塞默认关闭；开启时普通与原子多格输入都按真实方向、目标类型、阻挡和完整容量预检，失败不写入
 JEI 高级/包裹计划 payload 往返、原子替换旧状态并保留页面自身颜色
 标准 JEI INPUT/OUTPUT/CATALYST/RENDER_ONLY 角色映射、歧义输出和随机产出拒绝
 真实 Create 确定性 Sequenced Assembly 按初始输入和工序顺序展开
@@ -439,6 +442,9 @@ Create Sequenced Assembly 保持工序列；Mechanical Crafting 按非空行/列
 GTCEu 上游 7.5.3 与 StarT Fork 1.7.0b 的确定性 item/fluid recipe 均可导入
 随机、区间、动态世界产出、歧义、不可表示或越界 recipe 显示本地化拒绝 tooltip，不改变终端内容
 导入后当前页的列/输入顺序、数量、输出/marker 和颜色正确；另一页状态保持不变
+AE2 Guide 中 Applied Packaging 英文/简体中文页均可加载，页面集合、导航标题、分类/物品索引、配方与本地链接正确
+高级终端、包裹存储总线和包裹拆包总线的 GameScene，以及装配、路由、序列输入三个带标注示例场景可渲染
+装配室、打包机、总线、终端和序列缓存器界面只显示 AE2 基类提供的一个 Help 按钮，并定位到对应 Applied Packaging 页面
 ```
 
 推荐命令：
@@ -1046,3 +1052,21 @@ Star Technology 的星门部件装配由 KubeJS startup script 注册 GTCEu `sta
 成型成员的 server tick 不执行本地操作，端点统一代理全部成员的普通/同步输出。旧的瞬时 bool 输入标记已改为每格持久化的绝对 `admissionOpenAtGameTime`：内容在 game time `t` 清空时记录 `t+1`，同 tick 拒绝重入，到下一 game tick 后由输入查询直接开放，不要求端点或成员先 tick。0 tick 输入延迟仍允许当前 tick 自动输出；延迟 GUI 同步允许 `0/1/5/10/20/40/100 tick`。
 
 `formedEndpointOwnsMemberTicksAndPreventsSameTickReentry` 覆盖成员 tick 无输出、端点一次 tick 同时输出多个成员、同 tick 全部拒绝，以及不再手动调用端点 tick 也会在下一 game tick 一起开放。`menuExtractionBypassesOutputDelayAndKeepsAdmissionCooldown` 覆盖阻挡、同步和 40 tick 输出延迟开启时，外部 capability 抽取仍被阻挡，玩家 GUI 模拟/真实抽取立即成功，取空同 tick 拒绝输入、下一 tick 自动开放，并确认开放时间经 NBT 往返。最终验证结果见同日开发日志。
+
+### 2026-07-18 防堵塞输入模式与 GuideME 文档验证
+
+本轮行为验证覆盖 ME 打包机、包裹卸货总线和序列缓存器的防堵塞输入模式：默认值、NBT 往返、菜单 action 与客户端镜像、非空缓存拒绝、打包机“阻挡导致不能输出”组合、卸货总线持有完整包裹时拒绝下一包、序列缓存器清空同 tick 仍拒绝且下一 game tick 开放，以及玩家 GUI 抽取不受自动输出延迟/同步/阻挡门禁影响。`runGameTestServer` 完整结果为 161/161 required tests；行为代码已独立提交为 `6053bdc`。
+
+GuideME 的静态门禁范围为：10 个英文页面、10 个 `_zh_cn` 页面、6 份 SNBT 结构、双语页面集合一致、全部导航元数据、26 个 `item_ids` 映射、3 个分类索引、设备页和示例页要求的 `BlockImage` / `GameScene` / `RecipeFor` 标签、结构引用与本地 Markdown 链接。负向自测确认删除任一中文页或写入不存在的场景结构都会使审计失败。构建 JAR 必须包含完整 `assets/appliedpackaging/ae2guide/` 目录。本轮范围明确不包含 Ponder。
+
+验证结果：
+
+- `.\gradlew.bat runData build --stacktrace --no-configuration-cache`：通过。
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-assets.ps1`：通过。
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -RequireAssetContracts`：通过。
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1`：通过。
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-docs-audit.ps1`：有效夹具通过；缺路径、坏链接、正式文档占位、缺中文 Guide 页、坏 Guide 结构引用五类负例均按预期失败。
+- `jar tf .\build\libs\appliedpackaging-0.1.0-dev.jar`：确认 20 个 Markdown 页面和 6 份 SNBT 结构均进入 JAR。
+- `git diff --check`：通过，仅有工作树既有 LF/CRLF 提示。
+
+客户端运行验证使用 `run-gtceu-fork` 隔离目录与 GuideME 20.1.7 开发源映射，分别设置 `en_us`、`zh_cn`，以 `guideme.validateAtStartup=ae2:guide` 逐页编译并用 `guideme.showOnStartup=ae2:guide!appliedpackaging:index.md` 打开首页。两种语言均加载并编译对应的 10 个页面，实际渲染出 AE2 导航树中的 Applied Packaging / 应用封装分类和首页；日志没有 GuideME、Applied Packaging、missing model/texture、ERROR 或 FATAL。PonderJS、Xaero、KubeJS、ModernFix 可选集成缺类仍是既知第三方警告。验证结束后隔离客户端已主动终止，用户原有 PID 33464 未被停止或修改。

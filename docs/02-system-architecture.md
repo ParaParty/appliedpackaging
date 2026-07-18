@@ -37,6 +37,8 @@ GuideME: [20.1.7,20.2.0)
 
 开发运行时还需显式加入 GuideME 20.1.7。AE2 15.4.10 的 mod metadata 要求 `guideme` 版本范围 `[20.1.7,20.2.0)`；当前 Gradle 使用的 AE2 Modrinth runtime 坐标不会自动带出这个传递依赖。因此 Applied Packaging 的发布 metadata 也直接声明 `guideme` mandatory dependency，避免发布页或整合包解析时漏装 GuideME。
 
+GuideME 页面位于 Applied Packaging namespace 的 AE2 `ae2guide` content root，由 AE2 已注册 Guide 合并发现，不创建第二本指南。英文页位于 content root，简体中文页位于 `_zh_cn/` 并保持一一对应；可视化结构统一存放在 `assets/blocks/` 与 `assets/assemblies/`。各设备页通过 `item_ids` 接入 AE2 原版物品索引，使基类自带的单个 Help 按钮直接定位到对应页面。首页使用 AE2 原版 `CategoryIndex` 组织物品、部件和机器，设备页使用 `BlockImage` / `GameScene`、`RecipeFor`、`ItemLink` 与本地页面链接；装配、包裹路由和序列输入示例共用可静态审计的 SNBT 场景。
+
 JEI 15.20.0.134、EMI 1.1.24+1.20.1、TMRV 0.9.0+mc.20.1、Create 6.0.8-291 和 GTCEu 7.5.3 只用于可选配方导入。Gradle 只对 JEI API compile-only；`-PrecipeViewerRuntime=jei` 加载 JEI，`-PrecipeViewerRuntime=emi` 加载互不共存的 EMI+TMRV，由 TMRV 把同一个 `@JeiPlugin` 映射到 EMI。Create 使用 slim compile-only 加 all runtime，GTCEu 使用 compile-only 加可替换 runtime；这些查看器与高级配方 Mod 都不进入 mandatory 发布依赖范围。Create/GTCEu 专用适配器继续由隔离类加载边界保护。其它 Mod 不加入 Gradle 依赖，而是经 JEI 标准 item/fluid recipe 输入通用兼容。`-PgtceuRuntimeJar=<versioned-jar>` 可把开发运行时替换为本地兼容 fork，并使用独立 `run-gtceu-fork` 目录；编译 API baseline 仍保持 GTCEu 7.5.3。
 
 ## 2. 核心架构
@@ -55,7 +57,7 @@ Package Buses / 包裹总线家族：
   Package Export Bus 已移除；不再保留独立输出包裹到相邻库存的设备。
 
 Sequence Buffer / 序列缓存器：
-  单块是一次输入锁存的泛型 AEKey 缓存；沿 X/Y/Z 任一轴的直线结构由不存储资源的唯一端点协调拓扑、配置、顺序输入、合并抽取、全部成员的 server-tick 输出、样板位置映射和全结构输入延迟。成型成员不再各自执行 tick 操作，端点统一维护空槽输入标记并代理普通/同步输出。结构方向使用独立 `sequence_direction`，不会覆盖各方块自身六向 `facing`。Forge item/fluid capability 分别适配物品与流体，AE2 MEStorage 保留泛型 key，Pattern Provider 通过专用 ICraftingMachine 路径原子提交。
+  单块是一次输入锁存的泛型 AEKey 缓存；沿 X/Y/Z 任一轴的直线结构由不存储资源的唯一端点协调拓扑、配置、顺序输入、合并抽取、全部成员的 server-tick 输出、样板位置映射和全结构输入延迟。成型成员不再各自执行 tick 操作，端点代理普通/同步输出；成员在 game time `t` 清空时记录绝对重开时间 `t + 1`，所有输入路径按查询时世界时间统一判断，不依赖端点先执行 tick。结构方向使用独立 `sequence_direction`，不会覆盖各方块自身六向 `facing`。Forge item/fluid capability 分别适配物品与流体，AE2 MEStorage 保留泛型 key，Pattern Provider 通过专用 ICraftingMachine 路径原子提交。
 ```
 
 ## 3. 模块划分
