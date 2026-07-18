@@ -3,6 +3,7 @@ package com.warmthdawn.appliedpackaging.client.screen;
 import appeng.client.Point;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.Scrollbar;
+import com.warmthdawn.appliedpackaging.client.widget.ModernScrollbarStyles;
 import com.warmthdawn.appliedpackaging.world.menu.AbstractSequenceBufferMenu;
 import com.warmthdawn.appliedpackaging.world.menu.SequenceBufferMainMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -23,7 +24,7 @@ public final class SequenceBufferMainScreen extends AbstractSequenceBufferScreen
             Component title,
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
-        rowScrollbar = widgets.addScrollBar("sequenceBufferScrollbar", Scrollbar.DEFAULT);
+        rowScrollbar = widgets.addScrollBar("sequenceBufferScrollbar", ModernScrollbarStyles.BIG);
         rowScrollbar.setRange(0, menu.maxScrollOffset(), SequenceBufferMainMenu.VISIBLE_ROWS);
         rowScrollbar.setCaptureMouseWheel(false);
     }

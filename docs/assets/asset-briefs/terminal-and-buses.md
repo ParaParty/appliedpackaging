@@ -60,8 +60,8 @@ Package Unpacking Bus：
 不要把 bus 做成完整机器方块
 不要加入文字标签
 GUI 必须保持 AE2 1.21.1 的紧凑按钮和透明禁用槽语言
-Advanced Pattern Screen 右侧只放高级/包裹两个模式标签；两行网络库存时高级/包裹 profile 分别为 217x250 与 195x233，高级页保留 195px 主体并增加 22px 标签区，高级编辑框宽 146px，包裹 panel 保持 124x66 原尺寸且不拉伸
-右侧模式标签直接对照 current-AE Pattern Encoding Terminal 的 `TabButton.Style.HORIZONTAL`：22x22 normal/selected/focus 背景、21px 步进、ItemStack 偏移 `(3,3)`；禁止右上角外接 VerticalButtonBar/IconButton
+Advanced Pattern Screen 右侧只放高级/包裹两个模式标签；两行网络库存时两页共享 195x245 主体和 192px bottom，full-screen base 编辑区只保留灰底，高级/包裹 132x78 panel 在同一锚点后绘制
+右侧模式标签直接对照 current-AE Pattern Encoding Terminal 的 `TabButton.Style.HORIZONTAL`：22x22 normal/selected/focus 背景、21px 步进，并直接绘制 processing/package sprite；禁止右上角外接 VerticalButtonBar/IconButton
 合并终端不创建 VIEW_CELL 槽、不绘制显示元件面板；普通 AE Pattern Screen 不增加 package tab，也不得覆盖 AE2 原生 terminal style
 GUI 中心过滤区固定为 7 行：基础 2 行，5 张容量卡逐行解锁到第 7 行
 外围底板必须保留 AE2 current-main Storage Bus 的 `#CBCCD4` 主体色与 `#413F54` 最外圈边框，不得把主体误用为 `#ADB0C4` 槽内色

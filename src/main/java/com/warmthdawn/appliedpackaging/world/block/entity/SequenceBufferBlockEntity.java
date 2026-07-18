@@ -132,12 +132,13 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         List<SequenceBufferBlockEntity> tickMembers = isEndpoint()
                 ? SequenceBufferTopology.members(this)
                 : List.of(this);
+        SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
 
-        if (!configuration.autoOutput() || !redstoneAllowsAutomaticOutput()) {
+        if (!runtimeConfiguration.autoOutput() || !redstoneAllowsAutomaticOutput()) {
             return;
         }
         if (isEndpoint()) {
-            if (configuration.synchronizedOutput()) {
+            if (runtimeConfiguration.synchronizedOutput()) {
                 runSynchronizedOutput();
             } else {
                 for (SequenceBufferBlockEntity member : tickMembers) {
@@ -227,7 +228,19 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     public SequenceBufferConfiguration configurationCopy() {
-        return configuration.copy();
+        return effectiveConfiguration().copy();
+    }
+
+    private SequenceBufferConfiguration effectiveConfiguration() {
+        return SequenceBufferTopology.resolveEndpoint(this)
+                .map(endpoint -> endpoint.configuration)
+                .orElse(configuration);
+    }
+
+    private int effectiveInputDelayTicks() {
+        return SequenceBufferTopology.resolveEndpoint(this)
+                .map(endpoint -> Math.max(0, endpoint.configuration.inputDelayTicks()))
+                .orElse(0);
     }
 
     public void updateConfiguration(SequenceBufferConfiguration updated) {
@@ -238,17 +251,6 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         authority.configuration.copyFrom(updated);
         authority.synchronizeInputFilterFromConfiguration();
         authority.setChanged();
-        for (SequenceBufferBlockEntity member : SequenceBufferTopology.members(authority)) {
-            member.applyControllerConfiguration(updated);
-        }
-    }
-
-    public void applyControllerConfiguration(SequenceBufferConfiguration updated) {
-        if (updated != null && !configuration.equals(updated)) {
-            configuration.copyFrom(updated);
-            synchronizeInputFilterFromConfiguration();
-            setChanged();
-        }
     }
 
     public int storageMemberCount() {
@@ -307,11 +309,12 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     public boolean acceptPackage(PackageData data, boolean blocking, boolean simulate) {
+        SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
         trace(
                 "package_accept_attempt",
                 "action=" + (simulate ? "SIMULATE" : "MODULATE")
                         + " busBlocking=" + blocking
-                        + " patternMode=" + configuration.patternMode()
+                        + " patternMode=" + runtimeConfiguration.patternMode()
                         + " data=" + RoutingTrace.packageData(data)
                         + " members=" + traceMembers());
         if (data == null) {
@@ -345,7 +348,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             }
         }
         List<PlannedInput> plan = new ArrayList<>(data.contents().size());
-        Optional<PackageLayout> activeLayout = configuration.patternMode()
+        Optional<PackageLayout> activeLayout = runtimeConfiguration.patternMode()
                 ? data.layout()
                 : Optional.empty();
         List<Integer> slots = activeLayout
@@ -405,19 +408,20 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     private long insertSingle(AEKey key, long amount, Actionable mode) {
+        SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
         if (key == null
                 || amount <= 0
                 || !isEmpty()
                 || inputAdmissionBlocked()
                 || isEndpoint()
-                || !configuration.accepts(key)) {
+                || !runtimeConfiguration.accepts(key)) {
             return 0;
         }
         long accepted = Math.min(amount, APServerConfig.sequenceBufferCapacity());
         if (accepted <= 0) {
             return 0;
         }
-        if (configuration.antiClogMode() && findTransferTarget(key, accepted, true).isEmpty()) {
+        if (runtimeConfiguration.antiClogMode() && findTransferTarget(key, accepted, true).isEmpty()) {
             return 0;
         }
         if (!mode.isSimulate()) {
@@ -430,7 +434,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     private long insertAggregated(AEKey key, long amount, Actionable mode) {
-        if (key == null || amount <= 0 || !configuration.accepts(key)) {
+        if (key == null || amount <= 0 || !effectiveConfiguration().accepts(key)) {
             return 0;
         }
         for (SequenceBufferBlockEntity member : storageMembers()) {
@@ -507,7 +511,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
                 allowed.add(key);
             }
         }
-        SequenceBufferConfiguration updated = configuration.copy();
+        SequenceBufferConfiguration updated = effectiveConfiguration().copy();
         updated.setAllowedInputs(allowed);
         updateConfiguration(updated);
     }
@@ -540,7 +544,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         if (level == null) {
             return;
         }
-        long releaseAt = level.getGameTime() + Math.max(0, configuration.inputDelayTicks());
+        long releaseAt = level.getGameTime() + effectiveInputDelayTicks();
         releaseAtGameTime = Math.max(releaseAtGameTime, releaseAt);
         SequenceBufferBlockEntity authority = SequenceBufferTopology.resolveEndpoint(this).orElse(this);
         authority.releaseAtGameTime = Math.max(authority.releaseAtGameTime, releaseAt);
@@ -701,7 +705,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
                         .ifPresent(handler -> candidates.add(new FluidTransferTarget(handler, fluidKey)));
             }
             for (TransferTarget candidate : candidates) {
-                if (configuration.blockingMode()) {
+                if (effectiveConfiguration().blockingMode()) {
                     boolean targetEmpty = candidate.isEmpty();
                     traceRepeated(
                             "transfer_target_blocking_check",
@@ -770,6 +774,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     private boolean applyInputPlan(List<PlannedInput> plan, boolean simulate) {
+        SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
         trace(
                 "input_plan_check",
                 "action=" + (simulate ? "SIMULATE" : "MODULATE")
@@ -858,7 +863,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
                                 + " openAt=" + member.admissionOpenAtGameTime);
                 return false;
             }
-            if (!configuration.accepts(stack.what())) {
+            if (!runtimeConfiguration.accepts(stack.what())) {
                 trace(
                         "input_plan_rejected",
                         "reason=input_filter_rejected action=" + (simulate ? "SIMULATE" : "MODULATE")
@@ -867,7 +872,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
                                 + " key=" + RoutingTrace.key(stack.what()));
                 return false;
             }
-            if (configuration.antiClogMode()
+            if (runtimeConfiguration.antiClogMode()
                     && member.findTransferTarget(stack.what(), stack.amount(), true).isEmpty()) {
                 trace(
                         "input_plan_rejected",
@@ -903,6 +908,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     }
 
     private void trace(String event, String details) {
+        SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
         RoutingTrace.log(
                 level,
                 worldPosition,
@@ -912,9 +918,9 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
                         + " controller=" + controllerPos.toShortString()
                         + " index=" + sequenceIndex
                         + " sequenceDirection=" + sequenceDirection
-                        + " bufferBlocking=" + configuration.blockingMode()
-                        + " synchronized=" + configuration.synchronizedOutput()
-                        + " autoOutput=" + configuration.autoOutput()
+                        + " bufferBlocking=" + runtimeConfiguration.blockingMode()
+                        + " synchronized=" + runtimeConfiguration.synchronizedOutput()
+                        + " autoOutput=" + runtimeConfiguration.autoOutput()
                         + " " + details);
     }
 
@@ -1022,7 +1028,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         if (details instanceof AEProcessingPattern processingPattern) {
             return Optional.of(sparsePlan(processingPattern.getSparseInputs()));
         }
-        if (configuration.patternMode()) {
+        if (effectiveConfiguration().patternMode()) {
             return Optional.empty();
         }
         List<GenericStack> dense = new ArrayList<>();
@@ -1275,7 +1281,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             return slot >= 0
                     && slot < getSlots()
                     && !stack.isEmpty()
-                    && configuration.accepts(AEItemKey.of(stack));
+                    && effectiveConfiguration().accepts(AEItemKey.of(stack));
         }
 
         private SequenceBufferBlockEntity memberAt(int slot) {
@@ -1311,7 +1317,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             return tank >= 0
                     && tank < getTanks()
                     && !stack.isEmpty()
-                    && configuration.accepts(AEFluidKey.of(stack));
+                    && effectiveConfiguration().accepts(AEFluidKey.of(stack));
         }
 
         @Override

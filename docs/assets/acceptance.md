@@ -87,14 +87,16 @@ src/main/resources/assets/appliedpackaging/models/item/<block_id>.json
 颜色、marker、容量、阻挡、过滤、打包、拆包状态可区分
 颜色选择器默认、None 与选中背景在 8x8 下可区分；选中只改变格内背景，不添加外边框或 hover 像素
 与 AE2/Applied Packaging 面板风格一致
-Advanced Pattern Encoding Terminal 使用唯一 ScreenStyle 入口承载高级/包裹两页，但必须绘制两套完整 profile：两行网络库存时高级页 217x250（195px 主体加 22px 右侧标签区）、包裹页 195x233；高级编辑框宽 146px，包裹面板保持 124x66 原尺寸且不得拉伸。模式切换后同一 Screen 重新居中并重排背景、标题、搜索、滚动条、玩家栏、载体和当前页槽位。右侧两个模式标签必须具有 current-AE Pattern Encoding Terminal 同款 22x22 horizontal normal/selected/focus 背景、21px 步进与 `(3,3)` ItemStack 偏移，并贴合各自 profile 的编码区右边缘。Screen 不得出现任何 `VIEW_CELL` 槽或显示元件面板；普通 AE2 Pattern Encoding Terminal 保持原始视觉，不增加包裹按钮或覆盖资源
+Advanced Pattern Encoding Terminal 使用唯一 ScreenStyle 入口承载高级/包裹两页；两行网络库存时两页共享 195x245 主体、192px bottom、网络区、搜索框、玩家栏与载体槽，模式切换不得 resize/init 或重新居中。右侧两个模式标签使用 current-AE Pattern Encoding Terminal 同款 22x22 horizontal normal/selected/focus 背景和 21px 步进，只绘制 sprite 图标。full-screen base 的编辑区只提供灰色底板，Screen 必须在 base 后绘制 `pattern_mode_packaging.png` 中对应的 132x78 高级/包裹面板，再绘制动态槽和物品。Screen 不得出现任何 `VIEW_CELL` 槽或显示元件面板；普通 AE2 Pattern Encoding Terminal 保持原始视觉，不增加包裹按钮或覆盖资源
 ```
 
 路径：
 
 ```text
 src/main/resources/assets/appliedpackaging/textures/gui/<screen_id>.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/<icon_id>.png
+src/main/resources/assets/appliedpackaging/textures/gui/<screen_or_shared_atlas>.png
+src/main/resources/assets/appliedpackaging/logo.png
+不允许重新引入未被运行时代码引用的 textures/gui/icons/ 或 textures/gui/logo.png
 ```
 
 高级样板终端 Part 必须满足：
@@ -135,6 +137,6 @@ GUI 元素无错位
 日志无资源加载错误
 ```
 
-`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知资源路径、RGBA PNG header 和尺寸：普通 item/block 为 32x32，包裹盒体 face 为 10x8 或 10x10，ME Packager 主体 atlas 为 64x64、帘子为 16x16、双周期传送带为 32x32，GUI icon 与 AE2 part 为 16x16，root/gui logo 为 128x128，ME Packager 与 ME Package Assembler GUI atlas 为 256x256；同时检查 17 色 package_box 模型仍为 v7 的 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override，且 faces 声明 full-face uv [0,0,16,16]；检查合并后的 Advanced Pattern Terminal ScreenStyle 包含包裹页小滚动条、隐藏继承 view-cell 区域且不覆盖 AE2 原生 terminal style/atlas；检查高级终端 v19 世界/物品模型的元素数、三层 tint 顺序、Forge 全亮字段、四段状态灯和用户遮罩哈希；ME Packager blockstate 必须且只能声明四个水平 `facing` 变体，并让完整物品模型继承 `minecraft:block/block` 的标准方块显示变换；普通不透明 block/part 模型不得声明 render_type。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。
+`scripts/verify-assets.ps1` 会检查发布资源 PNG 的必需文件、已知路径、RGBA PNG header、可见非占位内容和尺寸。GUI 只审计实际使用的 screen/shared atlas 与 root mod logo，不再把已清理的独立 icon 目录或 GUI logo 作为发布资源；`ae2-terminal.png` 必须为 256x256、固定 current-AE2 源哈希并具有 LGPL 来源记录。脚本同时检查 Sequence Buffer current-AE2 big scroller、Package Assembler 小滚动条与四行输入/颜色/marker 坐标、Advanced Pattern Terminal 的 current-AE2 搜索/置顶资源、高级面板后绘制和颜色模式位于原生按钮之后的约束，以及 `[0,96,48,48]` 用户工具栏图标坐标、实际按钮映射和鼠标点击后不得持续绘制 focus 外框。修改资产验收脚本或尺寸规则时同步运行 `scripts/test-assets-audit.ps1`。
 
 序列缓存器追加要求：`textures/block/sequence_buffer/faces/` 必须包含从用户 64x64 RGBA 源图无损拆出的 16 张可见非占位 16x16 RGBA；所有文件必须被实际模型引用。blockstate 必须覆盖 `unformed`、`unformed_directed`、`endpoint`、`member`、`member_directed` 五种视觉状态，并以 `tail` 和 `sequence_direction` 覆盖中间/尾部及上下、四个水平尾向；生成矩阵必须包含 X/Y/Z 三轴、六个方块 facing、57 个显式模型和 58 个 multipart 项。有方向成员只声明与结构轴垂直的可见组合，侧面箭头必须指向方块自身正面；尾部侧面的封口朝结构外、开口朝主方块。模型保持一个 `0..16` 完整方块 cuboid，物品模型使用未成型外观，并经 `minecraft:block/block` 继承标准三维物品展示变换，不得显示为正面的平面方格。

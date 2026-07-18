@@ -1,51 +1,35 @@
 asset_id: ui_icons
-asset_kind: item
-generation_mode: icon_set
+asset_kind: gui_resource_policy
+generation_mode: reuse_and_cache
 target_game: minecraft_java
 target_texture_resolution: 16
 style:
-  name: ae2_fluix_packaging_ui
+  name: ae2_current_packaging_ui
   palette_reference: docs/assets/palette.md
 asset_brief:
-  summary: GUI icons, status lights, and logo draft for Applied Packaging.
+  summary: Runtime UI sprite reuse and current-AE2 cache policy for Applied Packaging.
   source_brief: docs/assets/asset-briefs/ui-and-icons.md
-materials:
-  - dark_metal
-  - quartz_panel
-  - fluix_core
-  - warning_light
-required_visual_parts:
-  - symbolic icons without text
-  - status lights with shape and color differences
-  - marker and filter icons
-  - pack and unpack action icons
-  - transparent logo draft
-forbidden_visual_parts:
-  - text
-  - numbers
-  - watermark
-  - photorealistic buttons
-  - dense decoration
-conversion_requirements:
-  transparent_background: true
-  readable_at_8x8: true
-  icon_ids:
-    - color_select
-    - marker
-    - capacity
-    - blocking_mode
-    - auto_export
-    - pack_once
-    - marker_retain
-    - marker_override
-    - marker_clear
-    - package_filter
-    - unpack_filter
-    - status_error
-    - status_ready
-    - status_blocked
-harness_assumptions:
-  output_namespace: appliedpackaging
-  icon_dir: src/main/resources/assets/appliedpackaging/textures/gui/icons
-  logo_path: src/main/resources/assets/appliedpackaging/logo.png
-  report_path: docs/assets/reports/ui-and-icons.md
+runtime_sources:
+  ae2_current_states: src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png
+  ae2_current_terminal: src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png
+  ae2_current_scrollbar: src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png
+  applied_packaging_sprites: src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png
+  advanced_terminal_sprites: src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png
+  mod_logo: src/main/resources/assets/appliedpackaging/logo.png
+reuse_rules:
+  - Reuse semantically matching current-AE2 sprites for toolbar buttons, status controls, slot backgrounds, search framing, pinned crafting rows, and scrollbars.
+  - Use the Applied Packaging toolbar block at package-storagebus-sprites.png [0,96,48,48] when package semantics or the high-version type-filter presentation has no suitable current-AE2 match.
+  - Keep Applied Packaging color cells, marker slots, package-mode controls, transpose controls, anti-clog, synchronized-output, pattern-sync, input-delay, item-only, and fluid-only controls in their existing user atlases.
+  - Do not ship standalone GUI icon files unless a live Screen or Widget references them.
+  - Do not ship a second GUI-scoped logo when the actual mod logo is sufficient.
+forbidden_runtime_paths:
+  - src/main/resources/assets/appliedpackaging/textures/gui/icons
+  - src/main/resources/assets/appliedpackaging/textures/gui/logo.png
+retired_runtime_paths:
+  - src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png
+  - src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png
+license_records:
+  - src/main/resources/META-INF/licenses/ae2-states-source.txt
+  - src/main/resources/META-INF/licenses/ae2-current-terminal-source.txt
+  - src/main/resources/META-INF/licenses/ae2-LGPL-3.0-or-later.txt
+report_path: docs/assets/reports/ui-and-icons.md

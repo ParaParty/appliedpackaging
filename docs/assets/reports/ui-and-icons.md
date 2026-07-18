@@ -1,173 +1,77 @@
 # UI And Icons Asset Report
 
-## Scope
+## Current Runtime Strategy
 
-Revised the Applied Packaging GUI icon set and scoped GUI logo after AE2 reference review.
-
-Sources inspected:
-
-- `docs/assets/asset-briefs/ui-and-icons.md`
-- `docs/assets/palette.md`
-- `docs/assets/acceptance.md`
-- `docs/assets/contracts/ui_icons.yaml`
-- `docs/04-asset-spec.md` UI/icon section
-- `build/asset-reference/ae2/ae2-guis-visual.png`
-- `build/asset-reference/ae2/ae2-items-visual.png`
-- `build/asset-reference/ae2/ae2-parts-visual.png`
-- `build/asset-reference/concepts/applied-packaging-ae2-style-board.png`
-- `E:\resources\textures\appliedpackaging\ret\adv-pattern-terminal-base.png`
-- `E:\resources\textures\appliedpackaging\ret\sprite.png`
-- `E:\resources\textures\appliedpackaging\ret\pattern_mode_packaging.png`
-- `build/reference/ae2-1.21.1/src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json`
-- `build/reference/ae2-1.21.1/src/main/java/appeng/client/gui/me/items/ProcessingEncodingPanel.java`
-
-The original icon-set pass used the AE2 sheets only as style/material references. The later Advanced Pattern Terminal pass is an explicit exception: the user-provided base/sprite atlases contain adapted AE2 high-version GUI pixels for compact controls and scrollers, and are marked separately under `LGPL-3.0-or-later`.
-
-## Output
-
-Icon files are 16x16 RGBA PNGs with transparent backgrounds:
+Applied Packaging now reuses a small set of shared atlases instead of publishing one 16x16 PNG for every proposed action. This keeps the runtime resource set aligned with the widgets that actually exist:
 
 ```text
-src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/marker.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/capacity.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/blocking_mode.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/auto_export.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/pack_once.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/marker_retain.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/marker_override.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/marker_clear.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/package_filter.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/unpack_filter.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/status_error.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/status_ready.png
-src/main/resources/assets/appliedpackaging/textures/gui/icons/status_blocked.png
-```
-
-Scoped GUI logo file:
-
-```text
-src/main/resources/assets/appliedpackaging/textures/gui/logo.png
-```
-
-Advanced Pattern Terminal files:
-
-```text
+src/main/resources/assets/appliedpackaging/logo.png
+src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png
+src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png
+src/main/resources/assets/ae2/textures/guis/text_field.png
 src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png
-src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png
-src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png
 src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png
 src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png
+src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png
+src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png
 src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png
-src/main/resources/META-INF/licenses/ae2-LGPL-3.0-or-later.txt
 ```
 
-The four full GUI atlases are 256x256 RGBA PNGs. The advanced terminal effective two-network-row profile is 217x250: the byte-preserved 195x250 body remains unchanged and a 22px right-side horizontal-tab region is added at runtime; the package profile is 195x233 and its effective package panel is 124x66. The base, shared sprite, and package-mode files were copied byte-for-byte from the user-provided `ret` directory; the current package-mode source and project copy share SHA-256 `AB254596C0AADE263DFB5816ED4824186BCDE69DCAA8B24CF3C00BF3B7EA6256`. The states atlas was copied byte-for-byte from AE2 main/1.21.1 (SHA-256 `0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55`) for the latest primary-output, pattern-slot, encode-button, crafting-status, horizontal mode-tab, and hover-adjacent pixels. The 195x18 middle-row strip (SHA-256 `74AD33FC264C1251BE97B01731C8C99BAF393BA84630433603434690883F4962`) combines the lower row's first 17px with the upper row's final 1px so tall terminal styles repeat neither endpoint. The 256x256 scrollbar compatibility atlas (SHA-256 `CD278B712C30419ECAC84AC2FF4E27E94A08655552B232DF427270F53F82D53B`) contains the current AE2 12x15 big-scroller enabled and disabled sprites. The bundled LGPL text is byte-identical to the AE2 source checkout license.
+The root logo is the actual 128x128 mod logo. There is no second GUI-scoped logo.
 
-The scoped GUI logo is a 128x128 RGBA PNG with transparent background. The existing root `src/main/resources/assets/appliedpackaging/logo.png` was not changed in this pass because it is outside the assigned write scope.
+## Current-AE2 Cached Resources
 
-## Generation Method
+`ae2-states.png` remains the shared current-AE2 state atlas for slot backgrounds, terminal actions, status controls, horizontal tabs, and modern toolbar visuals. The retired byte-identical `advanced_pattern_encoding_terminal_states.png` copy was removed; all live call sites now use the shared atlas.
 
-Method: deterministic hand-drawn pixel art generated locally with Python and Pillow.
+`ae2-terminal.png` is a byte-preserved copy of current AE2 `textures/guis/terminal.png`, SHA-256 `9CE91ECCF149E1703960906B349093AF726E6DEB753985C7E85B5D0DB359B3E4`. The Advanced Pattern Encoding Terminal uses it for the header behind the search widget and the pinned crafting row. Source and LGPL boundary are recorded in `META-INF/licenses/ae2-current-terminal-source.txt`.
 
-Advanced Pattern Terminal method: direct import of the user-provided final base/sprite atlases, followed by ScreenStyle and runtime-control adaptation. The imported files remain unchanged; only the deterministic middle-row strip and 1.20.1-compatible current-AE2 scrollbar atlas are derived resources.
+`assets/ae2/textures/guis/text_field.png` is the byte-preserved current-AE2 128x128 field atlas, SHA-256 `73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1`. It intentionally keeps AE2's namespace because the pinned `AETextField` hardcodes `guis/text_field.png`; this replaces the old dependency frame without a rendering mixin.
 
-Package pattern mode method: direct import of the user-provided mode atlas and reuse of the marked shared sprite. No generated resize, recolor, or cleanup was applied.
+`advanced_pattern_encoding_terminal_scrollbar.png` is the 1.20.1-compatible current-AE2 big-scroller cache. Sequence Buffer uses its 12x15 enabled/disabled handle through `ModernScrollbarStyles.BIG`; a disabled scrollbar remains visible. The Package Assembler continues to use the 7x15 current-AE2 small-scroller pixels in the user terminal sprite atlas, with its ScreenStyle x-coordinate shifted one pixel right to align to the background track.
 
-Built-in ImageGen was not invoked for final pixels because these are 16x16 UI controls; the imagegen skill guidance favors direct native editing for small icon/logo systems that must match existing project assets. The minecraft asset skill contract was inspected manually and the final file set was compared against `conversion_requirements.icon_ids`.
+## Applied Packaging Sprites
 
-The revised icons use AE2-style UI language: light-gray slot panels, dark 1px frames, sharp inventory-grid silhouettes, small cyan/fluix accents, and compact status lights on transparent backgrounds.
+The user atlases remain authoritative for package-specific visuals:
 
-Icon visual notes:
+- `package-storagebus-sprites.png` provides color-picker cells, the None display, marker empty-slot art, optional-slot visuals, and the 3x3 toolbar block at `[0,96,48,48]`.
+- `advanced_pattern_encoding_terminal_sprites.png` provides compact column controls, transpose, package tab art, and the small scrollbar.
+- `pattern_mode_packaging.png` provides the package editor panel.
+- `advanced_pattern_encoding_terminal.png` and its deterministic middle-row strip provide the combined terminal body.
 
-- `color_select`: four small color swatches plus a selected cyan/fluix chip.
-- `marker`: ghost slot with a centered fluix marker chip.
-- `capacity`: stacked slot/band meter with cyan and fluix rows.
-- `blocking_mode`: dark slot with amber blocking plate.
-- `auto_export`: package tile moving toward a cyan network-part chip.
-- `pack_once`: one package tile pushed into a single output slot.
-- `marker_retain`: marker chip retained in-slot with a green corner rail.
-- `marker_override`: old gray marker replaced by a cyan/fluix marker in the same slot.
-- `marker_clear`: marker slot crossed with a red clear slash.
-- `package_filter`: filter grid containing a closed package tile.
-- `unpack_filter`: filter grid with an opened package and output pixels.
-- `status_error`: red status light with white cross.
-- `status_ready`: green status light with check mark.
-- `status_blocked`: amber status light with white blocking bar.
+The Advanced terminal's color mode does not need a new asset. It is a left-toolbar `IconButton` using the current-AE2 scheduling default/round-robin icons. Per-column color buttons still use the shared package color picker. Terminal item-only and fluid-only filters use the supplied bottom-middle and bottom-right sprites because current-AE2's type-filter presentation does not match this 1.20.1 backport.
 
-Logo visual note: original Applied Packaging emblem using AE2-like quartz panel material, dark corner caps, cyan/fluix bus band, colored package straps, and central package seal.
+The new toolbar block is mapped without scaling: anti-clog at `(0,96)/(0,112)`, synchronized output at `(16,96)/(16,112)`, pattern sync at `(32,96)/(32,112)`, input delay at `(0,128)`, item-only at `(16,128)`, and fluid-only at `(32,128)`. Toggle sprites are selected during every render so a state change is visible immediately. Its integrated atlas SHA-256 is `1E5A223CBBE07D14CE9A97389596E188C668B4A44F0011EA8AA64D9E99EC3EC6`.
 
-## Verification
+The Package Assembler's former decorative color/marker region now hosts live controls without adding new PNGs: a 16-dye-plus-Fluix picker trigger and a non-consuming AE2 fake marker slot. The menu synchronizes effective color and marker display stacks for inserted patterns and active `pushPattern` jobs without replacing the persisted machine configuration. Mixed advanced-pattern colors are represented with the existing None cell. Its capacity slot tooltip is text plus synchronized limits, not a new status icon.
 
-Preflight:
+## Removed Unused or Duplicate Resources
 
-```powershell
-git status --short
-```
+The cleanup removed 17 runtime files that had no valid live use:
 
-Result: many unrelated Java, block texture, item texture, language, and document edits were already present. This pass only wrote the assigned GUI icon files, scoped GUI logo, and this report.
+- 14 proposed standalone files under `textures/gui/icons/` (`auto_export`, `blocking_mode`, `capacity`, `color_select`, `marker`, three marker policies, `pack_once`, two filters, and three status icons);
+- `textures/gui/logo.png`, a redundant GUI-scoped logo;
+- `advanced_pattern_encoding_terminal_states.png`, a byte duplicate of `ae2-states.png`;
+- `pattern_encoding_terminal.png`, a retired package-only terminal base no longer referenced by the combined screen.
 
-Contract tooling check:
+The associated required-file, dimension, hash, contract, brief, report, and license claims were removed or redirected. No block, item, model, ScreenStyle, Java resource constant, or GuideME page refers to these deleted paths.
 
-```powershell
-where.exe assetgen
-```
+## Acceptance
 
-Result: no `assetgen` command was available in PATH, and no assetgen MCP tool was available in this session. Contract validation was therefore manual against `docs/assets/contracts/ui_icons.yaml`.
-
-PNG verification:
-
-```powershell
-@'
-# Python/Pillow verification script run through stdin.
-# Checked exact icon file set, dimensions, RGBA mode, clean alpha,
-# transparent corners, scaled 12x12/8x8 non-transparent silhouettes,
-# and scoped GUI logo transparency.
-'@ | python -
-```
-
-Result:
+The release asset audit must confirm:
 
 ```text
-icons_expected 14
-icons_actual 14
-missing []
-extra []
-all icons: size=(16, 16), mode=RGBA, alpha_values=[0, 255], transparent_corners=[0, 0, 0, 0]
-scoped gui logo: size=(128, 128), mode=RGBA, alpha=(0, 255), transparent_corners=[0, 0, 0, 0]
-verification_ok
+ae2-terminal.png exists, is 256x256 RGBA, and matches the fixed source hash
+assets/ae2/textures/guis/text_field.png exists, is 128x128 RGBA, and matches the fixed source hash
+the retained shared atlases and root logo are visible, non-placeholder resources
+the deleted standalone icon directory, GUI logo, duplicate states atlas, and retired terminal base are not required or referenced
+Sequence Buffer uses ModernScrollbarStyles.BIG at its existing centered geometry
+Package Assembler uses its current small sprite at packageQueueScrollbar.left=12
+Package Assembler input rows alone use left=21; color and marker controls align to their corrected user frames
+Advanced terminal current search/pinned resources and shared ae2-states atlas remain wired
+Advanced terminal paints the advanced panel after its corrected gray base
+package-specific toolbar controls and terminal item/fluid filters use the user sprite block at atlas origin 0,96
+Advanced terminal color mode follows native AE2 toolbar functions; mouse-click focus does not leave an extra border
+all AE2-derived caches have source/license records
 ```
 
-## Preview Paths
-
-A local contact sheet was generated for visual inspection at:
-
-```text
-C:\Users\warmt\AppData\Local\Temp\appliedpackaging_ui_icons_ae2_refined.png
-```
-
-No project preview sheet was written because this pass was constrained to the icon directory, scoped GUI logo, and this report.
-
-## Known Limits
-
-- Full client resource loading was not run by this pass.
-- `assetgen validate-contract` was not run because `assetgen` was unavailable in this environment.
-
-## Main-thread Integration Validation
-
-```text
-Second-pass GUI icons and GUI logo were reviewed against AE2 forge/v15.4.10 GUI/item/part reference sheets and the Applied Packaging ImageGen concept board.
-No AE2 pixels were copied into project assets.
-53 project PNG dimensions/modes/model references passed.
-.\gradlew.bat runData succeeded.
-.\gradlew.bat build succeeded.
-.\gradlew.bat runGameTestServer succeeded with 29 required tests passing.
-```
-
-## Advanced Pattern Terminal Integration
-
-```text
-The 195px-wide layout follows the AE2 1.21.1 Pattern Encoding Terminal title, search, 9-column network inventory, player inventory, blank/encoded pattern, and encode-button baselines.
-Four package columns are visible at once and each retains 81 logical AE2 processing-input positions, while only three rows are visible at once; an AE2 Scrollbar using the local high-version sprite scrolls input and output rows together.
-A separate horizontal scrollbar scrolls package columns. Enabled columns use a color swatch plus compact edit button; the first inactive column uses the compact add button; disabled columns contain no ghost item.
-```
+Verification results are recorded in `docs/development-log.md` after the asset audit, its negative-fixture suite, build, GameTest, and client resource-load path complete.

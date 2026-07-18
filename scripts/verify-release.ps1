@@ -547,7 +547,7 @@ function Test-ProductInvariants {
     if (Test-Path -LiteralPath $assemblerPath) {
         $assemblerText = Get-Content -LiteralPath $assemblerPath -Raw
         Assert-True `
-            ($assemblerText -notmatch '(LEGACY_INPUT|legacyInput|auto_export(?!_batch)|selected_color|SLOT_MARKER|setSelectedColor|PackagedProcessingPattern|ColoredProcessingPattern)') `
+            ($assemblerText -notmatch '(LEGACY_INPUT|legacyInput|auto_export(?!_batch)|PackagedProcessingPattern|ColoredProcessingPattern)') `
             "Package Assembler has no pre-release save or carrier compatibility path"
     }
 

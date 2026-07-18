@@ -94,9 +94,9 @@ pattern integration
   AdvancedPatternEncodingTerminalPart/Menu/Screen owns both ADVANCED and PACKAGE pages
   one persisted SpecializedPatternMode selects the page; carrier insertion selects the matching page automatically
   advanced inputs/outputs and package inputs/marker/preview are separate persisted inventories and are never migrated on page switch
-  the screen has complete advanced/package geometry profiles: a 217x250 advanced profile with a 195px body plus 22px mode-tab region versus the native 195x233 package profile with its 124x66 panel, at two network rows
-  switching profiles reinitializes and recenters the same Screen instance; background, search, scrollbars, inventory, carriers, controls, and active slots all receive page-specific positions
-  the two right-side mode controls use high-version Pattern Encoding Terminal `TabButton.Style.HORIZONTAL` sprites and placement: 22x22 tabs with 21px step, attached to each profile's encoding-area edge
+  both pages share one 195x245 frame and 192px bottom at two network rows; the 132x78 advanced/package panel is painted over a neutral gray base at the same anchor
+  switching pages keeps the same initialized and centered Screen instance; only the mode panel, page widgets, and active slot mapping change
+  the two right-side mode controls use high-version Pattern Encoding Terminal `TabButton.Style.HORIZONTAL` sprites and placement: 22x22 tabs with 21px step and direct processing/package sprite rendering
   the specialized menu suppresses VIEW_CELL slot creation, so the screen has no display-component panel
   no ScreenEvent extension, PatternEncodingTermScreen behavior mixin, delegate screen, or InitScreens factory replacement
   three narrow accessors expose MEStorageScreen client state, Scrollbar style, and Slot coordinates

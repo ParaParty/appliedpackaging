@@ -181,7 +181,7 @@ AE2 Pattern Encoding Terminal runtime and newer UI references
              src/main/java/appeng/client/gui/widgets/VerticalButtonBar.java
              src/main/java/appeng/client/gui/widgets/IconButton.java
              src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json
-用途：参考合并后 Advanced Pattern Encoding Terminal 的两套主体 profile、Encode/合成状态、样板槽占位、网络与 small scrollbar，以及保持 124x66 原宽的 package 面板；右侧模式按钮明确复用 Pattern Encoding Terminal 的 `TabButton.Style.HORIZONTAL` 视觉与坐标规则：22x22 normal/selected/focus、21px 步进和 `(3,3)` ItemStack 偏移。Pattern Access Terminal/VerticalButtonBar 只继续作为左侧公共工具栏参考。继续不采用新版 `VIEW_CELL` 面板，也不重实现四种原生模式。
+用途：参考合并后 Advanced Pattern Encoding Terminal 的共享 195x245 主体、Encode/合成状态、样板槽占位、网络与 small scrollbar，以及同一 `(8,68,132,78)` 锚点的高级/包裹面板后绘制；右侧模式按钮复用 Pattern Encoding Terminal 的 `TabButton.Style.HORIZONTAL` 视觉与坐标规则：22x22 normal/selected/focus、21px 步进，但图标直接绘制 sprite 而非 ItemStack。Pattern Access Terminal/VerticalButtonBar 只继续作为左侧公共工具栏参考。继续不采用新版 `VIEW_CELL` 面板，也不重实现四种原生模式。
 版本边界：新版源码只作专用高级终端的视觉与布局参考；普通终端 factory、Screen/模式行为、Menu、网络与 recipe API 均严格使用 AE2 15.4.10 Forge。高级/包裹页在同一自有 Screen/Menu 内切换，不切换到原版 Screen。
 许可证：LGPL-3.0-or-later；共享 sprite 中适配的上游像素许可证文本打包至 META-INF/licenses/ae2-LGPL-3.0-or-later.txt。
 ```

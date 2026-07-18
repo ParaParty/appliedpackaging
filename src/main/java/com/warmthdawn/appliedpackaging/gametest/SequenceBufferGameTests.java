@@ -171,22 +171,20 @@ public final class SequenceBufferGameTests {
 
     @GameTest(template = "sequence_buffer_empty")
     public static void menuExtractionBypassesOutputDelayAndKeepsAdmissionCooldown(GameTestHelper helper) {
-        BlockPos pos = new BlockPos(1, 1, 1);
-        SequenceBufferBlockEntity buffer = placeBuffer(
-                helper,
-                pos,
-                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
-        var configuration = buffer.configurationCopy();
+        List<SequenceBufferBlockEntity> blocks = formEastLine(helper, 2);
+        SequenceBufferBlockEntity endpoint = blocks.get(0);
+        SequenceBufferBlockEntity buffer = blocks.get(1);
+        var configuration = endpoint.configurationCopy();
         configuration.setAutoOutput(false);
         configuration.setBlockingMode(true);
         configuration.setSynchronizedOutput(true);
         configuration.setInputDelayTicks(40);
-        buffer.updateConfiguration(configuration);
+        endpoint.updateConfiguration(configuration);
 
         IItemHandler items = buffer.getCapability(ForgeCapabilities.ITEM_HANDLER)
                 .orElseThrow(IllegalStateException::new);
         helper.assertTrue(items.insertItem(0, new ItemStack(Items.IRON_INGOT, 8), false).isEmpty(),
-                "The buffer should accept the delayed test input");
+                "The formed member should accept the delayed test input");
         helper.assertTrue(items.extractItem(0, 8, false).isEmpty() && buffer.storedAmount() == 8,
                 "External capability extraction must remain blocked by the output delay");
 
@@ -217,6 +215,31 @@ public final class SequenceBufferGameTests {
                         items.insertItem(0, new ItemStack(Items.GOLD_INGOT), false).isEmpty(),
                         "Admission must reopen by game time without requiring a buffer tick first"))
                 .thenSucceed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty")
+    public static void standaloneBufferIgnoresMultiblockOnlySettings(GameTestHelper helper) {
+        SequenceBufferBlockEntity buffer = placeBuffer(
+                helper,
+                new BlockPos(1, 1, 1),
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+        var configuration = buffer.configurationCopy();
+        configuration.setAutoOutput(false);
+        configuration.setSynchronizedOutput(true);
+        configuration.setPatternMode(true);
+        configuration.setInputDelayTicks(100);
+        buffer.updateConfiguration(configuration);
+
+        IItemHandler items = buffer.getCapability(ForgeCapabilities.ITEM_HANDLER)
+                .orElseThrow(IllegalStateException::new);
+        helper.assertTrue(items.insertItem(0, new ItemStack(Items.IRON_INGOT, 4), false).isEmpty(),
+                "Standalone buffer should accept one input");
+        ItemStack extracted = items.extractItem(0, 4, false);
+        helper.assertTrue(extracted.is(Items.IRON_INGOT)
+                        && extracted.getCount() == 4
+                        && buffer.releaseAtGameTime() <= helper.getLevel().getGameTime(),
+                "Standalone buffers must ignore synchronized output, pattern mode, and input delay");
+        helper.succeed();
     }
 
     @GameTest(template = "sequence_buffer_empty")
@@ -443,6 +466,8 @@ public final class SequenceBufferGameTests {
                 18,
                 new Inventory(menuPlayer),
                 endpoint);
+        helper.assertTrue(menu.canEditConfiguration(),
+                "Only the endpoint main menu should expose configuration actions");
 
         menu.toggleAutoOutput();
         menu.toggleBlockingMode();
@@ -469,8 +494,46 @@ public final class SequenceBufferGameTests {
                 "GuiSync fields must mirror the endpoint configuration");
         for (SequenceBufferBlockEntity member : SequenceBufferTopology.members(endpoint)) {
             helper.assertTrue(member.configurationCopy().equals(expected),
-                    "Every storage member must receive settings changed through either GUI");
+                    "Every formed member must read the endpoint configuration live");
         }
+
+        SequenceBufferBlockEntity viewedMember = SequenceBufferTopology.members(endpoint).get(0);
+        SequenceBufferSideMenu memberMenu = new SequenceBufferSideMenu(
+                19,
+                new Inventory(menuPlayer),
+                endpoint,
+                viewedMember);
+        memberMenu.toggleAutoOutput();
+        memberMenu.toggleBlockingMode();
+        memberMenu.toggleAntiClogMode();
+        memberMenu.toggleSynchronizedOutput();
+        memberMenu.togglePatternMode();
+        memberMenu.cycleInputDelay(false);
+        helper.assertTrue(!memberMenu.canEditConfiguration()
+                        && memberMenu.canOpenMain()
+                        && endpoint.configurationCopy().equals(expected),
+                "A formed member menu must reject every configuration action and only offer endpoint navigation");
+
+        SequenceBufferBlockEntity standalone = placeBuffer(
+                helper,
+                new BlockPos(1, 1, 3),
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+        var standaloneConfiguration = standalone.configurationCopy();
+        SequenceBufferSideMenu standaloneMenu = new SequenceBufferSideMenu(
+                20,
+                new Inventory(menuPlayer),
+                standalone,
+                standalone);
+        standaloneMenu.toggleAutoOutput();
+        standaloneMenu.toggleBlockingMode();
+        standaloneMenu.toggleAntiClogMode();
+        standaloneMenu.toggleSynchronizedOutput();
+        standaloneMenu.togglePatternMode();
+        standaloneMenu.cycleInputDelay(false);
+        helper.assertTrue(!standaloneMenu.canEditConfiguration()
+                        && !standaloneMenu.canOpenMain()
+                        && standalone.configurationCopy().equals(standaloneConfiguration),
+                "A standalone side menu must be read-only and must not show an endpoint jump");
 
         menu.cycleInputDelay(true);
         menu.broadcastChanges();
@@ -507,7 +570,14 @@ public final class SequenceBufferGameTests {
         configuration.setInputDelayTicks(7);
         configuration.setAllowedInputs(List.of(AEItemKey.of(Items.IRON_INGOT)));
         endpoint.updateConfiguration(configuration);
-        placeBuffer(helper, firstMemberPos, APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+        SequenceBufferBlockEntity firstMember = placeBuffer(
+                helper,
+                firstMemberPos,
+                APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+        var firstMemberLocalConfiguration = firstMember.configurationCopy();
+        firstMemberLocalConfiguration.setAutoOutput(false);
+        firstMemberLocalConfiguration.setInputDelayTicks(0);
+        firstMember.updateConfiguration(firstMemberLocalConfiguration);
 
         helper.startSequence()
                 .thenExecuteAfter(3, () -> {
@@ -516,14 +586,22 @@ public final class SequenceBufferGameTests {
                     List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(endpoint);
                     helper.assertTrue(members.size() == 1
                                     && members.get(0).configurationCopy().equals(configuration)
+                                    && !members.get(0).saveWithoutMetadata()
+                                            .getCompound("configuration")
+                                            .getBoolean("auto_output")
                                     && members.get(0).getBlockState().getValue(SequenceBufferBlock.TAIL)
                                     && members.get(0).getBlockState().getValue(
                                             SequenceBufferBlock.SEQUENCE_DIRECTION) == Direction.EAST,
-                            "Initial member must copy the endpoint configuration and render as the east tail");
-                    placeBuffer(
+                            "Initial member must read endpoint configuration without overwriting its local state");
+                    SequenceBufferBlockEntity futureTail = placeBuffer(
                             helper,
                             endpointPos.east(2),
                             APBlocks.SEQUENCE_BUFFER.get().defaultBlockState());
+                    var futureTailConfiguration = futureTail.configurationCopy();
+                    futureTailConfiguration.setAutoOutput(false);
+                    futureTailConfiguration.setBlockingMode(false);
+                    futureTailConfiguration.setInputDelayTicks(0);
+                    futureTail.updateConfiguration(futureTailConfiguration);
                 })
                 .thenExecuteAfter(3, () -> {
                     List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(endpoint);
@@ -534,7 +612,7 @@ public final class SequenceBufferGameTests {
                                     && members.get(1).getBlockState().getValue(SequenceBufferBlock.TAIL)
                                     && members.get(1).getBlockState().getValue(
                                             SequenceBufferBlock.SEQUENCE_DIRECTION) == Direction.EAST,
-                            "A continuous tail block should auto-join, inherit configuration, and move the tail model");
+                            "A continuous tail block should read endpoint configuration and move the tail model");
                     BlockPos competingPos = endpointPos.west();
                     placeBuffer(
                             helper,
@@ -563,8 +641,10 @@ public final class SequenceBufferGameTests {
                     SequenceBufferBlockEntity detachedTail =
                             (SequenceBufferBlockEntity) helper.getBlockEntity(endpointPos.east(2));
                     helper.assertTrue(detachedTail.sequenceIndex() == -1
-                                    && detachedTail.configurationCopy().equals(configuration),
-                            "Detached tail members must keep their synchronized configuration without a topology index");
+                                    && !detachedTail.configurationCopy().autoOutput()
+                                    && !detachedTail.configurationCopy().blockingMode()
+                                    && detachedTail.configurationCopy().inputDelayTicks() == 0,
+                            "Detached tail members must recover their own local configuration without a topology index");
                 })
                 .thenSucceed();
     }

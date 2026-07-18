@@ -6,6 +6,9 @@ import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.ToggleButton;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
+import com.warmthdawn.appliedpackaging.client.widget.ModernToolbarSpriteProvider;
+import com.warmthdawn.appliedpackaging.client.widget.PackageToolbarSprites;
+import com.warmthdawn.appliedpackaging.client.widget.SpriteToggleButton;
 import com.warmthdawn.appliedpackaging.world.menu.AbstractSequenceBufferMenu;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
@@ -22,9 +25,9 @@ public abstract class AbstractSequenceBufferScreen<T extends AbstractSequenceBuf
 
     private final ToggleButton autoOutputButton;
     private final ToggleButton blockingModeButton;
-    private final ToggleButton antiClogModeButton;
-    private final ToggleButton synchronizedOutputButton;
-    private final ToggleButton patternModeButton;
+    private final SpriteToggleButton antiClogModeButton;
+    private final SpriteToggleButton synchronizedOutputButton;
+    private final SpriteToggleButton patternModeButton;
     private final InputDelayButton inputDelayButton;
 
     protected AbstractSequenceBufferScreen(
@@ -34,55 +37,66 @@ public abstract class AbstractSequenceBufferScreen<T extends AbstractSequenceBuf
             ScreenStyle style) {
         super(menu, playerInventory, title, style);
 
-        autoOutputButton = addSettingToggle(
-                Icon.AUTO_EXPORT_ON,
-                Icon.AUTO_EXPORT_OFF,
-                "gui.appliedpackaging.sequence_buffer.setting.auto_output",
-                "gui.appliedpackaging.sequence_buffer.setting.auto_output.enabled",
-                "gui.appliedpackaging.sequence_buffer.setting.auto_output.disabled",
-                menu::toggleAutoOutput);
-        blockingModeButton = addSettingToggle(
-                Icon.BLOCKING_MODE_YES,
-                Icon.BLOCKING_MODE_NO,
-                "gui.appliedpackaging.sequence_buffer.setting.blocking",
-                "gui.appliedpackaging.sequence_buffer.setting.blocking.enabled",
-                "gui.appliedpackaging.sequence_buffer.setting.blocking.disabled",
-                menu::toggleBlockingMode);
-        antiClogModeButton = addSettingToggle(
-                Icon.AUTO_EXPORT_ON,
-                Icon.AUTO_EXPORT_OFF,
-                "gui.appliedpackaging.anti_clog_mode",
-                "gui.appliedpackaging.anti_clog_mode.enabled",
-                "gui.appliedpackaging.anti_clog_mode.disabled",
-                menu::toggleAntiClogMode);
-        synchronizedOutputButton = addSettingToggle(
-                Icon.SCHEDULING_ROUND_ROBIN,
-                Icon.SCHEDULING_DEFAULT,
-                "gui.appliedpackaging.sequence_buffer.setting.synchronized_output",
-                "gui.appliedpackaging.sequence_buffer.setting.synchronized_output.enabled",
-                "gui.appliedpackaging.sequence_buffer.setting.synchronized_output.disabled",
-                menu::toggleSynchronizedOutput);
-        patternModeButton = addSettingToggle(
-                Icon.VIEW_MODE_CRAFTING,
-                Icon.VIEW_MODE_ALL,
-                "gui.appliedpackaging.sequence_buffer.setting.pattern_mode",
-                "gui.appliedpackaging.sequence_buffer.setting.pattern_mode.enabled",
-                "gui.appliedpackaging.sequence_buffer.setting.pattern_mode.disabled",
-                menu::togglePatternMode);
-        inputDelayButton = addToLeftToolbar(new InputDelayButton());
+        if (menu.canEditConfiguration()) {
+            autoOutputButton = addSettingToggle(
+                    Icon.AUTO_EXPORT_ON,
+                    Icon.AUTO_EXPORT_OFF,
+                    "gui.appliedpackaging.sequence_buffer.setting.auto_output",
+                    "gui.appliedpackaging.sequence_buffer.setting.auto_output.enabled",
+                    "gui.appliedpackaging.sequence_buffer.setting.auto_output.disabled",
+                    menu::toggleAutoOutput);
+            blockingModeButton = addSettingToggle(
+                    Icon.BLOCKING_MODE_YES,
+                    Icon.BLOCKING_MODE_NO,
+                    "gui.appliedpackaging.sequence_buffer.setting.blocking",
+                    "gui.appliedpackaging.sequence_buffer.setting.blocking.enabled",
+                    "gui.appliedpackaging.sequence_buffer.setting.blocking.disabled",
+                    menu::toggleBlockingMode);
+            antiClogModeButton = addSpriteSettingToggle(
+                    PackageToolbarSprites.ANTI_CLOG_ON,
+                    PackageToolbarSprites.ANTI_CLOG_OFF,
+                    "gui.appliedpackaging.anti_clog_mode",
+                    "gui.appliedpackaging.anti_clog_mode.enabled",
+                    "gui.appliedpackaging.anti_clog_mode.disabled",
+                    menu::toggleAntiClogMode);
+            synchronizedOutputButton = addSpriteSettingToggle(
+                    PackageToolbarSprites.SYNCHRONIZED_OUTPUT_ON,
+                    PackageToolbarSprites.SYNCHRONIZED_OUTPUT_OFF,
+                    "gui.appliedpackaging.sequence_buffer.setting.synchronized_output",
+                    "gui.appliedpackaging.sequence_buffer.setting.synchronized_output.enabled",
+                    "gui.appliedpackaging.sequence_buffer.setting.synchronized_output.disabled",
+                    menu::toggleSynchronizedOutput);
+            patternModeButton = addSpriteSettingToggle(
+                    PackageToolbarSprites.PATTERN_SYNC_ON,
+                    PackageToolbarSprites.PATTERN_SYNC_OFF,
+                    "gui.appliedpackaging.sequence_buffer.setting.pattern_mode",
+                    "gui.appliedpackaging.sequence_buffer.setting.pattern_mode.enabled",
+                    "gui.appliedpackaging.sequence_buffer.setting.pattern_mode.disabled",
+                    menu::togglePatternMode);
+            inputDelayButton = addToLeftToolbar(new InputDelayButton());
+        } else {
+            autoOutputButton = null;
+            blockingModeButton = null;
+            antiClogModeButton = null;
+            synchronizedOutputButton = null;
+            patternModeButton = null;
+            inputDelayButton = null;
+        }
     }
 
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
-        autoOutputButton.setState(menu.autoOutput());
-        blockingModeButton.setState(menu.blockingMode());
-        antiClogModeButton.setState(menu.antiClogMode());
-        synchronizedOutputButton.setState(menu.synchronizedOutput());
-        patternModeButton.setState(menu.patternMode());
-        inputDelayButton.setMessage(Component.translatable(
-                "gui.appliedpackaging.sequence_buffer.setting.input_delay.value",
-                menu.inputDelayTicks()));
+        if (menu.canEditConfiguration()) {
+            autoOutputButton.setState(menu.autoOutput());
+            blockingModeButton.setState(menu.blockingMode());
+            antiClogModeButton.setState(menu.antiClogMode());
+            synchronizedOutputButton.setState(menu.synchronizedOutput());
+            patternModeButton.setState(menu.patternMode());
+            inputDelayButton.setMessage(Component.translatable(
+                    "gui.appliedpackaging.sequence_buffer.setting.input_delay.value",
+                    menu.inputDelayTicks()));
+        }
     }
 
     @Override
@@ -116,7 +130,24 @@ public abstract class AbstractSequenceBufferScreen<T extends AbstractSequenceBuf
         return addToLeftToolbar(button);
     }
 
-    private final class InputDelayButton extends IconButton {
+    private SpriteToggleButton addSpriteSettingToggle(
+            Blitter enabledSprite,
+            Blitter disabledSprite,
+            String titleKey,
+            String enabledHintKey,
+            String disabledHintKey,
+            Runnable action) {
+        SpriteToggleButton button = new SpriteToggleButton(
+                enabledSprite,
+                disabledSprite,
+                ignored -> action.run());
+        Component title = Component.translatable(titleKey);
+        button.setTooltipOn(List.of(title, Component.translatable(enabledHintKey)));
+        button.setTooltipOff(List.of(title, Component.translatable(disabledHintKey)));
+        return addToLeftToolbar(button);
+    }
+
+    private final class InputDelayButton extends IconButton implements ModernToolbarSpriteProvider {
         private InputDelayButton() {
             super(button -> menu.cycleInputDelay(isHandlingRightClick()));
         }
@@ -124,6 +155,11 @@ public abstract class AbstractSequenceBufferScreen<T extends AbstractSequenceBuf
         @Override
         protected Icon getIcon() {
             return Icon.REDSTONE_PULSE;
+        }
+
+        @Override
+        public Blitter getModernToolbarSprite() {
+            return PackageToolbarSprites.INPUT_DELAY.copy();
         }
 
         @Override

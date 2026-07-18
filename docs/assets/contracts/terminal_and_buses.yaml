@@ -19,11 +19,11 @@ required_visual_parts:
   - advanced_pattern_encoding_terminal AE2 neoforge/v19.2.17 six-element item display geometry shared by item and translated placed Part, four-layer tint rendering, and user dark medium bright masks
   - package_storage_bus AE2 neoforge/v19.2.17 storage bus geometry and materials with user front
   - package_unpacking_bus AE2 neoforge/v19.2.17 panel pattern provider geometry with user front and back
-  - separate byte-preserved 256x256 package bus GUI and user sprite textures
+  - separate byte-preserved 256x256 package bus GUI and user sprite textures with a user-authored 3x3 toolbar block at 0,96
   - user-authored marker empty-slot icon at sprite rectangle 32,16,16,16 shared by buses, machines, and package-pattern mode
   - unmodified current-main AE2 states, extra panels, and vertical button background textures with LGPL provenance
-  - one Advanced Pattern Terminal ScreenStyle entry with complete 217x250 advanced and 195x233 package profiles at two network rows, a 195px advanced body plus 22px mode-tab region, a 146px advanced editor, and an unscaled 124x66 package editor
-  - two right-side mode tabs rendered like current-AE Pattern Encoding Terminal TabButton.Style.HORIZONTAL with 22x22 normal/selected/focus states, 21px step, and ItemStack offset (3,3)
+  - one Advanced Pattern Terminal ScreenStyle entry with one shared 195x245 frame and 192px bottom at two network rows, a neutral gray editor underlay, and 132x78 advanced or package panels painted afterward at the same anchor
+  - two right-side mode tabs rendered like current-AE Pattern Encoding Terminal TabButton.Style.HORIZONTAL with 22x22 normal/selected/focus states, 21px step, and direct processing or package sprites
   - inherited view-cell panel moved out of the visible area because the combined terminal creates no VIEW_CELL slots
 forbidden_visual_parts:
   - text labels
@@ -35,7 +35,7 @@ forbidden_visual_parts:
   - override of AE2 screens/terminals/pattern_encoding_terminal.json
   - package tab, delegate screen, or visual override added to the ordinary AE2 Pattern Encoding Terminal
   - display-component or VIEW_CELL panel on the combined Advanced Pattern Terminal
-  - stretching the 124px package editor to the 146px advanced editor width
+  - baking the advanced panel into the full-screen base instead of painting the selected mode panel afterward
 conversion_requirements:
   upstream_tag: neoforge/v19.2.17
   upstream_commit: 79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a

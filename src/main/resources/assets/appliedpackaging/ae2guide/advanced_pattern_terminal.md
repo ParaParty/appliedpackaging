@@ -51,6 +51,18 @@ processing operation needs many ordered input groups that must later reach diffe
 
 The column order is the package output order. Sparse row positions within each column are retained.
 
+### Color Mode
+
+The color-mode control is the first button in the left function toolbar. It controls only colors assigned to columns that
+are added afterward, including columns introduced by recipe-viewer transfer; switching it never recolors existing columns.
+
+- **Default** always assigns Fluix to a new column.
+- **Cycling** first chooses the earliest package color not already used by preceding columns. After all 17 colors are in
+  use, it continues with the color after the last column and wraps around.
+
+Transposing preserves colors attached to existing data. Only genuinely new columns created by the transpose use the
+current color mode. Per-column color buttons remain available for explicit edits.
+
 ## Editing and Page Isolation
 
 The two pages keep separate inventories. Inserting an encoded Applied Packaging pattern selects its matching page. The
@@ -61,8 +73,9 @@ slot. A damaged or unsupported pattern is rejected rather than being interpreted
 
 ## Recipe Viewer Transfer
 
-Recipe-viewer transfer supports deterministic JEI/EMI recipes. Optional Create and GTCEu integrations preserve known
-ordered item/fluid inputs and reject ambiguous or random-output recipes instead of silently encoding the wrong plan.
+Recipe-viewer transfer supports deterministic JEI/EMI recipes and assigns colors to newly introduced columns through the
+same color-mode rules. Optional Create and GTCEu integrations preserve known ordered item/fluid inputs and reject
+ambiguous or random-output recipes instead of silently encoding the wrong plan.
 
 Like AE2's <ItemLink id="ae2:pattern_encoding_terminal" />, this is a cable subpart and requires a powered channel.
 

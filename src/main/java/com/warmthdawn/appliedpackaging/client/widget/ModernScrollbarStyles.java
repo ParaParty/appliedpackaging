@@ -5,6 +5,15 @@ import com.warmthdawn.appliedpackaging.AppliedPackaging;
 
 /** Shared backport of the current-AE2 small scrollbar sprites. */
 public final class ModernScrollbarStyles {
+    public static final Scrollbar.Style BIG = Scrollbar.Style.create(
+            AppliedPackaging.id("textures/gui/advanced_pattern_encoding_terminal_scrollbar.png"),
+            12,
+            15,
+            0,
+            0,
+            12,
+            0);
+
     public static final Scrollbar.Style SMALL = Scrollbar.Style.create(
             AppliedPackaging.id("textures/gui/advanced_pattern_encoding_terminal_sprites.png"),
             7,

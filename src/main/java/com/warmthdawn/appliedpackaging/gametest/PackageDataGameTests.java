@@ -50,6 +50,7 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternD
 import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageFilter;
+import com.warmthdawn.appliedpackaging.core.package_data.PackageLayout;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanFailure;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
@@ -2093,6 +2094,43 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerConfigurationLocksFromCraftStart(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(helper, new BlockPos(0, 0, 0), Direction.NORTH);
+        assembler.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_PATTERN,
+                ordinaryStickCraftingPattern(helper));
+        assembler.insertMenuInput(0, new ItemStack(Items.OAK_PLANKS), 1, false);
+        assembler.insertMenuInput(1, new ItemStack(Items.OAK_PLANKS), 1, false);
+        helper.assertTrue(assembler.tryAssemble() == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED
+                        && assembler.isCrafting()
+                        && assembler.craftingProgress() == 0,
+                "The assembler should enter its working state before progress advances from zero");
+
+        FakePlayer player = newFakePlayer(helper);
+        PackageAssemblerMenu menu = new PackageAssemblerMenu(5, new Inventory(player), assembler);
+        menu.broadcastChanges();
+        PackageAssemblerBlockEntity.OutputMode outputMode = assembler.outputMode();
+        boolean blockingMode = assembler.blockingMode();
+        PackageColor selectedColor = assembler.selectedColor();
+
+        menu.cycleOutputMode();
+        menu.toggleBlockingMode();
+        menu.setSelectedColor(PackageColor.BLUE);
+        menu.setCarried(new ItemStack(Items.DIAMOND));
+        int markerSlot = menu.getSlots(SlotSemantics.BLANK_PATTERN).get(0).index;
+        menu.clicked(markerSlot, 0, ClickType.PICKUP, player);
+
+        helper.assertTrue(menu.isCrafting()
+                        && assembler.outputMode() == outputMode
+                        && assembler.blockingMode() == blockingMode
+                        && assembler.selectedColor() == selectedColor,
+                "Output, blocking, and color controls must remain unchanged for the entire working state");
+        helper.assertTrue(assembler.getMarkerFilter().getStack(0) == null,
+                "The marker filter must reject edits while the assembler is working");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerMenuInputUsesPatternFilterAndLargeAmount(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         PackageData target = PackageData.create(
@@ -2954,7 +2992,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerAdmittedBatchRetriesWithoutRecheckingBlocking(GameTestHelper helper) {
+    public static void packageAssemblerPreflightsOnlyHeadAndRetriesWithoutRecheckingBlocking(GameTestHelper helper) {
         BlockPos chestPos = new BlockPos(0, 0, 0);
         BlockPos assemblerPos = new BlockPos(1, 0, 0);
         BlockPos energyCellPos = new BlockPos(2, 0, 0);
@@ -2967,7 +3005,7 @@ public final class PackageDataGameTests {
                 AEBlocks.CREATIVE_ENERGY_CELL.block().defaultBlockState(),
                 3);
         ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
-        for (int slot = 0; slot < chest.getContainerSize() - 1; slot++) {
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
             chest.setItem(slot, new ItemStack(Items.STONE, 64));
         }
 
@@ -2996,9 +3034,18 @@ public final class PackageDataGameTests {
                                 PackageColor.RED,
                                 Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(Items.NETHER_STAR), 1))),
                                 List.of(gold)))));
+        ItemStack acceptedHead = packageStack(
+                PackageColor.RED,
+                PackageData.create(
+                        PackageColor.RED,
+                        List.of(iron),
+                        Optional.of(new PackageLayout(1, List.of(0))),
+                        Optional.of(new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1))),
+                        0));
+        chest.setItem(chest.getContainerSize() - 1, acceptedHead);
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
         assembler.setOutputMode(PackageAssemblerBlockEntity.OutputMode.ADJACENT_BLOCK);
-        assembler.setBlockingMode(true);
+        assembler.setBlockingMode(false);
         for (int card = 0; card < PackageAssemblerBlockEntity.UPGRADE_SLOT_COUNT; card++) {
             assembler.getUpgrades().addItems(AEItems.SPEED_CARD.stack());
         }
@@ -3011,8 +3058,8 @@ public final class PackageDataGameTests {
                     assembler.insertMenuInput(2, new ItemStack(Items.GOLD_INGOT), 1, false);
                     tickPackageAssemblerToCompletion(assembler);
 
-                    helper.assertTrue(packageCountInChest(chest) == 1 && assembler.completedOutputCount() == 2,
-                            "The batch should remain active after the target accepts only its first package");
+                    helper.assertTrue(packageCountInChest(chest) == 2 && assembler.completedOutputCount() == 2,
+                            "The batch should start when the target accepts its head package even if the next package is rejected");
                     CompoundTag activeBatchTag = assembler.saveWithoutMetadata();
                     PackageAssemblerBlockEntity loadedBatch = newPackageAssembler();
                     loadedBatch.load(activeBatchTag);
@@ -3021,6 +3068,7 @@ public final class PackageDataGameTests {
                                     && resavedBatchTag.getBoolean("auto_export_batch_active")
                                     && loadedBatch.completedOutputCount() == 2,
                             "The admitted state should persist with the real remaining output list");
+                    assembler.setBlockingMode(true);
                     ItemStack playerExtracted = assembler.getOrderedOutputItems().extractItem(0, 1, false);
                     helper.assertTrue(playerExtracted.is(APItems.packageItems().get(PackageColor.RED).get())
                                     && assembler.completedOutputCount() == 1,
@@ -3029,7 +3077,7 @@ public final class PackageDataGameTests {
                     chest.setItem(0, ItemStack.EMPTY);
                     assembler.serverTick();
 
-                    helper.assertTrue(packageCountInChest(chest) == 2 && assembler.completedOutputCount() == 0,
+                    helper.assertTrue(packageCountInChest(chest) == 3 && assembler.completedOutputCount() == 0,
                             "An admitted batch should retry its remainder without blocking on its first package");
 
                     assembler.insertMenuInput(0, new ItemStack(Items.IRON_INGOT), 1, false);
@@ -3037,7 +3085,7 @@ public final class PackageDataGameTests {
                     assembler.insertMenuInput(2, new ItemStack(Items.GOLD_INGOT), 1, false);
                     tickPackageAssemblerToCompletion(assembler);
 
-                    helper.assertTrue(packageCountInChest(chest) == 2 && assembler.completedOutputCount() == 3,
+                    helper.assertTrue(packageCountInChest(chest) == 3 && assembler.completedOutputCount() == 3,
                             "The next completed batch should recheck blocking and wait behind matching packages");
                     int manuallyExtracted = 0;
                     for (int output = 0; output < 3; output++) {
@@ -4595,8 +4643,12 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerOrdinaryPatternUsesDefaultPackageIdentity(GameTestHelper helper) {
+    public static void packageAssemblerOrdinaryPatternUsesSelectedColorAndMarkerFilter(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.setSelectedColor(PackageColor.BLUE);
+        assembler.getMarkerFilter().setStack(
+                0,
+                new GenericStack(AEItemKey.of(Items.EMERALD), 1));
         ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32) },
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
@@ -4610,13 +4662,120 @@ public final class PackageDataGameTests {
 
         helper.assertTrue(accepted, "Assembler should accept an ordinary AE2 processing pattern");
         helper.assertTrue(iron.isEmpty(), "Accepted ordinary pattern should consume its exact inputs");
-        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
-                "Ordinary processing patterns should use the default Fluix package color");
+        helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.BLUE).get()),
+                "Ordinary processing patterns should use the assembler's selected package color");
         helper.assertFalse(output.hasCustomHoverName(),
                 "Ordinary processing patterns should retain the package item's default name");
         helper.assertTrue(data.marker().orElseThrow().sameAs(
-                        new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1))),
-                "Ordinary processing patterns should use their primary output as the package marker");
+                        new MarkerSpec(new GenericStack(AEItemKey.of(Items.EMERALD), 1))),
+                "The assembler marker filter should override an ordinary pattern's primary output marker");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerEffectiveColorOverridesAndRestoresSelection(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.setLevel(helper.getLevel());
+        assembler.setSelectedColor(PackageColor.RED);
+        GenericStack configuredMarker = new GenericStack(AEItemKey.of(Items.EMERALD), 1);
+        GenericStack patternMarker = new GenericStack(AEItemKey.of(Items.DIAMOND), 1);
+        assembler.getMarkerFilter().setStack(0, configuredMarker);
+        PackageAssemblerMenu menu = new PackageAssemblerMenu(33, new Inventory(newFakePlayer(helper)), assembler);
+
+        ItemStack packagePattern = packageCraftingPattern(
+                PackageColor.BLUE,
+                Optional.of(new MarkerSpec(patternMarker)),
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1));
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, packagePattern);
+        menu.broadcastChanges();
+        helper.assertTrue(assembler.effectiveColor().orElseThrow() == PackageColor.BLUE
+                        && menu.effectiveColor().orElseThrow() == PackageColor.BLUE
+                        && !menu.canEditColor(),
+                "An inserted package pattern should override the displayed selected color on the host and menu");
+        menu.setSelectedColor(PackageColor.GREEN);
+        helper.assertTrue(assembler.selectedColor() == PackageColor.RED,
+                "A package pattern must reject color edits without mutating the persisted selection");
+        helper.assertTrue(assembler.effectiveMarker().orElseThrow().stack().what().equals(patternMarker.what())
+                        && menu.effectiveMarkerDisplayStack().is(Items.DIAMOND),
+                "An inserted package pattern should replace the displayed marker without changing the configured marker");
+
+        GenericStack iron = new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1);
+        ItemStack advanced = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
+                new GenericStack[] { iron },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        AdvancedProcessingPatternDataStorage.write(
+                advanced,
+                new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                0, PackageColor.GREEN, Optional.of(new MarkerSpec(patternMarker)), List.of(iron)),
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                1, PackageColor.YELLOW, Optional.of(new MarkerSpec(patternMarker)), List.of(iron)))));
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, advanced);
+        menu.broadcastChanges();
+        helper.assertTrue(assembler.effectiveColor().isEmpty()
+                        && menu.effectiveColor().isEmpty()
+                        && !menu.canEditColor()
+                        && menu.effectiveMarkerDisplayStack().is(Items.DIAMOND),
+                "An advanced pattern should display mixed colors and its common marker through the menu");
+        menu.setSelectedColor(PackageColor.YELLOW);
+        helper.assertTrue(assembler.selectedColor() == PackageColor.RED,
+                "An advanced package pattern must also reject persisted color edits");
+
+        assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, ItemStack.EMPTY);
+        menu.broadcastChanges();
+        helper.assertTrue(assembler.effectiveColor().orElseThrow() == PackageColor.RED
+                        && menu.effectiveColor().orElseThrow() == PackageColor.RED
+                        && menu.canEditColor()
+                        && menu.effectiveMarkerDisplayStack().is(Items.EMERALD),
+                "Removing the pattern should restore the persisted player-selected color and marker display");
+
+        CompoundTag saved = assembler.saveWithoutMetadata();
+        PackageAssemblerBlockEntity loaded = newPackageAssembler();
+        loaded.load(saved);
+        helper.assertTrue(loaded.selectedColor() == PackageColor.RED,
+                "Selected color should persist with the assembler");
+        GenericStack loadedMarker = loaded.getMarkerFilter().getStack(0);
+        helper.assertTrue(loadedMarker != null && loadedMarker.what().equals(configuredMarker.what()),
+                "Marker filter key should persist with the assembler");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerProviderCraftDisplaysActiveMixedColors(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = newPackageAssembler();
+        assembler.setLevel(helper.getLevel());
+        assembler.setSelectedColor(PackageColor.RED);
+        assembler.getMarkerFilter().setStack(0, new GenericStack(AEItemKey.of(Items.EMERALD), 1));
+        PackageAssemblerMenu menu = new PackageAssemblerMenu(34, new Inventory(newFakePlayer(helper)), assembler);
+        GenericStack iron = new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1);
+        Optional<MarkerSpec> activeMarker = Optional.of(
+                new MarkerSpec(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)));
+        ItemStack pattern = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
+                new GenericStack[] { iron, iron },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
+        AdvancedProcessingPatternDataStorage.write(
+                pattern,
+                new AdvancedProcessingPatternDataStorage.EncodedAdvancedProcessingPattern(List.of(
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                0, PackageColor.BLUE, activeMarker, List.of(iron)),
+                        new AdvancedProcessingPatternDataStorage.PackageColumn(
+                                1, PackageColor.GREEN, activeMarker, List.of(iron)))));
+        IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
+        KeyCounter inputs = new KeyCounter();
+        inputs.add(AEItemKey.of(Items.IRON_INGOT), 2);
+
+        helper.assertTrue(assembler.pushPattern(details, new KeyCounter[] { inputs }, Direction.UP),
+                "The assembler should accept the advanced provider push");
+        menu.broadcastChanges();
+        helper.assertTrue(assembler.isCrafting()
+                        && assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN).isEmpty()
+                        && assembler.effectiveColor().isEmpty()
+                        && assembler.effectiveMarker().orElseThrow().stack().what().equals(AEItemKey.of(Items.DIAMOND))
+                        && menu.effectiveColor().isEmpty()
+                        && menu.effectiveMarkerDisplayStack().is(Items.DIAMOND),
+                "A provider craft should display its active colors and marker even without a local pattern item");
+        helper.assertTrue(assembler.getMarkerFilter().getStack(0).what().equals(AEItemKey.of(Items.EMERALD)),
+                "Provider display overrides must not replace the assembler's configured marker");
         helper.succeed();
     }
 
@@ -4664,6 +4823,7 @@ public final class PackageDataGameTests {
                     assembler.getItems().setStackInSlot(
                             PackageAssemblerBlockEntity.SLOT_PATTERN,
                             ordinaryStickCraftingPattern(helper));
+                    assembler.setSelectedColor(PackageColor.GREEN);
                     helper.assertTrue(assembler.insertMenuInput(
                                     0, new ItemStack(Items.OAK_PLANKS), 1, false) == 1
                                     && assembler.insertMenuInput(
@@ -4704,6 +4864,8 @@ public final class PackageDataGameTests {
                                     && assembler.menuInputDisplay(0).isEmpty()
                                     && assembler.menuInputDisplay(1).isEmpty(),
                             "Inputs should only be consumed when resumed progress actually completes");
+                    helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.GREEN).get()),
+                            "A local ordinary-pattern craft should use the persisted selected color");
                     helper.assertTrue(data.marker().orElseThrow().sameAs(
                                     new MarkerSpec(new GenericStack(AEItemKey.of(Items.STICK), 1))),
                             "Completed local crafting-pattern package should keep the primary output marker");
@@ -5359,6 +5521,9 @@ public final class PackageDataGameTests {
         state.inputs().setStack(0, new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1));
         state.inputs().setStack(2, new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 2));
         state.inputs().setStack(rows + 1, new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 3));
+        state.setColor(0, PackageColor.RED);
+        state.setColor(1, PackageColor.BLUE);
+        state.setColor(2, PackageColor.GREEN);
         state.setColorMode(AdvancedPatternColorMode.CYCLING);
 
         helper.assertTrue(state.transpose(), "A populated advanced matrix should transpose");
@@ -5368,14 +5533,51 @@ public final class PackageDataGameTests {
                         && state.inputs().getStack(rows + 1).what().equals(AEItemKey.of(Items.GOLD_INGOT))
                         && state.inputs().getStack(rows * 2).what().equals(AEItemKey.of(Items.COPPER_INGOT)),
                 "Transpose should exchange package-column and material-row coordinates without loss");
-        helper.assertTrue(state.color(0) != state.color(1) && state.color(1) != state.color(2),
-                "Cycling color mode should assign consecutive package colors");
+        helper.assertTrue(state.color(0) == PackageColor.RED
+                        && state.color(1) == PackageColor.BLUE
+                        && state.color(2) == PackageColor.GREEN,
+                "Changing color mode and transposing must not recolor existing columns");
 
         helper.assertTrue(state.moveInput(0, rows + 1),
                 "Long-press move semantics should permit moving onto an occupied cell");
         helper.assertTrue(state.inputs().getStack(0).what().equals(AEItemKey.of(Items.GOLD_INGOT))
                         && state.inputs().getStack(rows + 1).what().equals(AEItemKey.of(Items.IRON_INGOT)),
                 "Moving onto an occupied cell should swap both materials");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void advancedPatternColorModeOnlyAssignsNewColumns(GameTestHelper helper) {
+        AdvancedPatternEncodingState state = new AdvancedPatternEncodingState(() -> {
+        });
+        state.setActiveColumns(PackageColor.values().length);
+        for (int column = 0; column < PackageColor.values().length; column++) {
+            state.setColor(column, PackageColor.values()[column]);
+        }
+
+        state.setColorMode(AdvancedPatternColorMode.CYCLING);
+        helper.assertTrue(state.color(0) == PackageColor.FLUIX
+                        && state.color(PackageColor.values().length - 1) == PackageColor.BLACK,
+                "Switching to cycling mode must preserve every existing color");
+        helper.assertTrue(state.addColumn(), "Cycling mode should permit another advanced column");
+        helper.assertTrue(state.color(PackageColor.values().length) == PackageColor.FLUIX,
+                "After every color is used, a new column should continue after the last column color");
+
+        AdvancedPatternEncodingState imported = new AdvancedPatternEncodingState(() -> {
+        });
+        imported.setColor(0, PackageColor.RED);
+        imported.setColorMode(AdvancedPatternColorMode.CYCLING);
+        imported.replaceRecipe(new AdvancedPatternTransferPlan(
+                List.of(
+                        List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1)),
+                        List.of(new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 1)),
+                        List.of(new GenericStack(AEItemKey.of(Items.GOLD_INGOT), 1))),
+                List.of(new GenericStack(AEItemKey.of(Items.DIAMOND), 1))));
+        helper.assertTrue(imported.color(0) == PackageColor.RED,
+                "Recipe transfer should retain colors of columns that already existed");
+        helper.assertTrue(imported.color(1) == PackageColor.FLUIX
+                        && imported.color(2) == PackageColor.WHITE,
+                "Recipe transfer should assign each new column the first color not used before it");
         helper.succeed();
     }
 

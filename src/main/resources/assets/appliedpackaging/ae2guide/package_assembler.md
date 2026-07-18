@@ -15,13 +15,14 @@ categories:
 <BlockImage id="appliedpackaging:package_assembler" scale="8" />
 
 The assembler executes any AE2-decodable encoded pattern. Package and advanced patterns retain their special color,
-marker, order, and sparse layout; ordinary crafting or processing patterns produce one Fluix package from their inputs.
+marker, order, and sparse layout; ordinary crafting or processing patterns use the assembler's selected color and marker.
 
 ## Accepted Patterns and Capacity
 
 The local pattern slot accepts encoded patterns that AE2 can decode. Package patterns produce one configured package;
 advanced patterns produce one package for each enabled column; ordinary crafting and processing patterns produce one
-Fluix package using the pattern's ordered inputs and primary output as marker.
+package using the pattern's ordered inputs, the selected machine color, and either the configured marker or the primary
+output when the marker slot is empty.
 
 Before any input is consumed, every package in the plan must fit the active capacity profile. With no component installed,
 the limit is 9 units and 9 resource types. AE2 16k, 64k, or 256k storage components select larger profiles. An oversized
@@ -40,6 +41,22 @@ counter is consumed. Local mode exposes real position-filtered slots. Ingredient
 The local GUI shows a 4x4 window over the actual expected input positions. Empty sparse positions are skipped; scrolling
 opens only when more real inputs exist beyond the visible window.
 
+## Color, Marker, and Capacity Controls
+
+The color picker offers Fluix plus all 16 dye colors. With no local pattern or with an ordinary pattern, it displays and
+edits the persistent machine selection. A package pattern temporarily displays its encoded color. An advanced pattern
+displays its single shared column color, or **None** when its columns use different colors. While a package or advanced
+pattern is inserted, the color button rejects clicks and the temporary display never writes the machine configuration.
+Removing the pattern restores the previous machine selection. Pattern Provider pushes use the same effective-color
+display while their batch is active.
+
+The marker slot is a non-consuming configuration slot. It overrides an ordinary pattern's primary-output marker, but does
+not override marker metadata in package or advanced patterns. Hovering the capacity component area explains the component
+and shows the active unit/type limits.
+
+While a batch is working, color, marker, output mode, and blocking mode cannot be changed. Their hover tooltips remain
+available. The real material slots and completed ordered output remain player-accessible.
+
 ## Automatic Output
 
 Automatic output targets either the connected ME network or one selected adjacent container. Blocking mode checks a new
@@ -51,8 +68,9 @@ from the six neighboring positions and keeps that direction for the rest of the 
 face for container output. **Disabled** leaves completed packages in the real output list for GUI or capability extraction.
 
 Blocking mode looks for an existing item of any package type in the new batch. Unrelated items do not block it. A batch
-that passes blocking and full-capacity simulation is admitted once, then drains in order without rechecking blocking until
-the list is empty. A target that later refuses an item leaves the remaining real list available to the GUI.
+is admitted once blocking passes and the real head package can be inserted in full; later packages are not preflighted.
+It then drains in order without rechecking blocking. If the target refuses the current head, the remaining real list stays
+available to the GUI.
 
 Changing the configured output mode does not duplicate or replace a package already in that list. Player extraction is
 allowed between automatic output attempts because the GUI and automation share the same ordered storage.

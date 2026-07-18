@@ -36,7 +36,6 @@ public final class ModernVerticalToolbar {
             AppliedPackaging.MOD_ID, "textures/gui/package_bus_vertical_buttons_bg.png");
 
     private static final Blitter BUTTON = Blitter.texture(LATEST_AE2_STATES).src(176, 128, 18, 20);
-    private static final Blitter BUTTON_FOCUS = Blitter.texture(LATEST_AE2_STATES).src(194, 128, 18, 20);
     private static final Blitter BUTTON_HOVER = Blitter.texture(LATEST_AE2_STATES).src(212, 128, 18, 20);
     private static final Blitter PANEL_TOP = Blitter.texture(VERTICAL_BUTTONS, 21, 26).src(0, 0, 21, 2);
     private static final Blitter PANEL_MIDDLE = Blitter.texture(VERTICAL_BUTTONS, 21, 26).src(0, 2, 21, 20);
@@ -54,6 +53,14 @@ public final class ModernVerticalToolbar {
         buttons.clear();
         for (Button button : source) {
             buttons.add(button);
+        }
+    }
+
+    public void appendButton(Button button) {
+        buttons.remove(button);
+        buttons.add(button);
+        if (button instanceof IconButton iconButton) {
+            iconButton.setDisableBackground(true);
         }
     }
 
@@ -80,11 +87,18 @@ public final class ModernVerticalToolbar {
         List<Renderable> renderers = new ArrayList<>();
         for (Button button : buttons) {
             if (button instanceof IconButton iconButton) {
-                renderers.add((graphics, mouseX, mouseY, partialTick) -> renderButton(
-                        graphics,
-                        iconButton,
-                        getIcon(iconButton),
-                        getItemOverlay(iconButton)));
+                renderers.add((graphics, mouseX, mouseY, partialTick) -> {
+                    Icon icon = getIcon(iconButton);
+                    Blitter sprite = iconButton instanceof ModernToolbarSpriteProvider provider
+                            ? provider.getModernToolbarSprite()
+                            : getCurrentIconOverride(icon);
+                    renderButton(
+                            graphics,
+                            iconButton,
+                            icon,
+                            sprite,
+                            getItemOverlay(iconButton));
+                });
             }
         }
         return renderers;
@@ -143,16 +157,24 @@ public final class ModernVerticalToolbar {
 
     /** Exact current-main IconButton renderer used by locally owned buttons. */
     public static void renderButton(GuiGraphics graphics, Button button, Icon icon) {
-        renderButton(graphics, button, icon, null);
+        renderButton(graphics, button, icon, getCurrentIconOverride(icon), null);
     }
 
-    private static void renderButton(GuiGraphics graphics, Button button, Icon icon, Item itemOverlay) {
+    private static void renderButton(
+            GuiGraphics graphics,
+            Button button,
+            Icon icon,
+            Blitter spriteOverride,
+            Item itemOverlay) {
         if (!button.visible) {
             return;
         }
 
         int yOffset = button.isHovered() ? 1 : 0;
-        Blitter background = button.isHovered() ? BUTTON_HOVER : button.isFocused() ? BUTTON_FOCUS : BUTTON;
+        // 1.20.1 keeps mouse-clicked widgets focused after the pointer leaves.
+        // Rendering that persistent mouse focus with the current-AE2 focus sprite
+        // looks like an extra border, so this backport only uses normal/hover states.
+        Blitter background = button.isHovered() ? BUTTON_HOVER : BUTTON;
 
         RenderSystem.disableDepthTest();
         RenderSystem.enableBlend();
@@ -165,6 +187,10 @@ public final class ModernVerticalToolbar {
                     button.getY() + 1 + yOffset,
                     0,
                     3);
+        } else if (spriteOverride != null) {
+            spriteOverride.copy()
+                    .dest(button.getX(), button.getY() + 1 + yOffset)
+                    .blit(graphics);
         } else if (icon != null) {
             Blitter.texture(LATEST_AE2_STATES)
                     .src(icon.x, icon.y, icon.width, icon.height)
@@ -172,6 +198,16 @@ public final class ModernVerticalToolbar {
                     .blit(graphics);
         }
         RenderSystem.enableDepthTest();
+    }
+
+    private static Blitter getCurrentIconOverride(Icon icon) {
+        if (icon == Icon.TYPE_FILTER_ITEMS) {
+            return PackageToolbarSprites.ITEMS_ONLY;
+        }
+        if (icon == Icon.TYPE_FILTER_FLUIDS) {
+            return PackageToolbarSprites.FLUIDS_ONLY;
+        }
+        return null;
     }
 
     private static MethodHandle findIconButtonGetter(String name, Class<?> returnType) {

@@ -1,5 +1,11 @@
 # Terminal And Buses Asset Report
 
+## 2026-07-18 Corrected GUI Bases And Toolbar Sprites
+
+- The corrected user `adv-pattern-terminal-base.png` is byte-preserved as `advanced_pattern_encoding_terminal.png`, SHA-256 `AEDD18C31813DC23287EF0C53FF57274672AFCA803CF7CBA755AC757B360062A`. Its editor region is now a neutral gray underlay. Runtime paints the advanced panel from `pattern_mode_packaging.png [0,128,132,78]` after the base and before dynamic slot/item layers; package mode continues to paint `[0,0,132,78]` at the same anchor.
+- The corrected user `mepackageassembler.png` is byte-preserved with SHA-256 `C96749C3F8EF43DDB63B5F2F6A1E4B769319F52B9964ACD0AEAC7053481B5F33`. Only the four input-row slot origins move right from `left=20` to `left=21`; scrollbar, pattern, capacity and output anchors remain unchanged. The separately corrected live controls now align color swatch `(97,31)` and marker content `(108,32)` to the user frames.
+- The user-authored 3x3 toolbar block at `package-storagebus-sprites.png [0,96,48,48]` provides anti-clog, synchronized-output and pattern-sync on/off pairs plus input-delay, item-only and fluid-only icons. The updated atlas hash is `1E5A223CBBE07D14CE9A97389596E188C668B4A44F0011EA8AA64D9E99EC3EC6`; all pixels outside that block were preserved during this integration.
+
 ## 2026-07-17 Combined Specialized Pattern Terminal
 
 - Package pattern editing is now a second page of `AdvancedPatternEncodingTermScreen`; no standalone Package Pattern Terminal and no package extension of AE2's ordinary Pattern Encoding Terminal remain. The combined screen uses the existing advanced terminal base and one namespaced ScreenStyle.
@@ -9,11 +15,11 @@
 - The package panel still uses the user marker sprite, 3x3 visible input window and 27-row small scrollbar. Advanced inputs/outputs start at `(21,bottom=164)` / `(119,bottom=164)`; package inputs/marker/output start at `(24,bottom=164)` / `(109,bottom=164)` / `(112,bottom=140)`. Both pages share carrier slots `(150,bottom=165)` / `(150,bottom=118)`, Encode `(150,bottom=145)`, status controls and vertical toolbar while retaining separate editor slot inventories. The byte-preserved base and mode atlas hashes are `9586E6422D039A58C1188F5DA4F504FDE04870E4383F29E56FA9FE2752CCDD00` and `65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096`.
 - Runtime does not paint slot interiors with flat colors. Active advanced input columns draw the AE2 v19 `SLOT_BACKGROUND [192,192,18,18]` sprite at `(slot.x-1,slot.y-1)`; inactive columns and all output slots retain the user atlas pixels. Advanced header color/clear/cycle controls use `bottom=174` and column actions use `bottom=173`, ending above the grid's `y=80` top border instead of overlapping it at the former 172/171 anchors.
 
-## 2026-07-16 Package-mode Full-screen Delegate Base
+## 2026-07-18 Combined Terminal Current-AE2 Cache
 
-- AE2's original `PatternEncodingTermScreen` and native-mode resources remain active outside package mode. The byte-preserved v19.2.17 `pattern.png` copy at `textures/gui/pattern_encoding_terminal.png` is used only by the same-menu package-only Screen. Its local style is namespaced at `assets/ae2/screens/appliedpackaging/pattern_encoding_terminal.json`; it does not override AE2's native terminal style, and no native `pattern_modes.png` is shipped.
-- The base remains 256x256 RGBA with SHA-256 `573E8852E2590262FD5405121549F48B7B78ED79199F615FC0B068C773A1F6BE`. Dimension, required-path, fixed-hash, modified-source, and malformed-dimension fixtures are part of the asset audit.
-- The package-only Screen composes this base with the existing LGPL-tracked `ae2-states.png`, current upgrade panel, vertical toolbar background, network scrollbar, user 124x66 package panel, and user marker sprite. Its style moves inherited 15.4.10 view-cell/upgrades panels outside the visible region so old and new side panels cannot overlap. Switching back to a native mode restores the retained AE2 15.4.10 Screen and its client state rather than drawing this asset.
+- AE2's original `PatternEncodingTermScreen` and native-mode resources remain untouched. The Applied Packaging combined specialized terminal no longer ships the retired `textures/gui/pattern_encoding_terminal.png` package-only base or a local override for AE2's native terminal style.
+- The combined Screen caches current AE2 `textures/guis/terminal.png` as `textures/gui/ae2-terminal.png` (SHA-256 `9CE91ECCF149E1703960906B349093AF726E6DEB753985C7E85B5D0DB359B3E4`) and samples it for the search/header and pinned crafting row. The source and LGPL boundary are recorded in `META-INF/licenses/ae2-current-terminal-source.txt`.
+- Terminal state pixels come from the shared `ae2-states.png`; the byte-duplicate `advanced_pattern_encoding_terminal_states.png` was removed. Package-specific panel, marker, color-picker, column, and transpose pixels remain in the user Applied Packaging atlases.
 
 ## 2026-07-16 Advanced Pattern Encoding Terminal v19 Part Integration
 

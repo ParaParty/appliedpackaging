@@ -39,6 +39,7 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
 
     private final SequenceBufferBlockEntity viewedBlock;
     private final ContainerLevelAccess access;
+    private final boolean configurationEditable;
     private int scrollOffset;
 
     @GuiSync(30)
@@ -67,19 +68,23 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
             int containerId,
             Inventory playerInventory,
             SequenceBufferBlockEntity authority,
-            SequenceBufferBlockEntity viewedBlock) {
+            SequenceBufferBlockEntity viewedBlock,
+            boolean configurationEditable) {
         super(type, containerId, playerInventory, authority);
         this.viewedBlock = viewedBlock;
+        this.configurationEditable = configurationEditable;
         BlockPos viewedPos = viewedBlock.getBlockPos();
         this.access = ContainerLevelAccess.create(viewedBlock.getLevel(), viewedPos);
         this.memberCount = currentMemberCount();
 
-        registerClientAction(ACTION_TOGGLE_AUTO_OUTPUT, this::toggleAutoOutput);
-        registerClientAction(ACTION_TOGGLE_BLOCKING_MODE, this::toggleBlockingMode);
-        registerClientAction(ACTION_TOGGLE_ANTI_CLOG_MODE, this::toggleAntiClogMode);
-        registerClientAction(ACTION_TOGGLE_SYNCHRONIZED_OUTPUT, this::toggleSynchronizedOutput);
-        registerClientAction(ACTION_TOGGLE_PATTERN_MODE, this::togglePatternMode);
-        registerClientAction(ACTION_CYCLE_INPUT_DELAY, Integer.class, this::cycleInputDelay);
+        if (configurationEditable) {
+            registerClientAction(ACTION_TOGGLE_AUTO_OUTPUT, this::toggleAutoOutput);
+            registerClientAction(ACTION_TOGGLE_BLOCKING_MODE, this::toggleBlockingMode);
+            registerClientAction(ACTION_TOGGLE_ANTI_CLOG_MODE, this::toggleAntiClogMode);
+            registerClientAction(ACTION_TOGGLE_SYNCHRONIZED_OUTPUT, this::toggleSynchronizedOutput);
+            registerClientAction(ACTION_TOGGLE_PATTERN_MODE, this::togglePatternMode);
+            registerClientAction(ACTION_CYCLE_INPUT_DELAY, Integer.class, this::cycleInputDelay);
+        }
     }
 
     protected final void addStorageDisplaySlots(int count) {
@@ -176,7 +181,14 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
         return Math.max(0, inputDelayTicks);
     }
 
+    public final boolean canEditConfiguration() {
+        return configurationEditable;
+    }
+
     public final void toggleAutoOutput() {
+        if (!configurationEditable) {
+            return;
+        }
         if (isClientSide()) {
             sendClientAction(ACTION_TOGGLE_AUTO_OUTPUT);
             return;
@@ -185,6 +197,9 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     }
 
     public final void toggleBlockingMode() {
+        if (!configurationEditable) {
+            return;
+        }
         if (isClientSide()) {
             sendClientAction(ACTION_TOGGLE_BLOCKING_MODE);
             return;
@@ -193,6 +208,9 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     }
 
     public final void toggleAntiClogMode() {
+        if (!configurationEditable) {
+            return;
+        }
         if (isClientSide()) {
             sendClientAction(ACTION_TOGGLE_ANTI_CLOG_MODE);
             return;
@@ -201,6 +219,9 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     }
 
     public final void toggleSynchronizedOutput() {
+        if (!configurationEditable) {
+            return;
+        }
         if (isClientSide()) {
             sendClientAction(ACTION_TOGGLE_SYNCHRONIZED_OUTPUT);
             return;
@@ -210,6 +231,9 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     }
 
     public final void togglePatternMode() {
+        if (!configurationEditable) {
+            return;
+        }
         if (isClientSide()) {
             sendClientAction(ACTION_TOGGLE_PATTERN_MODE);
             return;
@@ -218,6 +242,9 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     }
 
     public final void cycleInputDelay(boolean backwards) {
+        if (!configurationEditable) {
+            return;
+        }
         if (isClientSide()) {
             sendClientAction(ACTION_CYCLE_INPUT_DELAY, backwards ? -1 : 1);
             return;
@@ -255,12 +282,18 @@ public abstract class AbstractSequenceBufferMenu extends UpgradeableMenu<Sequenc
     protected abstract int insertShiftClickedItem(ItemStack stack);
 
     private void cycleInputDelay(Integer direction) {
+        if (!configurationEditable) {
+            return;
+        }
         int step = direction != null && direction < 0 ? -1 : 1;
         updateConfiguration(configuration -> configuration.setInputDelayTicks(
                 nextInputDelayPreset(configuration.inputDelayTicks(), step)));
     }
 
     private void updateConfiguration(java.util.function.Consumer<SequenceBufferConfiguration> change) {
+        if (!configurationEditable) {
+            return;
+        }
         SequenceBufferConfiguration configuration = getHost().configurationCopy();
         change.accept(configuration);
         getHost().updateConfiguration(configuration);

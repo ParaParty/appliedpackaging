@@ -1,15 +1,20 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
+import appeng.api.inventories.InternalInventory;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.menu.SlotSemantic;
 import appeng.menu.SlotSemantics;
 import appeng.menu.guisync.GuiSync;
 import appeng.menu.implementations.UpgradeableMenu;
 import appeng.menu.interfaces.IProgressProvider;
 import appeng.menu.slot.IOptionalSlot;
+import appeng.menu.slot.FakeSlot;
 import appeng.client.Point;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCapacityProfile;
+import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.world.block.entity.PackageAssemblerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -23,6 +28,7 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.items.SlotItemHandler;
+import java.util.Optional;
 
 public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockEntity> implements IProgressProvider {
     public static final int BUTTON_OUTPUT_MODE = 0;
@@ -31,6 +37,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public static final int BUTTON_SCROLL_BASE = 100;
     private static final String ACTION_CYCLE_OUTPUT_MODE = "cycleOutputMode";
     private static final String ACTION_TOGGLE_BLOCKING_MODE = "toggleBlockingMode";
+    private static final String ACTION_SET_COLOR = "setColor";
 
     public static final int VISIBLE_ROWS = 4;
     public static final int VISIBLE_INPUT_COLUMNS = PackageAssemblerBlockEntity.MENU_INPUT_COLUMNS;
@@ -69,10 +76,25 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     public int syncedMenuInputSlotCount = 0;
     @GuiSync(16)
     public boolean syncedPatternCapacityValid = true;
+    @GuiSync(17)
+    public PackageColor selectedColor = PackageColor.FLUIX;
+    @GuiSync(18)
+    public int effectiveColorOrdinal = PackageColor.FLUIX.ordinal();
+    @GuiSync(19)
+    public boolean syncedWorking;
+    @GuiSync(20)
+    public int capacityUnitLimit = (int) PackageCapacityProfile.DEFAULT.unitLimit();
+    @GuiSync(21)
+    public int capacityTypeLimit = PackageCapacityProfile.DEFAULT.typeLimit();
+    @GuiSync(22)
+    public GenericStack effectiveMarker;
+    @GuiSync(23)
+    public boolean syncedColorConfigurable = true;
     private SimpleContainer previewOutput;
     private int[] menuInputSlotIndexes;
     private int mainOutputSlotIndex;
     private int previewOutputSlotIndex;
+    private int markerSlotIndex;
     private int scrollOffset;
 
     public PackageAssemblerMenu(int containerId, Inventory playerInventory, FriendlyByteBuf buffer) {
@@ -108,6 +130,7 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
         registerClientAction(ACTION_CYCLE_OUTPUT_MODE, this::cycleOutputMode);
         registerClientAction(ACTION_TOGGLE_BLOCKING_MODE, this::toggleBlockingMode);
+        registerClientAction(ACTION_SET_COLOR, PackageColor.class, this::setSelectedColor);
         addDataSlot(outputModeSlot);
         addDataSlot(blockingModeSlot);
         refreshMenuInputDimensions();
@@ -132,6 +155,9 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         addSlot(
                 new SlotItemHandler(getHost().getItems(), PackageAssemblerBlockEntity.SLOT_CAPACITY, 0, 0),
                 SlotSemantics.STORAGE_CELL);
+        markerSlotIndex = addSlot(
+                new EffectiveMarkerSlot(getHost().getMarkerFilter().createMenuWrapper(), 0),
+                SlotSemantics.BLANK_PATTERN).index;
         mainOutputSlotIndex = addSlot(
                 new OrderedOutputSlot(getHost()),
                 SlotSemantics.MACHINE_OUTPUT).index;
@@ -163,6 +189,9 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
 
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (slotId == markerSlotIndex && isCrafting()) {
+            return;
+        }
         int visibleIndex = visibleIndexForMenuSlot(slotId);
         if (visibleIndex >= 0) {
             int inputSlot = inputSlotForVisibleIndex(visibleIndex);
@@ -232,6 +261,14 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
         if (isServerSide()) {
             craftProgress = getHost().craftingProgress();
             queuedOutputCount = getHost().queuedOutputCount();
+            selectedColor = getHost().selectedColor();
+            effectiveColorOrdinal = getHost().effectiveColor().map(Enum::ordinal).orElse(-1);
+            effectiveMarker = getHost().effectiveMarker().map(marker -> marker.stack()).orElse(null);
+            syncedWorking = getHost().isCrafting();
+            syncedColorConfigurable = getHost().isSelectedColorConfigurable();
+            PackageCapacityProfile capacity = getHost().configuredCapacityProfile();
+            capacityUnitLimit = (int) capacity.unitLimit();
+            capacityTypeLimit = capacity.typeLimit();
             refreshMenuInputDimensions();
             setScrollOffset(scrollOffset);
             previewOutput.setItem(0, getHost().nextOutputPreview());
@@ -259,6 +296,9 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
             return;
         }
 
+        if (getHost().isCrafting()) {
+            return;
+        }
         getHost().toggleAutoExport();
         broadcastChanges();
     }
@@ -273,6 +313,9 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
             return;
         }
 
+        if (getHost().isCrafting()) {
+            return;
+        }
         getHost().toggleBlockingMode();
         broadcastChanges();
     }
@@ -317,7 +360,54 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
     }
 
     public boolean isCrafting() {
-        return craftProgress > 0;
+        return syncedWorking;
+    }
+
+    public boolean canEditColor() {
+        return syncedColorConfigurable && !syncedWorking;
+    }
+
+    public PackageColor selectedColor() {
+        return selectedColor == null ? PackageColor.FLUIX : selectedColor;
+    }
+
+    public Optional<PackageColor> effectiveColor() {
+        PackageColor[] colors = PackageColor.values();
+        return effectiveColorOrdinal >= 0 && effectiveColorOrdinal < colors.length
+                ? Optional.of(colors[effectiveColorOrdinal])
+                : Optional.empty();
+    }
+
+    public ItemStack effectiveMarkerDisplayStack() {
+        return effectiveMarker != null && effectiveMarker.what() instanceof AEItemKey itemKey
+                ? itemKey.toStack(1)
+                : ItemStack.EMPTY;
+    }
+
+    public void setSelectedColor(PackageColor color) {
+        PackageColor value = color == null ? PackageColor.FLUIX : color;
+        if (isClientSide()) {
+            if (!canEditColor()) {
+                return;
+            }
+            sendClientAction(ACTION_SET_COLOR, value);
+            return;
+        }
+        if (!getHost().isSelectedColorConfigurable()) {
+            return;
+        }
+        getHost().setSelectedColor(value);
+        selectedColor = getHost().selectedColor();
+        effectiveColorOrdinal = getHost().effectiveColor().map(Enum::ordinal).orElse(-1);
+        broadcastChanges();
+    }
+
+    public int capacityUnitLimit() {
+        return Math.max(0, capacityUnitLimit);
+    }
+
+    public int capacityTypeLimit() {
+        return Math.max(0, capacityTypeLimit);
     }
 
     public boolean isPatternCapacityValid() {
@@ -458,6 +548,22 @@ public class PackageAssemblerMenu extends UpgradeableMenu<PackageAssemblerBlockE
             return assembler;
         }
         throw new IllegalStateException("Expected Package Assembler block entity at " + pos);
+    }
+
+    private final class EffectiveMarkerSlot extends FakeSlot {
+        private EffectiveMarkerSlot(InternalInventory inventory, int slot) {
+            super(inventory, slot);
+        }
+
+        @Override
+        public ItemStack getDisplayStack() {
+            return effectiveMarkerDisplayStack();
+        }
+
+        @Override
+        public boolean hasItem() {
+            return !getDisplayStack().isEmpty();
+        }
     }
 
     private final class MenuInputDisplaySlot extends Slot implements IOptionalSlot {

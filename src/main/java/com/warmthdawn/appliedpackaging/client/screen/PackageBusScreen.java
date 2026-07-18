@@ -34,6 +34,8 @@ import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.ModernUpgradesPanel;
 import com.warmthdawn.appliedpackaging.client.widget.ModernVerticalToolbar;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
+import com.warmthdawn.appliedpackaging.client.widget.PackageToolbarSprites;
+import com.warmthdawn.appliedpackaging.client.widget.SpriteToggleButton;
 import com.warmthdawn.appliedpackaging.mixin.client.SlotAccessor;
 import com.warmthdawn.appliedpackaging.part.AbstractPackageBusPart;
 import com.warmthdawn.appliedpackaging.world.menu.PackageBusMenu;
@@ -42,6 +44,7 @@ import java.util.List;
 import java.util.Optional;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -98,7 +101,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
     private final SettingToggleButton<YesNo> filterOnExtract;
     private final SettingToggleButton<FuzzyMode> fuzzyMode;
     private final SettingToggleButton<YesNo> blockingMode;
-    private final ToggleButton antiClogMode;
+    private final SpriteToggleButton antiClogMode;
 
     public PackageBusScreen(
             PackageBusMenu menu,
@@ -135,9 +138,9 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         if (menu.isUnpackingBus()) {
             blockingMode = new ModernServerSettingToggleButton<>(Settings.BLOCKING_MODE, YesNo.NO);
             toolbarButtons.add(blockingMode);
-            antiClogMode = new ToggleButton(
-                    Icon.AUTO_EXPORT_ON,
-                    Icon.AUTO_EXPORT_OFF,
+            antiClogMode = new SpriteToggleButton(
+                    PackageToolbarSprites.ANTI_CLOG_ON,
+                    PackageToolbarSprites.ANTI_CLOG_OFF,
                     ignored -> menu.toggleAntiClogMode());
             Component antiClogTitle = Component.translatable("gui.appliedpackaging.anti_clog_mode");
             antiClogMode.setTooltipOn(List.of(
@@ -190,6 +193,9 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         super.init();
         for (Button button : toolbarButtons) {
             addRenderableWidget(button);
+        }
+        for (Renderable renderer : modernToolbar.createIconButtonRenderers()) {
+            addRenderableOnly(renderer);
         }
         for (var button : colorButtons) {
             addRenderableWidget(button);
@@ -281,8 +287,9 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
-        if (!colorPicker.isOpen()) {
+        boolean colorModalOpen = colorPicker.isOpen();
+        super.render(graphics, colorModalOpen ? -1 : mouseX, colorModalOpen ? -1 : mouseY, partialTick);
+        if (!colorModalOpen) {
             renderModeTooltip(graphics, mouseX, mouseY);
         }
         colorPicker.renderLast(graphics, font, mouseX, mouseY);

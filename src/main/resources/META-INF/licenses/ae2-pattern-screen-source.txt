@@ -5,12 +5,6 @@ Tag: neoforge/v19.2.17
 Commit: 79ee2c704ad62941a426c26b1cb1f76ef5b2ee5a
 License: LGPL-3.0-or-later
 
-Unmodified copied texture:
-
-- src/main/resources/assets/ae2/textures/guis/pattern.png
-  -> assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png
-  SHA-256: 573E8852E2590262FD5405121549F48B7B78ED79199F615FC0B068C773A1F6BE
-
 AE2-derived implementation reference:
 
 - src/main/java/appeng/client/gui/me/items/PatternEncodingTermScreen.java
@@ -29,6 +23,5 @@ The local implementation does not replace or extend AE2's screen factory.
 AE2 15.4.10's original PatternEncodingTermScreen remains unchanged. Advanced
 and package pattern editing are two pages of one Applied Packaging terminal,
 backed by one AdvancedPatternEncodingTermMenu and one screen. The combined menu
-creates no VIEW_CELL slots. The copied pattern.png-derived texture is retained
-as an unmodified LGPL-tracked reference asset; the combined runtime screen uses
-advanced_pattern_encoding_terminal.png instead.
+creates no VIEW_CELL slots. The retired standalone pattern.png cache is no
+longer shipped; the combined runtime screen uses advanced_pattern_encoding_terminal.png.

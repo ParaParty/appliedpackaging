@@ -240,10 +240,6 @@ function Get-ExpectedPngSize {
         return @{ Width = 128; Height = 128; Label = "root logo" }
     }
 
-    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/logo.png") {
-        return @{ Width = 128; Height = 128; Label = "gui logo" }
-    }
-
     if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/mepackager.png") {
         return @{ Width = 256; Height = 256; Label = "ME Packager GUI atlas" }
     }
@@ -266,10 +262,6 @@ function Get-ExpectedPngSize {
         return @{ Width = 256; Height = 256; Label = "advanced pattern encoding terminal sprite atlas" }
     }
 
-    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png") {
-        return @{ Width = 256; Height = 256; Label = "advanced pattern encoding terminal AE2 states atlas" }
-    }
-
     if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png") {
         return @{ Width = 195; Height = 18; Label = "advanced pattern encoding terminal middle row" }
     }
@@ -282,8 +274,12 @@ function Get-ExpectedPngSize {
         return @{ Width = 256; Height = 256; Label = "package pattern mode GUI atlas" }
     }
 
-    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png") {
-        return @{ Width = 256; Height = 256; Label = "AE2 v19 package-mode full-screen terminal base GUI" }
+    if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png") {
+        return @{ Width = 256; Height = 256; Label = "cached current-AE2 terminal GUI" }
+    }
+
+    if ($RelativePath -eq "src/main/resources/assets/ae2/textures/guis/text_field.png") {
+        return @{ Width = 128; Height = 128; Label = "cached current-AE2 text field GUI" }
     }
 
     if ($RelativePath -eq "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png") {
@@ -356,10 +352,6 @@ function Get-ExpectedPngSize {
 
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/part/", [System.StringComparison]::Ordinal)) {
         return @{ Width = 16; Height = 16; Label = "AE2 part texture" }
-    }
-
-    if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/gui/icons/", [System.StringComparison]::Ordinal)) {
-        return @{ Width = 16; Height = 16; Label = "GUI icon" }
     }
 
     if ($RelativePath.StartsWith("src/main/resources/assets/appliedpackaging/textures/gui/", [System.StringComparison]::Ordinal)) {
@@ -460,35 +452,20 @@ if (Test-Path -LiteralPath $specializedPatternStylePath) {
 
 $requiredPngPaths = @(
     "src/main/resources/assets/appliedpackaging/logo.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/logo.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/mepackager.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png",
+    "src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png",
+    "src/main/resources/assets/ae2/textures/guis/text_field.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png",
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/auto_export.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/blocking_mode.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/capacity.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/marker_clear.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/marker_override.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/marker_retain.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/marker.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/pack_once.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/package_filter.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/status_blocked.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/status_error.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/status_ready.png",
-    "src/main/resources/assets/appliedpackaging/textures/gui/icons/unpack_filter.png",
     "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png",
     "src/main/resources/assets/appliedpackaging/textures/item/advanced_processing_pattern.png",
     "src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_back.png",
@@ -594,12 +571,13 @@ $bytePreservedPngHashes = [ordered]@{
     "src/main/resources/assets/appliedpackaging/textures/part/package_unpacking_bus_back.png" = "3086B228171D19F1DFB55FDF6384165FDB78CEABB25B09C4706CE2E23599CD07"
     "src/main/resources/assets/appliedpackaging/textures/block/package_assembler.png" = "345A070081B556D2EF44AE0DAB65210F7728C33BB7C29FD46B526C607605FCE0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus.png" = "506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE"
-    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635"
-    "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png" = "118681C89EED078494D4C7371309543AC0F39184FE9F20D30B2D5A874AD5F18D"
-    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png" = "9586E6422D039A58C1188F5DA4F504FDE04870E4383F29E56FA9FE2752CCDD00"
+    "src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprites.png" = "1E5A223CBBE07D14CE9A97389596E188C668B4A44F0011EA8AA64D9E99EC3EC6"
+    "src/main/resources/assets/appliedpackaging/textures/gui/mepackageassembler.png" = "C96749C3F8EF43DDB63B5F2F6A1E4B769319F52B9964ACD0AEAC7053481B5F33"
+    "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png" = "AEDD18C31813DC23287EF0C53FF57274672AFCA803CF7CBA755AC757B360062A"
     "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png" = "65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096"
     "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png" = "0996B0084C7BF37F65A97A745982AB681EBD86F142FADE526F14C823C4727E55"
-    "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png" = "573E8852E2590262FD5405121549F48B7B78ED79199F615FC0B068C773A1F6BE"
+    "src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png" = "9CE91ECCF149E1703960906B349093AF726E6DEB753985C7E85B5D0DB359B3E4"
+    "src/main/resources/assets/ae2/textures/guis/text_field.png" = "73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png" = "C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E209E0E44B8B0"
     "src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png" = "62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715"
     "src/main/resources/assets/appliedpackaging/textures/gui/sequence_buffer.png" = "075E3329882A3AAE7FE7EBDAAB32EBF799531DC4224F3F37B563CD6B537A2C67"
@@ -895,8 +873,36 @@ $sequenceBufferMainScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/c
 if (Test-Path -LiteralPath $sequenceBufferMainScreenPath) {
     $sequenceBufferMainScreenText = Get-Content -Raw -LiteralPath $sequenceBufferMainScreenPath
     Assert-True `
-        ($sequenceBufferMainScreenText -match 'addScrollBar\("sequenceBufferScrollbar",\s*Scrollbar\.DEFAULT\)') `
-        "Sequence Buffer scrollbar uses the aligned standard 12x15 enabled and disabled handles"
+        ($sequenceBufferMainScreenText -match 'addScrollBar\("sequenceBufferScrollbar",\s*ModernScrollbarStyles\.BIG\)') `
+        "Sequence Buffer scrollbar uses the cached current-AE2 12x15 enabled and disabled handles"
+}
+
+$advancedPatternTerminalScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/AdvancedPatternEncodingTermScreen.java"
+if (Test-Path -LiteralPath $advancedPatternTerminalScreenPath) {
+    $advancedPatternTerminalScreenText = Get-Content -Raw -LiteralPath $advancedPatternTerminalScreenPath
+    Assert-True `
+        ($advancedPatternTerminalScreenText.Contains('"textures/gui/ae2-terminal.png"') -and
+            $advancedPatternTerminalScreenText -match '(?s)drawBackgroundSegment\(\s*graphics,\s*LATEST_TERMINAL' -and
+            $advancedPatternTerminalScreenText.Contains('Blitter.texture(LATEST_TERMINAL)')) `
+        "Advanced Pattern Terminal search header and pinned row use the cached current-AE2 terminal atlas"
+
+    $colorModeWidgetIndex = $advancedPatternTerminalScreenText.IndexOf('addRenderableWidget(colorModeButton);')
+    $toolbarRendererIndex = $advancedPatternTerminalScreenText.IndexOf('modernToolbar.createIconButtonRenderers()')
+    Assert-True `
+        ($advancedPatternTerminalScreenText.Contains('modernToolbar.appendButton(colorModeButton)') -and
+            $advancedPatternTerminalScreenText.Contains('Icon.SCHEDULING_DEFAULT') -and
+            $advancedPatternTerminalScreenText.Contains('Icon.SCHEDULING_ROUND_ROBIN') -and
+            $colorModeWidgetIndex -ge 0 -and
+            $toolbarRendererIndex -gt $colorModeWidgetIndex) `
+        "Advanced Pattern Terminal color mode follows the native toolbar functions and its current-AE2 overlay renders last"
+
+    $advancedPanelDrawIndex = $advancedPatternTerminalScreenText.IndexOf('drawAdvancedPanel(graphics, offsetX, offsetY);')
+    $advancedSlotDrawIndex = $advancedPatternTerminalScreenText.IndexOf('drawAdvancedInputSlotBackgrounds(graphics, offsetX, offsetY);')
+    Assert-True `
+        ($advancedPatternTerminalScreenText -match '(?s)ADVANCED_PANEL\s*=\s*Blitter\.texture\(PACKAGE_PANEL_TEXTURE\)\.src\(0,\s*128,\s*PACKAGE_PANEL_WIDTH,\s*PACKAGE_PANEL_HEIGHT\)' -and
+            $advancedPanelDrawIndex -ge 0 -and
+            $advancedSlotDrawIndex -gt $advancedPanelDrawIndex) `
+        "Advanced Pattern Terminal paints the advanced panel over the corrected gray base before slot overlays"
 }
 
 $modernSlotRenderingPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernSlotRendering.java"
@@ -923,6 +929,94 @@ if (Test-Path -LiteralPath $packageAssemblerScreenPath) {
             $packageAssemblerScreenText.Contains("ModernScrollbarStyles.SMALL") -and
             -not $packageAssemblerScreenText.Contains("SLOT_DISABLED_OVERLAY")) `
         "Package Assembler screen uses shared current-AE2 slot and scrollbar rendering"
+    Assert-True `
+        ($packageAssemblerScreenText -match 'COLOR_BUTTON_X\s*=\s*95;' -and
+            $packageAssemblerScreenText -match 'COLOR_BUTTON_Y\s*=\s*29;') `
+        "Package Assembler color trigger aligns its 8x8 swatch to the corrected user frame"
+}
+
+$packageAssemblerStylePath = "src/main/resources/assets/ae2/screens/appliedpackaging/package_assembler.json"
+if (Test-Path -LiteralPath $packageAssemblerStylePath) {
+    $packageAssemblerStyle = Get-JsonFile $packageAssemblerStylePath
+    if ($null -ne $packageAssemblerStyle) {
+        Assert-True `
+            ($packageAssemblerStyle.widgets.packageQueueScrollbar.left -eq 12 -and
+                $packageAssemblerStyle.widgets.packageQueueScrollbar.top -eq 31 -and
+                $packageAssemblerStyle.widgets.packageQueueScrollbar.height -eq 72) `
+            "Package Assembler scrollbar stays aligned one pixel right on the user track"
+        Assert-True `
+            ($packageAssemblerStyle.slots.PROCESSING_INPUTS.left -eq 21 -and
+                $packageAssemblerStyle.slots.PROCESSING_INPUTS.top -eq 33 -and
+                $packageAssemblerStyle.slots.MACHINE_CRAFTING_GRID.left -eq 21 -and
+                $packageAssemblerStyle.slots.MACHINE_CRAFTING_GRID.top -eq 51 -and
+                $packageAssemblerStyle.slots.CRAFTING_GRID.left -eq 21 -and
+                $packageAssemblerStyle.slots.CRAFTING_GRID.top -eq 69 -and
+                $packageAssemblerStyle.slots.CONFIG.left -eq 21 -and
+                $packageAssemblerStyle.slots.CONFIG.top -eq 87) `
+            "Package Assembler input rows alone start one pixel right on the corrected user atlas"
+        Assert-True `
+            ($packageAssemblerStyle.slots.BLANK_PATTERN.left -eq 108 -and
+                $packageAssemblerStyle.slots.BLANK_PATTERN.top -eq 32) `
+            "Package Assembler marker filter occupies the user atlas marker frame"
+    }
+}
+
+$packageToolbarSpritesPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/PackageToolbarSprites.java"
+$modernToolbarPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernVerticalToolbar.java"
+$sequenceBufferSharedScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/AbstractSequenceBufferScreen.java"
+$mePackagerScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/MePackagerScreen.java"
+$packageBusScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/PackageBusScreen.java"
+if (Test-Path -LiteralPath $packageToolbarSpritesPath) {
+    $packageToolbarSpritesText = Get-Content -Raw -LiteralPath $packageToolbarSpritesPath
+    $expectedToolbarSpriteCoordinates = @(
+        'ANTI_CLOG_ON = icon(0, 96)',
+        'ANTI_CLOG_OFF = icon(0, 112)',
+        'SYNCHRONIZED_OUTPUT_ON = icon(16, 96)',
+        'SYNCHRONIZED_OUTPUT_OFF = icon(16, 112)',
+        'PATTERN_SYNC_ON = icon(32, 96)',
+        'PATTERN_SYNC_OFF = icon(32, 112)',
+        'INPUT_DELAY = icon(0, 128)',
+        'ITEMS_ONLY = icon(16, 128)',
+        'FLUIDS_ONLY = icon(32, 128)'
+    )
+    $toolbarSpriteCoordinatesValid = $true
+    foreach ($coordinate in $expectedToolbarSpriteCoordinates) {
+        if (-not $packageToolbarSpritesText.Contains($coordinate)) {
+            $toolbarSpriteCoordinatesValid = $false
+        }
+    }
+    Assert-True `
+        $toolbarSpriteCoordinatesValid `
+        "Applied Packaging toolbar sprites use the user-authored 3x3 block at atlas origin 0,96"
+}
+if ((Test-Path -LiteralPath $sequenceBufferSharedScreenPath) -and
+        (Test-Path -LiteralPath $mePackagerScreenPath) -and
+        (Test-Path -LiteralPath $packageBusScreenPath)) {
+    $sequenceBufferSharedScreenText = Get-Content -Raw -LiteralPath $sequenceBufferSharedScreenPath
+    $mePackagerScreenText = Get-Content -Raw -LiteralPath $mePackagerScreenPath
+    $packageBusScreenText = Get-Content -Raw -LiteralPath $packageBusScreenPath
+    Assert-True `
+        ($sequenceBufferSharedScreenText.Contains('PackageToolbarSprites.ANTI_CLOG_ON') -and
+            $sequenceBufferSharedScreenText.Contains('PackageToolbarSprites.SYNCHRONIZED_OUTPUT_ON') -and
+            $sequenceBufferSharedScreenText.Contains('PackageToolbarSprites.PATTERN_SYNC_ON') -and
+            $sequenceBufferSharedScreenText.Contains('PackageToolbarSprites.INPUT_DELAY') -and
+            $mePackagerScreenText.Contains('PackageToolbarSprites.ANTI_CLOG_ON') -and
+            $packageBusScreenText.Contains('PackageToolbarSprites.ANTI_CLOG_ON')) `
+        "Package-specific machine and bus controls use the new toolbar sprite groups"
+}
+if (Test-Path -LiteralPath $modernToolbarPath) {
+    $modernToolbarText = Get-Content -Raw -LiteralPath $modernToolbarPath
+    Assert-True `
+        ($modernToolbarText.Contains('Icon.TYPE_FILTER_ITEMS') -and
+            $modernToolbarText.Contains('PackageToolbarSprites.ITEMS_ONLY') -and
+            $modernToolbarText.Contains('Icon.TYPE_FILTER_FLUIDS') -and
+            $modernToolbarText.Contains('PackageToolbarSprites.FLUIDS_ONLY')) `
+        "Terminal type filters use the supplied item-only and fluid-only sprites"
+    Assert-True `
+        ($modernToolbarText.Contains('button.isHovered() ? BUTTON_HOVER : BUTTON') -and
+            -not $modernToolbarText.Contains('BUTTON_FOCUS') -and
+            -not $modernToolbarText.Contains('button.isFocused()')) `
+        "Modern toolbar mouse clicks do not leave a persistent focus border"
 }
 
 $mePackagerScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/MePackagerScreen.java"
@@ -959,6 +1053,7 @@ if (Test-Path -LiteralPath $sequenceBufferSharedScreenPath) {
     $sequenceBufferSettingActions = @(
         "menu::toggleAutoOutput",
         "menu::toggleBlockingMode",
+        "menu::toggleAntiClogMode",
         "menu::toggleSynchronizedOutput",
         "menu::togglePatternMode",
         "menu.cycleInputDelay"
@@ -970,8 +1065,19 @@ if (Test-Path -LiteralPath $sequenceBufferSharedScreenPath) {
         }
     }
     Assert-True `
-        $hasAllSequenceBufferSettingActions `
-        "Sequence Buffer main and side screens expose all five endpoint settings in the shared AE2 toolbar"
+        ($hasAllSequenceBufferSettingActions -and
+            $sequenceBufferSharedScreenText.Contains("menu.canEditConfiguration()")) `
+        "Sequence Buffer endpoint settings are constructed only for an editable main menu"
+}
+
+$sequenceBufferSideScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/SequenceBufferSideScreen.java"
+if (Test-Path -LiteralPath $sequenceBufferSideScreenPath) {
+    $sequenceBufferSideScreenText = Get-Content -Raw -LiteralPath $sequenceBufferSideScreenPath
+    Assert-True `
+        ($sequenceBufferSideScreenText.Contains("Icon.ENTER") -and
+            $sequenceBufferSideScreenText.Contains("menu.openMain()") -and
+            $sequenceBufferSideScreenText.Contains("menu.canOpenMain()")) `
+        "Sequence Buffer member side screen only offers the current-AE2 endpoint navigation icon"
 }
 
 foreach ($color in $packageColors) {
@@ -1202,7 +1308,10 @@ foreach ($opaqueModelPath in $opaqueSolidModelPaths) {
         "Opaque block/part model must use the default solid render type: $opaqueModelPath"
 }
 
-$pngFiles = @(Get-ChildItem -LiteralPath $assetRoot -Recurse -Filter "*.png" -File -ErrorAction SilentlyContinue)
+$pngFiles = @(
+    Get-ChildItem -LiteralPath $assetRoot -Recurse -Filter "*.png" -File -ErrorAction SilentlyContinue
+    Get-ChildItem -LiteralPath "src/main/resources/assets/ae2" -Recurse -Filter "*.png" -File -ErrorAction SilentlyContinue
+)
 Assert-True ($pngFiles.Count -gt 0) "PNG assets are present"
 
 $badPngs = [System.Collections.Generic.List[string]]::new()

@@ -145,7 +145,6 @@ public final class SequenceBufferTopology {
         if (endpoint == null || !endpoint.canBecomeEndpoint()) {
             return false;
         }
-        SequenceBufferConfiguration authoritativeConfig = endpoint.configurationCopy();
         List<SequenceBufferBlockEntity> blockEntities = new ArrayList<>(positions.size());
         for (BlockPos pos : positions) {
             SequenceBufferBlockEntity blockEntity = blockEntity(level, pos).orElse(null);
@@ -188,7 +187,6 @@ public final class SequenceBufferTopology {
                 level.setBlock(pos, newState, UPDATE_FLAGS);
             }
             blockEntity.assignTopology(positions.get(0), direction, index);
-            blockEntity.applyControllerConfiguration(authoritativeConfig);
         }
         return true;
     }

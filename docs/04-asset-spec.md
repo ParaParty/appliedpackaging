@@ -158,7 +158,7 @@ assets/ae2/screens/appliedpackaging/sequence_buffer_side.json
 
 序列缓存器主 GUI 底图来自用户处理后的 `E:/resources/textures/appliedpackaging/ret/seq_buffer_ui.png`，运行时副本保持 256x256、32-bit ARGB 与原字节 SHA-256 `075E3329882A3AAE7FE7EBDAAB32EBF799531DC4224F3F37B563CD6B537A2C67`。可见主区域固定 `[0,0,195,170]`；用户已删除顶部 3x9 槽框，Screen 必须从 `package-storagebus-sprites.png [0,64,18,18]` 在 `(slot.x-1,slot.y-1)` 动态绘制，禁用槽使用 0.2 alpha，不能重新写回底图。滚动条位于 `(175,18)`、高 54，只在成员数超过 27 时具有非零范围。
 
-侧面 GUI 底图 `sequence_buffer_side.png` 原字节复用 AE2 neoforge/v19.2.17 `textures/guis/me_chest.png`，运行时为 256x256、32-bit ARGB，SHA-256 `2749D7BDAB5E3B9BFF240B6F618AB55AE14A3C2252D9DEB63D959874456D91A0`，可见区域 `[0,0,176,168]`，中央存储槽为 `(80,37)`。第一版两套界面均不得绘制独立 3x3 过滤面板或过滤假槽；五项模式设置复用项目的 AE2 current-style 竖向按钮栏，升级面板统一使用 `{right:2,top:0}` 附着主面板右侧。主界面滚动条组件矩形为 `(175,18,12,54)`，使用 AE2 `Scrollbar.DEFAULT` 的 12x15 enabled/disabled handle；底图轨道外框为 `x=178..183`，因此 handle 在 x=175 时左右各外扩 3 px 并保持居中，禁用状态不得隐藏。
+侧面 GUI 底图 `sequence_buffer_side.png` 原字节复用 AE2 neoforge/v19.2.17 `textures/guis/me_chest.png`，运行时为 256x256、32-bit ARGB，SHA-256 `2749D7BDAB5E3B9BFF240B6F618AB55AE14A3C2252D9DEB63D959874456D91A0`，可见区域 `[0,0,176,168]`，中央存储槽为 `(80,37)`。第一版两套界面均不得绘制独立 3x3 过滤面板或过滤假槽；模式设置只出现在端点主界面的 AE2 current-style 竖向按钮栏。成员/单块侧面界面不显示配置按钮，成型成员仅显示一个从 `ae2-states.png [112,0]` 取样的 ENTER 跳转按钮，单块不显示该按钮。升级面板统一使用 `{right:2,top:0}` 附着主面板右侧。主界面滚动条组件矩形为 `(175,18,12,54)`，使用项目缓存的 current-AE2 `ModernScrollbarStyles.BIG` 12x15 enabled/disabled handle；底图轨道外框为 `x=178..183`，因此 handle 在 x=175 时左右各外扩 3 px 并保持居中，禁用状态不得隐藏。
 
 ## 5. 终端与总线资产
 
@@ -171,9 +171,9 @@ assets/ae2/screens/appliedpackaging/sequence_buffer_side.json
 共享 full-screen base: assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png
 高级页和包裹页共享同一个 195px 宽 Screen/Menu、网络数据、左侧工具栏与 192px bottom。两行网络库存时两页都为 195x245；切换只替换中部 132x78 模式面板并重排当前页 slot，不调用 resize/init，不重新居中。右侧模式按钮使用 current-AE Pattern Encoding Terminal 的 22x22 `HORIZONTAL_TAB` / selected / focus sprites，固定 `left=173`、相邻步进 21px，包裹在上、高级在下；`package_bus_vertical_buttons_bg.png` 只用于左侧工具栏，不用于模式标签。菜单不创建 `VIEW_CELL` 槽，ScreenStyle 把继承的 view-cell 区域移出可见区，不绘制显示元件面板或空槽。
 GUI atlas: assets/appliedpackaging/textures/gui/pattern_mode_packaging.png
-atlas 固定为 256x256 RGBA；包裹面板位于 `[0,0,132,78]`，高级面板位于 `[0,128,132,78]`，后者与 full-screen base 的 `(8,68,132,78)` 逐像素相同。运行时把包裹面板原尺寸绘制到 `left=8,bottom=177`；不得缩放、裁成旧 124x66 或另换 full-screen base。运行时副本分别与用户 `adv-pattern-terminal-base.png`、`pattern_mode_packaging.png` 保持字节一致，SHA-256 为 `9586E6422D039A58C1188F5DA4F504FDE04870E4383F29E56FA9FE2752CCDD00`、`65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096`。
-高级输入/输出首槽分别为 `(21,bottom=164)`、`(119,bottom=164)`；高级列头颜色/清空/循环按钮为 `bottom=174`，列操作按钮为 `bottom=173`，不得与输入框 `y=80` 顶边重叠。高级槽不得以纯色重绘槽内区：动态启用的输入列必须使用 `advanced_pattern_encoding_terminal_states.png [192,192,18,18]` 的 AE2 v19 `SLOT_BACKGROUND` 完整精灵，并绘制到 `(slot.x-1,slot.y-1)`；未启用列不叠加内容，输出槽使用 full-screen base 中已有的槽位材质。包裹 3x3 输入首槽为 `(24,bottom=164)`，marker 为 `(109,bottom=164)`，自动输出物品原点为 `(112,bottom=140)`。包裹滚动条为 `(15,bottom=164)`，清空/颜色按钮为 `(80,bottom=164)` / `(90,bottom=164)`；两页共同的空白样板、已编码样板与 Encode 为 `(150,bottom=165)`、`(150,bottom=118)`、`(150,bottom=145)`。marker 为空时叠加用户 `package-storagebus-sprites.png` 的 `(32,16,16,16)` 自绘槽图标，并提供 current-main hover 与双行说明 tooltip。
-清空按钮使用新版 states sprite `[224,200,8,8]`；用户新增的转置按钮图标固定为 `advanced_pattern_encoding_terminal_sprites.png [16,0,8,8]`，按钮与清空按钮同 x 并位于其正下方，不缩放或重绘该 8x8 像素。颜色设置按钮复用统一 `PackageColorPicker.TriggerButton` 并在内部绘制当前颜色。模式标签不得渲染 ItemStack：高级标签使用 `advanced_pattern_encoding_terminal_states.png [16,32,16,16]` processing/furnace sprite，包裹标签使用 `advanced_pattern_encoding_terminal_sprites.png [32,0,16,16]` package sprite，按 horizontal tab 的 `(3,2)` 原点绘制。
+atlas 固定为 256x256 RGBA；包裹面板位于 `[0,0,132,78]`，高级面板位于 `[0,128,132,78]`。更新后的 full-screen base 在 `(8,68,132,78)` 只保留灰色底板，Screen 必须在 base 之后把当前页面板原尺寸绘制到 `left=8,bottom=177`，再绘制动态槽背景与物品；不得依赖 base 内预烘焙的高级面板，不得缩放或裁成旧 124x66。运行时副本分别与用户 `adv-pattern-terminal-base.png`、`pattern_mode_packaging.png` 保持字节一致，SHA-256 为 `AEDD18C31813DC23287EF0C53FF57274672AFCA803CF7CBA755AC757B360062A`、`65DE82E33052D1F941182863D8303C4D22BA52C07528AC69702B9BA685153096`。
+高级输入/输出首槽分别为 `(21,bottom=164)`、`(119,bottom=164)`；高级列头颜色/清空按钮为 `bottom=174`，列操作按钮为 `bottom=173`，不得与输入框 `y=80` 顶边重叠。高级槽不得以纯色重绘槽内区：动态启用的输入列必须使用共享 `ae2-states.png [192,192,18,18]` 的 AE2 current `SLOT_BACKGROUND` 完整精灵，并绘制到 `(slot.x-1,slot.y-1)`；未启用列不叠加内容，输出槽使用 full-screen base 中已有的槽位材质。包裹 3x3 输入首槽为 `(24,bottom=164)`，marker 为 `(109,bottom=164)`，自动输出物品原点为 `(112,bottom=140)`。包裹滚动条为 `(15,bottom=164)`，清空/颜色按钮为 `(80,bottom=164)` / `(90,bottom=164)`；两页共同的空白样板、已编码样板与 Encode 为 `(150,bottom=165)`、`(150,bottom=118)`、`(150,bottom=145)`。marker 为空时叠加用户 `package-storagebus-sprites.png` 的 `(32,16,16,16)` 自绘槽图标，并提供 current-main hover 与双行说明 tooltip。
+清空按钮使用新版 states sprite `[224,200,8,8]`；用户新增的转置按钮图标固定为 `advanced_pattern_encoding_terminal_sprites.png [16,0,8,8]`，按钮与清空按钮同 x 并位于其正下方，不缩放或重绘该 8x8 像素。高级页颜色模式使用最左侧 current-AE2 `IconButton`，以 scheduling default/round-robin 图标切换，不在列头绘制模式小图标；逐列颜色设置仍复用 `PackageColorPicker.TriggerButton`。模式标签不得渲染 ItemStack：高级标签使用共享 `ae2-states.png [16,32,16,16]` processing/furnace sprite，包裹标签使用 `advanced_pattern_encoding_terminal_sprites.png [32,0,16,16]` package sprite，按 horizontal tab 的 `(3,2)` 原点绘制。
 共享 sprite 中的 AE2 高版本滚动条适配像素以 LGPL-3.0-or-later 例外标记。
 ```
 
@@ -188,11 +188,11 @@ atlas 固定为 256x256 RGBA；包裹面板位于 `[0,0,132,78]`，高级面板�
 高级终端高级页编码 `advanced_processing_pattern`，包裹页编码 `package_pattern`；两种产物均使用独立 item id/model，不复用 AE2 原版样板物品 id
 ScreenStyle: assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json
 GUI texture: assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png
-GUI base 与 sprite atlas 均固定为 256x256 RGBA；两行网络库存时两个模式都是 195x245，使用同一个 `advanced_pattern_encoding_terminal.png` full-screen base 和 192px bottom。ScreenStyle 同时声明两页小滚动条，但不声明可见的 view-cell 面板。
+GUI base 与 sprite atlas 均固定为 256x256 RGBA；两行网络库存时两个模式都是 195x245，使用同一个 `advanced_pattern_encoding_terminal.png` full-screen 灰底 base 和 192px bottom。高级页从 `pattern_mode_packaging.png [0,128,132,78]` 后绘制完整面板，包裹页从 `[0,0,132,78]` 后绘制完整面板；ScreenStyle 同时声明两页小滚动条，但不声明可见的 view-cell 面板。
 终端标题、搜索框、9 列 AE 网络库存、网络滚动条、玩家物品栏与样板编码区坐标按 AE2 1.21.1 Pattern Encoding Terminal 布局适配到 AE2 15.4.10 ScreenStyle。
 每个包裹列包含 81 个逻辑处理输入位置，中间区同时显示 4 列 x 3 行；菜单只为 4 个可见列创建 4×81 个窗口 FakeSlot，并随底部水平滚动同步重映射，底部滚动条覆盖最多 81 个包裹列。
 列间距为 1px；每个启用列显示 8x8 颜色 swatch 与 8x8 编辑按钮，第一未启用列只显示加号，后续列保持禁用底色且不绘制 ghost 物品。
-`advanced_pattern_encoding_terminal_sprites.png` 是用户提供的本地 sprite atlas，其小滚动条/紧凑按钮包含 AE2 高版本 GUI 适配像素；`advanced_pattern_encoding_terminal_states.png` 从 AE2 当前 main/1.21.1 同字节 `states.png` 复制，用于主产物叠加层、样板槽背景、Encode 按钮、右上角合成状态按钮与左侧工具栏 18x20 normal/hover/focus 背景。左侧工具栏同时复用 current-main `vertical_buttons_bg`，ScreenStyle 锚点使用高版本 `left=3,top=1`，按钮间距为 6px；高级终端与 Package Bus 必须共用 `ModernVerticalToolbar` 的布局、外框和按钮背景绘制，不得为高级终端另设 `IconButton` / `VerticalButtonBar` Mixin。两行 base 不含独立中间行，`advanced_pattern_encoding_terminal_middle_row.png` 使用末行顶部 17px 与首行底边 1px 合成 195x18 可重复中间段；`advanced_pattern_encoding_terminal_scrollbar.png` 将新版 AE2 原字节 big scroller 启用/禁用图标装入 1.20.1 Blitter 兼容的 256x256 atlas。以上资源均以 `LGPL-3.0-or-later` 例外标记，完整许可证收录于 `META-INF/licenses/ae2-LGPL-3.0-or-later.txt`。
+`advanced_pattern_encoding_terminal_sprites.png` 是用户提供的本地 sprite atlas，其小滚动条/紧凑按钮包含 AE2 高版本 GUI 适配像素；共享 `ae2-states.png` 从 AE2 current-main/1.21.1 同字节 `states.png` 复制，用于主产物叠加层、样板槽背景、Encode 按钮、右上角合成状态按钮与左侧工具栏 18x20 normal/hover/focus 背景。`ae2-terminal.png` 从同一 current-main `textures/guis/terminal.png` 原字节缓存，提供终端头部和置顶合成行底图；`assets/ae2/textures/guis/text_field.png` 同样以原字节缓存 current-main 的 128x128 搜索框 atlas（SHA-256 `73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1`），保留 `ae2` namespace 以替换 `AETextField` 的硬编码资源，不得回退依赖 AE2 15.4.10 的旧框体。左侧工具栏同时复用 current-main `vertical_buttons_bg`，ScreenStyle 锚点使用高版本 `left=3,top=1`，按钮间距为 6px；高级终端与 Package Bus 必须共用 `ModernVerticalToolbar` 的布局、外框和按钮背景绘制，不得为高级终端另设 Mixin。两行 base 不含独立中间行，`advanced_pattern_encoding_terminal_middle_row.png` 使用末行顶部 17px 与首行底边 1px 合成 195x18 可重复中间段；`advanced_pattern_encoding_terminal_scrollbar.png` 将新版 AE2 原字节 big scroller 启用/禁用图标装入 1.20.1 Blitter 兼容的 256x256 atlas。以上 AE2 来源资源均以 `LGPL-3.0-or-later` 例外标记并记录固定哈希。
 ```
 
 总线：
@@ -202,10 +202,10 @@ Package Storage Bus 与 Package Unpacking Bus 均改为 AE2 cable part。
 Package Storage Bus 使用 AE2 neoforge/v19.2.17 Storage Bus 模型、侧面、背面和状态灯，正面替换为用户 pacakge_storage_bus.png。
 Package Unpacking Bus 使用同版本面板形态 Pattern Provider 模型、侧面和状态灯，正面与背面分别替换为用户 unpacking_panel.png 与 unpacking_panel_back.png。
 两种 part 的物品模型同步使用对应新版几何和表面，不再复用当前依赖版本的 Storage Bus / ME P2P Tunnel item model。
-两种总线 GUI 使用独立纹理：`textures/gui/package-storagebus.png`（用户提供且字节不变，主界面 `[0,0,176,253]`、工作槽/空进度框/活动进度 sprite 位于右侧空闲区）与 `textures/gui/package-storagebus-sprites.png`（由原 `sprite.png` 扩展）。不得把二者合图或向其中烘入 AE2 像素；sprite 图集除本轮颜色选择器三个指定单元外保持原像素。
+两种总线 GUI 使用独立纹理：`textures/gui/package-storagebus.png`（用户提供且字节不变，主界面 `[0,0,176,253]`、工作槽/空进度框/活动进度 sprite 位于右侧空闲区）与 `textures/gui/package-storagebus-sprites.png`（由原 `sprite.png` 扩展）。不得把二者合图或向其中烘入 AE2 像素；sprite 图集允许的用户新增区为颜色选择器三个指定单元及 `[0,96,48,48]` 工具栏图标块，其余像素保持不变。
 Package Storage Bus 不绘制右上工作包裹槽和进度条；Package Unpacking Bus 绘制。
 两者右上优先级标签按 AE2 当前 main Storage Bus 使用 `(152,-5,20,20)`。`states.png`、`extra_panels.png`、`vertical_buttons_bg.png` 分别原样复制为 `ae2-states.png`、`package_bus_extra_panels.png`、`package_bus_vertical_buttons_bg.png`，独立用于新版 toolbar/priority、升级与工具箱面板、竖向工具栏外框，并记录 LGPL 来源。Package Storage Bus 左侧工具栏绘制 Help、清空、Partition Storage 与四个存储设置按钮；Package Unpacking Bus 只绘制 Pattern Provider Help、清空和阻挡模式三个按钮。右侧 5 格升级面板使用 current-main 的 `right=2, top=0`；空升级槽图标使用 `ae2-states.png` 的 `(240,208,16,16)`，不再让 AE2 15.4.10 的旧灰阶 `BACKGROUND_UPGRADE` 混入新版面板。卸货总线运行时把原背景右侧 `[176,0,18,18]` 工作槽与 `[196,0,6,18]` 空进度框绘制到 `(119,8)` / `(139,8)`，再把 `[176,32,6,18]` 活动进度 sprite 按 15 级进度从底部原像素裁切到同一进度框；禁止取单色像素拉伸或代码重新着色。存储总线不绘制该层。
-七行过滤槽从底图第一行 `y=29` 开始、步长 18px；8px 模糊/反转/颜色按钮统一使用相对行顶 2px 的固定上边距，不做垂直居中。统一拾色弹窗固定为 89x23：分隔线左侧 Fluix/None 在 `(3,3)`、`(3,12)` 上下排列，分隔线右侧 16 色从 `(15,3)` 开始按 8x2 排列；None 仅在过滤区显示，隐藏时不回收其位置。禁用过滤行以用户 sprite `(0,64,18,18)` 的 `0.2` alpha 叠加实现，不交付独立 disabled-slot 贴图。用户 sprite `(32,16,16,16)` 是自绘 marker 空槽图标，不属于 AE2 派生像素；总线按行透明度绘制，两台机器与高级终端包裹页按全不透明绘制。颜色格默认 Fluix、None 与选中背景使用同一图集 `(48,0,8,8)`、`(56,0,8,8)`、`(48,8,8,8)`；三个单元从用户截图按 6x 网格精确还原，分别使用 `#C0C0C0/#915DCD/#E2A3E3`、`#C0C0C0/#696D88/#ADB0C4`、`#F2F2F2/#ADB0C4`，选中只替换格内背景，不画额外边框或 hover 状态。更新后 sprite SHA-256 为 `632A686B6F8EC7B712326DC52E639CE43CF8E1B55C44D00309B62B672B766635`；用户 background 与三张 AE2 原样资源继续以各自 SHA-256 门禁防止无意改写。
+七行过滤槽从底图第一行 `y=29` 开始、步长 18px；8px 模糊/反转/颜色按钮统一使用相对行顶 2px 的固定上边距，不做垂直居中。统一拾色弹窗固定为 89x23：分隔线左侧 Fluix/None 在 `(3,3)`、`(3,12)` 上下排列，分隔线右侧 16 色从 `(15,3)` 开始按 8x2 排列；None 仅在过滤区显示，隐藏时不回收其位置。禁用过滤行以用户 sprite `(0,64,18,18)` 的 `0.2` alpha 叠加实现，不交付独立 disabled-slot 贴图。用户 sprite `(32,16,16,16)` 是自绘 marker 空槽图标，不属于 AE2 派生像素；总线按行透明度绘制，两台机器与高级终端包裹页按全不透明绘制。颜色格默认 Fluix、None 与选中背景使用同一图集 `(48,0,8,8)`、`(56,0,8,8)`、`(48,8,8,8)`；三个单元从用户截图按 6x 网格精确还原，分别使用 `#C0C0C0/#915DCD/#E2A3E3`、`#C0C0C0/#696D88/#ADB0C4`、`#F2F2F2/#ADB0C4`。`[0,96,48,48]` 为 3x3 个 16x16 用户工具栏单元：前两行依次为防堵塞、同步输出、样板同步的开/关状态，末行为输入延迟、仅物品、仅流体；终端类型过滤的 All 状态仍使用 current-AE2 原图标。更新后 sprite SHA-256 为 `1E5A223CBBE07D14CE9A97389596E188C668B4A44F0011EA8AA64D9E99EC3EC6`；用户 background 与三张 AE2 原样资源继续以各自 SHA-256 门禁防止无意改写。
 
 2026-07-13 更新后的用户 `package-storagebus.png` 已接入，源文件与运行时副本 SHA-256 均为 `506BE44EF826C14C1DBE37C076EDC7955C0DBFE35A7DB9B157EABA8E241787DE`。新图相对旧图将 10408 个 `#ADB0C4` 像素恢复为 AE2 current-main 主体色 `#CBCCD4`，并将 854 个 `#CBCCD4` 外圈像素恢复为深色边框 `#413F54`；排除自定义中心 `x=7..168, y=28..154` 后，主界面 `[0,0,176,253]` 与 current-main `storagebus.png` 的可见像素差异为 0。右侧工作槽 `[176,0,18,18]`、空进度框 `[196,0,6,18]` 与活动进度 sprite `[176,32,6,18]` 均与旧图逐像素一致，七行过滤区和独立 sprite 均未被破坏。透明像素仅保留用户图既有的透明黑 RGB，与 current-main 的透明白 RGB 在 nearest-neighbor GUI 中均不可见。
 
@@ -214,19 +214,24 @@ Package Storage Bus 不绘制右上工作包裹槽和进度条；Package Unpacki
 
 ## 6. UI 与图标
 
-需要的 UI 图标：
+运行时 UI 资源策略：
 
 ```text
-颜色选择
-marker
-容量档
-输出模式
-打包一次
-保留/覆盖/清除 marker
-打包过滤
-拆包过滤
-拒绝原因状态
+优先复用 AE2/current-main 已缓存 atlas 中语义一致的按钮、状态、槽位与滚动条 sprite
+Applied Packaging 自有颜色格、marker 槽和包裹模式 sprite 继续来自用户 atlas
+不再发布未被 Screen/Widget 引用的独立 textures/gui/icons 图标集
+不再发布未被任何界面引用的 textures/gui/logo.png；仅保留实际 mod logo assets/appliedpackaging/logo.png
 ```
+
+
+
+
+
+
+
+
+
+
 
 UI 风格：
 
@@ -236,12 +241,12 @@ UI 风格：
 Fluix 紫蓝高亮
 清晰 ghost slot
 彩色小灯表示包裹颜色
-ME Packager GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 assets/ae2/screens/appliedpackaging/me_packager.json，背景贴图放在 assets/appliedpackaging/textures/gui/mepackager.png。槽位 hover、右侧升级面板、工具箱面板与空升级槽使用 current-main 回移视觉；左侧按钮通过机器共用 `ModernUpgradeableScreen` 接入 `ModernVerticalToolbar`，与高级终端和 Package Bus 共用 current-main 外框、6px 间距、18x20 背景及新版图标绘制；容量元件空槽图标使用 `ae2-states.png (240,48,16,16)`；空 marker 槽使用用户 sprite `(32,16,16,16)` 与双行说明 tooltip。
+ME Packager GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 assets/ae2/screens/appliedpackaging/me_packager.json，背景贴图放在 assets/appliedpackaging/textures/gui/mepackager.png。槽位 hover、右侧升级面板、工具箱面板与空升级槽使用 current-main 回移视觉；左侧按钮通过机器共用 `ModernUpgradeableScreen` 接入 `ModernVerticalToolbar`，与高级终端和 Package Bus 共用 current-main 外框、6px 间距、18x20 背景及新版图标绘制。1.20.1 鼠标点击会保留 widget focus，工具栏不得因此持续绘制 focus 外框，只绘制 normal/hover 背景；容量元件空槽图标使用 `ae2-states.png (240,48,16,16)`；空 marker 槽使用用户 sprite `(32,16,16,16)` 与双行说明 tooltip。
 ME Packager 过滤区背景只绘制基础启用行；容量卡解锁的可选行必须使用共用的 `package-storagebus-sprites.png [0,64,18,18]` 完整 slot sprite，由代码绘制到 `(slot.x-1,slot.y-1)`，禁用状态使用新版 0.2 alpha，不得用两块纯色 fill 仿画槽位，也不把全部 slot 烘进背景图。
-ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。样板与容量元件槽并列位于顶部；右侧为主输出、只读副预览和进度条。输出模式配置保留 AE2 原生 `IconButton` 的状态、点击和 tooltip，并由机器共用 `ModernUpgradeableScreen` 接入 `ModernVerticalToolbar` 绘制 current-main 左侧工具栏；槽位 hover、右侧升级/工具箱面板与空升级槽使用 current-main 回移视觉，装配室只显示/接受 speed card；已编码样板与容量元件空槽图标分别使用 `ae2-states.png (240,112,16,16)`、`(240,48,16,16)`。原 atlas 中的旧颜色/marker 区域只作为背景保留，不注册无效果控件。
-ME Package Assembler 的下半部分为输入/输出同步滚动区与下半区样板槽；可见窗口为左侧 4x4 输入格和右侧 4 个输出格。滚动条位于输入栏左侧，使用 `advanced_pattern_encoding_terminal_sprites.png` 的 current-AE2 7x15 小滚动柄，enabled/disabled 分别取 `[0,32,7,15]` / `[16,32,7,15]`。输入槽由客户端把 `package-storagebus-sprites.png [0,64,18,18]` 完整 sprite 绘制到 `(slot.x-1,slot.y-1)`，禁用状态为 0.2 opacity；sprite 的 1px 透明外围必须保留 atlas 所有外框与分隔线。菜单不得通过 `IOptionalSlot.isRenderDisabled=true` 触发 AE2 15 `Icon.SLOT_BACKGROUND`，Screen 也不得以纯色覆盖槽内区。atlas 提供面板、标题区、下半区样板槽、容量槽、左侧滚动条轨道、滚动槽容器、输出格和玩家背包区域，并保持用户原图 SHA-256 `118681C89EED078494D4C7371309543AC0F39184FE9F20D30B2D5A874AD5F18D`。
-高级样板终端 GUI 使用 AE2 `ScreenStyle`，style JSON 位于 `assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json`，256x256 base/sprite/states atlas 位于 `assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal*.png`；主体保持高版本 AE2 的 195px 宽度、9 列网络库存和玩家栏基线，中间为 4 列 x 3 行可见真实输入、3 行可见真实输出、左侧行滚动条、底部列滚动条和纯颜色弹窗。每列逻辑容量为 AE2 默认 processing pattern 的 81 个输入槽。右侧空白/已编码样板逻辑槽分别位于 `left=150,bottom=165` 与 `left=150,bottom=118`；编码按钮 widget 位于 `left=150,bottom=145`，三者的 16px 内容、图标及点击区共用同一竖直中心线；slot hover 颜色严格采用 AE2 1.21.1 的 `0x669cd3ff` 填充和 `0xffdaffff` 边线。
-Advanced Pattern Encoding Terminal 的包裹页在同一 full-screen base 上使用 `textures/gui/pattern_mode_packaging.png [0,0,132,78]`，固定绘制到 `left=8,bottom=177`。3x3 可见输入、marker、小滚动条和自动输出使用上一段固定坐标；自动包裹预览不使用 AE2 processing primary-output overlay 或 tooltip。第一枚模式标签位于网络行结束后 6px，第二枚向下 21px，图标只取 sprite。颜色按钮只打开统一拾色弹窗，关闭状态不显示大色板。全项目拾色弹窗复用 `package-storagebus-sprites.png` 的三个 8x8 颜色选择单元：Fluix/None 固定在分隔线左侧上下排列，16 色在右侧 8x2 排列，无标题；`allowNone` 只控制 None 绘制/命中，不改变布局。弹窗使用独立高 Z 层覆盖 slot/item，底层物品保持正常渲染。
+ME Package Assembler GUI 使用 AE2 ScreenStyle 加载：style JSON 放在 `assets/ae2/screens/appliedpackaging/package_assembler.json`，背景 atlas 放在 `assets/appliedpackaging/textures/gui/mepackageassembler.png`，并保持用户提供的 256x256 atlas 原图。样板与容量元件槽并列位于顶部；右侧为主输出、只读副预览和进度条。输出模式与阻挡模式保留 AE2 原生 `IconButton` 的状态、点击和 tooltip，并由机器共用 `ModernUpgradeableScreen` 接入 current-main 左侧工具栏；工作期间两者变为不可修改但仍保留 hover tooltip。槽位 hover、右侧升级/工具箱面板与空升级槽使用 current-main 回移视觉，装配室只显示/接受 speed card；已编码样板与容量元件空槽图标分别使用 `ae2-states.png (240,112,16,16)`、`(240,48,16,16)`。容量槽 hover 说明元件功能并显示当前单位/类型上限。颜色触发按钮为 `(95,29,12,12)`，其 8x8 swatch 精确落在底图 `(97,31)`；marker FakeSlot 内容原点为 `(108,32)`，精确落在 `[107,31,18,18]` 框内。菜单同步有效颜色与有效 marker，本地样板或 `pushPattern` 工作任务通过显示栈临时覆盖两者而不改写机器配置，结束后恢复；工作期间两者不可修改但仍保留有效内容 tooltip。
+ME Package Assembler 的下半部分为输入/输出同步滚动区与下半区样板槽；可见窗口为左侧 4x4 输入格和右侧 4 个输出格。滚动条位于输入栏左侧，使用 `advanced_pattern_encoding_terminal_sprites.png` 的 current-AE2 7x15 小滚动柄，enabled/disabled 分别取 `[0,32,7,15]` / `[16,32,7,15]`；ScreenStyle 的 `packageQueueScrollbar.left=12` 保持不变。更新后的底图只要求四行输入槽相对原逻辑右移 1px，因此 `PROCESSING_INPUTS/MACHINE_CRAFTING_GRID/CRAFTING_GRID/CONFIG.left` 统一为 21，顶部样板/容量、marker、颜色和右侧输出坐标不随之平移。输入槽由客户端把 `package-storagebus-sprites.png [0,64,18,18]` 完整 sprite 绘制到 `(slot.x-1,slot.y-1)`，禁用状态为 0.2 opacity；sprite 的 1px 透明外围必须保留 atlas 所有外框与分隔线。菜单不得通过 `IOptionalSlot.isRenderDisabled=true` 触发 AE2 15 `Icon.SLOT_BACKGROUND`，Screen 也不得以纯色覆盖槽内区。atlas SHA-256 为 `C96749C3F8EF43DDB63B5F2F6A1E4B769319F52B9964ACD0AEAC7053481B5F33`。
+高级样板终端 GUI 使用 AE2 `ScreenStyle`，style JSON 位于 `assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json`，256x256 base/sprite atlas 位于 `assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal*.png`，共享 current-AE2 状态 atlas 为 `ae2-states.png`，current-AE2 终端头部/搜索/置顶行缓存为 `ae2-terminal.png`；主体保持 195px 宽度、9 列网络库存和玩家栏基线，中间为 4 列 x 3 行可见真实输入、3 行可见真实输出、左侧行滚动条、底部列滚动条和纯颜色弹窗。每列逻辑容量为 AE2 默认 processing pattern 的 81 个输入槽。右侧空白/已编码样板逻辑槽分别位于 `left=150,bottom=165` 与 `left=150,bottom=118`；编码按钮 widget 位于 `left=150,bottom=145`，三者的 16px 内容、图标及点击区共用同一竖直中心线；slot hover 颜色严格采用 AE2 1.21.1 的 `0x669cd3ff` 填充和 `0xffdaffff` 边线。
+Advanced Pattern Encoding Terminal 的包裹页在同一 full-screen base 上使用 `textures/gui/pattern_mode_packaging.png [0,0,132,78]`，固定绘制到 `left=8,bottom=177`。3x3 可见输入、marker、小滚动条和自动输出使用上一段固定坐标；自动包裹预览不使用 AE2 processing primary-output overlay 或 tooltip。第一枚模式标签位于网络行结束后 6px，第二枚向下 21px，图标只取 sprite。高级页左侧功能栏的颜色模式按钮追加在 AE2 原生功能按钮之后，只影响新增列及 JEI/EMI 新增列；逐列颜色按钮和包裹页颜色按钮只打开统一拾色弹窗。全项目拾色弹窗复用 `package-storagebus-sprites.png` 的三个 8x8 颜色选择单元：Fluix/None 固定在分隔线左侧上下排列，16 色在右侧 8x2 排列，无标题；`allowNone` 只控制 None 绘制/命中，不改变布局。弹窗使用独立高 Z 层覆盖 slot/item，底层物品保持正常渲染。
 ```
 
 ## 7. 资源验收
@@ -290,7 +295,7 @@ scripts/test-assets-audit.ps1
 ```
 
 当前 5 个 contract 已通过本地 `assetgen validate-contract`。
-当前发布资源 PNG、package_box 模型和 ME Packager 朝向由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，ME Packager 主体 atlas 为 64x64、帘子为 16x16、双周期传送带为 32x32，GUI icon 与 AE2 part 资源为 16x16，root/gui logo 为 128x128，ME Packager、ME Package Assembler、高级终端与包裹模式 GUI atlas 为 256x256，要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；package_box 模型还会检查 10x10x8 bounds、3D item parent、cutout_mipped render type、marker custom-render override、共享与 marked 模型一致使用 GUI `rotation [30,135,0]`、`translation [0,2,0]`、`scale [0.75,0.75,0.75]`，以及每个 face 使用 full-face uv [0,0,16,16]；ME Packager 会检查 blockstate 只声明四个水平 `facing` 变体、各朝向旋转正确，以及完整物品模型继承 `minecraft:block/block` 的标准显示变换；普通不透明 block/part 模型还会检查不得声明 render_type。
+当前发布资源 PNG、package_box 模型和 ME Packager 朝向由 `scripts/verify-assets.ps1` 自动检查：常规 item/block 资源为 32x32，package_box 六面贴图为 10x8 或 10x10，ME Packager 主体 atlas 为 64x64、帘子为 16x16、双周期传送带为 32x32，AE2 part 资源为 16x16，实际 mod logo 为 128x128，ME Packager、ME Package Assembler、高级终端、包裹模式与 current-AE2 terminal 缓存 GUI atlas 为 256x256；不再要求未引用的独立 GUI icon 或 GUI logo。要求资源 PNG 使用 RGBA color type，并拒绝全透明或整张单一 RGBA 像素的占位图；其余模型门禁保持不变。
 
 ## 9. 当前资产交付状态
 

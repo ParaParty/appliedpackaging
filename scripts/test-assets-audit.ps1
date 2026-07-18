@@ -155,15 +155,6 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "expected 256x256 advanced pattern encoding terminal sprite atlas"
 
-    $badAdvancedTerminalStatesFixture = New-AssetsFixture "bad-advanced-terminal-states-dimension"
-    $badAdvancedTerminalStatesPath = Join-Path $badAdvancedTerminalStatesFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png"
-    [System.IO.File]::WriteAllBytes($badAdvancedTerminalStatesPath, $tinyPngBytes)
-    Invoke-AssetsCase `
-        -Name "bad advanced terminal AE2 states atlas dimension fixture" `
-        -RootPath $badAdvancedTerminalStatesFixture `
-        -ExpectedExitCode 1 `
-        -ExpectedText "expected 256x256 advanced pattern encoding terminal AE2 states atlas"
-
     $badAdvancedTerminalMiddleRowFixture = New-AssetsFixture "bad-advanced-terminal-middle-row-dimension"
     $badAdvancedTerminalMiddleRowPath = Join-Path $badAdvancedTerminalMiddleRowFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png"
     [System.IO.File]::WriteAllBytes($badAdvancedTerminalMiddleRowPath, $tinyPngBytes)
@@ -191,28 +182,46 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "expected 256x256 package pattern mode GUI atlas"
 
-    $badPatternTerminalBaseFixture = New-AssetsFixture "bad-pattern-terminal-base-dimension"
-    $badPatternTerminalBasePath = Join-Path $badPatternTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
-    [System.IO.File]::WriteAllBytes($badPatternTerminalBasePath, $tinyPngBytes)
+    $badTerminalBaseFixture = New-AssetsFixture "bad-current-terminal-base-dimension"
+    $badTerminalBasePath = Join-Path $badTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png"
+    [System.IO.File]::WriteAllBytes($badTerminalBasePath, $tinyPngBytes)
     Invoke-AssetsCase `
-        -Name "bad package-mode full-screen terminal base dimension fixture" `
-        -RootPath $badPatternTerminalBaseFixture `
+        -Name "bad cached current terminal base dimension fixture" `
+        -RootPath $badTerminalBaseFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "expected 256x256 AE2 v19 package-mode full-screen terminal base GUI"
+        -ExpectedText "expected 256x256 cached current-AE2 terminal GUI"
 
-    $modifiedPatternTerminalBaseFixture = New-AssetsFixture "modified-pattern-terminal-base"
-    $modifiedPatternTerminalBasePath = Join-Path $modifiedPatternTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
-    $alternatePatternTerminalBasePath = Join-Path $modifiedPatternTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png"
-    Copy-Item -LiteralPath $alternatePatternTerminalBasePath -Destination $modifiedPatternTerminalBasePath -Force
+    $modifiedTerminalBaseFixture = New-AssetsFixture "modified-current-terminal-base"
+    $modifiedTerminalBasePath = Join-Path $modifiedTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png"
+    $alternateTerminalBasePath = Join-Path $modifiedTerminalBaseFixture "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png"
+    Copy-Item -LiteralPath $alternateTerminalBasePath -Destination $modifiedTerminalBasePath -Force
     Invoke-AssetsCase `
-        -Name "modified byte-preserved package-mode full-screen terminal base fixture" `
-        -RootPath $modifiedPatternTerminalBaseFixture `
+        -Name "modified byte-preserved current terminal base fixture" `
+        -RootPath $modifiedTerminalBaseFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png"
+
+    $badTextFieldFixture = New-AssetsFixture "bad-current-text-field-dimension"
+    $badTextFieldPath = Join-Path $badTextFieldFixture "src/main/resources/assets/ae2/textures/guis/text_field.png"
+    [System.IO.File]::WriteAllBytes($badTextFieldPath, $tinyPngBytes)
+    Invoke-AssetsCase `
+        -Name "bad cached current text field dimension fixture" `
+        -RootPath $badTextFieldFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "expected 128x128 cached current-AE2 text field GUI"
+
+    $modifiedTextFieldFixture = New-AssetsFixture "modified-current-text-field"
+    $modifiedTextFieldPath = Join-Path $modifiedTextFieldFixture "src/main/resources/assets/ae2/textures/guis/text_field.png"
+    Copy-Item -LiteralPath (Join-Path $modifiedTextFieldFixture "src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png") -Destination $modifiedTextFieldPath -Force
+    Invoke-AssetsCase `
+        -Name "modified byte-preserved current text field fixture" `
+        -RootPath $modifiedTextFieldFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/ae2/textures/guis/text_field.png"
 
     $modifiedAdvancedTerminalGuiFixture = New-AssetsFixture "modified-advanced-terminal-gui"
     $modifiedAdvancedTerminalGuiPath = Join-Path $modifiedAdvancedTerminalGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png"
-    $alternateAdvancedTerminalGuiPath = Join-Path $modifiedAdvancedTerminalGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png"
+    $alternateAdvancedTerminalGuiPath = Join-Path $modifiedAdvancedTerminalGuiFixture "src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png"
     Copy-Item -LiteralPath $alternateAdvancedTerminalGuiPath -Destination $modifiedAdvancedTerminalGuiPath -Force
     Invoke-AssetsCase `
         -Name "modified byte-preserved combined terminal base fixture" `
@@ -251,7 +260,7 @@ try {
         -ExpectedText "Byte-preserved PNG keeps its source hash: src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_dark.png"
 
     $badHeaderFixture = New-AssetsFixture "bad-header"
-    $badHeaderPath = Join-Path $badHeaderFixture "src/main/resources/assets/appliedpackaging/textures/gui/icons/color_select.png"
+    $badHeaderPath = Join-Path $badHeaderFixture "src/main/resources/assets/appliedpackaging/textures/item/package_pattern.png"
     [System.IO.File]::WriteAllBytes($badHeaderPath, [byte[]]@(1, 2, 3, 4))
     Invoke-AssetsCase `
         -Name "bad PNG header fixture" `
@@ -343,6 +352,140 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "Sequence Buffer main screen keeps the high-version three-row scrollbar geometry"
 
+    $legacySequenceBufferScrollbarFixture = New-AssetsFixture "legacy-sequence-buffer-scrollbar"
+    $sequenceBufferScreenRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/SequenceBufferMainScreen.java"
+    $sequenceBufferScreenSourcePath = Join-Path $repoRoot $sequenceBufferScreenRelativePath
+    $legacySequenceBufferScrollbarPath = Join-Path $legacySequenceBufferScrollbarFixture $sequenceBufferScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $legacySequenceBufferScrollbarPath) | Out-Null
+    $legacySequenceBufferScrollbarText = (Get-Content -Raw -LiteralPath $sequenceBufferScreenSourcePath).Replace(
+        "ModernScrollbarStyles.BIG",
+        "Scrollbar.DEFAULT")
+    Set-Content -LiteralPath $legacySequenceBufferScrollbarPath -Value $legacySequenceBufferScrollbarText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "legacy Sequence Buffer scrollbar sprite fixture" `
+        -RootPath $legacySequenceBufferScrollbarFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Sequence Buffer scrollbar uses the cached current-AE2 12x15 enabled and disabled handles"
+
+    $legacyAdvancedTerminalFixture = New-AssetsFixture "legacy-advanced-terminal-atlas"
+    $advancedTerminalScreenRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/AdvancedPatternEncodingTermScreen.java"
+    $advancedTerminalScreenSourcePath = Join-Path $repoRoot $advancedTerminalScreenRelativePath
+    $legacyAdvancedTerminalPath = Join-Path $legacyAdvancedTerminalFixture $advancedTerminalScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $legacyAdvancedTerminalPath) | Out-Null
+    $legacyAdvancedTerminalText = (Get-Content -Raw -LiteralPath $advancedTerminalScreenSourcePath).Replace(
+        'Blitter.texture(LATEST_TERMINAL)',
+        'Blitter.texture("guis/terminal.png")')
+    Set-Content -LiteralPath $legacyAdvancedTerminalPath -Value $legacyAdvancedTerminalText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "legacy Advanced Pattern Terminal atlas fixture" `
+        -RootPath $legacyAdvancedTerminalFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Advanced Pattern Terminal search header and pinned row use the cached current-AE2 terminal atlas"
+
+    $misorderedColorModeFixture = New-AssetsFixture "misordered-color-mode-overlay"
+    $misorderedColorModePath = Join-Path $misorderedColorModeFixture $advancedTerminalScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $misorderedColorModePath) | Out-Null
+    $misorderedColorModeText = (Get-Content -Raw -LiteralPath $advancedTerminalScreenSourcePath).Replace(
+        '        addRenderableWidget(colorModeButton);',
+        '')
+    Set-Content -LiteralPath $misorderedColorModePath -Value $misorderedColorModeText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "misordered Advanced Pattern Terminal color mode overlay fixture" `
+        -RootPath $misorderedColorModeFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Advanced Pattern Terminal color mode follows the native toolbar functions and its current-AE2 overlay renders last"
+
+    $misalignedPackageAssemblerScrollbarFixture = New-AssetsFixture "misaligned-package-assembler-scrollbar"
+    $packageAssemblerStylePath = Join-Path $misalignedPackageAssemblerScrollbarFixture "src/main/resources/assets/ae2/screens/appliedpackaging/package_assembler.json"
+    $packageAssemblerStyle = Get-Content -Raw -LiteralPath $packageAssemblerStylePath | ConvertFrom-Json
+    $packageAssemblerStyle.widgets.packageQueueScrollbar.left = 11
+    $packageAssemblerStyle | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packageAssemblerStylePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "misaligned Package Assembler scrollbar fixture" `
+        -RootPath $misalignedPackageAssemblerScrollbarFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Assembler scrollbar stays aligned one pixel right on the user track"
+
+    $misalignedPackageAssemblerInputsFixture = New-AssetsFixture "misaligned-package-assembler-inputs"
+    $packageAssemblerInputStylePath = Join-Path $misalignedPackageAssemblerInputsFixture "src/main/resources/assets/ae2/screens/appliedpackaging/package_assembler.json"
+    $packageAssemblerInputStyle = Get-Content -Raw -LiteralPath $packageAssemblerInputStylePath | ConvertFrom-Json
+    $packageAssemblerInputStyle.slots.PROCESSING_INPUTS.left = 20
+    $packageAssemblerInputStyle | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packageAssemblerInputStylePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "misaligned Package Assembler input rows fixture" `
+        -RootPath $misalignedPackageAssemblerInputsFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Assembler input rows alone start one pixel right on the corrected user atlas"
+
+    $misplacedPackageAssemblerMarkerFixture = New-AssetsFixture "misplaced-package-assembler-marker"
+    $packageAssemblerMarkerStylePath = Join-Path $misplacedPackageAssemblerMarkerFixture "src/main/resources/assets/ae2/screens/appliedpackaging/package_assembler.json"
+    $packageAssemblerMarkerStyle = Get-Content -Raw -LiteralPath $packageAssemblerMarkerStylePath | ConvertFrom-Json
+    $packageAssemblerMarkerStyle.slots.BLANK_PATTERN.left = 85
+    $packageAssemblerMarkerStyle | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $packageAssemblerMarkerStylePath -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "misplaced Package Assembler marker fixture" `
+        -RootPath $misplacedPackageAssemblerMarkerFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Assembler marker filter occupies the user atlas marker frame"
+
+    $misplacedPackageAssemblerColorFixture = New-AssetsFixture "misplaced-package-assembler-color"
+    $packageAssemblerScreenRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/PackageAssemblerScreen.java"
+    $packageAssemblerScreenSourcePath = Join-Path $repoRoot $packageAssemblerScreenRelativePath
+    $packageAssemblerColorPath = Join-Path $misplacedPackageAssemblerColorFixture $packageAssemblerScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $packageAssemblerColorPath) | Out-Null
+    $packageAssemblerColorText = (Get-Content -Raw -LiteralPath $packageAssemblerScreenSourcePath).Replace(
+        "private static final int COLOR_BUTTON_X = 95;",
+        "private static final int COLOR_BUTTON_X = 67;")
+    Set-Content -LiteralPath $packageAssemblerColorPath -Value $packageAssemblerColorText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "misplaced Package Assembler color trigger fixture" `
+        -RootPath $misplacedPackageAssemblerColorFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Assembler color trigger aligns its 8x8 swatch to the corrected user frame"
+
+    $missingAdvancedPanelFixture = New-AssetsFixture "missing-advanced-panel-overlay"
+    $missingAdvancedPanelPath = Join-Path $missingAdvancedPanelFixture $advancedTerminalScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $missingAdvancedPanelPath) | Out-Null
+    $missingAdvancedPanelText = (Get-Content -Raw -LiteralPath $advancedTerminalScreenSourcePath).Replace(
+        '            drawAdvancedPanel(graphics, offsetX, offsetY);',
+        '')
+    Set-Content -LiteralPath $missingAdvancedPanelPath -Value $missingAdvancedPanelText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "missing Advanced Pattern Terminal panel overlay fixture" `
+        -RootPath $missingAdvancedPanelFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Advanced Pattern Terminal paints the advanced panel over the corrected gray base before slot overlays"
+
+    $badToolbarSpriteCoordinatesFixture = New-AssetsFixture "bad-toolbar-sprite-coordinates"
+    $packageToolbarSpritesRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/PackageToolbarSprites.java"
+    $packageToolbarSpritesSourcePath = Join-Path $repoRoot $packageToolbarSpritesRelativePath
+    $badToolbarSpriteCoordinatesPath = Join-Path $badToolbarSpriteCoordinatesFixture $packageToolbarSpritesRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $badToolbarSpriteCoordinatesPath) | Out-Null
+    $badToolbarSpriteCoordinatesText = (Get-Content -Raw -LiteralPath $packageToolbarSpritesSourcePath).Replace(
+        'ANTI_CLOG_ON = icon(0, 96)',
+        'ANTI_CLOG_ON = icon(0, 80)')
+    Set-Content -LiteralPath $badToolbarSpriteCoordinatesPath -Value $badToolbarSpriteCoordinatesText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "bad toolbar sprite coordinates fixture" `
+        -RootPath $badToolbarSpriteCoordinatesFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Applied Packaging toolbar sprites use the user-authored 3x3 block at atlas origin 0,96"
+
+    $persistentToolbarFocusFixture = New-AssetsFixture "persistent-toolbar-focus"
+    $modernToolbarRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernVerticalToolbar.java"
+    $modernToolbarSourcePath = Join-Path $repoRoot $modernToolbarRelativePath
+    $persistentToolbarFocusPath = Join-Path $persistentToolbarFocusFixture $modernToolbarRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $persistentToolbarFocusPath) | Out-Null
+    $persistentToolbarFocusText = (Get-Content -Raw -LiteralPath $modernToolbarSourcePath).Replace(
+        'button.isHovered() ? BUTTON_HOVER : BUTTON',
+        'button.isHovered() ? BUTTON_HOVER : button.isFocused() ? BUTTON : BUTTON')
+    Set-Content -LiteralPath $persistentToolbarFocusPath -Value $persistentToolbarFocusText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "persistent modern toolbar focus border fixture" `
+        -RootPath $persistentToolbarFocusFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Modern toolbar mouse clicks do not leave a persistent focus border"
+
     $legacyOptionalSlotFixture = New-AssetsFixture "legacy-optional-slot-renderer"
     $packageAssemblerMenuRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/world/menu/PackageAssemblerMenu.java"
     $packageAssemblerMenuSourcePath = Join-Path $repoRoot $packageAssemblerMenuRelativePath
@@ -396,7 +539,7 @@ try {
         -Name "missing Sequence Buffer setting fixture" `
         -RootPath $missingSequenceBufferSettingFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "Sequence Buffer main and side screens expose all five endpoint settings in the shared AE2 toolbar"
+        -ExpectedText "Sequence Buffer endpoint settings are constructed only for an editable main menu"
 
     $badSequenceBufferSideStyleFixture = New-AssetsFixture "bad-sequence-buffer-side-style"
     $badSequenceBufferSideStylePath = Join-Path $badSequenceBufferSideStyleFixture "src/main/resources/assets/ae2/screens/appliedpackaging/sequence_buffer_side.json"

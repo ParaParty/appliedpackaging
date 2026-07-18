@@ -13,6 +13,8 @@ import appeng.menu.SlotSemantics;
 import appeng.menu.slot.IOptionalSlot;
 import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
+import com.warmthdawn.appliedpackaging.client.widget.PackageToolbarSprites;
+import com.warmthdawn.appliedpackaging.client.widget.SpriteToggleButton;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
@@ -31,7 +33,7 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
     private final FilterModeButton filterModeButton;
     private final ActivationModeButton activationModeButton;
     private final BlockingModeButton blockingModeButton;
-    private final ToggleButton antiClogModeButton;
+    private final SpriteToggleButton antiClogModeButton;
     private final PackageColorPicker colorPicker = new PackageColorPicker();
     private final PackageColorPicker.TriggerButton colorButton;
     private final ProgressBar packingProgress;
@@ -62,9 +64,9 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
         filterModeButton = addToLeftToolbar(new FilterModeButton());
         activationModeButton = addToLeftToolbar(new ActivationModeButton());
         blockingModeButton = addToLeftToolbar(new BlockingModeButton());
-        antiClogModeButton = new ToggleButton(
-                Icon.AUTO_EXPORT_ON,
-                Icon.AUTO_EXPORT_OFF,
+        antiClogModeButton = new SpriteToggleButton(
+                PackageToolbarSprites.ANTI_CLOG_ON,
+                PackageToolbarSprites.ANTI_CLOG_OFF,
                 ignored -> menu.toggleAntiClogMode());
         Component antiClogTitle = Component.translatable("gui.appliedpackaging.anti_clog_mode");
         antiClogModeButton.setTooltipOn(List.of(
@@ -136,7 +138,8 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        super.render(graphics, mouseX, mouseY, partialTicks);
+        boolean colorModalOpen = colorPicker.isOpen();
+        super.render(graphics, colorModalOpen ? -1 : mouseX, colorModalOpen ? -1 : mouseY, partialTicks);
         colorPicker.render(graphics, font, mouseX, mouseY);
     }
 

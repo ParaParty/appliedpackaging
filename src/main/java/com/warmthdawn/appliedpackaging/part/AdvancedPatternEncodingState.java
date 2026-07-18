@@ -57,7 +57,7 @@ public final class AdvancedPatternEncodingState {
         int value = Math.max(1, Math.min(activeColumns, colors.length));
         if (this.activeColumns != value) {
             for (int column = this.activeColumns; column < value; column++) {
-                colors[column] = colorMode.colorForColumn(column);
+                colors[column] = automaticColorForNewColumn(column);
             }
             this.activeColumns = value;
             changed();
@@ -68,9 +68,10 @@ public final class AdvancedPatternEncodingState {
         if (activeColumns >= colors.length) {
             return false;
         }
-        colors[activeColumns] = colorMode.colorForColumn(activeColumns);
+        colors[activeColumns] = automaticColorForNewColumn(activeColumns);
         clearColumnInputs(activeColumns);
-        setActiveColumns(activeColumns + 1);
+        activeColumns++;
+        changed();
         return true;
     }
 
@@ -93,7 +94,7 @@ public final class AdvancedPatternEncodingState {
                 copyColumnInputs(current + 1, current);
             }
             int oldLastColumn = activeColumns - 1;
-            colors[oldLastColumn] = colorMode.colorForColumn(oldLastColumn);
+            colors[oldLastColumn] = PackageColor.FLUIX;
             int oldLastStart = oldLastColumn * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
             for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
                 inputs.setStack(oldLastStart + row, null);
@@ -143,7 +144,7 @@ public final class AdvancedPatternEncodingState {
             for (int column = 0; column < plan.columns().size(); column++) {
                 colors[column] = column < previousColumns
                         ? previousColors[column]
-                        : colorMode.colorForColumn(column);
+                        : automaticColorForNewColumn(column);
                 List<GenericStack> columnInputs = plan.columns().get(column);
                 int firstSlot = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
                 for (int row = 0; row < columnInputs.size(); row++) {
@@ -154,7 +155,7 @@ public final class AdvancedPatternEncodingState {
                 outputs.setStack(output, plan.outputs().get(output));
             }
             for (int column = activeColumns; column < colors.length; column++) {
-                colors[column] = colorMode.colorForColumn(column);
+                colors[column] = PackageColor.FLUIX;
             }
         } finally {
             outputs.endBatch();
@@ -188,9 +189,6 @@ public final class AdvancedPatternEncodingState {
             return;
         }
         this.colorMode = value;
-        for (int column = 0; column < activeColumns; column++) {
-            colors[column] = value.colorForColumn(column);
-        }
         changed();
     }
 
@@ -215,6 +213,8 @@ public final class AdvancedPatternEncodingState {
 
     /** Transposes package columns and per-package material rows. */
     public boolean transpose() {
+        int previousColumns = activeColumns;
+        PackageColor[] previousColors = colors.clone();
         int highestUsedRow = -1;
         for (int column = 0; column < activeColumns; column++) {
             int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
@@ -240,14 +240,16 @@ public final class AdvancedPatternEncodingState {
             inputs.clear();
             activeColumns = transposedColumns;
             for (int column = 0; column < activeColumns; column++) {
-                colors[column] = colorMode.colorForColumn(column);
+                colors[column] = column < previousColumns
+                        ? previousColors[column]
+                        : automaticColorForNewColumn(column);
                 int start = column * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
                 for (int row = 0; row < AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE; row++) {
                     inputs.setStack(start + row, transposed[column][row]);
                 }
             }
             for (int column = activeColumns; column < colors.length; column++) {
-                colors[column] = colorMode.colorForColumn(column);
+                colors[column] = PackageColor.FLUIX;
             }
         } finally {
             inputs.endBatch();
@@ -416,9 +418,7 @@ public final class AdvancedPatternEncodingState {
 
     private void resetValues() {
         activeColumns = 1;
-        for (int column = 0; column < colors.length; column++) {
-            colors[column] = colorMode.colorForColumn(column);
-        }
+        Arrays.fill(colors, PackageColor.FLUIX);
         inputs.clear();
         outputs.clear();
     }
@@ -427,6 +427,14 @@ public final class AdvancedPatternEncodingState {
         if (column < 0 || column >= activeColumns) {
             throw new IndexOutOfBoundsException(column);
         }
+    }
+
+    private PackageColor automaticColorForNewColumn(int column) {
+        List<PackageColor> preceding = new ArrayList<>(Math.max(0, column));
+        for (int index = 0; index < column; index++) {
+            preceding.add(colors[index]);
+        }
+        return colorMode.colorForNewColumn(preceding);
     }
 
     private void checkColumn(int column) {

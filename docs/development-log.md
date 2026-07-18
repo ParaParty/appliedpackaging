@@ -1,5 +1,36 @@
 # Applied Packaging 开发日志
 
+## 2026-07-18 GUI 资源清理、装配室配置与高级样板颜色模式
+
+清理 17 个未被运行时引用或已被共享资源替代的 GUI PNG：删除独立 `textures/gui/icons/` 占位图标、GUI 内重复 logo、
+旧 `pattern_encoding_terminal.png` 和重复的 advanced terminal states atlas。缓存 current AE2 `terminal.png` 为
+`ae2-terminal.png` 并固定来源、许可证与 SHA-256；高级终端搜索框、置顶合成行和状态按钮统一读取新版缓存。序列缓存器
+改用 current-AE2 big scrollbar sprite，包裹装配室的小滚动条向右校正 1px。资源审计新增旧 terminal atlas、旧序列缓存器
+滚动条、装配室旧坐标和颜色模式按钮错误绘制顺序的负例。
+
+包裹装配室新增持久化的 17 色选择与 marker 过滤槽。无样板或普通 AE2 样板使用玩家选择色；包裹样板使用编码色；
+高级样板仅在所有列同色时显示该色，混色显示“无”；进行中的 provider/local 任务以活动包裹颜色为准，任务结束或样板
+取出后恢复玩家选择。marker 过滤仅覆盖普通样板的 marker，包裹样板和高级样板仍以编码数据为准；菜单同步只读的
+有效 marker 显示栈，因此放入样板或执行无本地样板的 `pushPattern` 时，marker 槽与 tooltip 临时显示实际任务 marker，
+混合 marker 显示为空，任务结束后恢复原配置。该显示覆盖不改写真实 FakeSlot，工作期间颜色、marker、
+自动输出和阻挡配置在客户端禁用且服务端拒绝修改，但 tooltip 保持可见；玩家物品栏和真实材料槽仍可操作。容量元件槽
+tooltip 说明用途并同步显示当前单位与类型上限。
+
+高级样板颜色模式迁移为左侧 AE toolbar 中排在原生功能之后的功能按钮，不再占据帮助按钮之前的第一位，也不再伪装成当前列颜色。默认模式只给新增列分配 Fluix；循环模式
+优先取前面列尚未使用的颜色，17 色均已使用后从最后一列的下一色继续循环。切换模式不重染已有列，手动新增、扩列、
+转置新增和 JEI 填充新增列共用同一分配规则。左侧按钮先由原生 widget 建立交互，再由 current-AE2 overlay 最后绘制，
+避免旧 AE2 图标覆盖新版 sprite。点击后残留的额外边框来自 Minecraft 1.20.1 持久保留 widget focus；工具栏回移实现只按
+normal/hover 选择背景，不再把鼠标点击焦点绘制成持续外框。
+
+新增和扩展 GameTest 覆盖装配室颜色/marker 保存往返、普通与包裹/高级样板的有效显示覆盖、活动混色/共同 marker、
+配置不被显示覆盖改写，以及进度为 0 时的工作锁，
+以及颜色模式切换、17 色循环和 JEI 式 recipe replace；全量 `runGameTestServer` 的 165/165 required tests 通过。
+`build`、`verify-assets.ps1`、完整 `test-assets-audit.ps1`、`verify-docs.ps1`、`test-release-audit.ps1`、
+`verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。使用隔离的 `run-gtceu-fork` 执行普通
+`runClient`，客户端完成 Applied Packaging 初始化、资源重载、声音与全部纹理图集创建；日志未发现 Applied Packaging 的
+缺失 texture/model/ScreenStyle 或加载异常，仅保留既有 10x8 magenta package side 降低 mip level 的普通警告。项目当前无
+自动菜单截图 runner，因此交互布局仍需在用户开发客户端重载后做最终实机视觉确认。
+
 ## 2026-07-16 包裹渲染二次居中与帘后显隐
 
 按用户实机复测继续收敛三个位置。ME Packager 的包裹内侧中心从本地 `x=2.5/16` 后移到 `x=1/16`；包裹经
@@ -3731,3 +3762,27 @@ ME 打包机、包裹卸货总线和序列缓存器统一增加“防堵塞输�
 文档门禁同步扩展：`verify-docs.ps1` 现在检查 20 个双语页面、6 份结构、英文/中文页面集合一致、导航元数据、26 个物品/方块索引映射、分类索引、最少 `BlockImage` / `GameScene` / `RecipeFor` 数量、结构引用和本地 Markdown 链接；`test-docs-audit.ps1` 新增缺失中文页面和损坏结构引用两个负例。`runData build`、`verify-assets.ps1`、`verify-release.ps1 -RequireAssetContracts`、`verify-docs.ps1`、完整 `test-docs-audit.ps1` 与 `git diff --check` 全部通过，构建 JAR 已确认包含完整 `ae2guide/` 资源。
 
 真实客户端验证使用项目现有 `run-gtceu-fork` 隔离目录，不触碰用户正在运行的 PID 33464。通过 GuideME 20.1.7 的开发源映射、`guideme.validateAtStartup=ae2:guide` 和 `guideme.showOnStartup=ae2:guide!appliedpackaging:index.md`，分别以 `en_us`、`zh_cn` 启动：每次都加载对应语言的 10 个页面，逐页编译全部页面及配方/场景标签，并实际渲染出 AE2 导航树中的 Applied Packaging / 应用封装分类和首页；日志没有 GuideME、Applied Packaging、missing model/texture、ERROR 或 FATAL。启动日志仍有既知 PonderJS、Xaero、KubeJS、ModernFix 可选集成缺类警告，与本轮 Guide 资源无关。
+
+### 2026-07-18 新版工具栏图标与 GUI 底图对齐
+
+按用户提供的新版 sprite 替换工具栏图标：`package-storagebus-sprites.png` 的 `(0,96)` 起始区域现依次包含防堵塞模式开/关、同步输出开/关、样板同步开/关、输入延迟、仅显示物品和仅显示流体，并以实时状态 sprite provider 接入序列缓存器、ME 打包机、包裹总线和终端类型过滤按钮。资源当前 SHA-256 为 `1E5A223CBBE07D14CE9A97389596E188C668B4A44F0011EA8AA64D9E99EC3EC6`。
+
+高级样板编码终端底图与包裹装配室底图均以用户修正版原图逐字节替换，SHA-256 分别为 `AEDD18C31813DC23287EF0C53FF57274672AFCA803CF7CBA755AC757B360062A` 和 `C96749C3F8EF43DDB63B5F2F6A1E4B769319F52B9964ACD0AEAC7053481B5F33`。高级终端在通用底图之后、动态槽位之前覆盖绘制高级编辑区，保留新的灰色区域底色。包裹装配室只将四行 4x4 输入槽的 `left` 从 20 右移到 21，`top=33/51/69/87` 不变；滚动条、样板、容量升级与输出槽不移动。颜色按钮按新底图设为 `(95,29)`，marker 内容槽设为 `(108,32)`。
+
+`scripts/verify-assets.ps1` 和 `scripts/test-assets-audit.ps1` 已固化三份 PNG 哈希、图标坐标、高级面板绘制顺序及装配室槽位坐标，正向审计与所有新负例均通过。`compileJava`、`build`、`verify-assets.ps1`、`test-assets-audit.ps1`、`verify-docs.ps1` 与 `git diff --check` 通过。隔离客户端完成资源重载和全部 texture atlas 创建，日志中没有 Applied Packaging 缺失材质/模型、Screen JSON、ERROR 或 FATAL。本轮仅修改客户端资源、绘制与布局坐标，未改动菜单或服务端行为，因此未重跑 GameTest；项目暂无自动打开这些 GUI 的 client smoke 任务，实机按钮点击与像素级观感仍作为最后人工验收项。
+
+### 2026-07-19 包裹装配室自动输出改为队首单包裹预检
+
+移除自动输出准入阶段对整个已完成包裹列表的目标容量预检。新批次仍先执行一次阻挡检查，但目标可接收性只模拟当前真实队首包裹；队首可完整输入即锁定该批次及目标。之后沿同一真实有序列表连续提交，后续当前队首被目标拒收时停止并保留剩余成品，后续 tick 继续时不重新检查阻挡。Pattern Provider 输入侧的整批容量预检没有改变。
+
+回归测试 `packageAssemblerPreflightsOnlyHeadAndRetriesWithoutRecheckingBlocking` 使用几乎填满的相邻箱子：仅第一包能与既有同数据包裹合并，第二包无空间。测试确认第一包仍会输出、余下两包保持真实队列且允许 GUI 抽取；释放空间并在中途开启阻挡后，活动批次仍继续；下一批则重新执行阻挡并等待。`compileJava` 通过，完整 `runGameTestServer` 为 165/165 required tests；`scripts/verify-docs.ps1` 与 `git diff --check` 通过，后者仅输出工作树既有 LF/CRLF 提示。
+
+### 2026-07-19 序列缓存器配置权威、装配室临时颜色与新版搜索框
+
+序列缓存器的六项配置控件现在只在成型端点主界面创建。成员与未成型单块的侧界面不注册配置 action，也在服务端拒绝对应方法调用；成型成员只显示使用 current-AE2 `Icon.ENTER [112,0]` 的“打开主方块”按钮，服务端重新解析当前拓扑后才切换菜单，未成型单块不显示该按钮。样板模式、同步输出和输入延迟明确为多方块专属：未成型单块即使旧 NBT 中仍有这些值也不应用输入延迟；成型后所有成员实时读取端点配置，成员自身保存的配置既不复制到端点、也不被端点覆盖，脱离结构后仍保留自己的本地值。
+
+包裹装配室把持久化的手动颜色与样板/Pattern Provider 当前工作的有效颜色完全分离。包裹样板、高级样板或活动工作包裹只覆盖显示与打包读取，不调用 `setSelectedColor`；样板取出或任务结束后立即恢复原手动颜色。上述临时覆盖期间颜色按钮为不可用状态，客户端不发送 action，服务端也独立拒绝伪造的颜色修改。颜色选择弹窗打开时，装配室、ME 打包机、包裹总线和高级终端都以屏幕外鼠标坐标执行底层 Screen 渲染，避免被弹窗遮住的槽位继续产生 hover 高亮或 tooltip。
+
+AE2 15 的 `AETextField` 把搜索框材质固定为 `ae2:textures/guis/text_field.png`，因此仅替换本模组终端底图不会改变控件。项目现以同一资源位置缓存 current-AE2 的 128x128 原图，SHA-256 为 `73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1`，并在许可证说明、资产规格、尺寸门禁、源哈希门禁及负例自测中固定来源与完整性。构建 JAR 已确认包含该 487-byte 条目及相同哈希。
+
+行为敏感回归位于主 source set 的 `src/main/java/.../gametest/`。`.\gradlew.bat runGameTestServer` 明确完成 166/166 required GameTest，覆盖未成型单块忽略多方块专属设置、侧界面不能越权修改、成型成员实时读取端点且不复制本地配置、样板颜色临时覆盖及服务端拒绝修改。`.\gradlew.bat build`、`scripts/verify-assets.ps1`（145 张 PNG）、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。真实 `.\gradlew.bat runClient --stacktrace --no-configuration-cache` 完成 Applied Packaging 初始化、资源重载、OpenAL 和全部图集创建后由本轮主动停止；日志只有既有第三方可选集成警告及用户 IntelliJ 客户端占用 `latest.log/debug.log` 造成的轮换警告，没有 Applied Packaging 类加载或资源错误。本轮未停止用户的 IntelliJ 开发客户端 PID 43708；实际打开各界面的像素与点击手感仍需人工验收。

@@ -15,12 +15,11 @@ The following GUI assets and AE2-derived source portions contain or adapt Applie
 ```text
 src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal.png
 src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_sprites.png
-src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_states.png
 src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_middle_row.png
 src/main/resources/assets/appliedpackaging/textures/gui/advanced_pattern_encoding_terminal_scrollbar.png
-src/main/resources/assets/appliedpackaging/textures/gui/pattern_encoding_terminal.png
 src/main/resources/assets/appliedpackaging/textures/gui/pattern_mode_packaging.png
 src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png
+src/main/resources/assets/appliedpackaging/textures/gui/ae2-terminal.png
 src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png
 src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png
 src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernUpgradesPanel.java
@@ -58,7 +57,7 @@ extra_panels.png SHA-256: C67FED0F98C9CA67A0602B5589A5191D59D5DD2BD3848C62DE0E20
 vertical_buttons_bg.png SHA-256: 62150F9869EE17CBD15BDA963542287BF798482CEED1F18F0E24DD82381F7715
 ```
 
-The supplied Package Bus background and sprite are preserved byte-for-byte as separate textures. No AE2 pixels are baked into either file. In particular, the marker empty-slot icon at sprite rectangle `(32,16,16,16)` is user-authored Applied Packaging artwork and is not part of the AE2 third-party exception. Exact source paths, hashes, and runtime-use notes are recorded in:
+The supplied Package Bus background remains byte-preserved, while its separate sprite atlas contains only user-authored Applied Packaging additions for color cells, marker art, optional slots, package controls, and the toolbar block at `(0,96,48,48)`. No AE2 pixels are baked into either file. In particular, the marker empty-slot icon at `(32,16,16,16)` and the new toolbar sprites are not part of the AE2 third-party exception. Exact source paths, hashes, and runtime-use notes are recorded in:
 
 ```text
 src/main/resources/META-INF/licenses/ae2-states-source.txt

@@ -6,14 +6,15 @@
     "srcRect": [0, 0, 176, 203]
   },
   "slots": {
-    "PROCESSING_INPUTS": { "left": 20, "top": 33, "grid": "HORIZONTAL" },
-    "MACHINE_CRAFTING_GRID": { "left": 20, "top": 51, "grid": "HORIZONTAL" },
-    "CRAFTING_GRID": { "left": 20, "top": 69, "grid": "HORIZONTAL" },
-    "CONFIG": { "left": 20, "top": 87, "grid": "HORIZONTAL" },
+    "PROCESSING_INPUTS": { "left": 21, "top": 33, "grid": "HORIZONTAL" },
+    "MACHINE_CRAFTING_GRID": { "left": 21, "top": 51, "grid": "HORIZONTAL" },
+    "CRAFTING_GRID": { "left": 21, "top": 69, "grid": "HORIZONTAL" },
+    "CONFIG": { "left": 21, "top": 87, "grid": "HORIZONTAL" },
     "MACHINE_OUTPUT": { "left": 136, "top": 59 },
     "PROCESSING_OUTPUTS": { "left": 132, "top": 83 },
     "ENCODED_PATTERN": { "left": 125, "top": 8 },
     "STORAGE_CELL": { "left": 151, "top": 8 },
+    "BLANK_PATTERN": { "left": 108, "top": 32 },
     "PLAYER_INVENTORY": { "left": 8, "top": 120, "grid": "BREAK_AFTER_9COLS" },
     "PLAYER_HOTBAR": { "left": 8, "top": 178, "grid": "HORIZONTAL" },
     "TOOLBOX": { "bottom": 84, "right": 1, "grid": "BREAK_AFTER_3COLS" }
@@ -42,7 +43,7 @@
     }
   },
   "widgets": {
-    "packageQueueScrollbar": { "left": 11, "top": 31, "height": 72 },
+    "packageQueueScrollbar": { "left": 12, "top": 31, "height": 72 },
     "progressBar": { "left": 158, "top": 58 },
     "upgrades": { "right": 2, "top": 0 },
     "toolbox": { "right": 2, "bottom": 90, "width": 59, "height": 66 }

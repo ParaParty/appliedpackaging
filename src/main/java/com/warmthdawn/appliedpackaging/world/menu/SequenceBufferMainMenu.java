@@ -23,7 +23,7 @@ public final class SequenceBufferMainMenu extends AbstractSequenceBufferMenu {
             int containerId,
             Inventory inventory,
             SequenceBufferBlockEntity authority) {
-        super(APMenus.SEQUENCE_BUFFER_MAIN.get(), containerId, inventory, authority, authority);
+        super(APMenus.SEQUENCE_BUFFER_MAIN.get(), containerId, inventory, authority, authority, true);
     }
 
     @Override

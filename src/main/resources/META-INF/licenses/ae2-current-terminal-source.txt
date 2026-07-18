@@ -1,0 +1,26 @@
+Applied Energistics 2 current terminal texture provenance
+
+Repository: https://github.com/AppliedEnergistics/Applied-Energistics-2
+Reference checkout: local AE2 1.21.1 current-main snapshot
+License: LGPL-3.0-or-later
+
+Unmodified copied texture:
+
+- src/main/resources/assets/ae2/textures/guis/terminal.png
+  -> assets/appliedpackaging/textures/gui/ae2-terminal.png
+  SHA-256: 9CE91ECCF149E1703960906B349093AF726E6DEB753985C7E85B5D0DB359B3E4
+- src/main/resources/assets/ae2/textures/guis/text_field.png
+  -> assets/ae2/textures/guis/text_field.png
+  SHA-256: 73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1
+
+Runtime use:
+
+- AdvancedPatternEncodingTermScreen search/header pixels
+- AdvancedPatternEncodingTermScreen pinned-row overlay
+- AETextField search-field frame and fill
+
+The terminal atlas is namespaced under appliedpackaging. The text-field atlas
+keeps AE2's namespace because AETextField hardcodes that resource location; it
+replaces only that shared GUI texture with the byte-preserved current version.
+The bundled AE2 LGPL license text is stored in
+META-INF/licenses/ae2-LGPL-3.0-or-later.txt.

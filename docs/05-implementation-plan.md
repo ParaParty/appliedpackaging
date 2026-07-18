@@ -243,7 +243,7 @@ GameTest/客户端验证
 验收：
 
 ```text
-普通 AE2 合成/处理等样板生成默认 Fluix 包裹并以主输出为 marker
+普通 AE2 合成/处理等样板使用装配室持久选择颜色，并以非空 marker 配置覆盖主输出；包裹/高级样板继续以自身元数据为权威
 本地合成中取料不产出且暂停，补回后继续并在完成时一次性扣料
 本地完成扣料必须原子成功后才能提交包裹；重复样板输入位置在真实槽、contents 与拆包推入中保持分离
 彩色输入格生成对应颜色包裹
@@ -269,7 +269,7 @@ GameTest 与客户端人工验证
 
 ```text
 原版 Pattern Encoding Terminal、Screen factory 与四种原生模式保持 AE2 实现；只用一个窄菜单校验注入拒绝 package_pattern 与 advanced_processing_pattern，不增加按钮或绘制
-Advanced Pattern Encoding Terminal 使用同一个 part/menu/screen 承载 ADVANCED 与 PACKAGE 两页，右侧 current-AE Pattern Encoding Terminal 水平侧标签切换并持久化页面；两页各自拥有完整屏幕 profile（两行网络库存时 217x250 / 195x233）和完全隔离的槽位库存，切换时在同一 Screen 上 resize/init 并重排全部几何，放入对应载体时自动切换，菜单不创建 VIEW_CELL 槽
+Advanced Pattern Encoding Terminal 使用同一个 part/menu/screen 承载 ADVANCED 与 PACKAGE 两页，右侧 current-AE Pattern Encoding Terminal 水平侧标签切换并持久化页面；两页共享两行网络库存时 195x245、bottom 192px 的完整外框，在灰底后绘制各自 132x78 面板并保持完全隔离的槽位库存，切换时不 resize/init 或重新居中，放入对应载体时自动切换，菜单不创建 VIEW_CELL 槽
 package_storage_bus 使用新版 Storage Bus 形态，通过默认优先级 0 的 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage；Partition Storage 从相邻容器包裹生成过滤
 package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认优先级 0 的 Formation Plane 式受限 IStorageProvider 接收网络路由包裹；不扫描或主动抽取其它 ME 存储，但把唯一未拆完的 held 包裹作为数量 1 的整包库存枚举并允许取回
 两个默认值都为 0，且就是右上 Priority 子菜单显示/修改的数值；数值相同时由卸货总线只写入端点的 preferred-storage 语义先尝试拆包，拆包拒绝后再尝试存储总线

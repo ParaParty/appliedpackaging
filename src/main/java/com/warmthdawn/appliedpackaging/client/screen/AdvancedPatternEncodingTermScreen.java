@@ -75,7 +75,6 @@ public class AdvancedPatternEncodingTermScreen
     private static final int CLEAR_BUTTON_X = 97;
     private static final int CLEAR_BUTTON_BOTTOM = 174;
     private static final int TRANSPOSE_BUTTON_BOTTOM = 165;
-    private static final int COLOR_MODE_BUTTON_X = 106;
     private static final long MOVE_HOLD_MILLIS = 350;
     private static final int ENCODE_BUTTON_X = 150;
     private static final int ENCODE_BUTTON_BOTTOM = 145;
@@ -110,10 +109,13 @@ public class AdvancedPatternEncodingTermScreen
             "textures/gui/advanced_pattern_encoding_terminal_sprites.png");
     private static final ResourceLocation LATEST_AE2_STATES = new ResourceLocation(
             "appliedpackaging",
-            "textures/gui/advanced_pattern_encoding_terminal_states.png");
+            "textures/gui/ae2-states.png");
     private static final ResourceLocation LATEST_NETWORK_SCROLLBAR = new ResourceLocation(
             "appliedpackaging",
             "textures/gui/advanced_pattern_encoding_terminal_scrollbar.png");
+    private static final ResourceLocation LATEST_TERMINAL = new ResourceLocation(
+            "appliedpackaging",
+            "textures/gui/ae2-terminal.png");
     private static final ResourceLocation PACKAGE_PANEL_TEXTURE = new ResourceLocation(
             "appliedpackaging",
             "textures/gui/pattern_mode_packaging.png");
@@ -182,6 +184,8 @@ public class AdvancedPatternEncodingTermScreen
     private static final Blitter PACKAGE_MODE_ICON = Blitter.texture(SPRITES).src(32, 0, 16, 16);
     private static final Blitter PACKAGE_PANEL =
             Blitter.texture(PACKAGE_PANEL_TEXTURE).src(0, 0, PACKAGE_PANEL_WIDTH, PACKAGE_PANEL_HEIGHT);
+    private static final Blitter ADVANCED_PANEL =
+            Blitter.texture(PACKAGE_PANEL_TEXTURE).src(0, 128, PACKAGE_PANEL_WIDTH, PACKAGE_PANEL_HEIGHT);
 
     private final PackageColorPicker.TriggerButton[] columnColorButtons =
             new PackageColorPicker.TriggerButton[VISIBLE_COLUMNS];
@@ -287,6 +291,8 @@ public class AdvancedPatternEncodingTermScreen
         setTextHidden("crafting_grid_title", true);
         replaceCraftingStatusButton();
         modernToolbar.captureIconButtons(children());
+        modernToolbar.appendButton(colorModeButton);
+        addRenderableWidget(colorModeButton);
         for (Renderable renderer : modernToolbar.createIconButtonRenderers()) {
             addRenderableOnly(renderer);
         }
@@ -301,7 +307,6 @@ public class AdvancedPatternEncodingTermScreen
         addRenderableWidget(packageModeButton);
         addRenderableWidget(clearButton);
         addRenderableWidget(transposeButton);
-        addRenderableWidget(colorModeButton);
         addRenderableWidget(encodeButton);
         if (legacyCraftingStatusButton != null) {
             addRenderableWidget(craftingStatusButton);
@@ -384,6 +389,7 @@ public class AdvancedPatternEncodingTermScreen
         modernToolbar.layout(offsetX, offsetY);
         modernToolbar.drawPanel(graphics, offsetX, offsetY);
         if (advanced) {
+            drawAdvancedPanel(graphics, offsetX, offsetY);
             drawAdvancedInputSlotBackgrounds(graphics, offsetX, offsetY);
             drawColumnScrollbar(graphics, offsetX, offsetY);
             drawPrimaryOutputOverlay(graphics, offsetX, offsetY);
@@ -419,7 +425,8 @@ public class AdvancedPatternEncodingTermScreen
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-        super.render(graphics, mouseX, mouseY, partialTicks);
+        boolean colorModalOpen = colorPicker.isOpen();
+        super.render(graphics, colorModalOpen ? -1 : mouseX, colorModalOpen ? -1 : mouseY, partialTicks);
         if (heldMoveSource != null
                 && System.currentTimeMillis() - heldMoveStarted >= MOVE_HOLD_MILLIS
                 && !heldMoveStack.isEmpty()) {
@@ -696,7 +703,7 @@ public class AdvancedPatternEncodingTermScreen
         int y = offsetY;
         drawBackgroundSegment(
                 graphics,
-                baseTexture,
+                LATEST_TERMINAL,
                 256,
                 256,
                 0,
@@ -737,7 +744,7 @@ public class AdvancedPatternEncodingTermScreen
 
         var storageAccessor = (MEStorageScreenAccessor) this;
         if (storageAccessor.appliedpackaging$getRepo().hasPinnedRow()) {
-            Blitter.texture("guis/terminal.png")
+            Blitter.texture(LATEST_TERMINAL)
                     .src(0, 204, 162, 18)
                     .dest(offsetX + 7, offsetY + TERMINAL_HEADER_HEIGHT)
                     .blit(graphics);
@@ -910,8 +917,6 @@ public class AdvancedPatternEncodingTermScreen
         clearButton.setY(topPos + imageHeight - (advanced ? CLEAR_BUTTON_BOTTOM : PACKAGE_INPUT_BOTTOM));
         transposeButton.setX(leftPos + CLEAR_BUTTON_X);
         transposeButton.setY(topPos + imageHeight - TRANSPOSE_BUTTON_BOTTOM);
-        colorModeButton.setX(leftPos + COLOR_MODE_BUTTON_X);
-        colorModeButton.setY(topPos + imageHeight - CLEAR_BUTTON_BOTTOM);
         encodeButton.setX(leftPos + ENCODE_BUTTON_X);
         encodeButton.setY(topPos + imageHeight - ENCODE_BUTTON_BOTTOM);
 
@@ -1014,6 +1019,12 @@ public class AdvancedPatternEncodingTermScreen
                 offsetY,
                 menu.getPackageMarkerSlot(),
                 1.0F);
+    }
+
+    private void drawAdvancedPanel(GuiGraphics graphics, int offsetX, int offsetY) {
+        int panelX = offsetX + PACKAGE_PANEL_LEFT;
+        int panelY = offsetY + imageHeight - PACKAGE_PANEL_BOTTOM;
+        ADVANCED_PANEL.dest(panelX, panelY).blit(graphics);
     }
 
     private void drawColumnScrollbar(GuiGraphics graphics, int offsetX, int offsetY) {
@@ -1341,27 +1352,21 @@ public class AdvancedPatternEncodingTermScreen
         }
     }
 
-    private final class ColorModeButton extends AbstractButton {
+    private final class ColorModeButton extends appeng.client.gui.widgets.IconButton {
         private ColorModeButton() {
-            super(
-                    0,
-                    0,
-                    8,
-                    8,
-                    Component.translatable("gui.appliedpackaging.advanced_pattern_terminal.color_mode"));
+            super(button -> ((ColorModeButton) button).cycleMode());
             updateTooltip();
         }
 
         private void updateTooltip() {
-            setTooltip(Tooltip.create(Component.translatable(
+            setMessage(Component.translatable(
                     "gui.appliedpackaging.advanced_pattern_terminal.color_mode.value",
                     Component.translatable(menu.getAdvancedColorMode() == AdvancedPatternColorMode.CYCLING
                             ? "gui.appliedpackaging.advanced_pattern_terminal.color_mode.cycling"
-                            : "gui.appliedpackaging.advanced_pattern_terminal.color_mode.default"))));
+                            : "gui.appliedpackaging.advanced_pattern_terminal.color_mode.default")));
         }
 
-        @Override
-        public void onPress() {
+        private void cycleMode() {
             AdvancedPatternColorMode next = menu.getAdvancedColorMode() == AdvancedPatternColorMode.DEFAULT
                     ? AdvancedPatternColorMode.CYCLING
                     : AdvancedPatternColorMode.DEFAULT;
@@ -1370,20 +1375,17 @@ public class AdvancedPatternEncodingTermScreen
         }
 
         @Override
-        protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            graphics.fill(getX(), getY(), getX() + 8, getY() + 8, 0xff4d4d67);
-            graphics.fill(getX() + 1, getY() + 1, getX() + 7, getY() + 7, 0xff696d88);
-            if (menu.getAdvancedColorMode() == AdvancedPatternColorMode.CYCLING) {
-                graphics.fill(getX() + 2, getY() + 2, getX() + 4, getY() + 6, PackageColor.RED.swatchArgb());
-                graphics.fill(getX() + 4, getY() + 2, getX() + 6, getY() + 6, PackageColor.BLUE.swatchArgb());
-            } else {
-                graphics.fill(getX() + 2, getY() + 2, getX() + 6, getY() + 6, PackageColor.FLUIX.swatchArgb());
-            }
+        protected appeng.client.gui.Icon getIcon() {
+            return menu.getAdvancedColorMode() == AdvancedPatternColorMode.CYCLING
+                    ? appeng.client.gui.Icon.SCHEDULING_ROUND_ROBIN
+                    : appeng.client.gui.Icon.SCHEDULING_DEFAULT;
         }
 
         @Override
-        protected void updateWidgetNarration(NarrationElementOutput output) {
-            defaultButtonNarrationText(output);
+        public List<Component> getTooltipMessage() {
+            return List.of(
+                    getMessage(),
+                    Component.translatable("gui.appliedpackaging.advanced_pattern_terminal.color_mode.description"));
         }
     }
 

@@ -1,14 +1,21 @@
 package com.warmthdawn.appliedpackaging.world.menu;
 
+import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferTopology;
 import com.warmthdawn.appliedpackaging.registry.APMenus;
 import com.warmthdawn.appliedpackaging.world.block.entity.SequenceBufferBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.network.NetworkHooks;
 
 public final class SequenceBufferSideMenu extends AbstractSequenceBufferMenu {
+    private static final String ACTION_OPEN_MAIN = "openMain";
+
     public SequenceBufferSideMenu(int containerId, Inventory inventory, FriendlyByteBuf buffer) {
         this(containerId, inventory, readContext(inventory, buffer));
     }
@@ -22,7 +29,40 @@ public final class SequenceBufferSideMenu extends AbstractSequenceBufferMenu {
             Inventory inventory,
             SequenceBufferBlockEntity authority,
             SequenceBufferBlockEntity viewed) {
-        super(APMenus.SEQUENCE_BUFFER_SIDE.get(), containerId, inventory, authority, viewed);
+        super(APMenus.SEQUENCE_BUFFER_SIDE.get(), containerId, inventory, authority, viewed, false);
+        registerClientAction(ACTION_OPEN_MAIN, this::openMain);
+    }
+
+    public boolean canOpenMain() {
+        return getHost().isEndpoint()
+                && !getHost().getBlockPos().equals(viewedBlock().getBlockPos());
+    }
+
+    public void openMain() {
+        if (!canOpenMain()) {
+            return;
+        }
+        if (isClientSide()) {
+            sendClientAction(ACTION_OPEN_MAIN);
+            return;
+        }
+        if (!(getPlayer() instanceof ServerPlayer serverPlayer)) {
+            return;
+        }
+        SequenceBufferBlockEntity endpoint = getHost();
+        if (SequenceBufferTopology.resolveEndpoint(viewedBlock())
+                .filter(resolved -> resolved.getBlockPos().equals(endpoint.getBlockPos()))
+                .isEmpty()) {
+            return;
+        }
+        var provider = new SimpleMenuProvider(
+                (containerId, inventory, ignored) ->
+                        new SequenceBufferMainMenu(containerId, inventory, endpoint),
+                Component.translatable("gui.appliedpackaging.sequence_buffer.main"));
+        NetworkHooks.openScreen(
+                serverPlayer,
+                provider,
+                buffer -> buffer.writeBlockPos(endpoint.getBlockPos()));
     }
 
     @Override

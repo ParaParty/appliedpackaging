@@ -26,7 +26,8 @@ receiving a replacement batch again in the same tick.
 
 The main GUI maps the ordered members of a formed structure. A side GUI maps the clicked physical block. Both expose the
 same real storage, and players may extract from the GUI even when automatic-output delay, blocking, or synchronization is
-active.
+active. Only the endpoint main GUI edits configuration. A formed member side GUI only offers a jump to the main block;
+an unformed standalone block has neither configuration nor navigation buttons.
 
 ## Multiblock Ownership
 
@@ -40,8 +41,10 @@ structure; breaking the middle retains only the endpoint-side contiguous segment
 
 ## Output Scheduling
 
-Automatic output can be independent or synchronized. Blocking mode requires the output target to be empty. Input delay
-can be zero; redstone cards gate automatic output. GUI extraction is deliberately unaffected by delay, blocking, or sync.
+Formed-multiblock automatic output can be independent or synchronized. Blocking mode requires the output target to be
+empty. Input delay can be zero; redstone cards gate automatic output. Synchronized output, pattern mode, and input delay
+only apply while the multiblock is formed; standalone blocks apply no input delay. GUI extraction is deliberately
+unaffected by delay, blocking, or sync.
 
 Each directed member outputs only through its configured face. An undirected member searches compatible adjacent targets
 other than Sequence Buffers. Synchronized output requires every occupied member to find a complete target before any
@@ -62,8 +65,8 @@ input could never enter a deliberately delayed buffer.
 | Input delay | Delays capability extraction and automatic output; GUI extraction remains allowed. Presets are 0, 1, 5, 10, 20, 40, and 100 ticks. |
 | Input filter | Up to nine AE resource keys; an empty filter accepts any supported key. |
 
-A redstone card makes automatic output require a signal at the endpoint. Formed members copy configuration from endpoint
-authority; changing a member through its GUI updates that same authoritative configuration.
+A redstone card makes automatic output require a signal at the endpoint. Formed members read endpoint authority live and
+ignore their own local configuration. A member GUI cannot modify settings and only navigates to the endpoint main GUI.
 
 ## Pattern Mode and Anti-Clog
 

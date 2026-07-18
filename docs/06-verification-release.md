@@ -315,7 +315,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-release.ps1 -Requ
 
 `scripts/test-docs-audit.ps1` 使用临时文档 fixture 调用 `verify-docs.ps1 -RootPath`，覆盖有效 fixture、缺少必需文档路径、正式文档未清理占位和本地 Markdown 断链四种路径。该脚本只写入系统临时目录，不修改正式设计文档。
 
-`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径在已知 release asset 目录内，像素内容不是全透明或整张单一 RGBA 占位图，并确认 item/block 为 32x32、GUI icon 与 AE2 part 为 16x16、root/gui logo 为 128x128、ME Packager 与 ME Package Assembler GUI atlas 为 256x256。使用 `-RootPath` 时可对临时 fixture 执行同一套资产资源审计。
+`scripts/verify-assets.ps1` 检查发布资源 PNG：必需资源存在、PNG header 有效、RGBA color type、资源路径位于已知 release asset 目录、像素内容不是全透明或整张单一 RGBA 占位图，并确认常规物品/方块、机器 atlas、AE2 part、实际 root mod logo 与实际使用的 GUI/shared atlas 尺寸。已清理且没有运行时引用的独立 `textures/gui/icons/` 与 `textures/gui/logo.png` 不属于发布要求；current-AE2 `ae2-terminal.png` 另受 256x256 和固定 SHA-256 门禁。使用 `-RootPath` 时可对临时 fixture 执行同一套审计。
 
 `scripts/test-assets-audit.ps1` 使用临时资源 fixture 调用 `verify-assets.ps1 -RootPath`，覆盖有效资产 fixture、item 贴图尺寸错误、PNG header 损坏、全透明 PNG、单一 RGBA 占位 PNG 和必需 PNG 缺失六种路径。该脚本只写入系统临时目录，不修改正式资源或发布产物。
 
@@ -612,7 +612,7 @@ release manifest：已生成到 build/release/，记录 jar SHA-256、版本范�
 release bundle：可生成到 build/release/，包含 jar、release manifest、README、CHANGELOG、LICENSE 和 SHA256SUMS，并可由 verify-release-bundle.ps1 复验
 documentation audit：必需文档、文档入口、正式设计文档未清理占位和本地 Markdown 链接检查通过
 asset resource audit：必需 PNG、路径归类、RGBA PNG header、可见非占位像素内容和尺寸检查通过
-logo/icon：assets/appliedpackaging/logo.png、textures/gui/logo.png 和包裹/机器/总线图标已存在
+logo/UI sprite：实际 mod logo、机器/总线/终端 atlas、共享 Applied Packaging sprite 与 current-AE2 缓存均存在；未引用的独立 GUI icon 集、重复 states atlas、退役终端底图和冗余 GUI logo 已清理
 release notes：已写入 CHANGELOG.md
 known limitations：已写入 README.md 与 CHANGELOG.md
 compatible Minecraft/Forge/AE2/GuideME version list：已写入 README.md，并由 gradle.properties / mods.toml 模板声明
@@ -630,7 +630,7 @@ R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack
 R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
 R6 ME 包裹装配室：已满足，任意 AE2 可解码已编码样板、普通样板 Fluix + 主输出 marker、按样板动态确定的稠密输入槽、81×81 高级样板逻辑上限、4x4 输入代理窗口、完成时扣料与缺料暂停、主输出/有序队列、样板门禁、样板权威颜色/marker、合成进度、pending queue、输出模式和顺序抽取均已覆盖。
 R7 ME 打包机：已满足，只接入固定底部与模型背面的 AE2 MEStorage，空容量槽 9 单位/9 类型和 16k/64k/256k storage component、红石模式、独立的 fake marker 与内容过滤、反转过滤和整包拆包均已覆盖。
-R8 样板终端：已满足，Advanced Pattern Encoding Terminal 使用一个 part/menu/screen 承载高级与包裹两页；右侧按钮切换并持久化当前页，放入两个专用载体会自动选择对应页。高级页的 1377 输入/4 输出与包裹页的 81 输入/marker/颜色/预览完全隔离；高级页使用 146px 编辑框，包裹页保留 124x66 面板原宽，菜单不创建 VIEW_CELL 槽。普通 AE2 Pattern Encoding Terminal 不增加包裹 UI，并拒绝 package_pattern 与 advanced_processing_pattern。独立 advanced_processing_pattern 使用自定义处理样板详情突破原版单样板 81 输入总上限，原版 AE2 processing_pattern 不承载高级列数据。
+R8 样板终端：已满足，Advanced Pattern Encoding Terminal 使用一个 part/menu/screen 承载高级与包裹两页；右侧按钮切换并持久化当前页，放入两个专用载体会自动选择对应页。高级页的 1377 输入/4 输出与包裹页的 81 输入/marker/颜色/预览完全隔离；两页共享 195x245 外框与同一 132x78 面板锚点，在灰底后绘制当前页完整面板，菜单不创建 VIEW_CELL 槽。普通 AE2 Pattern Encoding Terminal 不增加包裹 UI，并拒绝 package_pattern 与 advanced_processing_pattern。独立 advanced_processing_pattern 使用自定义处理样板详情突破原版单样板 81 输入总上限，原版 AE2 processing_pattern 不承载高级列数据。
 R9 包裹总线：已满足，正式玩家入口只保留 Storage/Unpacking Bus 两个 AE2 cable part，均只处理合法包裹且不把内部内容暴露为 ME 散装库存；两者要求 AE channel，Storage Bus 在线缓存增删与过滤刷新已有真实网络测试。Unpacking Bus 已按 ME Packager 拆包模式接入真实 held 包裹与 20 tick 进度，最终提交失败时保留并重试同一个包裹，NBT、GUI 取回和 part 拆除返还边界已实现。
 R10 整包验证：已满足，MEStorage 打包/拆包先模拟后提交；Forge item handler 路径覆盖整包累计模拟拒绝与 check-then-push，不包含自定义逐槽回滚事务。
 R11 Tooltip：已满足，包裹、样板、AE2 blank_pattern carrier 和 packaged-processing 输出提示已接入。
@@ -893,7 +893,7 @@ AE2 Pattern Encoding Terminal 保持原 `PatternEncodingTermScreen` 实例和 Sc
 
 包裹整屏不再使用 `PatternEncodingTermScreenMixin`、`ProcessingEncodingPanelMixin`、Render.Pre/Render.Post 条件接管或 `InitScreensMixin`；客户端只保留读取 `MEStorageScreen` 状态、设置包裹 scrollbar 样式和定位包裹槽位的三个窄 accessor。验证必须扫描 mixin 配置与启动日志，确认上述行为 Mixin 不存在，并确认 package-only ScreenStyle 可加载、AE2 原生 ScreenStyle 未被覆盖。项目已删除自动 `runClientSmoke`，本轮不恢复，因此 package tab 的实际快速点击、整屏最终像素、原 AE 侧栏完全消失、右上 current-AE 显示元件面板和 slot 背景仍需在开发客户端人工打开终端复核。
 
-本地 `pattern_encoding_terminal.png` 作为 package-only Screen 的字节保持底图纳入 256x256、固定 SHA-256 与负例资产门禁；`pattern_modes.png` 和对 `assets/ae2/screens/terminals/pattern_encoding_terminal.json` 的覆盖仍禁止，因为四种原生模式继续读取 AE2 自己的资源。资产审计同时要求 `assets/ae2/screens/appliedpackaging/pattern_encoding_terminal.json` 存在、只声明 `modePanel4`、移出旧 view-cell/upgrades 面板并保留绑定 `VIEW_CELL` 的 current-AE 面板。切回原生模式时恢复原 slot 图标和 menu 客户端绑定，禁止包裹资源影响原生模式。v19.2.17 底图、package-only style 与派生绘制代码的 LGPL 来源统一记录在 `META-INF/licenses/ae2-pattern-screen-source.txt`。
+此前 package-only Screen 使用的本地 `pattern_encoding_terminal.png` 与对应固定哈希门禁现已退役；当前合并终端不覆盖 AE2 原生样板终端资源，而是以 Applied Packaging namespace 缓存 current-AE2 `ae2-terminal.png`，只为高级终端提供搜索框、头部与置顶合成行像素。其固定 SHA-256、尺寸与 LGPL 来源由资产审计和 `META-INF/licenses/ae2-current-terminal-source.txt` 维护。
 
 ### 2026-07-16 包裹终端同 menu 独立 Screen 复核
 
@@ -959,7 +959,7 @@ ME Packager 内侧端点从 `x=2.5/16` 后移到 `x=1/16`，使出现/消失处�
 
 ### 2026-07-17 合并终端统一尺寸与 sprite 模式图标验证
 
-本节取代上方“双 profile”关于 217x250/195x233、切页 `resize/init` 和 ItemStack 模式图标的当前实现描述。用户更新后的 `adv-pattern-terminal-base.png` 与 `pattern_mode_packaging.png` 使高级/包裹两页统一为两行网络库存时 195x245、bottom 192px；同一个 Screen/Menu 切页时不再 resize 或重建 widget。基础图高级面板和模式图集包裹面板均为 screen `(8,68)` 的 132x78 区域；切页只替换该区域、当前页 widget 状态和完全隔离的输入/输出槽坐标。
+本节取代上方“双 profile”关于 217x250/195x233、切页 `resize/init` 和 ItemStack 模式图标的当前实现描述。高级/包裹两页统一为两行网络库存时 195x245、bottom 192px；同一个 Screen/Menu 切页时不再 resize 或重建 widget。2026-07-18 更新后的 `adv-pattern-terminal-base.png` 在 screen `(8,68)` 只保留 132x78 灰色底板；Screen 在 base 后从 `pattern_mode_packaging.png` 后绘制高级 `[0,128,132,78]` 或包裹 `[0,0,132,78]` 面板，再绘制动态槽。切页只替换该区域、当前页 widget 状态和完全隔离的输入/输出槽坐标。
 
 右侧标签固定为 `x=173`，从网络区结束后 6px 开始，以 21px 步进排列：包裹在上，高级在下。两个标签仍使用 AE2 v19 水平 `TabButton` 的 22x22 normal/selected/focus 背景，但内容完全由 sprite 绘制，不渲染物品栈：包裹图标读取本地 sprite `[32,0,16,16]`，高级图标读取 states atlas 的 processing/furnace `[16,32,16,16]`，两者均按水平标签偏移 `(3,2)` 绘制。离线合成预览确认两页的上下顺序、选中背景和图标裁片一致。
 
@@ -1015,7 +1015,7 @@ Advanced Pattern Encoding Terminal 的唯一 universal transfer handler 现按�
 
 高级样板逻辑容量从 17 列提高到 81 列，每列保留 81 个 sparse 输入位置；持久化 schema 升为 v2，按列保存输入并兼容读取 v1 展平数据，AE2 根 `in` 继续保存供执行使用的稠密输入。菜单只创建并同步 4x81 个窗口 FakeSlot，横向滚动映射到 81 个逻辑列；装配室按列元数据生成包裹，既有 17 个实体输出槽后的包裹进入持久 pending 队列，不再把输出槽数当作高级样板列上限。
 
-终端新增转置、空手长按拾起后移动/交换、末尾新增列自动滚动，以及高级页独有的默认色/循环颜色模式。转置按钮使用用户提供 sprite 的 8x8 裁片并位于清空按钮下方。GameTest 覆盖 v1/v2 往返、81 列末端数据、转置、移动/交换、循环色、通用物品/流体逐材料分包与 GT 多材料逐列分包；客户端启动覆盖 sprite/Screen 类加载与资源烘焙，世界内长按手感、按钮像素和滚动行为仍保留为人工验收。
+终端提供转置、空手长按拾起后移动/交换、末尾新增列自动滚动，以及高级页独有的默认/循环颜色模式。转置按钮使用用户提供 sprite 的 8x8 裁片并位于清空按钮下方；颜色模式位于最左侧功能栏，不再是列头小图标。模式切换不重染既有列，只影响手动或 JEI/EMI 新增列：默认始终 Fluix，循环优先选择前面尚未使用的颜色，17 色齐全后从最后一列颜色的下一种继续。GameTest 覆盖模式切换保色、转置保色、17 色后的回绕与配方填充新增列分配；客户端启动继续覆盖 sprite/Screen 类加载与资源烘焙。
 
 查看器兼容只维护一套 JEI 插件与 recipe transfer handler：Gradle 只编译 JEI API，`mods.toml` 不声明 JEI、EMI 或 TMRV 硬依赖。`recipeViewerRuntime=jei` 直接加载 JEI；`recipeViewerRuntime=emi` 加载 EMI+TMRV，由 TMRV 在没有 JEI 的环境中提供兼容 API，并把同一套 `AppliedPackagingJeiPlugin` 映射到 EMI；项目不再发布原生 EMI handler，也不测试 JEI+EMI/JEMI 共存。通用配方、Create 普通 processing 与 GTCEu item/fluid/tick content 默认每个不同输入各占一个包裹；Create Sequenced Assembly 保留步骤列，Mechanical Crafting 继续按行/列选择较少包裹的方向。
 
@@ -1037,7 +1037,7 @@ Star Technology 的星门部件装配由 KubeJS startup script 注册 GTCEu `sta
 
 ### 2026-07-18 装配室与打包机新版槽位渲染回归
 
-装配室输入格不再允许 AE2 15 `AEBaseScreen` 通过 `IOptionalSlot.isRenderDisabled=true` 在用户 atlas 之后叠加旧 `Icon.SLOT_BACKGROUND`。菜单固定返回 false，Screen 统一从 `package-storagebus-sprites.png [0,64,18,18]` 绘制 current-AE2 透明边框槽位；透明外围保留 atlas 的外框和分隔线，禁用格仅把 sprite 降到 0.2 opacity。ME Packager 可选过滤槽同步改用同一完整 sprite，删除两块纯色 fill 的近似重建。装配室小滚动柄集中到共用 style，disabled UV 固定为 `[16,32,7,15]`。Sequence Buffer 仍按其用户底图轨道保留 12x15 `Scrollbar.DEFAULT`，不套用 7px 小滚动柄。
+装配室输入格不再允许 AE2 15 `AEBaseScreen` 通过 `IOptionalSlot.isRenderDisabled=true` 在用户 atlas 之后叠加旧 `Icon.SLOT_BACKGROUND`。菜单固定返回 false，Screen 统一从 `package-storagebus-sprites.png [0,64,18,18]` 绘制 current-AE2 透明边框槽位；透明外围保留 atlas 的外框和分隔线，禁用格仅把 sprite 降到 0.2 opacity。ME Packager 可选过滤槽同步改用同一完整 sprite，删除两块纯色 fill 的近似重建。装配室小滚动柄集中到共用 style，disabled UV 固定为 `[16,32,7,15]`。Sequence Buffer 按其用户底图轨道改用项目缓存 current-AE2 12x15 `ModernScrollbarStyles.BIG`，不套用 7px 小滚动柄。
 
 验证通过：`.\gradlew.bat compileJava`、`.\gradlew.bat build --stacktrace`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1` 与 `scripts/verify-release.ps1 -RequireAssetContracts`。资产门禁固定用户装配室 atlas 的 SHA-256，并断言共用槽位/滚动柄 UV、禁止 `isRenderDisabled=true`、禁止 `Icon.SLOT_BACKGROUND`、禁止 ME Packager 纯色槽位；同尺寸替换 atlas 和恢复旧可选槽位渲染的隔离负例均按预期失败。发布审计确认 297 个发布资源、143 个 JSON、160 张 PNG、6 个资产合同和 179 个双语 key/占位符有效。变更只影响客户端渲染选择，不改变机器事务或服务端状态，因此不重复运行 GameTest。IntelliJ 开发客户端 PID 33220 是修改前启动的 JVM，本轮没有终止或并发启动第二客户端；必须重启后再进行装配室边框最终像素复核。
 
@@ -1070,3 +1070,30 @@ GuideME 的静态门禁范围为：10 个英文页面、10 个 `_zh_cn` 页面�
 - `git diff --check`：通过，仅有工作树既有 LF/CRLF 提示。
 
 客户端运行验证使用 `run-gtceu-fork` 隔离目录与 GuideME 20.1.7 开发源映射，分别设置 `en_us`、`zh_cn`，以 `guideme.validateAtStartup=ae2:guide` 逐页编译并用 `guideme.showOnStartup=ae2:guide!appliedpackaging:index.md` 打开首页。两种语言均加载并编译对应的 10 个页面，实际渲染出 AE2 导航树中的 Applied Packaging / 应用封装分类和首页；日志没有 GuideME、Applied Packaging、missing model/texture、ERROR 或 FATAL。PonderJS、Xaero、KubeJS、ModernFix 可选集成缺类仍是既知第三方警告。验证结束后隔离客户端已主动终止，用户原有 PID 33464 未被停止或修改。
+
+### 2026-07-18 高级终端工具栏与装配室有效配置显示
+
+高级样板颜色模式按钮排在 AE2 原生左侧功能按钮之后，不再占据工具栏首位。1.20.1 的 widget 在鼠标点击后会持续保留 focus，旧回移绘制据此选用 focus sprite，形成 hover 已结束仍存在的额外边框；本地工具栏改为只使用 normal/hover 背景，资源审计同时禁止恢复 `button.isFocused()` 分支。
+
+装配室菜单同步显示专用的有效 marker：本地包裹/高级样板和无本地样板的 Pattern Provider 活动批次覆盖 marker 槽显示与 tooltip，但不改写持久配置；活动包裹 marker 不一致或缺失时显示空 marker，任务结束或样板取出后恢复原配置。有效颜色继续使用相同的本地样板/活动批次优先级。GameTest 扩展覆盖本地样板与活动批次的颜色、marker、混合状态以及配置恢复。
+
+验证通过：`./gradlew.bat build --stacktrace --no-configuration-cache`；`runGameTestServer` 明确报告 165/165 required tests 通过；`verify-assets.ps1` 与完整 `test-assets-audit.ps1` 通过，其中恢复 focus 分支的隔离负例按预期失败；`verify-docs.ps1`、`verify-release.ps1 -RequireAssetContracts` 和 `git diff --check` 通过。
+
+### 2026-07-19 包裹装配室队首单包裹输出预检
+
+自动输出回归固定以下边界：新批次只预检当前真实队首包裹，不因后续包裹暂时无空间而拒绝整批；准入后仍按队首连续提交，当前队首被拒时保留真实余量；玩家可在活动批次中从同一列表抽取；后续 tick 重试不重新检查阻挡，而列表清空后的下一批重新检查。Pattern Provider 消费输入前的整批容量原子预检不在本次变更范围。
+
+验证结果：
+
+- `.\gradlew.bat compileJava --stacktrace --no-configuration-cache`：通过。
+- `.\gradlew.bat runGameTestServer --stacktrace --no-configuration-cache`：165/165 required GameTest 全部通过。
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-docs.ps1`：通过。
+- `git diff --check`：通过，仅输出工作树既有 LF/CRLF 提示。
+
+### 2026-07-19 序列缓存器配置边界、临时颜色与搜索框资源验证
+
+本轮新增或扩展的行为 GameTest 位于主 source set `src/main/java/com/warmthdawn/appliedpackaging/gametest/`，并通过 `.\gradlew.bat runGameTestServer` 实际执行。完整结果为 166/166 required tests：未成型单块不应用样板模式、同步输出或输入延迟；成员/单块侧菜单不能修改配置；成型成员实时读取端点但不复制或覆盖本地持久值；包裹/高级样板只临时覆盖装配室有效颜色，客户端与服务端均拒绝锁定期间的颜色修改。
+
+静态与资源验证通过 `.\gradlew.bat build`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 和 `git diff --check`。资产门禁现同时扫描 `assets/appliedpackaging` 与本模组提供的 `assets/ae2` 覆盖资源；current-AE2 搜索框固定为 128x128、487 bytes、SHA-256 `73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1`，构建 JAR 中存在同路径同哈希条目。
+
+真实 `.\gradlew.bat runClient --stacktrace --no-configuration-cache` 已达到 Applied Packaging 初始化、资源重载、OpenAL 和全部 texture atlas 创建，再由本轮主动停止。控制台没有 Applied Packaging 类加载错误、missing model/texture 或 FATAL；既有 PonderJS、Xaero、ModernFix 可选集成缺类警告不属于本轮，用户 IntelliJ 客户端 PID 43708 占用 `run/logs/latest.log` / `debug.log` 产生了明确的日志轮换 ERROR，但该客户端未被停止。该启动路径证明资源可加载，不替代世界内打开四类颜色弹窗、装配室颜色锁定和序列缓存器主方块跳转的人工交互验收。
