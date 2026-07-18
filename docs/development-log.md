@@ -1,5 +1,26 @@
 # Applied Packaging 开发日志
 
+## 2026-07-19 Package Bus 帮助按钮与工具栏统一所有权
+
+实机截图中的重叠不是帮助按钮坐标本身错误，而是 `PackageBusScreen` 绕过了其它界面已经使用的统一工具栏捕获流程。
+`AEBaseScreen` 在构造阶段把 GuideME `OpenGuideButton` 注册进原生 `VerticalButtonBar`；Package Bus 另建
+`toolbarButtons` 并通过 `ModernVerticalToolbar.setButtons` 只交付自己的清除、分区和配置按钮。两组列表都从左侧第一格
+开始布局，因此帮助按钮与第一枚自有按钮占用同一坐标。Package Bus 的 `ModernActionButton` /
+`ModernServerSettingToggleButton` 还会自行绘制新版背景，随后又被 toolbar renderer 覆盖一次，形成第二条重复绘制路径。
+
+当前实现先调用 `super.init()` 注册帮助按钮，再把 Package Bus 自有按钮注册为 Screen children，最后由
+`ModernVerticalToolbar.captureIconButtons(children())` 一次性捕获、排序、禁用旧背景、布局并创建 overlay。帮助按钮因此固定
+排在最前，后续自有按钮按注册顺序排列。Package Bus 的两种专用自绘子类、`setButtons`、`appendButton` 和公开手动画法均已
+删除；高级终端也改为先注册颜色模式按钮再捕获。review 确认现代工具栏只有三类持有者：高级终端、
+`ModernUpgradeableScreen` 及 Package Bus，三者现全部走同一 capture-based ownership 路径。
+
+`compileJava`、完整 `build`、`verify-assets.ps1` 和完整 `test-assets-audit.ps1` 已通过；新增负例删除 Package Bus 的统一捕获
+调用后按预期失败，另有门禁禁止重新增加独立按钮列表或公开手动渲染入口。本次只修改客户端按钮注册、布局和绘制所有权，
+没有服务端菜单状态或机器事务变化，因此未运行 GameTest。真实 `runClient` 完成 Applied Packaging 初始化、资源重载、OpenAL
+和全部纹理图集创建后主动停止；控制台没有 Applied Packaging 类加载或资源错误。项目没有自动打开 Package Bus 并点击按钮的
+client test，最终按钮间距和点击后像素仍由重启后的开发客户端人工验收。`verify-docs.ps1` 已执行，但当前被并行进行的
+GuideME 分层目录重构阻塞：审计仍要求旧版扁平页面并报告 29 项旧路径、分类与相对链接问题；本轮不修改或回退该范围。
+
 ## 2026-07-18 GUI 资源清理、装配室配置与高级样板颜色模式
 
 清理 17 个未被运行时引用或已被共享资源替代的 GUI PNG：删除独立 `textures/gui/icons/` 占位图标、GUI 内重复 logo、
@@ -19,8 +40,10 @@ tooltip 说明用途并同步显示当前单位与类型上限。
 高级样板颜色模式迁移为左侧 AE toolbar 中排在原生功能之后的功能按钮，不再占据帮助按钮之前的第一位，也不再伪装成当前列颜色。默认模式只给新增列分配 Fluix；循环模式
 优先取前面列尚未使用的颜色，17 色均已使用后从最后一列的下一色继续循环。切换模式不重染已有列，手动新增、扩列、
 转置新增和 JEI 填充新增列共用同一分配规则。左侧按钮先由原生 widget 建立交互，再由 current-AE2 overlay 最后绘制，
-避免旧 AE2 图标覆盖新版 sprite。点击后残留的额外边框来自 Minecraft 1.20.1 持久保留 widget focus；工具栏回移实现只按
-normal/hover 选择背景，不再把鼠标点击焦点绘制成持续外框。
+避免旧 AE2 图标覆盖新版 sprite。点击后残留的额外边框来自 Minecraft 1.20.1 持久保留 widget focus：覆盖层虽然只按
+normal/hover 选择背景，但 AE2 15 的原生 `IconButton` 在禁用旧背景后仍会单独绘制 1px 白色 focus 框，覆盖层没有盖住的
+上边缘因此继续可见。现代工具栏现报告自己的按钮成员；高级终端、包裹总线和共用机器 Screen 在鼠标点击由工具栏按钮
+处理后立即释放该按钮的 Screen focus，其它控件和键盘焦点不受影响。
 
 新增和扩展 GameTest 覆盖装配室颜色/marker 保存往返、普通与包裹/高级样板的有效显示覆盖、活动混色/共同 marker、
 配置不被显示覆盖改写，以及进度为 0 时的工作锁，
@@ -30,6 +53,12 @@ normal/hover 选择背景，不再把鼠标点击焦点绘制成持续外框。
 `runClient`，客户端完成 Applied Packaging 初始化、资源重载、声音与全部纹理图集创建；日志未发现 Applied Packaging 的
 缺失 texture/model/ScreenStyle 或加载异常，仅保留既有 10x8 magenta package side 降低 mip level 的普通警告。项目当前无
 自动菜单截图 runner，因此交互布局仍需在用户开发客户端重载后做最终实机视觉确认。
+
+针对原生 focus 框的补充修复已通过 `compileJava`、完整 `build`、`verify-assets.ps1` 和完整
+`test-assets-audit.ps1`；新增负例会移除高级终端的点击后焦点释放并确认审计失败。真实 `runClient` 完成 Applied Packaging
+初始化、资源重载、OpenAL 和全部纹理图集创建后主动停止；用户现有客户端占用 `latest.log/debug.log` 仍只产生既知轮换
+警告。本次只修改客户端按钮焦点生命周期，没有服务端状态或机器事务变化，因此未重复运行 GameTest；界面内点击一次后的
+像素结果仍需在重启后的开发客户端人工验收。
 
 ## 2026-07-16 包裹渲染二次居中与帘后显隐
 

@@ -55,6 +55,15 @@ public abstract class ModernUpgradeableScreen<T extends UpgradeableMenu<?>> exte
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        if (handled && modernToolbar.isToolbarButton(getFocused())) {
+            setFocused(null);
+        }
+        return handled;
+    }
+
+    @Override
     public void drawBG(
             GuiGraphics graphics,
             int offsetX,

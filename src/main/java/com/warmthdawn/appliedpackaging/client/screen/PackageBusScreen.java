@@ -134,9 +134,9 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
 
         // AE2 renamed WRENCH to COG in newer lines; the 15.4.10 action is the
         // same partition operation and uses the same cog artwork.
-        toolbarButtons.add(new ModernActionButton(ActionItems.CLOSE, button -> menu.clear()));
+        toolbarButtons.add(new ActionButton(ActionItems.CLOSE, button -> menu.clear()));
         if (menu.isUnpackingBus()) {
-            blockingMode = new ModernServerSettingToggleButton<>(Settings.BLOCKING_MODE, YesNo.NO);
+            blockingMode = new ServerSettingToggleButton<>(Settings.BLOCKING_MODE, YesNo.NO);
             toolbarButtons.add(blockingMode);
             antiClogMode = new SpriteToggleButton(
                     PackageToolbarSprites.ANTI_CLOG_ON,
@@ -155,12 +155,12 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
             fuzzyMode = null;
             rwMode = null;
         } else {
-            toolbarButtons.add(new ModernActionButton(ActionItems.WRENCH, button -> menu.partition()));
-            storageFilter = new ModernServerSettingToggleButton<>(
+            toolbarButtons.add(new ActionButton(ActionItems.WRENCH, button -> menu.partition()));
+            storageFilter = new ServerSettingToggleButton<>(
                     Settings.STORAGE_FILTER, StorageFilter.EXTRACTABLE_ONLY);
-            filterOnExtract = new ModernServerSettingToggleButton<>(Settings.FILTER_ON_EXTRACT, YesNo.YES);
-            fuzzyMode = new ModernServerSettingToggleButton<>(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
-            rwMode = new ModernServerSettingToggleButton<>(Settings.ACCESS, AccessRestriction.READ_WRITE);
+            filterOnExtract = new ServerSettingToggleButton<>(Settings.FILTER_ON_EXTRACT, YesNo.YES);
+            fuzzyMode = new ServerSettingToggleButton<>(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+            rwMode = new ServerSettingToggleButton<>(Settings.ACCESS, AccessRestriction.READ_WRITE);
             toolbarButtons.add(storageFilter);
             toolbarButtons.add(filterOnExtract);
             toolbarButtons.add(fuzzyMode);
@@ -168,7 +168,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
             blockingMode = null;
             antiClogMode = null;
         }
-        modernToolbar.setButtons(toolbarButtons);
 
         for (int row = 0; row < AbstractPackageBusPart.FILTER_ROWS; row++) {
             final int rowIndex = row;
@@ -194,6 +193,7 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         for (Button button : toolbarButtons) {
             addRenderableWidget(button);
         }
+        modernToolbar.captureIconButtons(children());
         for (Renderable renderer : modernToolbar.createIconButtonRenderers()) {
             addRenderableOnly(renderer);
         }
@@ -402,29 +402,6 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
         }
     }
 
-    private static final class ModernActionButton extends ActionButton {
-        private ModernActionButton(ActionItems action, java.util.function.Consumer<ActionItems> onPress) {
-            super(action, onPress);
-        }
-
-        @Override
-        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            ModernVerticalToolbar.renderButton(graphics, this, getIcon());
-        }
-    }
-
-    private static final class ModernServerSettingToggleButton<T extends Enum<T>>
-            extends ServerSettingToggleButton<T> {
-        private ModernServerSettingToggleButton(appeng.api.config.Setting<T> setting, T initialValue) {
-            super(setting, initialValue);
-        }
-
-        @Override
-        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            ModernVerticalToolbar.renderButton(graphics, this, getIcon());
-        }
-    }
-
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (colorPicker.mouseClicked(mouseX, mouseY, button)) {
@@ -447,7 +424,11 @@ public class PackageBusScreen extends AEBaseScreen<PackageBusMenu> {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        if (handled && modernToolbar.isToolbarButton(getFocused())) {
+            setFocused(null);
+        }
+        return handled;
     }
 
     @Override

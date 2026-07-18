@@ -49,24 +49,10 @@ public final class ModernVerticalToolbar {
 
     private final List<Button> buttons = new ArrayList<>();
 
-    public void setButtons(Iterable<? extends Button> source) {
-        buttons.clear();
-        for (Button button : source) {
-            buttons.add(button);
-        }
-    }
-
-    public void appendButton(Button button) {
-        buttons.remove(button);
-        buttons.add(button);
-        if (button instanceof IconButton iconButton) {
-            iconButton.setDisableBackground(true);
-        }
-    }
-
     /**
-     * Reuses the full-size IconButtons populated by AEBaseScreen's native
-     * toolbar while replacing only their presentation and final layout.
+     * Captures every full-size IconButton already registered with the screen,
+     * including AEBaseScreen's guide button and locally added controls. Call
+     * this after all toolbar buttons have been added to the screen children.
      */
     public void captureIconButtons(Iterable<? extends GuiEventListener> children) {
         buttons.clear();
@@ -76,6 +62,11 @@ public final class ModernVerticalToolbar {
                 buttons.add(button);
             }
         }
+    }
+
+    /** Returns whether the listener is one of the buttons owned by this toolbar. */
+    public boolean isToolbarButton(GuiEventListener listener) {
+        return listener instanceof Button button && buttons.contains(button);
     }
 
     /**
@@ -153,11 +144,6 @@ public final class ModernVerticalToolbar {
                 destinationY + destinationHeight - 4,
                 destinationWidth,
                 4).blit(graphics);
-    }
-
-    /** Exact current-main IconButton renderer used by locally owned buttons. */
-    public static void renderButton(GuiGraphics graphics, Button button, Icon icon) {
-        renderButton(graphics, button, icon, getCurrentIconOverride(icon), null);
     }
 
     private static void renderButton(

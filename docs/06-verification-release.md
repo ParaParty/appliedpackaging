@@ -1073,11 +1073,11 @@ GuideME 的静态门禁范围为：10 个英文页面、10 个 `_zh_cn` 页面�
 
 ### 2026-07-18 高级终端工具栏与装配室有效配置显示
 
-高级样板颜色模式按钮排在 AE2 原生左侧功能按钮之后，不再占据工具栏首位。1.20.1 的 widget 在鼠标点击后会持续保留 focus，旧回移绘制据此选用 focus sprite，形成 hover 已结束仍存在的额外边框；本地工具栏改为只使用 normal/hover 背景，资源审计同时禁止恢复 `button.isFocused()` 分支。
+高级样板颜色模式按钮排在 AE2 原生左侧功能按钮之后，不再占据工具栏首位。1.20.1 的 widget 在鼠标点击后会持续保留 focus；覆盖层只使用 normal/hover 背景仍不足以消除 AE2 15 原生 `IconButton` 单独绘制的 1px 白色 focus 框。高级终端、包裹总线和共用机器 Screen 现只在鼠标点击由现代工具栏按钮处理后释放该按钮的 Screen focus，其它控件和键盘焦点保持不变。资源审计同时禁止覆盖层恢复 `button.isFocused()` 分支，并要求每类工具栏持有界面保留点击后焦点释放。
 
 装配室菜单同步显示专用的有效 marker：本地包裹/高级样板和无本地样板的 Pattern Provider 活动批次覆盖 marker 槽显示与 tooltip，但不改写持久配置；活动包裹 marker 不一致或缺失时显示空 marker，任务结束或样板取出后恢复原配置。有效颜色继续使用相同的本地样板/活动批次优先级。GameTest 扩展覆盖本地样板与活动批次的颜色、marker、混合状态以及配置恢复。
 
-验证通过：`./gradlew.bat build --stacktrace --no-configuration-cache`；`runGameTestServer` 明确报告 165/165 required tests 通过；`verify-assets.ps1` 与完整 `test-assets-audit.ps1` 通过，其中恢复 focus 分支的隔离负例按预期失败；`verify-docs.ps1`、`verify-release.ps1 -RequireAssetContracts` 和 `git diff --check` 通过。
+验证通过：`./gradlew.bat build --stacktrace --no-configuration-cache`；`runGameTestServer` 明确报告 165/165 required tests 通过；`verify-assets.ps1` 与完整 `test-assets-audit.ps1` 通过，其中恢复覆盖层 focus 分支、移除原生按钮点击后焦点释放的两个隔离负例均按预期失败；`verify-docs.ps1`、`verify-release.ps1 -RequireAssetContracts` 和 `git diff --check` 通过。补充焦点修复只改变客户端 Screen 焦点生命周期，未再次运行 GameTest；真实 `runClient` 已完成模组初始化、资源重载、OpenAL 和全部纹理图集创建，最后的点击后像素结果保留为人工交互验收项。
 
 ### 2026-07-19 包裹装配室队首单包裹输出预检
 
@@ -1097,3 +1097,17 @@ GuideME 的静态门禁范围为：10 个英文页面、10 个 `_zh_cn` 页面�
 静态与资源验证通过 `.\gradlew.bat build`、`scripts/verify-assets.ps1`、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 和 `git diff --check`。资产门禁现同时扫描 `assets/appliedpackaging` 与本模组提供的 `assets/ae2` 覆盖资源；current-AE2 搜索框固定为 128x128、487 bytes、SHA-256 `73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1`，构建 JAR 中存在同路径同哈希条目。
 
 真实 `.\gradlew.bat runClient --stacktrace --no-configuration-cache` 已达到 Applied Packaging 初始化、资源重载、OpenAL 和全部 texture atlas 创建，再由本轮主动停止。控制台没有 Applied Packaging 类加载错误、missing model/texture 或 FATAL；既有 PonderJS、Xaero、ModernFix 可选集成缺类警告不属于本轮，用户 IntelliJ 客户端 PID 43708 占用 `run/logs/latest.log` / `debug.log` 产生了明确的日志轮换 ERROR，但该客户端未被停止。该启动路径证明资源可加载，不替代世界内打开四类颜色弹窗、装配室颜色锁定和序列缓存器主方块跳转的人工交互验收。
+
+### 2026-07-19 Package Bus 统一工具栏捕获验证
+
+Package Bus 必须在 `super.init()` 创建 AE2/GuideME 帮助按钮、并注册本地清除/分区/设置按钮之后，才调用
+`ModernVerticalToolbar.captureIconButtons(children())`。捕获顺序同时决定最终按钮顺序、统一 6px 间距、外框高度、旧背景
+禁用、点击后焦点释放和 current-AE2 overlay；不得另用独立 `setButtons` 列表或自绘 `IconButton` 子类。高级终端颜色模式
+按钮同样先注册再捕获，`ModernUpgradeableScreen` 继续捕获 AE2 原生工具栏按钮。
+
+验证结果：`compileJava`、完整 `build`、`verify-assets.ps1` 与完整 `test-assets-audit.ps1` 通过；删除 Package Bus
+`captureIconButtons` 的隔离负例按预期失败。项目存在主 source set 下的 GameTest，但此次没有服务端状态、菜单 action 或机器行为
+变化，因此不新增也不运行 GameTest。真实 `runClient` 完成 Applied Packaging 初始化、资源重载、OpenAL 和全部纹理图集创建后
+主动停止，控制台未发现 Applied Packaging 类加载或资源错误；项目没有自动打开 Package Bus 的 client test，按钮不重叠与点击后
+像素效果保留为重启开发客户端后的人工验收项。`verify-docs.ps1` 当前因并行 GuideME 分层目录重构与旧审计契约不一致而失败
+29 项，本轮未跨范围修改这些旧路径、分类与相对链接问题；`git diff --check` 通过。

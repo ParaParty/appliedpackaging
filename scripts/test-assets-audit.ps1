@@ -393,7 +393,7 @@ try {
         -Name "misordered Advanced Pattern Terminal color mode overlay fixture" `
         -RootPath $misorderedColorModeFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "Advanced Pattern Terminal color mode follows the native toolbar functions and its current-AE2 overlay renders last"
+        -ExpectedText "Advanced Pattern Terminal registers color mode before shared toolbar capture and renders its overlay last"
 
     $misalignedPackageAssemblerScrollbarFixture = New-AssetsFixture "misaligned-package-assembler-scrollbar"
     $packageAssemblerStylePath = Join-Path $misalignedPackageAssemblerScrollbarFixture "src/main/resources/assets/ae2/screens/appliedpackaging/package_assembler.json"
@@ -484,7 +484,35 @@ try {
         -Name "persistent modern toolbar focus border fixture" `
         -RootPath $persistentToolbarFocusFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "Modern toolbar mouse clicks do not leave a persistent focus border"
+        -ExpectedText "Modern toolbar overlay uses only normal and hover backgrounds"
+
+    $nativeToolbarFocusFixture = New-AssetsFixture "native-toolbar-focus"
+    $nativeToolbarFocusPath = Join-Path $nativeToolbarFocusFixture $advancedTerminalScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $nativeToolbarFocusPath) | Out-Null
+    $nativeToolbarFocusText = (Get-Content -Raw -LiteralPath $advancedTerminalScreenSourcePath).Replace(
+        'modernToolbar.isToolbarButton(getFocused())',
+        'false')
+    Set-Content -LiteralPath $nativeToolbarFocusPath -Value $nativeToolbarFocusText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "unreleased native toolbar focus fixture" `
+        -RootPath $nativeToolbarFocusFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Advanced Pattern Terminal releases mouse focus from toolbar buttons after clicks"
+
+    $uncapturedPackageBusFixture = New-AssetsFixture "uncaptured-package-bus-toolbar"
+    $packageBusScreenRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/PackageBusScreen.java"
+    $packageBusScreenSourcePath = Join-Path $repoRoot $packageBusScreenRelativePath
+    $uncapturedPackageBusPath = Join-Path $uncapturedPackageBusFixture $packageBusScreenRelativePath
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $uncapturedPackageBusPath) | Out-Null
+    $uncapturedPackageBusText = (Get-Content -Raw -LiteralPath $packageBusScreenSourcePath).Replace(
+        '        modernToolbar.captureIconButtons(children());',
+        '')
+    Set-Content -LiteralPath $uncapturedPackageBusPath -Value $uncapturedPackageBusText -Encoding UTF8
+    Invoke-AssetsCase `
+        -Name "uncaptured Package Bus guide button fixture" `
+        -RootPath $uncapturedPackageBusFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Bus captures AE2 guide and local buttons in one shared toolbar pass"
 
     $legacyOptionalSlotFixture = New-AssetsFixture "legacy-optional-slot-renderer"
     $packageAssemblerMenuRelativePath = "src/main/java/com/warmthdawn/appliedpackaging/world/menu/PackageAssemblerMenu.java"

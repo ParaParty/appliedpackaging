@@ -290,9 +290,8 @@ public class AdvancedPatternEncodingTermScreen
         applyScreenProfile(leftPos, topPos);
         setTextHidden("crafting_grid_title", true);
         replaceCraftingStatusButton();
-        modernToolbar.captureIconButtons(children());
-        modernToolbar.appendButton(colorModeButton);
         addRenderableWidget(colorModeButton);
+        modernToolbar.captureIconButtons(children());
         for (Renderable renderer : modernToolbar.createIconButtonRenderers()) {
             addRenderableOnly(renderer);
         }
@@ -510,7 +509,11 @@ public class AdvancedPatternEncodingTermScreen
             heldMoveStack = slot.getItem().copy();
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        if (handled && modernToolbar.isToolbarButton(getFocused())) {
+            setFocused(null);
+        }
+        return handled;
     }
 
     @Override

@@ -887,14 +887,15 @@ if (Test-Path -LiteralPath $advancedPatternTerminalScreenPath) {
         "Advanced Pattern Terminal search header and pinned row use the cached current-AE2 terminal atlas"
 
     $colorModeWidgetIndex = $advancedPatternTerminalScreenText.IndexOf('addRenderableWidget(colorModeButton);')
+    $toolbarCaptureIndex = $advancedPatternTerminalScreenText.IndexOf('modernToolbar.captureIconButtons(children());')
     $toolbarRendererIndex = $advancedPatternTerminalScreenText.IndexOf('modernToolbar.createIconButtonRenderers()')
     Assert-True `
-        ($advancedPatternTerminalScreenText.Contains('modernToolbar.appendButton(colorModeButton)') -and
-            $advancedPatternTerminalScreenText.Contains('Icon.SCHEDULING_DEFAULT') -and
+        ($advancedPatternTerminalScreenText.Contains('Icon.SCHEDULING_DEFAULT') -and
             $advancedPatternTerminalScreenText.Contains('Icon.SCHEDULING_ROUND_ROBIN') -and
             $colorModeWidgetIndex -ge 0 -and
-            $toolbarRendererIndex -gt $colorModeWidgetIndex) `
-        "Advanced Pattern Terminal color mode follows the native toolbar functions and its current-AE2 overlay renders last"
+            $toolbarCaptureIndex -gt $colorModeWidgetIndex -and
+            $toolbarRendererIndex -gt $toolbarCaptureIndex) `
+        "Advanced Pattern Terminal registers color mode before shared toolbar capture and renders its overlay last"
 
     $advancedPanelDrawIndex = $advancedPatternTerminalScreenText.IndexOf('drawAdvancedPanel(graphics, offsetX, offsetY);')
     $advancedSlotDrawIndex = $advancedPatternTerminalScreenText.IndexOf('drawAdvancedInputSlotBackgrounds(graphics, offsetX, offsetY);')
@@ -903,6 +904,10 @@ if (Test-Path -LiteralPath $advancedPatternTerminalScreenPath) {
             $advancedPanelDrawIndex -ge 0 -and
             $advancedSlotDrawIndex -gt $advancedPanelDrawIndex) `
         "Advanced Pattern Terminal paints the advanced panel over the corrected gray base before slot overlays"
+    Assert-True `
+        ($advancedPatternTerminalScreenText.Contains('modernToolbar.isToolbarButton(getFocused())') -and
+            $advancedPatternTerminalScreenText.Contains('setFocused(null)')) `
+        "Advanced Pattern Terminal releases mouse focus from toolbar buttons after clicks"
 }
 
 $modernSlotRenderingPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernSlotRendering.java"
@@ -963,6 +968,7 @@ if (Test-Path -LiteralPath $packageAssemblerStylePath) {
 
 $packageToolbarSpritesPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/PackageToolbarSprites.java"
 $modernToolbarPath = "src/main/java/com/warmthdawn/appliedpackaging/client/widget/ModernVerticalToolbar.java"
+$modernUpgradeableScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/ModernUpgradeableScreen.java"
 $sequenceBufferSharedScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/AbstractSequenceBufferScreen.java"
 $mePackagerScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/MePackagerScreen.java"
 $packageBusScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/PackageBusScreen.java"
@@ -1016,7 +1022,43 @@ if (Test-Path -LiteralPath $modernToolbarPath) {
         ($modernToolbarText.Contains('button.isHovered() ? BUTTON_HOVER : BUTTON') -and
             -not $modernToolbarText.Contains('BUTTON_FOCUS') -and
             -not $modernToolbarText.Contains('button.isFocused()')) `
-        "Modern toolbar mouse clicks do not leave a persistent focus border"
+        "Modern toolbar overlay uses only normal and hover backgrounds"
+    Assert-True `
+        $modernToolbarText.Contains('public boolean isToolbarButton(GuiEventListener listener)') `
+        "Modern toolbar exposes button ownership for post-click focus release"
+    Assert-True `
+        ($modernToolbarText.Contains('public void captureIconButtons(Iterable<? extends GuiEventListener> children)') -and
+            -not $modernToolbarText.Contains('void setButtons(') -and
+            -not $modernToolbarText.Contains('void appendButton(') -and
+            -not $modernToolbarText.Contains('public static void renderButton(')) `
+        "Modern toolbar has one capture-based ownership and rendering path"
+}
+if (Test-Path -LiteralPath $modernUpgradeableScreenPath) {
+    $modernUpgradeableScreenText = Get-Content -Raw -LiteralPath $modernUpgradeableScreenPath
+    Assert-True `
+        ($modernUpgradeableScreenText.Contains('modernToolbar.isToolbarButton(getFocused())') -and
+            $modernUpgradeableScreenText.Contains('setFocused(null)')) `
+        "Modern upgradeable screens release mouse focus from toolbar buttons after clicks"
+}
+if (Test-Path -LiteralPath $packageBusScreenPath) {
+    $packageBusScreenText = Get-Content -Raw -LiteralPath $packageBusScreenPath
+    Assert-True `
+        ($packageBusScreenText.Contains('modernToolbar.isToolbarButton(getFocused())') -and
+            $packageBusScreenText.Contains('setFocused(null)')) `
+        "Package Bus screens release mouse focus from toolbar buttons after clicks"
+    $packageBusSuperInitIndex = $packageBusScreenText.IndexOf('super.init();')
+    $packageBusLocalButtonsIndex = $packageBusScreenText.IndexOf('for (Button button : toolbarButtons)')
+    $packageBusToolbarCaptureIndex = $packageBusScreenText.IndexOf('modernToolbar.captureIconButtons(children());')
+    $packageBusToolbarRendererIndex = $packageBusScreenText.IndexOf('modernToolbar.createIconButtonRenderers()')
+    Assert-True `
+        ($packageBusSuperInitIndex -ge 0 -and
+            $packageBusLocalButtonsIndex -gt $packageBusSuperInitIndex -and
+            $packageBusToolbarCaptureIndex -gt $packageBusLocalButtonsIndex -and
+            $packageBusToolbarRendererIndex -gt $packageBusToolbarCaptureIndex -and
+            -not $packageBusScreenText.Contains('modernToolbar.setButtons(') -and
+            -not $packageBusScreenText.Contains('class ModernActionButton') -and
+            -not $packageBusScreenText.Contains('class ModernServerSettingToggleButton')) `
+        "Package Bus captures AE2 guide and local buttons in one shared toolbar pass"
 }
 
 $mePackagerScreenPath = "src/main/java/com/warmthdawn/appliedpackaging/client/screen/MePackagerScreen.java"
