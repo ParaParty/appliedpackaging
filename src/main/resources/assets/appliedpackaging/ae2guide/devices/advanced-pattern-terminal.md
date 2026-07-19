@@ -20,50 +20,44 @@ categories:
   <IsometricCamera yaw="180" />
 </GameScene>
 
-You know AE2's <ItemLink id="ae2:pattern_encoding_terminal" />? This is that, but for packages.
+The Advanced Pattern Encoding Terminal encodes package patterns and advanced processing patterns. It has two independent pages: **Package** and **Advanced**. Each page keeps its own inventory — switching pages does not copy or clear items between them.
 
-It has two independent pages: **Package** and **Advanced**. Each page keeps its own inventory — switching between them won't mix or copy anything. You'll spend most of your time on the Package page.
+This is a cable subpart and requires a channel. Regular AE2 pattern encoding terminals cannot read or edit packaging patterns.
 
-This is a [cable subpart](ae2:ae2-mechanics/cable-subparts.md) and needs a [channel](ae2:ae2-mechanics/channels.md), same as AE2's regular pattern terminal.
+## The Package Page
 
-**Regular AE2 pattern terminals cannot read or edit packaging patterns.** You need this one.
+Encodes one <ItemLink id="appliedpackaging:package_pattern" /> at a time:
 
-## Package Page
-
-This is where you make one package pattern at a time.
-
-1. Put a blank AE2 pattern in the blank-pattern slot on the right.
-2. Place items in the input grid. **Empty slots count.** If you put coal in slot 1, nothing in slot 2, and iron in slot 3, the package remembers slot 2 was intentionally left empty. This is called a sparse layout.
-3. Pick a color from the color picker.
-4. Optionally, put an item in the Marker slot. The marker is just a label — it's never consumed. You might mark a furnace-input package with an iron ingot.
-5. Hit **Encode**. You get a <ItemLink id="appliedpackaging:package_pattern" />.
+1. Insert a blank AE2 pattern into the blank-pattern slot.
+2. Place items into the input grid. Empty slots are recorded as part of the layout.
+3. Choose a color from the color picker.
+4. Optionally place an item in the marker slot. The marker is never consumed.
+5. Click Encode.
 
 <Row gap="20">
   <ItemImage id="appliedpackaging:package_pattern" scale="4" />
 </Row>
 
-**The same item in different slots stays as separate entries.** Put coal in slot 1 and coal in slot 3, and you get two independent coal entries — not one merged stack. This matters when the receiving machine has multiple slots that all accept coal.
+The same item placed in different slots produces separate entries. This matters when the pattern encodes, for example, coal in both slot 1 and slot 3 — the two coals remain independent entries that can be routed to different destinations by a Sequence Buffer.
 
-## Advanced Page
+## The Advanced Page
 
-This is for when you need more than one package from a recipe — up to 81 of them, each with its own color and inputs.
+Encodes an <ItemLink id="appliedpackaging:advanced_processing_pattern" /> with up to 81 package columns, each with its own color and up to 81 sparse input slots. The screen displays four columns at a time.
 
-The screen shows four columns at a time. Each column becomes one package. The column order is the order the packages are produced in. Use the scroll bars to reach the full 81×81 grid.
-
-This is useful when one processing operation needs multiple ordered input groups that each go to a different machine face. For example: column 1 for the furnace's fuel side, column 2 for the ore top, column 3 for the output extraction. Each column becomes its own colored package.
+Each column becomes one package. The column order is the package output order. This is useful for recipes that produce multiple packages from one pattern, where each package carries a different set of ingredients for a different destination.
 
 ### Color Mode
 
-The first button in the left toolbar controls what color new columns get:
+The left toolbar controls how new columns are colored:
 
-* **Default** — Every new column starts as Fluix. Boring but predictable.
-* **Cycling** — New columns get the next unused color, cycling through all 17. Great for keeping different columns visually distinct.
+*   **Default** assigns Fluix to every new column.
+*   **Cycling** assigns the next unused color in sequence, cycling through all 17 colors.
 
-**Changing the color mode never touches existing columns.** It only affects columns you add after switching. To change a specific column's color, click its individual color button.
+Changing the mode does not affect existing columns — only columns added afterwards.
 
 ### Recipe Viewer Transfer
 
-You can import recipes directly from JEI or EMI into either page. Deterministic recipes work fine. Random-output or ambiguous recipes are rejected — you'll get a clear error message explaining why.
+Recipes can be imported from JEI or EMI into either page. Deterministic recipes are supported; ambiguous or random-output recipes are rejected.
 
 ## Recipe
 

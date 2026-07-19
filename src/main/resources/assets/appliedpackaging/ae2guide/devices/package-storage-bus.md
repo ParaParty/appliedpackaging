@@ -16,41 +16,41 @@ categories:
   <ImportStructure src="../assets/blocks/package_storage_bus.snbt" />
 </GameScene>
 
-Ever wanted to keep your packages in a chest instead of cluttering up your ME drives? That's what this does.
+The Package Storage Bus works like AE2's <ItemLink id="ae2:storage_bus" /> but only sees package items in the adjacent inventory. Loose items like cobblestone or iron are ignored. The network can't see what's inside a package — it sees "3 red packages," not "3 coal and 3 iron."
 
-The Package Storage Bus works exactly like AE2's <ItemLink id="ae2:storage_bus" /> — same priority system, same routing behavior, same [channel](ae2:ae2-mechanics/channels.md) requirement — but for packages. It exposes the packages in the attached inventory to your ME network **as packages**, not as their individual contents. Your network sees "3 red furnace-input packages," not "3 coal and 3 iron."
+Unlike a regular storage bus, this one can filter by what a package looks like: its color, its marker, and up to six items from its contents. Red packages go here, blue packages go there.
 
-Loose items in the same chest are completely ignored.
+They are [cable subparts](ae2:ae2-mechanics/cable-subparts.md).
 
-## Filtering by Package Properties
+## Filter Rows
 
-Instead of filtering by item type like a normal storage bus, you filter by what's *in* the package:
+Two filter rows are available initially. Each <ItemLink id="ae2:capacity_card" /> adds one row, reaching seven rows with five cards. Rows are alternatives: a package matching any enabled row is accepted.
 
-* **Color** — Only accept packages of a specific color. Leave empty to not filter by color.
-* **Marker** — Only accept packages with a specific marker item. Leave empty to match any marker.
-* **Content filters** — Up to 6 per row. Only accept packages containing specific items.
+Each row can combine:
 
-Rows work as OR conditions — a package matching **any** enabled row is accepted.
-
-You start with 2 filter rows. Each <ItemLink id="ae2:capacity_card" /> adds one, up to 7 rows with 5 capacity cards.
+*   A color filter. Leave empty to not filter by color.
+*   A marker filter. Leave empty to match any marker.
+*   Up to six content filters.
 
 ## Partitioning
 
-Click the partition button and the bus scans the adjacent inventory. For each distinct package it finds, it creates one complete filter row with color, marker, and content filters all filled in. If the inventory has no packages, partitioning clears everything.
+Clicking the partition button scans the adjacent inventory and creates one filter row per distinct package found. Loose items are ignored. If the inventory contains no packages, partitioning clears all filters.
 
 ## Priority
 
-Same as AE2's storage bus: higher priority fills first. At equal priority, AE2 prefers storage that already contains matching packages.
+Priorities can be set by clicking the wrench in the top-right of the GUI. Higher priority storage receives packages first. At equal priority, existing matching storage is preferred.
 
-**A common routing trick:** give <ItemLink id="appliedpackaging:package_unpacking_bus" /> a higher priority than this bus if you want packages unpacked on arrival. Give this bus higher priority if you want packages stored for later.
+You can also use the bus on a [subnetwork](ae2:ae2-mechanics/subnetworks.md). Make it the only storage on the subnetwork, and the bus's filters control exactly which packages enter that network. This is how you split packages across different destinations based on their color or marker.
 
 ## Upgrades
 
-* <ItemLink id="ae2:capacity_card" /> — More filter rows (up to 5)
-* <ItemLink id="ae2:fuzzy_card" /> — Fuzzy matching per row
-* <ItemLink id="ae2:inverter_card" /> — Invert content filtering per row
+The Package Storage Bus supports the following [upgrades](ae2:items-blocks-machines/upgrade_cards.md):
 
-No speed cards — this bus doesn't do any timed operations. It's a filter, not a processor.
+*   <ItemLink id="ae2:capacity_card" /> increases the number of filter rows
+*   <ItemLink id="ae2:fuzzy_card" /> enables fuzzy matching per row
+*   <ItemLink id="ae2:inverter_card" /> inverts content filtering per row
+
+Speed cards are not accepted — the bus does not run any processing, it just stores and filters.
 
 ## Recipe
 

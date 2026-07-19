@@ -36,22 +36,31 @@ categories:
   <ItemImage id="appliedpackaging:black_package" scale="3" />
 </Row>
 
-A package is exactly what it sounds like — a box you put items in. But unlike a regular chest, the box remembers the exact order you put things in. Coal in slot 1, iron in slot 2 — that order never changes, no matter where the package goes.
+Packages group multiple items together into a single item that travels through your ME network. This lets you route a complete set of ingredients as one unit — for example, through a subnetwork that distributes them to multiple machines, or to split one recipe's ingredients into separate groups that each go to a different destination.
 
-## What Goes In a Package?
+A package cannot contain another package. If you use a package as an ingredient, its contents are expanded in place before the outer package is assembled.
 
-Every package stores four things:
+Sneak-right-click a package stack to unpack one into your inventory.
 
-* **Contents** — An ordered list of items. Two coal followed by one iron is different from one iron followed by two coal. The order is always preserved.
-* **Color** — One of 17 colors. Purely for organization — use different colors for different production lines, or to filter which packages go where.
-* **Marker** — An optional label item. Put an iron ingot in the marker slot when encoding, and the package says "Marker: Iron Ingot." The marker item is never consumed — it's just a tag.
-* **Layout** — If you left empty slots between items when encoding, the package remembers those gaps. This matters when delivering to machines with specific slot positions.
+## Why Use Packages
 
-**Packages cannot hold other packages.** If you try, the inner package is unpacked first and its contents are included directly.
+### Group Routing
+
+A normal AE2 pattern provider can push ingredients to one adjacent inventory. With packages, you encode the ingredients as a single package, route that package through a subnetwork, and unpack it at the destination. This allows one pattern to feed multiple machines: the package travels as one item through the network, and an Unpacking Bus with a Sequence Buffer splits its contents across machine faces.
+
+### Splitting a Recipe
+
+Some recipes need different ingredients delivered to different locations. You can encode two or more package patterns, each carrying a subset of the recipe's ingredients, and use a parent processing pattern whose inputs are those packages. Alternatively, use an advanced processing pattern with multiple columns — each column becomes one package. When routed through color-filtered Unpacking Buses, each group goes to its correct destination.
+
+## Contents, Color, and Marker
+
+Each package stores an ordered list of contents, a color (one of 17), and an optional marker item. The color and marker are used for filtering on Package Storage Buses and Package Unpacking Buses. Colors allow you to route different groups of ingredients to different destinations.
+
+Empty slots between items in the encoded pattern are preserved as part of the package layout. Combined with a Sequence Buffer in pattern mode, this allows sparse slot positions to be mapped to specific buffer members.
 
 ## Capacity
 
-By default, each package holds up to **9 types of items** and **9 total items**. You can increase this by installing AE2 storage components in the machine that creates the package:
+By default each package holds up to 9 item types and 9 total items. AE2 storage components installed in the machine creating the package increase these limits:
 
 | Component | Max Types | Max Total |
 |-----------|-----------|-----------|
@@ -60,23 +69,7 @@ By default, each package holds up to **9 types of items** and **9 total items**.
 | <ItemLink id="ae2:cell_component_64k" /> | 63 | 64 |
 | <ItemLink id="ae2:cell_component_256k" /> | 63 | 256 |
 
-**Completed storage cells and 1k components won't work.** Only 16k, 64k, and 256k raw components are accepted.
-
-## Making Packages
-
-Three ways:
-
-| Method | Device | When to use it |
-|--------|--------|----------------|
-| Autocrafting | <ItemLink id="appliedpackaging:package_assembler" /> + pattern provider | The standard way — integrates into AE2 autocrafting |
-| Direct packing | <ItemLink id="appliedpackaging:me_packager" /> | When you want to pack items from ME storage without patterns |
-| Local assembly | <ItemLink id="appliedpackaging:package_assembler" /> with local pattern | Manual or single-batch use |
-
-## Unpacking Packages
-
-* **Sneak-right-click** a package stack in your hand to unpack one into your inventory. Quickest way to test things.
-* Use a [Package Unpacking Bus](packaging-concepts/../devices/package-unpacking-bus.md) to automatically unpack packages into machines.
-* The [ME Packager](packaging-concepts/../machines/me-packager.md) can also unpack back into ME storage.
+Storage cells and 1k components are not accepted. Only 16k, 64k, and 256k raw components work.
 
 ## Colors
 
@@ -102,20 +95,18 @@ Three ways:
   <ItemImage id="appliedpackaging:black_package" scale="2" />
 </Row>
 
-17 colors: Fluix (the default) plus all 16 dye colors. Two packages with identical contents but different colors **won't stack.** This is actually useful — you can use color to control which storage bus a package goes to.
+17 colors are available: Fluix (default) plus the 16 dye colors. Packages with identical contents but different colors will not stack. Colors are used for filtering on buses — different colors can route different groups to different destinations.
 
 ## Pattern Types
 
-You encode packages from patterns. Two types:
+*   <ItemLink id="appliedpackaging:package_pattern" /> encodes one package with a single color, marker, and input layout.
+*   <ItemLink id="appliedpackaging:advanced_processing_pattern" /> encodes up to 81 packages from one pattern, each column with its own color and inputs.
 
-* **<ItemLink id="appliedpackaging:package_pattern" />** — One package per pattern. One color, one marker, one set of inputs. This is your daily driver.
-* **<ItemLink id="appliedpackaging:advanced_processing_pattern" />** — Up to 81 packages from a single pattern, each with its own color. For complex multi-output recipes.
+Both are encoded in the [Advanced Pattern Encoding Terminal](packaging-concepts/../devices/advanced-pattern-terminal.md). Regular AE2 pattern terminals cannot read or edit them.
 
-Both are made in the [Advanced Pattern Encoding Terminal](packaging-concepts/../devices/advanced-pattern-terminal.md). Regular AE2 pattern terminals can't read or edit them.
+## Unpacking
 
-## Tips
-
-* **Color-code your production lines.** Red packages = smelting, blue = crafting. It makes storage bus filters instantly readable.
-* **Shift-right-click** unpacks a package anywhere. Essential for testing.
-* **Packages are items, not storage cells.** They go through your ME network just like cobblestone or iron — store them in drives, export them, route them.
-* **A package can't contain another package.** If you try, the inner one is flattened first.
+*   Sneak-right-click a package stack to unpack one into your inventory.
+*   A [Package Unpacking Bus](packaging-concepts/../devices/package-unpacking-bus.md) unpacks into an adjacent inventory in encoded order.
+*   A [Sequence Buffer](packaging-concepts/../machines/sequence-buffer.md) preserves the order of package entries and pattern provider pushes, enabling sparse slot mapping to specific faces.
+*   The [ME Packager](packaging-concepts/../machines/me-packager.md) unpacks back into ME storage.

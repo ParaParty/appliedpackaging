@@ -8,22 +8,36 @@ import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatte
 import com.warmthdawn.appliedpackaging.part.AdvancedPatternEncodingState;
 import java.util.function.IntSupplier;
 
-/** A four-column menu window backed by the terminal's full sparse 81x81 editor. */
+/**
+ * A four-column menu window over the terminal's full sparse 81x81 editor.
+ *
+ * <p>The server maps each window slot to its current absolute column. The client deliberately keeps only a
+ * window-local copy: vanilla synchronizes dynamic slots by comparing the previous and next visible window, so
+ * retaining hidden absolute columns client-side would leave stale entries behind when the scroll position changes.
+ */
 final class AdvancedPatternInputWindow extends ConfigInventory {
     static final int VISIBLE_COLUMNS = 4;
     static final int WINDOW_SIZE = VISIBLE_COLUMNS * AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
 
     private final AdvancedPatternEncodingState state;
     private final IntSupplier firstColumn;
+    private final boolean clientSideWindow;
 
-    AdvancedPatternInputWindow(AdvancedPatternEncodingState state, IntSupplier firstColumn) {
+    AdvancedPatternInputWindow(
+            AdvancedPatternEncodingState state,
+            IntSupplier firstColumn,
+            boolean clientSideWindow) {
         super(null, GenericStackInv.Mode.CONFIG_STACKS, WINDOW_SIZE, null, true);
         this.state = state;
         this.firstColumn = firstColumn;
+        this.clientSideWindow = clientSideWindow;
     }
 
     @Override
     public GenericStack getStack(int slot) {
+        if (clientSideWindow) {
+            return super.getStack(slot);
+        }
         int absolute = absoluteSlot(slot);
         return absolute < 0 ? null : state.inputs().getStack(absolute);
     }
@@ -42,6 +56,10 @@ final class AdvancedPatternInputWindow extends ConfigInventory {
 
     @Override
     public void setStack(int slot, GenericStack stack) {
+        if (clientSideWindow) {
+            super.setStack(slot, stack);
+            return;
+        }
         int absolute = absoluteSlot(slot);
         if (absolute >= 0) {
             state.inputs().setStack(absolute, stack);
@@ -54,9 +72,8 @@ final class AdvancedPatternInputWindow extends ConfigInventory {
         }
         int column = firstColumn.getAsInt()
                 + windowSlot / AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
-        // The client-side host state is not the source of truth for the active-column count;
-        // that value is synchronized separately by the menu. Keep the window addressable and
-        // let the menu/screen disable slots outside the active range.
+        // Active-column count is synchronized separately by the menu. Keep the server window
+        // addressable across the full matrix and let the menu/screen disable inactive columns.
         if (column < 0 || column >= AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS) {
             return -1;
         }

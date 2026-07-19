@@ -14,20 +14,13 @@ categories:
 
 <BlockImage id="appliedpackaging:sequence_buffer" scale="8" />
 
-A package arrives with coal, iron, and redstone inside — in that careful order. But your machine has three separate input faces, each expecting a different item. How do you split one package across three destinations?
+The Sequence Buffer stores one item type per block and outputs it to a configured adjacent face. Its function is to preserve the order of incoming items — whether from a package or directly from a pattern provider push — and deliver each item to the correct machine face.
 
-The Sequence Buffer does exactly that.
+Each buffer member accepts only one insertion until fully emptied. This constraint prevents identical items from merging. For example, if a pattern specifies two coal at positions 1 and 3, the buffer keeps them separate so position 1 goes to one face and position 3 to another. Package contents, pattern provider ingredient order, and sparse slot layouts are all preserved by the buffer.
 
-Each buffer block holds exactly one type of item. Line them up in a row, wrench the end, and they form a multiblock. Package items go in order: entry 1 goes to the first member, entry 2 to the second, entry 3 to the third. Each member outputs through its own configured face. One package, multiple machine faces, all in the right order.
+Two or more Sequence Buffers in a straight X, Y, or Z line can form a multiblock. Use an AE2 wrench on the end face to form the structure. The wrenched block becomes the endpoint, which holds the configuration but stores no items. The remaining blocks are storage members, ordered from the endpoint outward. Member 1 receives the first item in sequence, member 2 receives the second, and so on.
 
-## Single Block vs Multiblock
-
-**A single Sequence Buffer works fine on its own.** It stores one item type and can auto-output through any face you choose. Great for simple cases where you just need to deliver one item to one place.
-
-**A multiblock needs at least two buffers in a straight line** (X, Y, or Z axis). Wrench the end face of the last block to form the structure.
-
-* **The endpoint** (where you used the wrench) holds all the configuration but **stores nothing.**
-* **The members** (the other blocks) each store one item type, in order from the endpoint outward.
+A member that finishes outputting pauses briefly before it can accept another item, preventing the same member from being refilled in the same tick.
 
 ## Setting It Up
 
@@ -36,49 +29,31 @@ Each buffer block holds exactly one type of item. Line them up in a row, wrench 
   <IsometricCamera yaw="205" pitch="30" />
 </GameScene>
 
-1. Place two or more buffers in a straight line.
-2. Right-click the far end with an AE2 wrench to form the structure.
-3. Open the endpoint's GUI to configure the whole thing.
-4. For each member, open its side GUI to pick where it outputs. Undirected members search for any compatible adjacent target.
-5. Stick a [Package Unpacking Bus](devices/package-unpacking-bus.md) against the endpoint to feed packages in.
+1. Place two or more buffer blocks in a straight line.
+2. Right-click the end face with an AE2 wrench to form the multiblock.
+3. Open the endpoint's GUI to configure all settings for the structure.
+4. Set each member's output face in its own side GUI. If no direction is set, the member searches for any adjacent compatible target besides other Sequence Buffers.
+5. Place a Package Unpacking Bus against the endpoint face to receive packages.
 
-## The Important Settings
+## Settings
 
-### Automatic Output
-Turn on and each member pushes its item out automatically. Turn off and items sit there until you pull them out yourself. Simple.
+*   **Automatic Output** — each member pushes its item to its output face.
+*   **Blocking Mode** — a member waits until its target is empty before outputting.
+*   **Synchronized Output** — all members must be able to output before any of them do. If one member cannot, all members wait.
+*   **Pattern Mode** — preserves sparse slot positions from the encoded pattern or package layout. When off, items fill members sequentially, skipping empty slots.
+*   **Pre-Admission Check** (labeled "Anti-Clog Mode" in the GUI, off by default) — checks that every member can output before accepting a package or pattern push. If any member would fail, the entire input is rejected.
+*   **Input Delay** — waits 0 to 100 ticks before accepting or outputting. Manual extraction from the GUI is never delayed.
+*   **Input Filter** — up to 9 item or fluid types; leave empty to accept anything.
 
-### Blocking Mode
-On: a member waits until its output target is completely empty. Off: it'll stuff items in regardless. Same as every other blocking mode you've seen in AE2.
+## Capacity
 
-### Synchronized Output
-On: **every** occupied member must be able to output before **any** of them do. Think "all or nothing." Off: each member does its own thing independently.
+Each member stores up to 1024 of its item by default. This is server-configurable.
 
-### Pattern Mode
-When your package was encoded with empty slots between items (a sparse layout), turn this on. The package's recorded layout decides which slot goes to which member. Leave it off and items fill members densely in order.
+## Upgrades
 
-### Pre-Admission Check
-The GUI calls this "Anti-Clog Mode" (off by default). Turn it on and the buffer checks every assigned member's output feasibility before accepting a package. If any member would fail, the whole package is rejected.
+The Sequence Buffer supports:
 
-### Input Delay
-Adds a gap between accepting items and outputting them. 0 to 100 ticks (0 to 5 seconds). Manual extraction from the GUI is never delayed.
-
-| Setting | What It Does |
-|---------|--------------|
-| Automatic Output | Members push items automatically |
-| Blocking Mode | Wait for empty target before output |
-| Synchronized Output | All members output together or none do |
-| Pattern Mode | Preserve sparse slot positions |
-| Pre-Admission Check | Reject packages that can't fully output |
-| Input Delay | Gap before accepting/outputting (0–100 ticks) |
-| Input Filter | Up to 9 item types; empty = accept anything |
-
-## Tips
-
-* **Breaking the endpoint dissolves the whole structure.** Breaking a middle member keeps the near segment intact.
-* Each member holds up to **1024 items** by default (server admin can change this).
-* A **redstone card** on the endpoint makes automatic output require a redstone signal.
-* The endpoint has its own GUI and each member has a side GUI. Both show the same real storage — extract from either.
-* For furnace setups: member 1 faces the side (fuel), member 2 faces the top (ore), hopper on the bottom pulls the result.
+*   <ItemLink id="ae2:redstone_card" /> — makes automatic output require a redstone signal at the endpoint.
 
 ## Recipe
 

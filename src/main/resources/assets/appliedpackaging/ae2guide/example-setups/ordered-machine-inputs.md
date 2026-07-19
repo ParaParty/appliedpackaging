@@ -8,49 +8,35 @@ navigation:
 
 # Ordered Machine Inputs
 
-A furnace wants coal in the side and ore in the top. A brewing stand wants each ingredient in a specific slot. These machines care about *which item goes where* — and that's exactly what packages are good at.
+Machines with position-specific input slots — like Create's mechanical crafters — need specific items in specific positions. A Sequence Buffer preserves the order and sparse layout of pattern inputs or package contents, delivering each item to the correct machine face.
 
-This setup uses a Package Unpacking Bus with a Sequence Buffer to split one package across multiple machine faces.
-
-## The Setup
+This setup can also handle pattern provider pushes directly: the provider pushes ingredients in order, and the buffer maps each ingredient to a member by position.
 
 <GameScene zoom="6" background="transparent">
   <ImportStructure src="../assets/assemblies/sequence_line.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
 
   <BoxAnnotation color="#66aaff" min="0 0 1" max="1 1 2">
-    (1) Endpoint: Owns the configuration. Put the Unpacking Bus against this face.
+    (1) Endpoint: Holds configuration. Place the Unpacking Bus (or pattern provider) against this face.
   </BoxAnnotation>
   <BoxAnnotation color="#66dd88" min="1 0 1" max="4 1 2">
-    (2) Members: Each holds one item type. Configure each one's output face to point at the machine.
+    (2) Members: Each holds one item. Configure each member's output face to point at the target machine's corresponding input slot.
   </BoxAnnotation>
 </GameScene>
 
-## For a Furnace
-
-The scene above shows the generic layout. For a furnace specifically:
-
-* Place the Unpacking Bus against the endpoint (1).
-* Member 1 → furnace side face (coal / fuel slot)
-* Member 2 → furnace top face (ore / input slot)
-* Place a hopper under the furnace to extract the smelted result.
-
 ## Configurations
 
-* The <ItemLink id="appliedpackaging:package_unpacking_bus" /> (placed on the endpoint) needs no filter unless you want to restrict which packages arrive. Make sure the pre-admission check is on (it is by default).
-* The endpoint has Automatic Output enabled. Enable Pattern Mode if your package uses sparse slot positions.
-* Each member has its output face set to point at the correct spot on the target machine.
+*   The <ItemLink id="appliedpackaging:package_unpacking_bus" /> is placed on the endpoint face (1). Pre-admission check is on (default).
+*   The endpoint has Automatic Output enabled. Enable Pattern Mode when using packages with sparse slot layouts.
+*   Each member's output face is set to point at the corresponding input slot on the target machine.
 
 ## How It Works
 
-1. A package enters the ME network and is routed to the Unpacking Bus.
-2. The Unpacking Bus feeds the package's contents into the Sequence Buffer endpoint.
-3. Package entry 1 → member 1, entry 2 → member 2, and so on.
-4. Each member outputs through its configured face to the machine.
-5. With Synchronized Output on, all members wait for each other — no partial deliveries.
+1.  A package (or pattern provider push) delivers items to the Sequence Buffer endpoint.
+2.  The first item goes to member 1, the second to member 2, and so on.
+3.  Each member outputs through its configured face to the target machine.
+4.  With Synchronized Output enabled, all members wait for each other — the entire batch delivers together or not at all.
 
-## Tips
+## The One-Item Rule
 
-* Turn on **Synchronized Output** and the **Pre-Admission Check** together: the package won't even enter the buffer unless every member can output successfully. This gives you fully atomic delivery.
-* Add **Input Delay** if the machine needs a moment between batches.
-* For furnace-style machines, make sure to encode the fuel item in the **first** slot — it'll go to the member closest to the endpoint.
+If a package contains coal in entry 1 and coal in entry 3, member 1 receives the first coal and member 3 receives the second. The buffer's rule of accepting only one item per member until emptied is what keeps these identical items separate. Without this rule, the two coal would merge and lose their distinct positions.

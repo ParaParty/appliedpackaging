@@ -96,7 +96,10 @@ public class AdvancedPatternEncodingTermMenu extends PatternEncodingTermMenu {
         super(APMenus.ADVANCED_PATTERN_ENCODING_TERMINAL.get(), id, inventory, host, true);
         specializedHost = host;
 
-        advancedInputWindow = new AdvancedPatternInputWindow(advancedState(), () -> advancedScrollColumn);
+        advancedInputWindow = new AdvancedPatternInputWindow(
+                advancedState(),
+                () -> advancedScrollColumn,
+                isClientSide());
         var advancedInputs = advancedInputWindow.createMenuWrapper();
         for (int slot = 0; slot < advancedInputSlots.length; slot++) {
             advancedInputSlots[slot] = new FakeSlot(advancedInputs, slot);

@@ -6,50 +6,39 @@ navigation:
   position: 5
 ---
 
-# 应用封装入门指南
+# 入门指南
 
-本指南带你从零开始制作第一个包裹——从编码样板到看着它拆包进入箱子。读完你会理解整个工作流程，可以开始设计自己的打包方案。
+## 第一个包裹
 
-## 为什么要用包裹？
+普通的 AE2 样板只能将原料推送到一个相邻容器。如果你希望一个样板同时服务于多台机器，或者将一个配方的原料拆分为多个组分别路由到不同目的地，就需要先将原料打包分组。这就是包裹的作用。
 
-原版熔炉需要煤炭放进侧面、矿石放进顶部。普通 AE2 样板把东西乱丢一气——煤炭可能进了顶部，矿石无处可去，熔炉就干等着。
+包裹将一组原料捆绑为一个单独物品，可以在 ME 网络中路由。目的地的卸货总线打开包裹并按顺序投递内容物。序列缓存器保留这个顺序，将每个物品映射到指定的机器面。
 
-包裹解决了这个问题。你编码时把煤炭放槽位 1、矿石放槽位 2。包裹记住这个顺序。拆包到熔炉时，煤炭精准进入侧面、矿石进入顶部，每次都一样。
+## 需要准备的材料
 
-多条生产线时包裹也好用。红色包裹 = 熔炼，蓝色 = 合成——一眼就能看清东西去哪。
-
-## 你需要准备
-
-* 物品清单：
-  * 1x <ItemLink id="appliedpackaging:advanced_pattern_encoding_terminal" />
-  * 1x <ItemLink id="appliedpackaging:package_assembler" />
-  * 1x <ItemLink id="appliedpackaging:package_unpacking_bus" />
-  * 若干 ME [线缆](ae2:items-blocks-machines/cables.md)（玻璃线缆或包层线缆都行）
-  * 一个已通电、至少有一个存储元件的 ME 网络
-  * 几个 <ItemLink id="ae2:blank_pattern" />
-  * 一些圆石和煤炭（或你想练习用的任何物品）
-  * 一个箱子作为输出目标
-  * 一个 <ItemLink id="ae2:pattern_provider" />（可选——装配室也能用自带的样板槽）
+*   1x <ItemLink id="appliedpackaging:advanced_pattern_encoding_terminal" />
+*   1x <ItemLink id="appliedpackaging:package_assembler" />
+*   1x <ItemLink id="appliedpackaging:package_unpacking_bus" />
+*   若干 ME 线缆，以及一个已通电并带有存储的 ME 网络
+*   几个 <ItemLink id="ae2:blank_pattern" />
+*   要打包的物品（本教程使用圆石和煤炭作为示例）
+*   一个接收输出的箱子
 
 ## 第一步：编码包裹样板
 
-1. 把 <ItemLink id="appliedpackaging:advanced_pattern_encoding_terminal" /> 挂在连入网络的 ME 线缆上。需要频道，和 AE2 的普通样板终端一样。
+1. 将 <ItemLink id="appliedpackaging:advanced_pattern_encoding_terminal" /> 放置在与网络相连的 ME 线缆上。终端需要一个频道。
 
-2. 打开终端。顶部有两个标签页：**包裹样板**和**高级**。你需要包裹样板页面——如果不是默认选中的，点它。
+2. 打开终端，选择**包裹样板**标签页。
 
-3. 把空白 AE2 样板放入右侧的空白样板槽。
+3. 将空白 AE2 样板放入空白样板槽。
 
-4. 在输入网格的第一个槽位放**煤炭**，第二个槽位放**圆石**。
+4. 将圆石放入槽位 1，煤炭放入槽位 2。槽位位置会被记录在样板中。
 
-   **空槽位有意义。** 如果你在槽位 1 放煤炭、槽位 2 留空、槽位 3 放铁锭，包裹会记住槽位 2 是你故意留空的。当目标机器有固定的槽位位置时，这一点很重要。
+   可以从 JEI 或 EMI 中拖拽物品，也可以使用 AE2 的中键快捷选取。
 
-   你可以从 JEI/EMI 拖拽物品到槽位，或用 AE2 的中键快捷选取。
+5. 从颜色选择器中选择一种颜色。颜色用于后续对包裹进行分类路由。
 
-5. 从颜色选择器挑一个颜色——红、蓝，随你喜欢。这只是为了组织管理，不影响包裹的功能。
-
-6. 可选：在**标记**槽放一个物品。标记就是个标签——你可以放个铁锭进去，让这个包裹标记为"熔炉输入"。标记物品永远不会消耗，只显示在提示文字里。
-
-7. 点击**编码**。聊天栏会有提示。从输出槽取出编码好的样板。
+6. 点击**编码**。从输出槽取出 <ItemLink id="appliedpackaging:package_pattern" />。
 
 <Row gap="20">
   <ItemImage id="appliedpackaging:package_pattern" scale="4" />
@@ -57,45 +46,37 @@ navigation:
 
 ## 第二步：装配包裹
 
-现在把样板变成能拿到手里的真包裹。
+1. 放置 <ItemLink id="appliedpackaging:package_assembler" />，使用线缆连接到 ME 网络。
 
-1. 放置 <ItemLink id="appliedpackaging:package_assembler" />，用线缆连入 ME 网络。
+2. 打开 GUI，将编码好的样板放入样板槽。装配室会从 ME 存储中提取原料并生成包裹。默认情况下输出直接进入 ME 存储。
 
-2. 打开 GUI。把编码好的样板放入右侧的样板槽。
-
-3. 确保圆石和煤炭在你的 ME 网络里。装配室会自动从网络存储中提取。
-
-4. 装配室开始工作——你会看到进度条。完成后，一个带颜色的包裹出现在输出区域。
-
-5. 把包裹取出来放进物品栏。鼠标悬停按住 Shift——你能看到颜色、按顺序的内容物、以及容量信息。
+3. 进度条完成后，包裹会出现在 ME 存储中，可在任何终端查看。
 
 <BlockImage id="appliedpackaging:package_assembler" scale="8" />
 
-你做出了第一个包裹。恭喜——但真正好玩的是把它送进机器。
+## 第三步：路由并拆包到箱子
 
-## 第三步：拆包到箱子
+1. 放置一个箱子，将 <ItemLink id="appliedpackaging:package_unpacking_bus" /> 放在指向该箱子的 ME 线缆上。总线从网络接收包裹，按编码顺序将内容物放入相邻容器。
 
-1. 在地上放一个箱子。暂时用它代表你实际要用的机器。
-
-2. 把 <ItemLink id="appliedpackaging:package_unpacking_bus" /> 挂在指向箱子的 ME 线缆上。需要频道。
-
-3. 把包裹从任意终端丢进 ME 网络。网络会自动把它路由到卸货总线。
-
-4. 片刻之后，煤炭和圆石出现在箱子里——煤炭在前、圆石在后。就是这个顺序。
+2. 包裹被路由到总线。圆石和煤炭按顺序出现在箱子中。
 
 <GameScene zoom="8" background="transparent">
   <ImportStructure src="../../assets/blocks/package_unpacking_bus.snbt" />
 </GameScene>
 
-5. 在箱子下面放个漏斗把物品导入机器，你就完成了有序投递的自动化。
+## 进一步探索
 
-就是这样。**编码 → 装配 → 拆包。** 其余都是这个循环的变体。
+### 分组路由
 
-## 接下来做什么？
+将卸货总线放在带有序列缓存器的子网络上。总线将包裹拆包到缓存器，每个缓存成员将一件物品投递到指定的机器面。这使得一个包裹可以同时向机器的多个面投递物品——非常适合需要在特定输入槽放入特定物品的模组机器，例如 Create 的机械合成器。
 
-* 深入了解[包裹](packages.md)——容量、颜色、标记、手动拆包
-* [高级样板编码终端](devices/advanced-pattern-terminal.md)能一次编码最多 81 个包裹
-* 查看[示例搭建](example-setups/index.md)获取现成的设计方案
-* 出问题了？看[故障排除](troubleshooting.md)
+### 拆分配方
 
-包裹像其他任何物品一样在 ME 网络中传输——存在驱动器里、用存储总线路由、用输出总线导出。包裹层只是在普通 AE2 物流之上增加了顺序和结构。
+编码两个包裹样板——每个对应一组原料。然后编码一个普通的 AE2 处理样板，其输入为这两个包裹。当自动合成请求结果时，装配室产生两个包裹，每个包裹可以通过颜色过滤的卸货总线分别路由到不同目的地。也可以使用高级处理样板的两列模式——每一列成为一个独立颜色的包裹。
+
+## 下一步
+
+*   进一步了解[包裹](packages.md)——容量、颜色、标记和手动拆包
+*   [高级样板编码终端](devices/advanced-pattern-terminal.md)可以从一个样板编码最多 81 个包裹
+*   查看[示例搭建](example-setups/index.md)获取现成的搭建方案
+*   遇到问题请参考[故障排除](troubleshooting.md)

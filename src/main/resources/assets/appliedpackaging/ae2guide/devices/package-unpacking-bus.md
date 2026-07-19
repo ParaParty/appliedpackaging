@@ -16,49 +16,49 @@ categories:
   <ImportStructure src="../assets/blocks/package_unpacking_bus.snbt" />
 </GameScene>
 
-You've made a package. Now you need it to arrive at the right machine, in the right order. This is where the Unpacking Bus comes in.
+The Package Unpacking Bus takes packages from the network and puts their contents into the inventory it's touching — in the order they were packed. The network sends a package to the bus, the bus opens it, and each item goes into the inventory in sequence.
 
-Think of it as AE2's Formation Plane, but with delivery order control. The network routes a package to it, and it inserts each item into the attached inventory — coal first, iron second, exactly as you encoded them.
+They are [cable subparts](ae2:ae2-mechanics/cable-subparts.md).
 
-This is a [cable subpart](ae2:ae2-mechanics/cable-subparts.md) and needs a [channel](ae2:ae2-mechanics/channels.md).
+The bus only inserts items when the full package can go in. If the inventory is full or can't take everything, the bus waits and tries again. It never inserts half a package.
 
-## How It Works, Step by Step
+## Filter Rows
 
-1. A package enters your ME network (you drop it in a terminal, autocrafting produces it, whatever).
-2. The network routes it to the Unpacking Bus based on priority.
-3. The bus holds the package in its visible working slot while it processes. You can see it sitting there.
-4. When processing finishes, each item is inserted into the attached inventory, in order.
-5. If the inventory can't take everything (it's full, or blocking mode says no), the bus waits and retries. **Nothing is ever partially inserted or lost.**
+Two filter rows are available initially. Each <ItemLink id="ae2:capacity_card" /> adds one row, reaching seven rows with five cards. Rows are alternatives: a package matching any enabled row is accepted.
 
-## Priority and Routing
+Each row can combine:
 
-Higher priority destinations receive packages first. At equal priority, an available Unpacking Bus is preferred over a Package Storage Bus. But if the bus rejects a package (filter says no, target is full, pre-admission check fails), the network tries the next destination — which might be a storage bus.
+*   A color filter. Leave empty to not filter by color.
+*   A marker filter. Leave empty to match any marker.
+*   Up to six content filters.
 
-**Practical tip:** if you want packages unpacked automatically, give your Unpacking Buses higher priority than your Storage Buses. If you want packages stored and only unpacked on demand, swap the priorities.
+## Pre-Admission Check
 
-## The Pre-Admission Thing
+The bus has an option that decides when it checks whether the target can take the items. The GUI labels it "Anti-Clog Mode." It is on by default:
 
-This bus has a setting that controls *when* it checks whether the target can actually receive the output. The GUI calls it "Anti-Clog Mode." Here's what it actually does:
+*   **On:** The bus checks the target inventory before taking the package out of the network. If the items won't fit, the package stays in the network and can go to a different destination.
+*   **Off:** The bus takes the package and holds it in its working slot. If the target isn't ready yet, the package sits there until it is. You can pull it out of the GUI at any time.
 
-* **On (default):** The bus checks that the complete package contents will fit in the target *before* taking the package out of network storage. If the check fails, the package stays in the network and can be routed elsewhere. **On is the safe choice.**
-* **Off:** The bus takes the package immediately and holds it. If the target isn't ready, the package just waits. You can pull it out at any time through the GUI. **Off is the "I know what I'm doing" choice.**
+If blocking mode is also on, the check includes the blocking rule: the bus won't take a package if the target already has any of the same items.
 
-This also interacts with blocking mode: with the pre-admission check on, if blocking mode prevents unpacking, the bus simply rejects the package instead of holding it.
+## Held Package
 
-## Blocking Mode
+The package in the working slot is a real item. You can take it out of the GUI at any time, even while the bus is working. Breaking the bus also returns it. The items inside a package never show up in ME storage until the unpack finishes.
 
-Enable this and the bus refuses to unpack if the target already contains any of the package's content types. Useful for preventing duplicate inputs when the machine hasn't finished processing the last batch yet.
+## Using a Subnetwork
 
-## The Held Package
+If you put the bus on a subnetwork with a Sequence Buffer, one package can deliver different items to different machine faces. Each buffer member gets one entry from the package and outputs it through its own face. For example, a furnace can get coal through the side and ore through the top — all from one package.
 
-The package sitting in the working slot is a real item. You can pull it out through the GUI at any time — even mid-processing. Breaking the bus returns it too. The package contents are never exposed to ME storage until the unpack commits successfully.
+You can also use filter rows to accept different types of packages and send each type to a different buffer chain. Configure one row for red packages, another for blue, and each color takes a different path through the subnetwork.
 
 ## Upgrades
 
-* <ItemLink id="ae2:speed_card" /> — Faster unpacking (up to 4)
-* <ItemLink id="ae2:capacity_card" /> — More filter rows (up to 5, for 7 total rows)
-* <ItemLink id="ae2:fuzzy_card" /> — Fuzzy matching per filter row
-* <ItemLink id="ae2:inverter_card" /> — Invert content filtering per row
+The Package Unpacking Bus supports the following [upgrades](ae2:items-blocks-machines/upgrade_cards.md):
+
+*   <ItemLink id="ae2:speed_card" /> shortens the unpack work cycle (up to 4)
+*   <ItemLink id="ae2:capacity_card" /> increases the number of filter rows (up to 5, for 7 total rows)
+*   <ItemLink id="ae2:fuzzy_card" /> enables fuzzy matching per row
+*   <ItemLink id="ae2:inverter_card" /> inverts content filtering per row
 
 ## Recipe
 

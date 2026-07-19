@@ -8,61 +8,46 @@ navigation:
 
 # Troubleshooting
 
-Stuff not working? Here are the most common problems and how to fix them.
+## A Package Goes to the Wrong Bus
 
-## My package won't go into the Unpacking Bus
+Check AE2 storage priority first. The highest-priority accepting storage receives the package. At equal priority, an available Unpacking Bus is preferred over a Package Storage Bus. If a bus rejects the package (filter mismatch, occupied held slot, blocking mode active, or capacity full), routing continues to the next destination.
 
-**Check your filters first.** An empty or mismatched filter will reject the package silently.
+To fix: raise the priority of the intended destination bus, or lower the priority of the bus currently receiving the package. Use a <ItemLink id="ae2:network_tool" /> to inspect current priorities.
 
-**Check the pre-admission check.** It's on by default (the GUI calls it "Anti-Clog Mode"). It blocks a package if:
-* The target inventory is full
-* Blocking mode is on and the target already has matching items
+## Input Is Rejected Immediately
 
-To fix: clear space in the target, turn off blocking mode, or turn off the pre-admission check to let the package wait inside the bus. You can always retrieve a waiting package from the GUI.
+An invalid package, color/marker/content filter mismatch, occupied held slot, or occupied Sequence Buffer member is always rejected.
 
-## My package went to storage instead of being unpacked
+With pre-admission checking enabled (labeled "Anti-Clog Mode," on by default on the Unpacking Bus and Packager), a missing target, insufficient capacity, or active blocking rule also rejects the insertion before it changes storage.
 
-This is a **priority issue.** The network delivers to the highest-priority accepting destination. Give your Unpacking Bus a higher number than your Storage Bus.
+To allow intentional waiting, disable pre-admission checking on the receiving device. This does not disable filters or final validation; it only permits an otherwise valid input to enter local storage and wait.
 
-At equal priority, Unpacking Buses are preferred — unless they reject the package (full target, filter mismatch, pre-admission check fails). If that happens, the Storage Bus is next in line.
+## A Package Is Waiting Inside a Device
 
-## The Sequence Buffer order is wrong
+This is expected when pre-admission checking is disabled and the output target is not currently available. Restore the target, free capacity, or disable blocking and the device will retry. The package remains extractable from the GUI at any time.
 
-**Member order starts from the block after the endpoint** and goes to the tail. The endpoint itself holds nothing.
+## Sequence Buffer Order or Slots Are Wrong
 
-**Check Pattern Mode.** If your package has empty slots between items and Pattern Mode is off, items fill members with no gaps. Turn Pattern Mode on to preserve the sparse layout.
+Member order starts from the block after the endpoint and follows the structure direction to the tail. The endpoint itself stores nothing.
 
-**Each member holds one type at a time.** If member 1 already has coal and the package wants to send more coal to member 1, the whole insertion fails. Empty member 1 first.
+Use Pattern Mode when a package or pattern contains sparse slot positions. Leave it off for dense sequential order.
 
-## The Package Assembler won't start
+Each member accepts only one insertion until emptied. If member 1 already has coal and a new input also has coal in the first position, the entire insertion fails. This is the intended behavior — it prevents identical items from merging, preserving their distinct positions.
 
-* **Is the pattern too big?** Hover over the component slot to see the current capacity. Install a larger component or reduce the pattern.
-* **Are ingredients available?** For provider pushes they need to be in ME storage. For local mode they need to be in the GUI slots.
-* **Are outputs blocking it?** Extract completed packages from the output, or make sure the output target is empty (especially with blocking mode on).
-* **Oversized patterns** stay visible but their inputs are locked. Swap in a bigger component to fix.
+A member that finishes outputting pauses briefly before it can accept another item, preventing immediate refill in the same tick.
 
-## The ME Packager can't find anything to pack
+## The Package Assembler Does Not Start
 
-The packager scans ME storage using your filters. If no items match, it says so. Try:
-* Removing some content filters
-* Checking that the items actually exist in ME storage
-* Verifying the packager is connected (bottom or back face to ME cable)
+An oversized pattern remains visible but locks its input slots. Install a supported storage component (16k, 64k, or 256k) or reduce the pattern size. Verify that all required ingredients are available in ME storage.
 
-## The packager rejects my package for unpacking
+If completed packages are sitting in the output, extract them. With blocking mode on, the output target must be empty before a new batch starts.
 
-* **Pre-admission check is on** and the network is full. Make room or turn it off.
-* **Filter mode** might be set to "packing only." Switch to "both" or "unpacking only."
-* **Blocking mode** is on and the network already contains matching items. Turn it off or clear those items.
+## The ME Packager Cannot Find Packable Contents
 
-## A cable subpart has no power
+The packager scans ME storage using your configured filters. Check the filters, confirm the items are in ME storage, and verify the packager is connected (bottom or back face to an ME cable).
 
-Terminals and buses are cable subparts — they need:
-* Power (check with a network tool)
-* An available channel (8 max without a controller)
-* An actual ME cable (colored cables can block connections between different colors)
+## Cable Subpart Has No Power
 
-## I broke a Sequence Buffer and my structure fell apart
+Terminals and buses are cable subparts. Verify the cable has power, a channel is available, and the cable connection is not blocked by a color mismatch.
 
-Breaking the endpoint dissolves everything. Breaking a middle member keeps the segment closest to the endpoint intact but dissolves the rest. Just place the blocks back and wrench the endpoint to re-form.
-
-Still stuck? Go back through the [Getting Started](packaging-concepts/getting-started.md) guide or look at the [Example Setups](example-setups/index.md) for known-good reference builds.
+Still stuck? Return to the [Getting Started](packaging-concepts/getting-started.md) guide or check the [Example Setups](example-setups/index.md) for verified reference builds.

@@ -14,78 +14,58 @@ categories:
 
 <BlockImage id="appliedpackaging:package_assembler" scale="8" />
 
-The ME Package Assembler is your main package factory. It takes a pattern and produces matching packages — with the exact order, color, and layout you encoded.
+The ME Package Assembler takes items input into it and carries out the operation defined by an adjacent <ItemLink id="ae2:pattern_provider" />, or the inserted [package pattern](devices/advanced-pattern-terminal.md), [advanced processing pattern](devices/advanced-pattern-terminal.md), or regular AE2 pattern, then outputs the resulting packages. By default, output goes to the connected ME storage.
 
-If you're familiar with AE2's autocrafting: place it next to a <ItemLink id="ae2:pattern_provider" /> and it slots right in. The provider pushes ingredients, the assembler makes the package, and the result goes back into the network (or an adjacent chest, if you prefer).
+This assembler has a package pattern that specifies coal in slot 1 and cobblestone in slot 2. When coal and cobblestone are in ME storage, the assembler produces a package with both items.
 
-## Getting It Running
+## The Main Use of the ME Package Assembler
+
+The main use is next to a <ItemLink id="ae2:pattern_provider" />. Pattern providers push ingredients to adjacent inventories, and the assembler turns them into packages. Since output goes to ME storage by default, a provider on an assembler is all you need to add package assembly to autocrafting.
+
+**Note:** If you want the packages on a subnetwork instead, use a directional pattern provider (right-click with a <ItemLink id="ae2:certus_quartz_wrench" />) so the provider and assembler don't share a network connection. The assembler's output can then go through a subnetwork to Unpacking Buses and Sequence Buffers that split the package across machine faces.
 
 <GameScene zoom="6" background="transparent">
   <ImportStructure src="../assets/assemblies/package_assembly_line.snbt" />
   <IsometricCamera yaw="195" pitch="25" />
 </GameScene>
 
-* 1. Place the assembler and plug it into your ME network.
-* 2. Put a <ItemLink id="ae2:pattern_provider" /> next to it (any face works).
-* 3. Load your encoded [package pattern](devices/advanced-pattern-terminal.md) into the provider.
-* 4. Make sure the ingredients are in your ME network.
-* 5. When autocrafting calls for the package, the assembler does its thing.
+## Output Modes
 
-You can also skip the provider entirely: put a pattern directly in the assembler's pattern slot and place ingredients in the GUI input grid. Good for testing or one-off batches.
-
-## What It Actually Does
-
-Before it takes a single item, the assembler checks whether the complete package fits the current capacity. If the pattern is too big, the pattern stays visible for diagnosis but its inputs stay locked — nothing is wasted.
-
-Then it produces the packages. One package for a regular pattern. One per column for an [advanced pattern](devices/advanced-pattern-terminal.md).
-
-## Color and Marker
-
-The assembler has its own color picker and marker slot. Whether you can use them depends on the pattern:
-
-* **Package or advanced pattern:** The pattern's own colors and markers are used. The assembler's settings are ignored.
-* **Regular AE2 crafting or processing pattern:** The assembler's color and marker are applied. If the marker slot is empty, the pattern's output item becomes the marker.
-* **No pattern loaded:** The color picker shows the persistent machine setting — for when you change your mind.
-
-The marker item sits in its slot forever and is never consumed. It just tags every produced package with that label.
+*   **Output to ME network** (default). Packages go directly into the connected ME storage.
+*   **Output to adjacent block.** Packages go into a neighboring container. The assembler picks one from the six adjacent faces and uses that direction for the whole batch.
+*   **Disabled.** Packages stay in the assembler's output slots for manual extraction.
 
 ## Capacity
 
-The assembler enforces a capacity limit based on what storage component you install:
+Before taking any ingredients, the assembler checks that every package in the plan fits the capacity limit:
 
-| Component | Types Max | Total Max |
+| Component | Max Types | Max Total |
 |-----------|-----------|-----------|
 | None | 9 | 9 |
 | <ItemLink id="ae2:cell_component_16k" /> | 16 | 16 |
 | <ItemLink id="ae2:cell_component_64k" /> | 63 | 64 |
 | <ItemLink id="ae2:cell_component_256k" /> | 63 | 256 |
 
-Install the component in the assembler's component slot. Storage cells and 1k components won't work — only raw 16k, 64k, and 256k components.
+Storage cells and 1k components are not accepted. Install the component in the assembler's component slot.
 
-## Where Packages Go
+## Color and Marker
 
-Three options, selectable in the GUI:
-
-* **Output to ME network** — Packages go straight into network storage. Simplest option; the assembler needs a network connection.
-* **Output to adjacent block** — Packages are pushed into the neighboring container you select. The assembler picks one from the six adjacent faces and sticks with it for the whole batch.
-* **Disabled** — Packages stay in the assembler. You pull them out yourself through the GUI.
+The assembler has its own color picker and marker slot. When using a package or advanced pattern, the pattern's own colors and markers are used and the assembler's settings are ignored. When using a regular AE2 pattern, the assembler's color and marker are applied. The marker item is never consumed.
 
 ## Blocking Mode
 
-Turn this on and the assembler won't start a new batch while the output target already has packages in it. Once a batch is allowed, it empties completely — every package in the batch goes out in order without rechecking.
+When enabled, the assembler waits until the output target is empty before starting a new batch. Once a batch is admitted, it drains completely — every package in the batch is output in order without rechecking.
 
 ## Comparator Output
 
-The assembler gives you a redstone signal you can use for your own automation:
-
-* **0** — Idle
-* **1** — Working (progress bar is moving)
-* **2** — Done (packages are waiting in the output)
+The comparator emits 0 while idle, 1 while working, and 2 while completed packages remain in the output.
 
 ## Upgrades
 
-* <ItemLink id="ae2:speed_card" /> — Faster assembly (up to 5)
-* AE2 16k/64k/256k storage components — Bigger packages
+The ME Package Assembler supports the following [upgrades](ae2:items-blocks-machines/upgrade_cards.md):
+
+*   <ItemLink id="ae2:speed_card" /> (up to 5)
+*   AE2 16k, 64k, or 256k storage components for package capacity
 
 ## Recipe
 

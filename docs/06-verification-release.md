@@ -1111,3 +1111,16 @@ Package Bus 必须在 `super.init()` 创建 AE2/GuideME 帮助按钮、并注册
 主动停止，控制台未发现 Applied Packaging 类加载或资源错误；项目没有自动打开 Package Bus 的 client test，按钮不重叠与点击后
 像素效果保留为重启开发客户端后的人工验收项。`verify-docs.ps1` 当前因并行 GuideME 分层目录重构与旧审计契约不一致而失败
 29 项，本轮未跨范围修改这些旧路径、分类与相对链接问题；`git diff --check` 通过。
+
+### 2026-07-19 高级终端动态列窗口清空验证
+
+`AdvancedPatternInputWindow` 的服务端实例必须继续按 `advancedScrollColumn` 把 4×81 个窗口槽映射到完整 81×81 sparse
+状态；客户端实例只保存当前 4×81 个窗口槽，不得把服务器槽差量写入客户端完整 sparse 状态。由此保证滚动位置变化时，
+Vanilla/AE2 的 `remoteSlots` 比较对象与客户端显示缓存都是上一可见窗口，清空或列数收缩后不会重新显示隐藏第一列的旧值。
+不得加入清空第一列特判，也不得用每次滚动全量同步 6561 个逻辑槽替代窗口语义。
+
+验证结果：`.\gradlew.bat compileJava --no-configuration-cache` 与 `.\gradlew.bat build --no-configuration-cache` 通过；
+`.\gradlew.bat runGameTestServer --no-configuration-cache` 的 166/166 required tests 全部通过。GameTest source set 已发现并复跑，
+但本次客户端显示缓存分支不能由 server-side GameTest 直接执行，因此没有增加伪造客户端或反射内部窗口的测试。真实
+`.\gradlew.bat runClient --no-configuration-cache` 已完成模组初始化、资源重载、OpenAL 和全部 texture atlas 创建，随后只终止
+本轮客户端；最终“多列→滚到后续列→总清空→第一列立即为空”由开发客户端人工验收。
