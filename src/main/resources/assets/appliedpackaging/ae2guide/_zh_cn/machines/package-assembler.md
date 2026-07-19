@@ -41,14 +41,17 @@ ME 包裹装配室接收输入的物品，根据相邻 <ItemLink id="ae2:pattern
 
 不过，装配室的主要用法是放在 <ItemLink id="ae2:pattern_provider" /> 旁边，以类似分子装配室的网格方式排列。样板供应器将原料推送到相邻容器中，装配室将其装配为包裹。由于装配室默认将包裹输出到 ME 存储，包裹会直接回到网络中——只需将样板供应器放在装配室旁边，即可将包裹装配集成到自动合成系统中。
 
-示例是一个 4×4×4 棋盘式网格：32 个样板供应器和 32 个包裹装配室。供应器会占用 32 个频道，因此网格应通过致密线缆接入，并为它预留完整的 32 个频道。
+示例是一个 2×2×2 棋盘式网格：4 个样板供应器和 4 个包裹装配室。供应器会占用 4 个频道。结构留出了一段智能线缆，用于接入主网络。
 
-<GameScene zoom="4" background="transparent">
+<GameScene zoom="6" background="transparent">
   <ImportStructure src="../../assets/assemblies/package_assembly_line.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
-  <BoxAnnotation color="#dddddd" min="0 0 0" max="4 4 4">
-    4×4×4 网格：32 个样板供应器和 32 个包裹装配室。
+  <BoxAnnotation color="#dddddd" min="0 0 0" max="2 2 2">
+    2×2×2 网格：4 个样板供应器和 4 个包裹装配室。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="2 0 0" max="3 1 1">
+    智能线缆：从这一端接入主网络。
   </BoxAnnotation>
 </GameScene>
 

@@ -41,14 +41,17 @@ This is the appropriate place to use "Output to adjacent block": the pattern is 
 
 However, the main use is next to a <ItemLink id="ae2:pattern_provider" />, arranged in a grid similar to molecular assemblers. Pattern providers push ingredients to adjacent inventories, and the assembler assembles them into packages. Since the assembler outputs packages to ME storage by default, the packages return directly to the network — an assembler on a pattern provider is all that is needed to integrate package assembly into autocrafting.
 
-The example is a 4×4×4 checkerboard: 32 Pattern Providers and 32 Package Assemblers. The providers use 32 channels, so connect the grid with a dense cable and budget all 32 channels for it.
+The example is a 2×2×2 checkerboard: 4 Pattern Providers and 4 Package Assemblers. The providers use 4 channels. A Smart Cable is left attached as the connection to the main network.
 
-<GameScene zoom="4" background="transparent">
+<GameScene zoom="6" background="transparent">
   <ImportStructure src="../assets/assemblies/package_assembly_line.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
-  <BoxAnnotation color="#dddddd" min="0 0 0" max="4 4 4">
-    4×4×4 grid: 32 Pattern Providers and 32 Package Assemblers.
+  <BoxAnnotation color="#dddddd" min="0 0 0" max="2 2 2">
+    2×2×2 grid: 4 Pattern Providers and 4 Package Assemblers.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="2 0 0" max="3 1 1">
+    Smart Cable: Connect this end to the main network.
   </BoxAnnotation>
 </GameScene>
 

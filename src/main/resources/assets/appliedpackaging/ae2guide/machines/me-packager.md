@@ -18,6 +18,24 @@ The ME Packager pulls items from [network storage](ae2:ae2-mechanics/import-expo
 
 The packager connects to AE2 through its bottom face and its model back face. The belt on the front holds the current package. Right-click the belt surface to insert or retrieve the held package; right-click any other face to open the configuration GUI. The belt slot and the GUI display the same storage.
 
+<GameScene zoom="6" background="transparent">
+  <ImportStructure src="../assets/assemblies/me_packager_network.snbt" />
+  <IsometricCamera yaw="195" pitch="30" />
+
+  <BoxAnnotation color="#dddddd" min="0 0 0" max="2 1 1">
+    (1) Chest and AE2 Storage Bus: Expose loose items as network storage.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="1 0 0" max="4 1 1">
+    (2) Smart Cable: Connects the storage, packager, and power.
+  </BoxAnnotation>
+  <BoxAnnotation color="#cc88ff" min="3 1 0" max="4 2 1">
+    (3) ME Packager: Connected through its bottom face.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="4 0 0" max="5 1 1">
+    (4) Energy Cell: Powers the example network.
+  </BoxAnnotation>
+</GameScene>
+
 ## Packing
 
 Configure a color, an optional marker, content filters, and an activation mode. When the packager triggers, it scans ME storage for items matching the filters and assembles one package. Items are extracted from the network, not duplicated.

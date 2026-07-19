@@ -40,6 +40,7 @@ $requiredPaths = @(
     "docs/assets/reports/machines.md",
     "docs/assets/reports/terminal-and-buses.md",
     "docs/assets/reports/ui-and-icons.md",
+    "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/advanced_multistep_crafting.snbt",
     "scripts/run-release-checks.ps1",
     "scripts/run-server-smoke.ps1",
     "scripts/verify-release.ps1",
@@ -197,18 +198,162 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "Missing GuideME structure"
 
+    $mergedOrderedInputsFixture = New-DocsFixture "merged-ordered-input-examples"
+    $mergedOrderedInputsPage = Join-Path $mergedOrderedInputsFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/example-setups/ordered-machine-inputs.md"
+    )
+    $mergedOrderedInputsText = Get-Content -LiteralPath $mergedOrderedInputsPage -Raw
+    $mergedOrderedInputsText = $mergedOrderedInputsText.Replace(
+        "## Examples",
+        "## Example 1: 5×5 Mechanical Crafting`n`n## Examples"
+    )
+    Set-Content -LiteralPath $mergedOrderedInputsPage -Value $mergedOrderedInputsText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "merged ordered-input examples fixture" `
+        -RootPath $mergedOrderedInputsFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Ordered-input English overview does not embed the four example chapters"
+
     $invalidAssemblerGridFixture = New-DocsFixture "invalid-assembler-grid"
     $invalidAssemblerGrid = Join-Path $invalidAssemblerGridFixture (
         "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/package_assembly_line.snbt"
     )
     $invalidAssemblerGridText = Get-Content -LiteralPath $invalidAssemblerGrid -Raw
-    $invalidAssemblerGridText = $invalidAssemblerGridText.Replace("size: [4, 4, 4]", "size: [4, 8, 4]")
+    $invalidAssemblerGridText = $invalidAssemblerGridText.Replace("size: [3, 2, 2]", "size: [4, 4, 4]")
     Set-Content -LiteralPath $invalidAssemblerGrid -Value $invalidAssemblerGridText -Encoding UTF8
     Invoke-DocsCase `
         -Name "invalid Package Assembler grid fixture" `
         -RootPath $invalidAssemblerGridFixture `
         -ExpectedExitCode 1 `
-        -ExpectedText "Package Assembler grid is exactly 4x4x4"
+        -ExpectedText "Package Assembler scene bounds fit a 2x2x2 grid plus one cable link"
+
+    $poweredSequenceFixture = New-DocsFixture "powered-sequence-buffer"
+    $poweredSequence = Join-Path $poweredSequenceFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/sequence_line.snbt"
+    )
+    $poweredSequenceText = Get-Content -LiteralPath $poweredSequence -Raw
+    $poweredSequenceText = $poweredSequenceText.Replace(
+        'state: "ae2:cable_bus{light_level:0,waterlogged:false}"',
+        'state: "ae2:energy_cell{fullness:4}"'
+    )
+    Set-Content -LiteralPath $poweredSequence -Value $poweredSequenceText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "powered Sequence Buffer fixture" `
+        -RootPath $poweredSequenceFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Unpacking Bus Sequence Buffer scene contains no Energy Cell"
+
+    $wrongFurnacePatternFixture = New-DocsFixture "wrong-parallel-furnace-pattern"
+    $wrongFurnacePattern = Join-Path $wrongFurnacePatternFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/sequence_furnace_array.snbt"
+    )
+    $wrongFurnacePatternText = Get-Content -LiteralPath $wrongFurnacePattern -Raw
+    $wrongFurnacePatternText = $wrongFurnacePatternText.Replace(
+        '{"#": 8L, "#c": "ae2:i", id: "minecraft:raw_iron"}',
+        '{"#": 1L, "#c": "ae2:i", id: "minecraft:raw_iron"}'
+    )
+    Set-Content -LiteralPath $wrongFurnacePattern -Value $wrongFurnacePatternText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "wrong parallel furnace pattern fixture" `
+        -RootPath $wrongFurnacePatternFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Parallel furnace pattern input 2 is eight Raw Iron"
+
+    $wrongFurnacePriorityFixture = New-DocsFixture "wrong-parallel-furnace-priority"
+    $wrongFurnacePriority = Join-Path $wrongFurnacePriorityFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/sequence_furnace_array.snbt"
+    )
+    $wrongFurnacePriorityText = Get-Content -LiteralPath $wrongFurnacePriority -Raw
+    $wrongFurnacePriorityText = $wrongFurnacePriorityText.Replace(
+        'id: "appliedpackaging:package_unpacking_bus", priority: 1',
+        'id: "appliedpackaging:package_unpacking_bus", priority: 0'
+    )
+    Set-Content -LiteralPath $wrongFurnacePriority -Value $wrongFurnacePriorityText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "wrong parallel furnace priority fixture" `
+        -RootPath $wrongFurnacePriorityFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Parallel furnace branch at x=5 uses unpacking priority 1"
+
+    $unblockedMechanicalCraftingFixture = New-DocsFixture "unblocked-mechanical-crafting"
+    $unblockedMechanicalCrafting = Join-Path $unblockedMechanicalCraftingFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/sequence_mechanical_crafting_5x5.snbt"
+    )
+    $unblockedMechanicalCraftingText = Get-Content -LiteralPath $unblockedMechanicalCrafting -Raw
+    $unblockedMechanicalCraftingText = $unblockedMechanicalCraftingText.Replace(
+        'blocking_mode: 1b',
+        'blocking_mode: 0b'
+    )
+    Set-Content -LiteralPath $unblockedMechanicalCrafting -Value $unblockedMechanicalCraftingText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "unblocked mechanical crafting fixture" `
+        -RootPath $unblockedMechanicalCraftingFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Mechanical crafting Package Assembler enables blocking mode"
+
+    $rearMechanicalChestFixture = New-DocsFixture "rear-mechanical-crafting-chest"
+    $rearMechanicalChest = Join-Path $rearMechanicalChestFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/sequence_mechanical_crafting_5x5.snbt"
+    )
+    $rearMechanicalChestText = Get-Content -LiteralPath $rearMechanicalChest -Raw
+    $rearMechanicalChestText = $rearMechanicalChestText.Replace(
+        'pos: [3, 1, 3], state: "minecraft:trapped_chest{facing:south',
+        'pos: [3, 1, 4], state: "minecraft:trapped_chest{facing:south'
+    )
+    Set-Content -LiteralPath $rearMechanicalChest -Value $rearMechanicalChestText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "rear mechanical crafting chest fixture" `
+        -RootPath $rearMechanicalChestFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Mechanical crafting scene places all 25 chest stand-ins in front of the buffer members"
+
+    $mismatchedPackagerRoutingFixture = New-DocsFixture "mismatched-packager-routing"
+    $mismatchedPackagerRouting = Join-Path $mismatchedPackagerRoutingFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/packager_color_routing.snbt"
+    )
+    $mismatchedPackagerRoutingText = Get-Content -LiteralPath $mismatchedPackagerRouting -Raw
+    $mismatchedPackagerRoutingText = $mismatchedPackagerRoutingText.Replace(
+        'selected_color: "yellow"',
+        'selected_color: "black"'
+    )
+    Set-Content -LiteralPath $mismatchedPackagerRouting -Value $mismatchedPackagerRoutingText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "mismatched packager routing fixture" `
+        -RootPath $mismatchedPackagerRoutingFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Yellow routing branch keeps the bus and ME Packager color aligned"
+
+    $mismatchedMultiStepFixture = New-DocsFixture "mismatched-multi-step-routing"
+    $mismatchedMultiStep = Join-Path $mismatchedMultiStepFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/advanced_multistep_crafting.snbt"
+    )
+    $mismatchedMultiStepText = Get-Content -LiteralPath $mismatchedMultiStep -Raw
+    $mismatchedMultiStepText = $mismatchedMultiStepText.Replace(
+        'colors: [I; 5, 0, 0, 0, 0, 0, 0]',
+        'colors: [I; 11, 0, 0, 0, 0, 0, 0]'
+    )
+    Set-Content -LiteralPath $mismatchedMultiStep -Value $mismatchedMultiStepText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "mismatched multi-step routing fixture" `
+        -RootPath $mismatchedMultiStepFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Yellow multi-step storage bus matches its pattern column"
+
+    $wrongPackagerBusFixture = New-DocsFixture "wrong-packager-bus"
+    $wrongPackagerBus = Join-Path $wrongPackagerBusFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/me_packager_network.snbt"
+    )
+    $wrongPackagerBusText = Get-Content -LiteralPath $wrongPackagerBus -Raw
+    $wrongPackagerBusText = $wrongPackagerBusText.Replace(
+        'id: "ae2:storage_bus"',
+        'id: "appliedpackaging:package_storage_bus"'
+    )
+    Set-Content -LiteralPath $wrongPackagerBus -Value $wrongPackagerBusText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "wrong ME Packager Storage Bus fixture" `
+        -RootPath $wrongPackagerBusFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "ME Packager scene uses one ordinary AE2 Storage Bus"
 
     $cyclicGuideNavigationFixture = New-DocsFixture "cyclic-guide-navigation"
     $cyclicGuideRootPage = Join-Path $cyclicGuideNavigationFixture (

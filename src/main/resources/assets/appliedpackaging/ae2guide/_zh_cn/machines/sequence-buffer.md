@@ -24,16 +24,47 @@ categories:
 
 ## 搭建多方块结构
 
+### 包裹卸货总线输入
+
 <GameScene zoom="6" background="transparent">
   <ImportStructure src="../../assets/assemblies/sequence_line.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
+
+  <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">
+    (1) 包裹卸货总线：将包裹送入端点。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
+    (2) 端点：拥有配置，本身不存储物品。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) 成员：每个存放一种物品，并向北输出到各自目标。
+  </BoxAnnotation>
 </GameScene>
+
+### 样板供应器输入
+
+<GameScene zoom="6" background="transparent">
+  <ImportStructure src="../../assets/assemblies/sequence_line_pattern_provider.snbt" />
+  <IsometricCamera yaw="205" pitch="30" />
+
+  <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">
+    (1) 样板供应器：选定输出面朝向端点。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
+    (2) 端点：接收按序推送的样板原料。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) 成员：保留槽位位置并投递到各自目标。
+  </BoxAnnotation>
+</GameScene>
+
+序列缓存器本身不使用 AE 能源。两种结构中的线缆都只用于将包裹卸货总线或样板供应器接入其 ME 网络。
 
 1. 将至少两个序列缓存器方块排成直线。
 2. 在最后一个方块的端面用 AE2 扳手右键组建。
 3. 打开端点 GUI 配置所有设置。设置应用于多方块中的每个成员。
 4. 依次打开每个成员的侧边 GUI 设置输出面。未设置时成员搜索除其他序列缓存器外的任意相邻容器。
-5. 将包裹卸货总线或样板供应器贴在端点面喂入物品。
+5. 选择一种输入来源：将包裹卸货总线贴在端点上，或将样板供应器放在端点旁并用 AE2 扳手把选定输出面转向端点。
 
 ## 设置
 

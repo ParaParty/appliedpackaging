@@ -14,19 +14,22 @@ Note that since this uses a <ItemLink id="ae2:pattern_provider" />, it is meant 
 
 For standalone usage with external item input, put the pattern directly in the assembler's pattern slot and feed items in through hoppers or pipes.
 
-<GameScene zoom="4" background="transparent">
+<GameScene zoom="6" background="transparent">
   <ImportStructure src="../assets/assemblies/package_assembly_line.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
-  <BoxAnnotation color="#dddddd" min="0 0 0" max="4 4 4">
-    (1) 4×4×4 checkerboard: 32 Pattern Providers and 32 Package Assemblers.
+  <BoxAnnotation color="#dddddd" min="0 0 0" max="2 2 2">
+    (1) 2×2×2 checkerboard: 4 Pattern Providers and 4 Package Assemblers.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="2 0 0" max="3 1 1">
+    (2) Smart Cable: Connect this end to the main network.
   </BoxAnnotation>
 </GameScene>
 
 ## Configurations
 
-*   The 32 <ItemLink id="ae2:pattern_provider" /> blocks use their default configuration and contain [package patterns](../devices/advanced-pattern-terminal.md). Together they consume 32 channels, so connect the grid with dense cable.
-*   The 32 <ItemLink id="appliedpackaging:package_assembler" /> blocks use the default ME-network output mode. Packages go directly into ME storage.
+*   The 4 <ItemLink id="ae2:pattern_provider" /> blocks use their default configuration and contain [package patterns](../devices/advanced-pattern-terminal.md). Together they consume 4 channels; connect the attached Smart Cable (2) to the main network.
+*   The 4 <ItemLink id="appliedpackaging:package_assembler" /> blocks use the default ME-network output mode. Packages go directly into ME storage.
 *   Do not use advanced or ordinary AE2 patterns in this grid. Use the directional-provider subnetwork described on the [Package Assembler](../machines/package-assembler.md) page instead.
 
 ## How It Works

@@ -24,16 +24,47 @@ After a member finishes outputting its item, there is a brief pause before it ca
 
 ## Setting Up a Multiblock
 
+### Package Unpacking Bus Input
+
 <GameScene zoom="6" background="transparent">
   <ImportStructure src="../assets/assemblies/sequence_line.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
+
+  <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">
+    (1) Package Unpacking Bus: Feeds a package into the endpoint.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
+    (2) Endpoint: Holds configuration and does not store an item.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) Members: Each holds one item and outputs north into its own target.
+  </BoxAnnotation>
 </GameScene>
+
+### Pattern Provider Input
+
+<GameScene zoom="6" background="transparent">
+  <ImportStructure src="../assets/assemblies/sequence_line_pattern_provider.snbt" />
+  <IsometricCamera yaw="205" pitch="30" />
+
+  <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">
+    (1) Pattern Provider: Its selected output face points into the endpoint.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
+    (2) Endpoint: Receives the ordered pattern ingredients.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) Members: Preserve the positions and feed their corresponding targets.
+  </BoxAnnotation>
+</GameScene>
+
+The Sequence Buffer itself does not use AE power. The cable shown in either setup only connects the Package Unpacking Bus or Pattern Provider to its ME network.
 
 1. Place at least two Sequence Buffer blocks in a straight line.
 2. Right-click the end face of the last block with an AE2 wrench to form the structure.
 3. Open the endpoint's GUI to configure all settings. These settings apply to every member in the multiblock.
 4. For each member, open its individual side GUI and set its output face. If you do not set a direction, the member searches for any adjacent container it can output to, excluding other Sequence Buffers.
-5. Place a Package Unpacking Bus against the endpoint face to feed packages into the buffer. You can also place a pattern provider here to push ingredients directly.
+5. Choose an input source: place a Package Unpacking Bus against the endpoint, or place a Pattern Provider there and use an AE2 wrench to point its selected output face into the endpoint.
 
 ## Settings
 

@@ -1,0 +1,17 @@
+{
+    DataVersion: 3337,
+    size: [3, 2, 2],
+    data: [
+        {pos: [1, 0, 0], state: "minecraft:hopper{enabled:true,facing:down}", nbt: {Items: [], TransferCooldown: 0, id: "minecraft:hopper"}},
+        {pos: [1, 1, 0], state: "appliedpackaging:package_assembler{facing:north}", nbt: {blocking_mode: 0b, id: "appliedpackaging:package_assembler", output_mode: "adjacent_block", selected_color: "fluix"}},
+        {pos: [2, 1, 0], state: "minecraft:hopper{enabled:true,facing:west}", nbt: {Items: [], TransferCooldown: 0, id: "minecraft:hopper"}},
+        {pos: [1, 1, 1], state: "ae2:energy_cell{fullness:4}", nbt: {id: "ae2:energy_cell", internalCurrentPower: 200000.0d, visual: {}}}
+    ],
+    entities: [],
+    palette: [
+        "minecraft:hopper{enabled:true,facing:down}",
+        "appliedpackaging:package_assembler{facing:north}",
+        "minecraft:hopper{enabled:true,facing:west}",
+        "ae2:energy_cell{fullness:4}"
+    ]
+}

@@ -18,6 +18,24 @@ ME 打包机从[网络存储](ae2:ae2-mechanics/import-export-storage.md)中提�
 
 打包机通过底面和背面连接 AE2。正面传送带存放当前包裹。右键传送带表面可放入或取出包裹；右键其他面打开配置 GUI。传送带槽与 GUI 显示同一存储。
 
+<GameScene zoom="6" background="transparent">
+  <ImportStructure src="../../assets/assemblies/me_packager_network.snbt" />
+  <IsometricCamera yaw="195" pitch="30" />
+
+  <BoxAnnotation color="#dddddd" min="0 0 0" max="2 1 1">
+    (1) 箱子与 AE2 存储总线：将散装物品接入网络存储。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="1 0 0" max="4 1 1">
+    (2) 智能线缆：连接存储、打包机和供电。
+  </BoxAnnotation>
+  <BoxAnnotation color="#cc88ff" min="3 1 0" max="4 2 1">
+    (3) ME 打包机：通过底面接入网络。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="4 0 0" max="5 1 1">
+    (4) 能源元件：为示例网络供电。
+  </BoxAnnotation>
+</GameScene>
+
 ## 打包
 
 配置颜色、可选标记、内容过滤器和激活模式。打包机触发时，扫描 ME 存储中匹配过滤器的物品，装配一个包裹。物品从网络提取，非复制。

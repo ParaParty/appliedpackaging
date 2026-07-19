@@ -12,12 +12,14 @@ Machines with position-specific input slots — like Create's mechanical crafter
 
 This setup can also handle pattern provider pushes directly: the provider pushes ingredients in order, and the buffer maps each ingredient to a member by position.
 
+## Package Unpacking Bus Input
+
 <GameScene zoom="6" background="transparent">
   <ImportStructure src="../assets/assemblies/sequence_line.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
 
-  <BoxAnnotation color="#ffbb55" min="0 0 1" max="1 1 2">
-    (1) Package Unpacking Bus: Feeds the package into the endpoint.
+  <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">
+    (1) Package Unpacking Bus and network cable: Feed the package into the endpoint.
   </BoxAnnotation>
   <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
     (2) Endpoint: Holds configuration and does not store an item.
@@ -27,11 +29,37 @@ This setup can also handle pattern provider pushes directly: the provider pushes
   </BoxAnnotation>
 </GameScene>
 
+## Pattern Provider Input
+
+<GameScene zoom="6" background="transparent">
+  <ImportStructure src="../assets/assemblies/sequence_line_pattern_provider.snbt" />
+  <IsometricCamera yaw="205" pitch="30" />
+
+  <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">
+    (1) Pattern Provider and network cable: The selected output face points into the endpoint.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
+    (2) Endpoint: Receives the ordered pattern ingredients.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) Members: Each preserves one position and outputs north into its own target.
+  </BoxAnnotation>
+</GameScene>
+
+## Examples
+
+The four builds below are kept on separate pages. Start with the two input structures here to understand the endpoint, members, and input source, then open the setup you need.
+
+<SubPages />
+
 ## Configurations
 
-*   The <ItemLink id="appliedpackaging:package_unpacking_bus" /> (1) is placed against the endpoint (2). Pre-admission check is on (default).
+*   With a <ItemLink id="appliedpackaging:package_unpacking_bus" /> (1), place the bus against the endpoint (2). Pre-admission check is on (default).
+*   With a Pattern Provider (1), use an AE2 wrench to point its selected output face into the endpoint (2).
 *   The endpoint has Automatic Output enabled. Enable Pattern Mode when using packages with sparse slot layouts.
 *   Each member (3) has its output face set to point at the corresponding input slot on the target machine.
+
+The Sequence Buffer itself does not need AE power. The cable in each structure belongs to the input source's ME network.
 
 ## How It Works
 

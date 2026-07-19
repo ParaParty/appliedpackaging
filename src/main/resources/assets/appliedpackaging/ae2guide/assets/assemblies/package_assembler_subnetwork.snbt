@@ -1,0 +1,23 @@
+{
+    DataVersion: 3337,
+    size: [5, 1, 3],
+    data: [
+        {pos: [0, 0, 0], state: "ae2:cable_bus{light_level:0,waterlogged:false}", nbt: {cable: {id: "ae2:fluix_smart_dense_cable", visual: {channelsSouth: 1, connections: ["south"], missingChannel: 0b, powered: 1b}}, hasRedstone: 2, id: "ae2:cable_bus", visual: {}}},
+        {pos: [0, 0, 1], state: "ae2:pattern_provider{push_direction:east}", nbt: {blocking_mode: "NO", id: "ae2:pattern_provider", lock_crafting_mode: "NONE", pattern_access_terminal: "YES", priority: 0, returnInv: [], sendList: [], visual: {}}},
+        {pos: [1, 0, 1], state: "appliedpackaging:package_assembler{facing:west}", nbt: {blocking_mode: 0b, id: "appliedpackaging:package_assembler", output_mode: "me_network", selected_color: "fluix"}},
+        {pos: [2, 0, 1], state: "ae2:energy_cell{fullness:4}", nbt: {id: "ae2:energy_cell", internalCurrentPower: 200000.0d, visual: {}}},
+        {pos: [3, 0, 1], state: "ae2:cable_bus{light_level:0,waterlogged:false}", nbt: {cable: {id: "ae2:fluix_glass_cable", visual: {connections: ["west", "east"], missingChannel: 0b, powered: 1b}}, hasRedstone: 2, id: "ae2:cable_bus", visual: {}}},
+        {pos: [4, 0, 0], state: "minecraft:chest{facing:south,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}},
+        {pos: [4, 0, 1], state: "ae2:cable_bus{light_level:0,waterlogged:false}", nbt: {cable: {id: "ae2:fluix_glass_cable", visual: {connections: ["west"], missingChannel: 0b, powered: 1b}}, hasRedstone: 2, id: "ae2:cable_bus", north: {colors: [I; 15, 0, 0, 0, 0, 0, 0], colorEnabled: [B; 1b, 0b, 0b, 0b, 0b, 0b, 0b], id: "appliedpackaging:package_storage_bus", priority: 0, visual: {missingChannel: 0b, powered: 1b}}, south: {colors: [I; 12, 0, 0, 0, 0, 0, 0], colorEnabled: [B; 1b, 0b, 0b, 0b, 0b, 0b, 0b], id: "appliedpackaging:package_storage_bus", priority: 0, visual: {missingChannel: 0b, powered: 1b}}, visual: {}}},
+        {pos: [4, 0, 2], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}}
+    ],
+    entities: [],
+    palette: [
+        "ae2:cable_bus{light_level:0,waterlogged:false}",
+        "ae2:pattern_provider{push_direction:east}",
+        "appliedpackaging:package_assembler{facing:west}",
+        "ae2:energy_cell{fullness:4}",
+        "minecraft:chest{facing:south,type:single,waterlogged:false}",
+        "minecraft:chest{facing:north,type:single,waterlogged:false}"
+    ]
+}
