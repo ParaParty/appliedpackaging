@@ -16,19 +16,22 @@ navigation:
   <ImportStructure src="../../assets/assemblies/sequence_line.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
 
-  <BoxAnnotation color="#66aaff" min="0 0 1" max="1 1 2">
-    (1) 端点：拥有配置。将卸货总线（或样板供应器）贴在此面。
+  <BoxAnnotation color="#ffbb55" min="0 0 1" max="1 1 2">
+    (1) 包裹卸货总线：将包裹送入端点。
   </BoxAnnotation>
-  <BoxAnnotation color="#66dd88" min="1 0 1" max="4 1 2">
-    (2) 成员：每个存放一件物品。分别为每个成员配置输出面指向目标机器的对应输入槽位。
+  <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
+    (2) 端点：拥有配置，本身不存储物品。
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) 成员：每个存放一件物品，并向北输出到各自目标。
   </BoxAnnotation>
 </GameScene>
 
 ## 配置方法
 
-*   <ItemLink id="appliedpackaging:package_unpacking_bus" /> 贴放在端点面 (1) 上。预接收检查保持开启（默认）。
+*   <ItemLink id="appliedpackaging:package_unpacking_bus" /> (1) 贴放在端点 (2) 上。预接收检查保持开启（默认）。
 *   端点开启自动输出。使用带稀疏槽位布局的包裹时，开启样板模式。
-*   每个成员的输出面指向目标机器的对应输入槽位。
+*   每个成员 (3) 的输出面指向目标机器的对应输入槽位。
 
 ## 工作原理
 

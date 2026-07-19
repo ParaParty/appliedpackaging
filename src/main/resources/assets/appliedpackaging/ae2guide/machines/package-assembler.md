@@ -14,30 +14,90 @@ categories:
 
 <BlockImage id="appliedpackaging:package_assembler" scale="8" />
 
-The ME Package Assembler takes items input into it and carries out the operation defined by an adjacent <ItemLink id="ae2:pattern_provider" />, or the inserted [package pattern](devices/advanced-pattern-terminal.md), [advanced processing pattern](devices/advanced-pattern-terminal.md), or regular AE2 pattern, then outputs the resulting packages. By default, output goes to the connected ME storage.
+The ME Package Assembler takes items input into it and carries out the operation defined by an adjacent <ItemLink id="ae2:pattern_provider" />, or the inserted [package pattern](../devices/advanced-pattern-terminal.md), [advanced processing pattern](../devices/advanced-pattern-terminal.md), or regular AE2 pattern, then outputs the resulting packages. By default, the output goes to the connected ME storage.
 
-This assembler has a package pattern that specifies coal in slot 1 and cobblestone in slot 2. When coal and cobblestone are in ME storage, the assembler produces a package with both items.
+## Inserted Pattern and Hopper I/O
 
-## The Main Use of the ME Package Assembler
-
-The main use is next to a <ItemLink id="ae2:pattern_provider" />. Pattern providers push ingredients to adjacent inventories, and the assembler turns them into packages. Since output goes to ME storage by default, a provider on an assembler is all you need to add package assembly to autocrafting.
-
-**Note:** If you want the packages on a subnetwork instead, use a directional pattern provider (right-click with a <ItemLink id="ae2:certus_quartz_wrench" />) so the provider and assembler don't share a network connection. The assembler's output can then go through a subnetwork to Unpacking Buses and Sequence Buffers that split the package across machine faces.
+This assembler has a package pattern that specifies coal in slot 1 and cobblestone in slot 2. When coal and cobblestone arrive through the input hopper, the assembler assembles a package and outputs it into the lower hopper.
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../assets/assemblies/package_assembly_line.snbt" />
-  <IsometricCamera yaw="195" pitch="25" />
+  <ImportStructure src="../assets/assemblies/package_assembler_hopper.snbt" />
+  <IsometricCamera yaw="195" pitch="30" />
+
+  <BoxAnnotation color="#66aaff" min="2 1 0" max="3 2 1">
+    (1) Input hopper: Feeds ingredients into the assembler.
+  </BoxAnnotation>
+  <BoxAnnotation color="#cc88ff" min="1 1 0" max="2 2 1">
+    (2) ME Package Assembler: Pattern inserted; output set to adjacent block.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="1 0 0" max="2 1 1">
+    (3) Output hopper: Receives the completed package.
+  </BoxAnnotation>
 </GameScene>
+
+This is the appropriate place to use "Output to adjacent block": the pattern is inside the assembler, and one-way external transport handles both input and output.
+
+## Package Pattern Grid
+
+However, the main use is next to a <ItemLink id="ae2:pattern_provider" />, arranged in a grid similar to molecular assemblers. Pattern providers push ingredients to adjacent inventories, and the assembler assembles them into packages. Since the assembler outputs packages to ME storage by default, the packages return directly to the network — an assembler on a pattern provider is all that is needed to integrate package assembly into autocrafting.
+
+The example is a 4×4×4 checkerboard: 32 Pattern Providers and 32 Package Assemblers. The providers use 32 channels, so connect the grid with a dense cable and budget all 32 channels for it.
+
+<GameScene zoom="4" background="transparent">
+  <ImportStructure src="../assets/assemblies/package_assembly_line.snbt" />
+  <IsometricCamera yaw="195" pitch="30" />
+
+  <BoxAnnotation color="#dddddd" min="0 0 0" max="4 4 4">
+    4×4×4 grid: 32 Pattern Providers and 32 Package Assemblers.
+  </BoxAnnotation>
+</GameScene>
+
+In this mode, use package patterns only. Advanced processing patterns and ordinary AE2 crafting or processing patterns belong in the subnetwork setup below.
+
+## Directional Provider and Routing Subnetwork
+
+When you want to route packages by color, use a directional pattern provider. Right-click the provider with a <ItemLink id="ae2:certus_quartz_wrench" /> so it does not form a network connection on the face touching the assembler. Keep the assembler's output set to "Output to ME network" (the default), and connect it to a separate subnetwork whose only storage is one or more color-filtered Package Storage Buses.
+
+<GameScene zoom="5" background="transparent">
+  <ImportStructure src="../assets/assemblies/package_assembler_subnetwork.snbt" />
+  <IsometricCamera yaw="195" pitch="30" />
+
+  <BoxAnnotation color="#66aaff" min="0 0 0" max="1 1 2">
+    (1) Main network and directional Pattern Provider. Its selected face points east.
+  </BoxAnnotation>
+  <BoxAnnotation color="#cc88ff" min="1 0 1" max="2 1 2">
+    (2) Package Assembler: Belongs to the subnetwork and outputs to ME storage.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) Routing subnetwork.
+  </BoxAnnotation>
+  <BoxAnnotation color="#ff7777" min="4 0 0" max="5 1 1">
+    (4) Package Storage Bus: Filtered to red packages.
+  </BoxAnnotation>
+  <BoxAnnotation color="#6688ff" min="4 0 2" max="5 1 3">
+    (5) Package Storage Bus: Filtered to blue packages.
+  </BoxAnnotation>
+</GameScene>
+
+Do not set the assembler to "Output to adjacent block" in this setup. The directional provider is still an adjacent inventory, so adjacent output can place the completed package back into the main network and bypass the routing subnetwork.
+
+This is also the recommended setup when using regular AE2 patterns (crafting or processing) with the assembler, since the assembler can apply its own color and marker to the resulting packages for routing.
+
+## Advanced Pattern Output
+
+When processing an advanced pattern, the assembler produces one package per column and outputs them in column order. Assign a different color to each column in the encoding terminal, then use one filtered Package Storage Bus for each destination on the subnetwork. This makes routing independent of output order.
 
 ## Output Modes
 
-*   **Output to ME network** (default). Packages go directly into the connected ME storage.
-*   **Output to adjacent block.** Packages go into a neighboring container. The assembler picks one from the six adjacent faces and uses that direction for the whole batch.
+*   **Output to ME network** (default). Packages go into the connected ME storage.
+*   **Output to adjacent block.** Packages are placed into a selected neighboring container. The assembler picks one accepting container from the six adjacent faces and uses that direction for the entire batch.
 *   **Disabled.** Packages stay in the assembler's output slots for manual extraction.
+
+Use adjacent output for the inserted-pattern setup with one-way external transport. Keep ME-network output for both the package-pattern grid and the directional-provider subnetwork.
 
 ## Capacity
 
-Before taking any ingredients, the assembler checks that every package in the plan fits the capacity limit:
+Before consuming any ingredients, the assembler checks that every package fits within the capacity limit:
 
 | Component | Max Types | Max Total |
 |-----------|-----------|-----------|
@@ -50,11 +110,11 @@ Storage cells and 1k components are not accepted. Install the component in the a
 
 ## Color and Marker
 
-The assembler has its own color picker and marker slot. When using a package or advanced pattern, the pattern's own colors and markers are used and the assembler's settings are ignored. When using a regular AE2 pattern, the assembler's color and marker are applied. The marker item is never consumed.
+The assembler has its own color picker and marker slot. When using package or advanced patterns, the pattern's own color and marker are used and the assembler's settings are ignored. When using regular AE2 patterns, the assembler's color and marker are applied. The marker item is never consumed.
 
 ## Blocking Mode
 
-When enabled, the assembler waits until the output target is empty before starting a new batch. Once a batch is admitted, it drains completely — every package in the batch is output in order without rechecking.
+When enabled, the assembler waits until the output target is empty before starting a new batch. Once a batch is admitted, it drains completely — every package is output in order without rechecking.
 
 ## Comparator Output
 

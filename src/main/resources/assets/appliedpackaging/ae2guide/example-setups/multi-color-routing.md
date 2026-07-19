@@ -20,12 +20,16 @@ When you have multiple production lines, package colors can be used to route pac
   <BoxAnnotation color="#ffbb55" min="3 0 1" max="5 1 2">
     (2) Package Unpacking Bus: Filtered to blue packages. Unpacks them into the right target.
   </BoxAnnotation>
+  <BoxAnnotation color="#dddddd" min="2 0 1" max="3 2 2">
+    (3) ME Drive: Fallback storage for packages that match neither filter.
+  </BoxAnnotation>
 </GameScene>
 
 ## Configurations
 
 *   The <ItemLink id="appliedpackaging:package_storage_bus" /> (1) has one filter row with the red color selected.
 *   The <ItemLink id="appliedpackaging:package_unpacking_bus" /> (2) has one filter row with the blue color selected.
+*   The ME Drive (3) is ordinary fallback storage.
 
 ## How It Works
 
@@ -42,4 +46,4 @@ Adjust priorities to control the order destinations are tried:
 
 ## Advanced Pattern with Multi-Color Routing
 
-An [advanced processing pattern](devices/advanced-pattern-terminal.md) can encode up to 81 columns, each with its own color. Combined with color-filtered Unpacking Buses and Sequence Buffers on a subnetwork, each column's package routes to a different buffer chain, enabling complex multi-destination assembly from a single pattern. This is particularly useful for modded machines that require specific items in specific input slots, like Create's mechanical crafters.
+An [advanced processing pattern](../devices/advanced-pattern-terminal.md) can encode up to 81 columns, each with its own color. Combined with color-filtered Unpacking Buses and Sequence Buffers on a subnetwork, each column's package routes to a different buffer chain, enabling complex multi-destination assembly from a single pattern. This is particularly useful for modded machines that require specific items in specific input slots, like Create's mechanical crafters.

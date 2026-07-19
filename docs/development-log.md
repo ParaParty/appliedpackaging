@@ -3833,3 +3833,19 @@ ME 打包机、包裹卸货总线和序列缓存器统一增加“防堵塞输�
 AE2 15 的 `AETextField` 把搜索框材质固定为 `ae2:textures/guis/text_field.png`，因此仅替换本模组终端底图不会改变控件。项目现以同一资源位置缓存 current-AE2 的 128x128 原图，SHA-256 为 `73BBA41174D3EC15D83947E439915873611735FE436AD0CBC7653ECA15E23AD1`，并在许可证说明、资产规格、尺寸门禁、源哈希门禁及负例自测中固定来源与完整性。构建 JAR 已确认包含该 487-byte 条目及相同哈希。
 
 行为敏感回归位于主 source set 的 `src/main/java/.../gametest/`。`.\gradlew.bat runGameTestServer` 明确完成 166/166 required GameTest，覆盖未成型单块忽略多方块专属设置、侧界面不能越权修改、成型成员实时读取端点且不复制本地配置、样板颜色临时覆盖及服务端拒绝修改。`.\gradlew.bat build`、`scripts/verify-assets.ps1`（145 张 PNG）、完整 `scripts/test-assets-audit.ps1`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。真实 `.\gradlew.bat runClient --stacktrace --no-configuration-cache` 完成 Applied Packaging 初始化、资源重载、OpenAL 和全部图集创建后由本轮主动停止；日志只有既有第三方可选集成警告及用户 IntelliJ 客户端占用 `latest.log/debug.log` 造成的轮换警告，没有 Applied Packaging 类加载或资源错误。本轮未停止用户的 IntelliJ 开发客户端 PID 43708；实际打开各界面的像素与点击手感仍需人工验收。
+
+### 2026-07-19 GuideME 目录重组加载错误修复
+
+GuideME 页面拆分为双语各 17 页后，页面正文仍残留按旧目录计算的相对链接，中文根页还声明了 `parent: index.md`，因此运行时既会报告导航树自循环，也会把子目录页面中的目标解析到不存在的同级路径。全量扫描确认问题不是最初可见的 4 页，而是 10 个页面中的 22 处链接；本轮只修正链接目标和中文根页 frontmatter，不改写既有说明文字或说话风格，也保留前一轮对 4 个页面所做的内容调整。
+
+`scripts/verify-docs.ps1` 同步改为递归审计双语各 17 页的精确页面集合、英文/中文路径对称性、parent 目标、自指与导航环、物品索引、页面标签、结构引用和本地 Markdown 链接；`scripts/test-docs-audit.ps1` 更新为当前目录，并新增中文根页自循环负例。`scripts/verify-docs.ps1` 通过并检查 74 个本地 Markdown 链接，完整 `scripts/test-docs-audit.ps1` 的正反 fixture 全部通过，`.\gradlew.bat build --stacktrace --no-configuration-cache` 构建成功。
+
+真实客户端通过 GuideME 开发源映射分别以 `zh_cn` 和 `en_us` 启动。两次均从当前源码加载 34 个资源页面中的对应语言 17 页，逐页编译 17/17，日志没有 `Page does not exist`、`Detected a cycle` 或 GuideME `WARN/ERROR/FATAL`；确认首页和导航完成加载后主动终止客户端，`run/options.txt` 已恢复为 `zh_cn`。本轮只修改 GuideME 文档资源与文档审计脚本，没有服务端玩法行为变化，因此不重跑 GameTest；真实双语客户端加载是本问题的行为验证。
+
+### 2026-07-19 GuideME 使用场景与结构示例对齐
+
+用户复核指出，目录和链接修复后，GuideME 中的结构示例仍把不同用法混成一套，尤其是包裹装配室错误地把相邻容器输出用于 Pattern Provider 网络。按 AE2 15.4.10 原版分子装配室、方向性样板供应器和子网络页面的组织方式，本轮保留既有正文语气，只改动与实际结构冲突的说明，并把包裹装配室拆成三张独立场景：内部插入样板、漏斗输入并向下方漏斗相邻输出；仅放包裹样板的 4×4×4 棋盘网格，包含 32 个样板供应器与 32 个包裹装配室、占用 32 个频道；扳手定向的样板供应器连接装配室，装配室保持输出到 ME 网络，另一侧接只由不同颜色包裹存储总线组成的路由子网。第三种场景明确禁止相邻输出，避免方向性供应器作为相邻容器接收成品并把包裹送回主网络。高级样板与普通 AE2 样板改为指向该子网方案，不再与包裹样板网格混用。
+
+其余已有场景同步改为可读的真实拓扑：高级样板编码终端显示供电线缆；包裹存储总线和拆包总线显示相邻容器；多颜色路由包含红色存储总线、蓝色拆包总线与未命中颜色的 ME Drive 后备存储；有序机器输入包含拆包总线、端点、三个定向成员和三个目标容器，并把端点 NBT 固定为自动输出、样板模式、同步输出与 1 tick 输入延迟。相关示例页只调整结构标注和与结构直接冲突的配置项，没有大幅改写既有文案。
+
+`scripts/verify-docs.ps1` 新增结构语义门禁：包裹装配室页至少三张 `GameScene`，网格必须精确为 4×4×4 / 32+32，漏斗方案必须使用相邻输出，子网方案必须包含定向供应器、ME 网络输出及红蓝包裹存储总线；终端、两类总线、颜色路由和序列线的关键组成与配置也纳入检查。`scripts/test-docs-audit.ps1` 新增把网格改回 4×8×4 的失败夹具。`scripts/verify-docs.ps1`、完整 `scripts/test-docs-audit.ps1` 和 `.\gradlew.bat build --no-configuration-cache` 均通过。GuideME 20.1.7 真实客户端分别以 `zh_cn`、`en_us` 加载 34 个资源页面中的对应语言 17 页并逐页编译；中文客户端实际打开包裹装配室并逐张查看三套结构，SNBT、方块状态、部件 NBT 与标注均正常渲染，日志没有 GuideME/structure/SNBT 编译错误。`run/options.txt` 已恢复为 `zh_cn`。本轮没有修改服务端行为，GameTest 不适用于客户端 GuideME 场景解析，因此以结构语义审计、构建和真实双语客户端作为验证链。

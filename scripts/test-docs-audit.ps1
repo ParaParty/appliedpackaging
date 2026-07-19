@@ -173,7 +173,7 @@ try {
 
     $missingGuideTranslationFixture = New-DocsFixture "missing-guide-translation"
     Remove-Item -LiteralPath (
-        Join-Path $missingGuideTranslationFixture "src/main/resources/assets/appliedpackaging/ae2guide/_zh_cn/me_packager.md"
+        Join-Path $missingGuideTranslationFixture "src/main/resources/assets/appliedpackaging/ae2guide/_zh_cn/machines/me-packager.md"
     ) -Force
     Invoke-DocsCase `
         -Name "missing GuideME translation fixture" `
@@ -183,12 +183,12 @@ try {
 
     $brokenGuideStructureFixture = New-DocsFixture "broken-guide-structure"
     $brokenGuidePage = Join-Path $brokenGuideStructureFixture (
-        "src/main/resources/assets/appliedpackaging/ae2guide/example_setups.md"
+        "src/main/resources/assets/appliedpackaging/ae2guide/example-setups/basic-packaging-line.md"
     )
     $brokenGuideText = Get-Content -LiteralPath $brokenGuidePage -Raw
     $brokenGuideText = $brokenGuideText.Replace(
-        "assets/assemblies/package_assembly_line.snbt",
-        "assets/assemblies/missing_setup.snbt"
+        "../assets/assemblies/package_assembly_line.snbt",
+        "../assets/assemblies/missing_setup.snbt"
     )
     Set-Content -LiteralPath $brokenGuidePage -Value $brokenGuideText -Encoding UTF8
     Invoke-DocsCase `
@@ -196,6 +196,32 @@ try {
         -RootPath $brokenGuideStructureFixture `
         -ExpectedExitCode 1 `
         -ExpectedText "Missing GuideME structure"
+
+    $invalidAssemblerGridFixture = New-DocsFixture "invalid-assembler-grid"
+    $invalidAssemblerGrid = Join-Path $invalidAssemblerGridFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/assets/assemblies/package_assembly_line.snbt"
+    )
+    $invalidAssemblerGridText = Get-Content -LiteralPath $invalidAssemblerGrid -Raw
+    $invalidAssemblerGridText = $invalidAssemblerGridText.Replace("size: [4, 4, 4]", "size: [4, 8, 4]")
+    Set-Content -LiteralPath $invalidAssemblerGrid -Value $invalidAssemblerGridText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "invalid Package Assembler grid fixture" `
+        -RootPath $invalidAssemblerGridFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Package Assembler grid is exactly 4x4x4"
+
+    $cyclicGuideNavigationFixture = New-DocsFixture "cyclic-guide-navigation"
+    $cyclicGuideRootPage = Join-Path $cyclicGuideNavigationFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/_zh_cn/index.md"
+    )
+    $cyclicGuideText = Get-Content -LiteralPath $cyclicGuideRootPage -Raw
+    $cyclicGuideText = $cyclicGuideText.Replace("navigation:`n", "navigation:`n  parent: index.md`n")
+    Set-Content -LiteralPath $cyclicGuideRootPage -Value $cyclicGuideText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "cyclic GuideME navigation fixture" `
+        -RootPath $cyclicGuideNavigationFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "GuideME navigation root has no parent"
 
     Write-Host ""
     Write-Host "Documentation audit self-test passed." -ForegroundColor Green

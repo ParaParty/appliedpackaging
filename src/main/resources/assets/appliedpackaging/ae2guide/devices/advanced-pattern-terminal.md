@@ -20,44 +20,42 @@ categories:
   <IsometricCamera yaw="180" />
 </GameScene>
 
-The Advanced Pattern Encoding Terminal encodes package patterns and advanced processing patterns. It has two independent pages: **Package** and **Advanced**. Each page keeps its own inventory — switching pages does not copy or clear items between them.
+The Advanced Pattern Encoding Terminal encodes package patterns and advanced processing patterns. It has two independent pages: Package and Advanced. Each page keeps its own inventory — switching pages does not copy or clear items between them.
 
 This is a cable subpart and requires a channel. Regular AE2 pattern encoding terminals cannot read or edit packaging patterns.
 
-## The Package Page
+## The UI
 
-Encodes one <ItemLink id="appliedpackaging:package_pattern" /> at a time:
+The terminal has two pages, switched via tabs at the top. A slot on the right side accepts blank patterns. An arrow button encodes the pattern. A slot holds the encoded pattern — place an already-encoded pattern in this slot to edit it, then click the encode arrow.
 
-1. Insert a blank AE2 pattern into the blank-pattern slot.
-2. Place items into the input grid. Empty slots are recorded as part of the layout.
-3. Choose a color from the color picker.
-4. Optionally place an item in the marker slot. The marker is never consumed.
-5. Click Encode.
+<a name="package-page"></a>
+
+### Package Page
+
+The Package page encodes one package pattern at a time.
+
+*   Left-click or drag from JEI/REI the items to form the package contents. Right-click to remove an item.
+*   Empty slots are recorded as part of the layout.
+*   Choose a color from the color picker and optionally place an item in the marker slot. The marker is never consumed.
+*   You can also directly encode a pattern from the JEI/REI recipe screen.
 
 <Row gap="20">
   <ItemImage id="appliedpackaging:package_pattern" scale="4" />
 </Row>
 
-The same item placed in different slots produces separate entries. This matters when the pattern encodes, for example, coal in both slot 1 and slot 3 — the two coals remain independent entries that can be routed to different destinations by a Sequence Buffer.
+The same item placed in different slots produces separate entries. When a pattern encodes coal in both slot 1 and slot 3, the two coal entries remain independent.
 
-## The Advanced Page
+<a name="advanced-page"></a>
 
-Encodes an <ItemLink id="appliedpackaging:advanced_processing_pattern" /> with up to 81 package columns, each with its own color and up to 81 sparse input slots. The screen displays four columns at a time.
+### Advanced Page
 
-Each column becomes one package. The column order is the package output order. This is useful for recipes that produce multiple packages from one pattern, where each package carries a different set of ingredients for a different destination.
+The Advanced page encodes an advanced processing pattern with up to 81 package columns, each with its own color and up to 81 sparse input slots. The screen displays four columns at a time.
 
-### Color Mode
+Each column becomes one package. The column order is the package output order.
 
-The left toolbar controls how new columns are colored:
+The color mode button in the left toolbar controls how new columns are colored. **Default** assigns Fluix to every new column. **Cycling** assigns the next unused color in sequence, cycling through all 17 colors. Changing the mode does not affect existing columns.
 
-*   **Default** assigns Fluix to every new column.
-*   **Cycling** assigns the next unused color in sequence, cycling through all 17 colors.
-
-Changing the mode does not affect existing columns — only columns added afterwards.
-
-### Recipe Viewer Transfer
-
-Recipes can be imported from JEI or EMI into either page. Deterministic recipes are supported; ambiguous or random-output recipes are rejected.
+You can also directly encode a pattern from the JEI/REI recipe screen.
 
 ## Recipe
 

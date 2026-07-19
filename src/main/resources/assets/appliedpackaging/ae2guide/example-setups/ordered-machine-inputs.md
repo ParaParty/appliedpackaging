@@ -16,19 +16,22 @@ This setup can also handle pattern provider pushes directly: the provider pushes
   <ImportStructure src="../assets/assemblies/sequence_line.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
 
-  <BoxAnnotation color="#66aaff" min="0 0 1" max="1 1 2">
-    (1) Endpoint: Holds configuration. Place the Unpacking Bus (or pattern provider) against this face.
+  <BoxAnnotation color="#ffbb55" min="0 0 1" max="1 1 2">
+    (1) Package Unpacking Bus: Feeds the package into the endpoint.
   </BoxAnnotation>
-  <BoxAnnotation color="#66dd88" min="1 0 1" max="4 1 2">
-    (2) Members: Each holds one item. Configure each member's output face to point at the target machine's corresponding input slot.
+  <BoxAnnotation color="#66aaff" min="1 0 1" max="2 1 2">
+    (2) Endpoint: Holds configuration and does not store an item.
+  </BoxAnnotation>
+  <BoxAnnotation color="#66dd88" min="2 0 1" max="5 1 2">
+    (3) Members: Each holds one item and outputs north into its own target.
   </BoxAnnotation>
 </GameScene>
 
 ## Configurations
 
-*   The <ItemLink id="appliedpackaging:package_unpacking_bus" /> is placed on the endpoint face (1). Pre-admission check is on (default).
+*   The <ItemLink id="appliedpackaging:package_unpacking_bus" /> (1) is placed against the endpoint (2). Pre-admission check is on (default).
 *   The endpoint has Automatic Output enabled. Enable Pattern Mode when using packages with sparse slot layouts.
-*   Each member's output face is set to point at the corresponding input slot on the target machine.
+*   Each member (3) has its output face set to point at the corresponding input slot on the target machine.
 
 ## How It Works
 

@@ -1,20 +1,24 @@
 {
     DataVersion: 3337,
-    size: [4, 1, 2],
+    size: [5, 1, 2],
     data: [
-        {pos: [0, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:false,facing:north,sequence_direction:east,state:endpoint,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer"}},
-        {pos: [1, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer"}},
-        {pos: [2, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer"}},
-        {pos: [3, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:true}", nbt: {id: "appliedpackaging:sequence_buffer"}},
-        {pos: [1, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}},
+        {pos: [0, 0, 0], state: "ae2:energy_cell{fullness:4}", nbt: {id: "ae2:energy_cell", internalCurrentPower: 200000.0d, visual: {}}},
+        {pos: [0, 0, 1], state: "ae2:cable_bus{light_level:0,waterlogged:false}", nbt: {cable: {id: "ae2:fluix_glass_cable", visual: {connections: ["north"], missingChannel: 0b, powered: 1b}}, east: {antiClogMode: 1b, blocking_mode: "NO", id: "appliedpackaging:package_unpacking_bus", priority: 0, visual: {missingChannel: 0b, powered: 1b}}, hasRedstone: 1, id: "ae2:cable_bus", visual: {}}},
+        {pos: [1, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:false,facing:north,sequence_direction:east,state:endpoint,tail:false}", nbt: {configuration: {allowed_inputs: [], anti_clog_mode: 0b, auto_output: 1b, blocking_mode: 0b, input_delay: 1, pattern_mode: 1b, synchronized_output: 1b, version: 1}, id: "appliedpackaging:sequence_buffer", sequence_direction: 5, sequence_index: -1}},
         {pos: [2, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}},
-        {pos: [3, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}}
+        {pos: [2, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer", sequence_direction: 5, sequence_index: 0}},
+        {pos: [3, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}},
+        {pos: [3, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}", nbt: {id: "appliedpackaging:sequence_buffer", sequence_direction: 5, sequence_index: 1}},
+        {pos: [4, 0, 0], state: "minecraft:chest{facing:north,type:single,waterlogged:false}", nbt: {Items: [], id: "minecraft:chest"}},
+        {pos: [4, 0, 1], state: "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:true}", nbt: {id: "appliedpackaging:sequence_buffer", sequence_direction: 5, sequence_index: 2}}
     ],
     entities: [],
     palette: [
+        "ae2:energy_cell{fullness:4}",
+        "ae2:cable_bus{light_level:0,waterlogged:false}",
         "appliedpackaging:sequence_buffer{axis:x,directional:false,facing:north,sequence_direction:east,state:endpoint,tail:false}",
+        "minecraft:chest{facing:north,type:single,waterlogged:false}",
         "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:false}",
-        "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:true}",
-        "minecraft:chest{facing:north,type:single,waterlogged:false}"
+        "appliedpackaging:sequence_buffer{axis:x,directional:true,facing:north,sequence_direction:east,state:member_directed,tail:true}"
     ]
 }

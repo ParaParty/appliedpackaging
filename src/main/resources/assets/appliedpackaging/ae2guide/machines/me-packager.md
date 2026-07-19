@@ -14,47 +14,47 @@ categories:
 
 <BlockImage id="appliedpackaging:me_packager" scale="8" />
 
-The ME Packager pulls items from ME storage and packs them into a package — no pattern needed. It can also unpack packages back into ME storage. You set the color, marker, and content filters in the GUI to control what gets packed.
+The ME Packager pulls items from [network storage](ae2:ae2-mechanics/import-export-storage.md) and packs them into a package. It can also take a package and unpack its contents back into network storage.
 
-The packager connects to AE2 through its bottom and its model back face. The belt on the front holds exactly one package. Right-click the belt to insert or retrieve the held package; right-click any other face to open the configuration GUI. The belt slot and the GUI slot are the same storage.
+The packager connects to AE2 through its bottom face and its model back face. The belt on the front holds the current package. Right-click the belt surface to insert or retrieve the held package; right-click any other face to open the configuration GUI. The belt slot and the GUI display the same storage.
 
 ## Packing
 
-Configure a color, a marker, content filters, and an activation mode. When packing triggers, the packager scans ME storage for items matching the filters and creates one package. The items are extracted from the network, not duplicated.
+Configure a color, an optional marker, content filters, and an activation mode. When the packager triggers, it scans ME storage for items matching the filters and assembles one package. Items are extracted from the network, not duplicated.
 
-Content filters support two rows initially. Each <ItemLink id="ae2:capacity_card" /> adds one row (up to 3 cards, for 5 total rows). An <ItemLink id="ae2:inverter_card" /> inverts content matching.
+Content filters start with two rows. Each <ItemLink id="ae2:capacity_card" /> adds one row, up to three cards for five total rows. An <ItemLink id="ae2:inverter_card" /> inverts content matching.
 
 ## Activation Modes
+
+The packager can be triggered by redstone or configured to run continuously:
 
 *   **Pack with redstone signal** — packs while receiving redstone power.
 *   **Pack without redstone signal** — packs while not receiving redstone power.
 *   **Always pack** — packs continuously.
 *   **Pack once on redstone pulse** — performs one operation per rising edge.
-*   **Packing off** — only packs when the manual pack button is clicked.
+*   **Packing off** — only packs when the manual pack button is clicked in the GUI.
 
 ## Unpacking
 
-Put a package into the packager and its contents go into ME storage. Blocking mode stops unpacking if the network already has items that match the package contents. The pre-admission check (labeled "Anti-Clog Mode" in the GUI, on by default) checks that everything fits before taking the package.
+Place a package into the packager through the belt or the GUI to unpack its contents back into ME storage. Blocking mode prevents unpacking while the network already contains items matching the package contents. The pre-admission check, labeled "Anti-Clog Mode" in the GUI and on by default, verifies that the full contents will fit in ME storage before accepting the package.
 
 ## Filter Modes
 
-*   **Filter packing and unpacking** — content filters apply to both directions.
-*   **Filter packing only** — content filters apply only during packing; any package can be unpacked.
-*   **Filter unpacking only** — content filters apply only during unpacking; any items can be packed.
+The packager can be set to apply content filters to packing only, unpacking only, or both directions:
 
-## Using with Subnetworks
-
-You can put the packager on a subnetwork with an Unpacking Bus and Sequence Buffer. The packager unpacks into the network, the bus sends items to the buffer, and the buffer splits them across machine faces. With advanced processing patterns, each column of the pattern becomes a package for a different destination — the buffer delivers each column's items to the right face. This setup works well with machines like Create's mechanical crafters that need specific items in specific input slots.
+*   **Filter packing and unpacking** — filters apply in both directions.
+*   **Filter packing only** — filters only restrict what gets packed.
+*   **Filter unpacking only** — filters only restrict what gets unpacked.
 
 ## Upgrades
 
 The ME Packager supports the following [upgrades](ae2:items-blocks-machines/upgrade_cards.md):
 
-*   <ItemLink id="ae2:speed_card" /> shortens packing/unpacking work (up to 6)
-*   <ItemLink id="ae2:capacity_card" /> adds one filter row (up to 3, for 5 total rows)
+*   <ItemLink id="ae2:speed_card" /> shortens the packing and unpacking work cycle (up to 6)
+*   <ItemLink id="ae2:capacity_card" /> adds one content filter row (up to 3, for 5 total rows)
 *   <ItemLink id="ae2:inverter_card" /> inverts content filtering
 
-The packager also has a storage component slot accepting 16k, 64k, or 256k components for package capacity.
+The packager also has a storage component slot that accepts 16k, 64k, and 256k raw components to increase the capacity of the packages it produces.
 
 ## Recipe
 

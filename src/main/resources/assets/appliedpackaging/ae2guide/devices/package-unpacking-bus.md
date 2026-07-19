@@ -16,49 +16,40 @@ categories:
   <ImportStructure src="../assets/blocks/package_unpacking_bus.snbt" />
 </GameScene>
 
-The Package Unpacking Bus takes packages from the network and puts their contents into the inventory it's touching — in the order they were packed. The network sends a package to the bus, the bus opens it, and each item goes into the inventory in sequence.
+The Package Unpacking Bus receives packages from network storage and inserts their contents into the inventory it is touching, in the order the items were encoded. It acts as a destination for packages — when a package is stored in the network, the bus takes it and places each item into the target inventory in sequence.
 
-They are [cable subparts](ae2:ae2-mechanics/cable-subparts.md).
+The bus also functions as a sequenced supplier, similar to how a pattern provider pushes a complete batch of ingredients to an adjacent inventory. It delivers the full set of package contents before considering the operation complete.
 
-The bus only inserts items when the full package can go in. If the inventory is full or can't take everything, the bus waits and tries again. It never inserts half a package.
+They are cable subparts.
 
-## Filter Rows
+## Filtering
 
-Two filter rows are available initially. Each <ItemLink id="ae2:capacity_card" /> adds one row, reaching seven rows with five cards. Rows are alternatives: a package matching any enabled row is accepted.
+By default the bus will accept any package. Items inserted into its filter rows will act as a whitelist, only allowing packages matching those criteria to be unpacked.
 
-Each row can combine:
+Each filter row can combine a color, a marker, and up to six content items. A row with no color selected does not filter by color. A row with no marker selected matches any marker.
 
-*   A color filter. Leave empty to not filter by color.
-*   A marker filter. Leave empty to match any marker.
-*   Up to six content filters.
+Items can be dragged into the filter slots from JEI/REI even if you do not actually have any of that item.
 
-## Pre-Admission Check
+## Priority
 
-The bus has an option that decides when it checks whether the target can take the items. The GUI labels it "Anti-Clog Mode." It is on by default:
+Priorities can be set by clicking the wrench in the top-right of the GUI. Packages entering the network will start at the highest priority destination. At equal priority, an available Package Unpacking Bus is preferred over a Package Storage Bus.
 
-*   **On:** The bus checks the target inventory before taking the package out of the network. If the items won't fit, the package stays in the network and can go to a different destination.
-*   **Off:** The bus takes the package and holds it in its working slot. If the target isn't ready yet, the package sits there until it is. You can pull it out of the GUI at any time.
+## Settings
 
-If blocking mode is also on, the check includes the blocking rule: the bus won't take a package if the target already has any of the same items.
+*   The bus can be set to check whether the complete contents can be inserted before accepting a package (labeled "Anti-Clog Mode" in the GUI, on by default). When enabled, the bus rejects the package if the check fails, allowing the network to route it to another destination. When disabled, the bus accepts the package and holds it in the working slot until the target is ready.
+*   Blocking mode can be enabled to prevent unpacking when the target already contains any of the package's content types.
+*   The package in the working slot is a real item. It can be extracted from the GUI at any time. Breaking the bus returns it.
 
-## Held Package
-
-The package in the working slot is a real item. You can take it out of the GUI at any time, even while the bus is working. Breaking the bus also returns it. The items inside a package never show up in ME storage until the unpack finishes.
-
-## Using a Subnetwork
-
-If you put the bus on a subnetwork with a Sequence Buffer, one package can deliver different items to different machine faces. Each buffer member gets one entry from the package and outputs it through its own face. For example, a furnace can get coal through the side and ore through the top — all from one package.
-
-You can also use filter rows to accept different types of packages and send each type to a different buffer chain. Configure one row for red packages, another for blue, and each color takes a different path through the subnetwork.
+Package contents are never reported to network storage until the unpack commits successfully.
 
 ## Upgrades
 
-The Package Unpacking Bus supports the following [upgrades](ae2:items-blocks-machines/upgrade_cards.md):
+The Package Unpacking Bus supports the following upgrades:
 
-*   <ItemLink id="ae2:speed_card" /> shortens the unpack work cycle (up to 4)
-*   <ItemLink id="ae2:capacity_card" /> increases the number of filter rows (up to 5, for 7 total rows)
+*   <ItemLink id="ae2:speed_card" /> shortens the unpack work cycle
+*   <ItemLink id="ae2:capacity_card" /> increases the amount of filter rows
 *   <ItemLink id="ae2:fuzzy_card" /> enables fuzzy matching per row
-*   <ItemLink id="ae2:inverter_card" /> inverts content filtering per row
+*   <ItemLink id="ae2:inverter_card" /> switches the filter from a whitelist to a blacklist
 
 ## Recipe
 

@@ -1,11 +1,13 @@
 {
     DataVersion: 3337,
-    size: [1, 1, 1],
+    size: [2, 1, 1],
     data: [
-        {pos: [0, 0, 0], state: "ae2:cable_bus{light_level:9,waterlogged:false}", nbt: {hasRedstone: 2, id: "ae2:cable_bus", north: {id: "appliedpackaging:advanced_pattern_encoding_terminal", visual: {missingChannel: 0b, powered: 1b}}, visual: {}}}
+        {pos: [0, 0, 0], state: "ae2:energy_cell{fullness:4}", nbt: {id: "ae2:energy_cell", internalCurrentPower: 200000.0d, visual: {}}},
+        {pos: [1, 0, 0], state: "ae2:cable_bus{light_level:9,waterlogged:false}", nbt: {cable: {id: "ae2:fluix_glass_cable", visual: {channelsWest: 1, connections: ["west"], missingChannel: 0b, powered: 1b}}, hasRedstone: 2, id: "ae2:cable_bus", north: {id: "appliedpackaging:advanced_pattern_encoding_terminal", visual: {missingChannel: 0b, powered: 1b}}, visual: {}}}
     ],
     entities: [],
     palette: [
+        "ae2:energy_cell{fullness:4}",
         "ae2:cable_bus{light_level:9,waterlogged:false}"
     ]
 }

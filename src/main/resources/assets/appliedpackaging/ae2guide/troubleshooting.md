@@ -8,46 +8,48 @@ navigation:
 
 # Troubleshooting
 
-## A Package Goes to the Wrong Bus
+## A package goes to the wrong bus
 
-Check AE2 storage priority first. The highest-priority accepting storage receives the package. At equal priority, an available Unpacking Bus is preferred over a Package Storage Bus. If a bus rejects the package (filter mismatch, occupied held slot, blocking mode active, or capacity full), routing continues to the next destination.
+Check AE2 storage priority first. The highest-priority accepting storage receives the package. At equal priority, an available Package Unpacking Bus is preferred over a Package Storage Bus. If a bus rejects the package — because its filter does not match, its held slot is already occupied, blocking mode is active, or the target is full — routing continues to the next destination.
 
-To fix: raise the priority of the intended destination bus, or lower the priority of the bus currently receiving the package. Use a <ItemLink id="ae2:network_tool" /> to inspect current priorities.
+To fix this, raise the priority of the bus you want the package to go to, or lower the priority of the bus that is currently receiving it. Use a <ItemLink id="ae2:network_tool" /> to inspect the current priorities in your network.
 
-## Input Is Rejected Immediately
+## Input is rejected immediately
 
-An invalid package, color/marker/content filter mismatch, occupied held slot, or occupied Sequence Buffer member is always rejected.
+There are two kinds of rejection. The first is a permanent rule: an invalid package, a color or marker mismatch, a content filter mismatch, an occupied held slot, or an occupied Sequence Buffer member will always be rejected regardless of any other settings.
 
-With pre-admission checking enabled (labeled "Anti-Clog Mode," on by default on the Unpacking Bus and Packager), a missing target, insufficient capacity, or active blocking rule also rejects the insertion before it changes storage.
+The second kind of rejection comes from pre-admission checking, labeled "Anti-Clog Mode" in the GUI. This is on by default on the Package Unpacking Bus and the ME Packager. When enabled, the device checks whether the complete output can actually be delivered before accepting the input. If the target is missing, capacity is insufficient, or blocking mode is active, the input is rejected before it changes any storage.
 
-To allow intentional waiting, disable pre-admission checking on the receiving device. This does not disable filters or final validation; it only permits an otherwise valid input to enter local storage and wait.
+If you want a package to wait inside the device instead of being rejected, disable pre-admission checking on that device. This does not bypass any other rules — filters and final validation still apply. It simply allows a valid input to sit in local storage until conditions improve.
 
-## A Package Is Waiting Inside a Device
+## A package is waiting inside a device
 
-This is expected when pre-admission checking is disabled and the output target is not currently available. Restore the target, free capacity, or disable blocking and the device will retry. The package remains extractable from the GUI at any time.
+This happens when pre-admission checking is off and the output target is not currently available. Once you restore the target, free up capacity, or turn off blocking mode, the device retries automatically. The waiting package can always be retrieved from the GUI.
 
-## Sequence Buffer Order or Slots Are Wrong
+## Sequence Buffer order or slots are wrong
 
-Member order starts from the block after the endpoint and follows the structure direction to the tail. The endpoint itself stores nothing.
+Member order starts from the first block after the endpoint and follows the structure line to the tail. The endpoint block stores nothing itself — it only holds the configuration.
 
-Use Pattern Mode when a package or pattern contains sparse slot positions. Leave it off for dense sequential order.
+If your package or pattern was encoded with empty slots between items, turn Pattern Mode on. Leave it off if you want items to fill members in dense sequential order with no gaps.
 
-Each member accepts only one insertion until emptied. If member 1 already has coal and a new input also has coal in the first position, the entire insertion fails. This is the intended behavior — it prevents identical items from merging, preserving their distinct positions.
+Each member accepts only one item at a time and will not accept another until the first one is fully output. If member 1 already holds coal and a new input also has coal in the first position, the entire insertion is rejected. This is the intended behavior: it prevents identical items from merging together, which would cause them to lose their distinct slot positions.
 
-A member that finishes outputting pauses briefly before it can accept another item, preventing immediate refill in the same tick.
+After a member finishes outputting, there is a brief pause before it can accept the next item. This prevents a member from being refilled in the same tick it was just emptied.
 
-## The Package Assembler Does Not Start
+## The Package Assembler does not start
 
-An oversized pattern remains visible but locks its input slots. Install a supported storage component (16k, 64k, or 256k) or reduce the pattern size. Verify that all required ingredients are available in ME storage.
+If the pattern is too large for the current capacity, the pattern remains visible in the slot but the assembler will not begin. Install a supported storage component — 16k, 64k, or 256k — or reduce the size of the pattern. Hover over the component slot to see the current capacity limit.
 
-If completed packages are sitting in the output, extract them. With blocking mode on, the output target must be empty before a new batch starts.
+Verify that all required ingredients are available. For pattern provider pushes, they must be in ME storage. For local mode, they must be placed in the GUI input slots.
 
-## The ME Packager Cannot Find Packable Contents
+If completed packages are already sitting in the output, extract them. With blocking mode enabled, the output target must be completely empty before a new batch will start.
 
-The packager scans ME storage using your configured filters. Check the filters, confirm the items are in ME storage, and verify the packager is connected (bottom or back face to an ME cable).
+## The ME Packager finds no packable contents
 
-## Cable Subpart Has No Power
+The packager scans ME storage based on your configured content filters. If nothing matches, check that the filters are not overly restrictive, confirm that the items actually exist in ME storage, and verify that the packager has a valid network connection through its bottom or back face.
 
-Terminals and buses are cable subparts. Verify the cable has power, a channel is available, and the cable connection is not blocked by a color mismatch.
+## A cable subpart has no power
 
-Still stuck? Return to the [Getting Started](packaging-concepts/getting-started.md) guide or check the [Example Setups](example-setups/index.md) for verified reference builds.
+Terminals and buses are cable subparts and require power, a channel, and a valid ME cable connection. Check with a <ItemLink id="ae2:network_tool" /> that the cable has power and an available channel. Colored cables of different colors will not connect to each other, which can break what visually looks like a single cable run.
+
+If you are still unable to resolve the issue, return to the [Getting Started](packaging-concepts/getting-started.md) guide and work through each step again. The [Example Setups](example-setups/index.md) also provide verified reference builds that you can compare against your own setup.

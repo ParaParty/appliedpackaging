@@ -1,6 +1,5 @@
 ---
 navigation:
-  parent: index.md
   title: 应用封装
   icon: appliedpackaging:fluix_package
   position: 500
@@ -8,7 +7,7 @@ navigation:
 
 # 应用封装（Applied Packaging）
 
-应用封装添加了包裹（Packages），一种将多种资源捆绑在一起并保留编码布局的物品。每个包裹带有颜色、标记和有序内容，可以通过 ME 网络路由到不同的目的地。
+应用封装添加了包裹（Packages），将多种物品分组为单个可路由的物品。每个包裹带有颜色、标记和有序内容，通过 ME 网络传输到不同目的地。
 
 * [入门指南](packaging-concepts/getting-started.md)
 * [包裹](packaging-concepts/packages.md)
