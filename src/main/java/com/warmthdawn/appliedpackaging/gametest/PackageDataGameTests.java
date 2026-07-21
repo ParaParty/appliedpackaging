@@ -697,11 +697,13 @@ public final class PackageDataGameTests {
         helper.getLevel().addFreshEntity(entity);
 
         helper.startSequence()
-                .thenExecuteAfter(40, () -> {
+                .thenWaitUntil(() -> {
                     helper.assertTrue(entity.isAlive(), "Package entity should remain alive while settling");
                     helper.assertTrue(entity.onGround(), "Package entity should settle on the ground");
-                    helper.assertTrue(closeTo(entity.getY(), helper.absolutePos(groundPos).getY() + 1.0D),
-                            "Package entity bottom should be flush with the supporting block");
+                    double expectedY = helper.absolutePos(groundPos).getY() + 1.0D;
+                    helper.assertTrue(closeTo(entity.getY(), expectedY),
+                            "Package entity bottom should be flush with the supporting block; actual="
+                                    + entity.getY() + ", expected=" + expectedY);
                     helper.assertTrue(Math.abs(entity.getDeltaMovement().y) < 1.0e-6D,
                             "Settled package entity should not keep vertical bounce velocity");
                     helper.assertTrue(closeTo(

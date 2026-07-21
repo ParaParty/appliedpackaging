@@ -146,7 +146,9 @@ public final class AdvancedProcessingPatternDataStorage {
             trimTrailingNulls(sparse);
             return Collections.unmodifiableList(sparse);
         }
-        return List.of();
+        // Ordinary AE2 processing patterns own their sparse inputs in the root `in` list.
+        // This is the live AE2 format, not the removed v1 advanced-pattern schema.
+        return readRawStacks(stack, AE2_PROCESSING_INPUTS);
     }
 
     public static List<GenericStack> readSparseOutputs(ItemStack stack) {

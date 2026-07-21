@@ -52,6 +52,8 @@ src/main/java/com/warmthdawn/appliedpackaging/gametest/OptionalRecipeIntegration
 
 行为变更应扩展最接近的现有测试，至少覆盖成功、容量/过滤拒绝、模拟不修改状态、提交失败不产生部分结果和 NBT 往返中与本次变更相关的边界。
 
+GitHub Actions 在 `main` push、pull request 和手动触发时依次执行 DataGen 差异检查、GameTest、build、三个仓库校验脚本与 `git diff --check`，并上传构建 jar；失败时额外保留可用的 Gradle 报告、崩溃报告和运行日志。客户端交互与独立 dedicated server 启动仍属于发布候选的人工门禁，不由 CI 冒充完成。
+
 ## 4. 客户端检查
 
 涉及客户端时，至少检查：
