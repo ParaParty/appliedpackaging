@@ -37,7 +37,6 @@ public final class AdvancedProcessingPatternDataStorage {
     private static final String INPUTS = "inputs";
     private static final String AE2_PROCESSING_INPUTS = "in";
     private static final String AE2_PROCESSING_OUTPUTS = "out";
-    private static final int LEGACY_VERSION = 1;
     private static final int CURRENT_VERSION = 2;
 
     private AdvancedProcessingPatternDataStorage() {
@@ -60,13 +59,10 @@ public final class AdvancedProcessingPatternDataStorage {
             return Optional.empty();
         }
         int version = tag.getInt(VERSION);
-        if (version != LEGACY_VERSION && version != CURRENT_VERSION) {
+        if (version != CURRENT_VERSION) {
             return Optional.empty();
         }
 
-        List<GenericStack> legacySparseInputs = version == LEGACY_VERSION
-                ? readRawStacks(stack, AE2_PROCESSING_INPUTS)
-                : List.of();
         List<PackageColumn> columns = new ArrayList<>();
         Set<Integer> indexes = new HashSet<>();
         for (Tag element : tag.getList(COLUMNS, Tag.TAG_COMPOUND)) {
@@ -90,14 +86,9 @@ public final class AdvancedProcessingPatternDataStorage {
                 marker = Optional.of(new MarkerSpec(new GenericStack(markerStack.what(), 1)));
             }
 
-            List<GenericStack> inputs;
-            if (version == CURRENT_VERSION) {
-                inputs = readColumnInputs(columnTag);
-                if (inputs == null) {
-                    return Optional.empty();
-                }
-            } else {
-                inputs = legacyColumnInputs(legacySparseInputs, index);
+            List<GenericStack> inputs = readColumnInputs(columnTag);
+            if (inputs == null) {
+                return Optional.empty();
             }
             columns.add(new PackageColumn(index, color.get(), marker, inputs));
         }
@@ -121,30 +112,29 @@ public final class AdvancedProcessingPatternDataStorage {
         if (!canStore(stack)) {
             throw new IllegalArgumentException("Advanced package metadata requires an advanced processing pattern");
         }
-        boolean hasColumnInputs = pattern.columns().stream()
-                .flatMap(column -> column.inputs().stream())
-                .anyMatch(java.util.Objects::nonNull);
         CompoundTag tag = new CompoundTag();
-        tag.putInt(VERSION, hasColumnInputs ? CURRENT_VERSION : LEGACY_VERSION);
+        tag.putInt(VERSION, CURRENT_VERSION);
         ListTag columns = new ListTag();
+        List<GenericStack> encodedInputs = readRawStacks(stack, AE2_PROCESSING_INPUTS);
         for (PackageColumn column : pattern.columns()) {
             CompoundTag columnTag = new CompoundTag();
             columnTag.putInt(INDEX, column.index());
             columnTag.putString(COLOR, column.color().id());
             column.marker().ifPresent(marker -> columnTag.put(MARKER, GenericStack.writeTag(marker.stack())));
-            if (hasColumnInputs) {
-                columnTag.put(INPUTS, writeSparseStacks(column.inputs()));
-            }
+            List<GenericStack> columnInputs = column.inputs().isEmpty()
+                    ? encodedColumnInputs(encodedInputs, column.index())
+                    : column.inputs();
+            columnTag.put(INPUTS, writeSparseStacks(columnInputs));
             columns.add(columnTag);
         }
         tag.put(COLUMNS, columns);
         stack.getOrCreateTag().put(PATTERN_TAG, tag);
     }
 
-    /** Returns the legacy flattened 81-slot-per-column view for compatibility callers. */
+    /** Returns a flattened 81-slot-per-column view of the current column schema. */
     public static List<GenericStack> readSparseInputs(ItemStack stack) {
         Optional<EncodedAdvancedProcessingPattern> encoded = read(stack);
-        if (encoded.isPresent() && stack.getTagElement(PATTERN_TAG).getInt(VERSION) == CURRENT_VERSION) {
+        if (encoded.isPresent()) {
             List<GenericStack> sparse = new ArrayList<>();
             for (PackageColumn column : encoded.get().columns()) {
                 int start = column.index() * INPUTS_PER_PACKAGE;
@@ -156,7 +146,7 @@ public final class AdvancedProcessingPatternDataStorage {
             trimTrailingNulls(sparse);
             return Collections.unmodifiableList(sparse);
         }
-        return readRawStacks(stack, AE2_PROCESSING_INPUTS);
+        return List.of();
     }
 
     public static List<GenericStack> readSparseOutputs(ItemStack stack) {
@@ -200,17 +190,6 @@ public final class AdvancedProcessingPatternDataStorage {
         return immutableSparse(inputs);
     }
 
-    private static List<GenericStack> legacyColumnInputs(List<GenericStack> sparse, int column) {
-        int start = column * INPUTS_PER_PACKAGE;
-        int end = Math.min(sparse.size(), start + INPUTS_PER_PACKAGE);
-        if (start >= end) {
-            return List.of();
-        }
-        List<GenericStack> inputs = new ArrayList<>(sparse.subList(start, end));
-        trimTrailingNulls(inputs);
-        return immutableSparse(inputs);
-    }
-
     private static List<GenericStack> readRawStacks(ItemStack stack, String key) {
         if (!stack.hasTag() || !stack.getTag().contains(key, Tag.TAG_LIST)) {
             return List.of();
@@ -225,6 +204,17 @@ public final class AdvancedProcessingPatternDataStorage {
             stacks.add(value != null && value.amount() > 0 ? value : null);
         }
         return Collections.unmodifiableList(stacks);
+    }
+
+    private static List<GenericStack> encodedColumnInputs(List<GenericStack> sparse, int column) {
+        int start = column * INPUTS_PER_PACKAGE;
+        int end = Math.min(sparse.size(), start + INPUTS_PER_PACKAGE);
+        if (start >= end) {
+            return List.of();
+        }
+        List<GenericStack> inputs = new ArrayList<>(sparse.subList(start, end));
+        trimTrailingNulls(inputs);
+        return immutableSparse(inputs);
     }
 
     private static ListTag writeSparseStacks(List<GenericStack> stacks) {

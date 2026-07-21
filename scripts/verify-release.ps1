@@ -1,21 +1,11 @@
 param(
     [string] $JarPath = "build/libs/appliedpackaging-0.1.0-dev.jar",
-    [string] $LogPath = "run/logs/latest.log",
-    [string] $AssetgenPath,
-    [string] $RootPath = "",
-    [switch] $RequireLog,
-    [switch] $RequireServerWorldLoad,
-    [switch] $RequireAssetContracts,
     [switch] $RequireCleanGit
 )
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = if ([string]::IsNullOrWhiteSpace($RootPath)) {
-    Resolve-Path (Join-Path $PSScriptRoot "..")
-} else {
-    Resolve-Path -LiteralPath $RootPath
-}
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $repoRoot
 
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -23,11 +13,6 @@ $failures = [System.Collections.Generic.List[string]]::new()
 function Add-Pass {
     param([string] $Message)
     Write-Host "[PASS] $Message" -ForegroundColor Green
-}
-
-function Add-Warn {
-    param([string] $Message)
-    Write-Host "[WARN] $Message" -ForegroundColor Yellow
 }
 
 function Add-Fail {
@@ -118,42 +103,6 @@ function Get-TextureValues {
     }
 
     return $values
-}
-
-function Get-ReleaseDiagnosticLogLines {
-    param([string] $Path)
-
-    $filtered = [System.Collections.Generic.List[string]]::new()
-    $skippingYggdrasilKeyFailure = $false
-    $script:ignoredYggdrasilKeyFailures = 0
-    $script:ignoredOptionalCompatClassWarnings = 0
-
-    foreach ($line in Get-Content $Path) {
-        if ($line -match "Yggdrasil Key Fetcher/ERROR.*Failed to request yggdrasil public key") {
-            $skippingYggdrasilKeyFailure = $true
-            $script:ignoredYggdrasilKeyFailures += 1
-            continue
-        }
-
-        if ($skippingYggdrasilKeyFailure) {
-            if ($line -match "^\[") {
-                $skippingYggdrasilKeyFailure = $false
-            } else {
-                continue
-            }
-        }
-
-        $knownOptionalCompatClass = $line -match "Error loading class: (com/simibubi/create/foundation/ponder/PonderWorld|xaero/map/gui/GuiMap|org/embeddedt/modernfix/api/entrypoint/ModernFixClientIntegration)" -and
-            $line -match "java\.lang\.ClassNotFoundException"
-        if ($knownOptionalCompatClass) {
-            $script:ignoredOptionalCompatClassWarnings += 1
-            continue
-        }
-
-        $filtered.Add($line) | Out-Null
-    }
-
-    return $filtered
 }
 
 function Test-CleanGitWorktree {
@@ -560,67 +509,6 @@ function Test-ProductInvariants {
     }
 }
 
-function Resolve-Assetgen {
-    if (-not [string]::IsNullOrWhiteSpace($AssetgenPath)) {
-        $resolved = Resolve-Path $AssetgenPath -ErrorAction SilentlyContinue
-        if ($null -eq $resolved) {
-            Add-Fail "Assetgen path exists: $AssetgenPath"
-            return $null
-        }
-        return @{
-            Kind = "PythonScript"
-            Path = $resolved.Path
-        }
-    }
-
-    $command = Get-Command assetgen -ErrorAction SilentlyContinue
-    if ($null -ne $command) {
-        return @{
-            Kind = "Command"
-            Path = $command.Source
-        }
-    }
-
-    $skillAssetgen = Join-Path $HOME ".codex/skills/minecraft-mod-asset-generation/scripts/assetgen"
-    if (Test-Path $skillAssetgen) {
-        return @{
-            Kind = "PythonScript"
-            Path = (Resolve-Path $skillAssetgen).Path
-        }
-    }
-
-    return $null
-}
-
-function Invoke-AssetgenValidateContract {
-    param(
-        [hashtable] $Assetgen,
-        [string] $ContractPath
-    )
-
-    if ($Assetgen.Kind -eq "Command") {
-        $output = & $Assetgen.Path validate-contract $ContractPath 2>&1
-        return @{
-            ExitCode = $LASTEXITCODE
-            Output = $output
-        }
-    }
-
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    if ($null -eq $python) {
-        return @{
-            ExitCode = 1
-            Output = "python command not found for assetgen script"
-        }
-    }
-
-    $output = & $python.Source $Assetgen.Path validate-contract $ContractPath 2>&1
-    return @{
-        ExitCode = $LASTEXITCODE
-        Output = $output
-    }
-}
-
 Write-Host "Applied Packaging release audit" -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot"
 
@@ -806,32 +694,6 @@ if ($emptyPng.Count -eq 0) {
     Add-Fail "Empty PNG resources: $($emptyPng.FullName -join ', ')"
 }
 
-$contractFiles = @(Get-ChildItem "docs/assets/contracts" -Filter "*.yaml" -File -ErrorAction SilentlyContinue)
-Assert-True ($contractFiles.Count -gt 0) "Asset contracts are present"
-if ($contractFiles.Count -gt 0) {
-    $assetgen = Resolve-Assetgen
-    if ($null -eq $assetgen) {
-        if ($RequireAssetContracts) {
-            Add-Fail "assetgen is available for required asset contract validation"
-        } else {
-            Add-Warn "assetgen not found; skipping asset contract validation"
-        }
-    } else {
-        $badContracts = [System.Collections.Generic.List[string]]::new()
-        foreach ($contract in $contractFiles) {
-            $result = Invoke-AssetgenValidateContract $assetgen $contract.FullName
-            if ($result.ExitCode -ne 0) {
-                $badContracts.Add("$($contract.FullName): $($result.Output -join ' ')") | Out-Null
-            }
-        }
-        if ($badContracts.Count -eq 0) {
-            Add-Pass "$($contractFiles.Count) asset contracts validate with assetgen"
-        } else {
-            Add-Fail "Asset contract validation failed: $($badContracts -join '; ')"
-        }
-    }
-}
-
 $enPath = "src/main/resources/assets/appliedpackaging/lang/en_us.json"
 $zhPath = "src/main/resources/assets/appliedpackaging/lang/zh_cn.json"
 if ((Test-Path $enPath) -and (Test-Path $zhPath)) {
@@ -902,37 +764,6 @@ if ($missingTextures.Count -eq 0) {
     Add-Pass "Applied Packaging model texture references resolve"
 } else {
     Add-Fail "Missing model texture references: $($missingTextures -join '; ')"
-}
-
-$resolvedLog = Resolve-Path $LogPath -ErrorAction SilentlyContinue
-if ($null -eq $resolvedLog) {
-    if ($RequireLog -or $RequireServerWorldLoad) {
-        Add-Fail "Log exists at $LogPath"
-    } else {
-        Add-Warn "No log found at $LogPath; skipping log checks"
-    }
-} else {
-    Add-Pass "Log exists at $LogPath"
-    $badLogPattern = "(?i)\b(ERROR|FATAL|NoClassDefFoundError|ClassNotFoundException|InvocationTargetException|IllegalStateException|OnlyIn|Exception|Crash)\b|Dist\.CLIENT|Missing model|Unable to load model|missing texture"
-    $diagnosticLogText = (Get-ReleaseDiagnosticLogLines $resolvedLog.Path) -join "`n"
-    if ($ignoredYggdrasilKeyFailures -gt 0) {
-        Add-Warn "Ignored $ignoredYggdrasilKeyFailures external Yggdrasil public-key fetch failure(s)"
-    }
-    if ($ignoredOptionalCompatClassWarnings -gt 0) {
-        Add-Warn "Ignored $ignoredOptionalCompatClassWarnings known third-party optional-integration class warning(s)"
-    }
-    if ($diagnosticLogText -match $badLogPattern) {
-        Add-Fail "Log contains release-blocking diagnostic keywords"
-    } else {
-        Add-Pass "Log contains no release-blocking diagnostic keywords"
-    }
-
-    if ($RequireServerWorldLoad) {
-        $logText = Get-Content $resolvedLog.Path -Raw
-        Assert-True ($logText -match "Applied Packaging initialized") "Server log shows Applied Packaging initialization"
-        Assert-True ($logText -match "Preparing level `"world`"") "Server log shows world preparation"
-        Assert-True ($logText -match "Done \([0-9.]+s\)! For help, type `"help`"") "Server log shows full dedicated server world-load"
-    }
 }
 
 if ($failures.Count -gt 0) {

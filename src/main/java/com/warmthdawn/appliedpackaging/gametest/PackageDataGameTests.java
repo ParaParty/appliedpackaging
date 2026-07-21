@@ -2272,12 +2272,13 @@ public final class PackageDataGameTests {
         helper.assertTrue(ordinaryAssembler.pushPattern(
                         ordinaryDetails,
                         new KeyCounter[] { ordinaryIron },
-                        Direction.UP)
-                        && advancedAssembler.pushPattern(
-                                advancedDetails,
-                                new KeyCounter[] { advancedIron },
-                                Direction.UP),
-                "The shared 16k package capacity profile should unlock both provider pattern types");
+                        Direction.UP),
+                "The 16k package capacity profile should unlock ordinary provider patterns");
+        helper.assertTrue(advancedAssembler.pushPattern(
+                        advancedDetails,
+                        new KeyCounter[] { advancedIron },
+                        Direction.UP),
+                "The 16k package capacity profile should unlock advanced provider patterns");
         helper.succeed();
     }
 
@@ -3688,10 +3689,10 @@ public final class PackageDataGameTests {
                             (InterfaceBlockEntity) helper.getBlockEntity(interfacePos);
                     MePackagerBlockEntity packager = (MePackagerBlockEntity) helper.getBlockEntity(packagerPos);
                     helper.assertTrue(aeInterface.getMainNode().isActive(),
-                            "AE2 Interface grid node should be active before ME Packager smoke");
+                            "AE2 Interface grid node should be active before the ME Packager integration check");
                     helper.assertTrue(aeInterface.getMainNode().hasGridBooted(),
-                            "AE2 Interface grid should finish booting before ME Packager smoke");
-                    assertMePackagerReady(helper, packager, "ME Packager smoke");
+                            "AE2 Interface grid should finish booting before the ME Packager integration check");
+                    assertMePackagerReady(helper, packager, "ME Packager integration check");
                 })
                 .thenExecute(() -> {
                     DriveBlockEntity drive = (DriveBlockEntity) helper.getBlockEntity(drivePos);
@@ -3704,9 +3705,9 @@ public final class PackageDataGameTests {
                     long insertedIron = storage.insert(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.MODULATE, source);
                     long insertedCopper = storage.insert(AEItemKey.of(Items.COPPER_INGOT), 32, Actionable.MODULATE, source);
                     helper.assertTrue(insertedIron == 64,
-                            "AE2 Interface network should accept iron before packager smoke");
+                            "AE2 Interface network should accept iron before the packager integration check");
                     helper.assertTrue(insertedCopper == 32,
-                            "AE2 Interface network should accept copper before packager smoke");
+                            "AE2 Interface network should accept copper before the packager integration check");
 
                     MePackagerBlockEntity.MachineResult packResult = packager.runOnce();
                     helper.assertTrue(packResult == MePackagerBlockEntity.MachineResult.PACKED,
@@ -4932,6 +4933,8 @@ public final class PackageDataGameTests {
                                 1, PackageColor.BLUE, Optional.of(emerald)))));
 
         var encoded = AdvancedProcessingPatternDataStorage.read(pattern).orElseThrow();
+        helper.assertTrue(pattern.getTagElement(AdvancedProcessingPatternDataStorage.PATTERN_TAG).getInt("version") == 2,
+                "Advanced pattern metadata should always use the current column schema");
         helper.assertTrue(pattern.is(APItems.ADVANCED_PROCESSING_PATTERN.get()),
                 "Advanced pattern metadata should be stored on the dedicated pattern item");
         helper.assertTrue(encoded.activeColumnCount() == 2,
@@ -4955,6 +4958,8 @@ public final class PackageDataGameTests {
         assembler.getMarkerFilter().setStack(
                 0,
                 new GenericStack(AEItemKey.of(Items.EMERALD), 1));
+        helper.assertTrue(assembler.getMarkerFilter().getStack(0) != null,
+                "The assembler marker filter should retain its configured item");
         ItemStack pattern = PatternDetailsHelper.encodeProcessingPattern(
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32) },
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
@@ -5684,7 +5689,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void advancedProcessingPatternV2StoresEightyOneSparseColumns(GameTestHelper helper) {
+    public static void advancedProcessingPatternStoresEightyOneSparseColumns(GameTestHelper helper) {
         List<AdvancedProcessingPatternDataStorage.PackageColumn> columns = new ArrayList<>();
         for (int column = 0; column < AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS; column++) {
             List<GenericStack> inputs = column == AdvancedProcessingPatternDataStorage.MAX_PACKAGE_COLUMNS - 1
@@ -5708,12 +5713,12 @@ public final class PackageDataGameTests {
         int finalSlot = AdvancedProcessingPatternDataStorage.MAX_INPUT_SLOTS
                 - AdvancedProcessingPatternDataStorage.INPUTS_PER_PACKAGE;
         helper.assertTrue(encoded.activeColumnCount() == 81,
-                "Advanced pattern v2 should preserve all eighty-one package columns");
+                "Advanced patterns should preserve all eighty-one package columns");
         helper.assertTrue(encoded.column(80).inputs().get(0).what().equals(AEItemKey.of(Items.NETHER_STAR)),
-                "Advanced pattern v2 should retain inputs in its final package column");
+                "Advanced patterns should retain inputs in the final package column");
         helper.assertTrue(sparseInputs.size() == finalSlot + 1
                         && sparseInputs.get(finalSlot).what().equals(AEItemKey.of(Items.NETHER_STAR)),
-                "The compatibility sparse view should reconstruct the final 81x81 matrix cell");
+                "The flattened sparse view should reconstruct the final 81x81 matrix cell");
         helper.assertTrue(pattern.getTag().getList("in", net.minecraft.nbt.Tag.TAG_COMPOUND).size() == 1,
                 "AE2 processing inputs should remain dense instead of storing thousands of empty cells");
         helper.succeed();

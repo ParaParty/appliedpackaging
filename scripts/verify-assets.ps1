@@ -1,15 +1,6 @@
-param(
-    [string] $RootPath = "",
-    [switch] $SkipPngVisualContent
-)
-
 $ErrorActionPreference = "Stop"
 
-$repoRoot = if ([string]::IsNullOrWhiteSpace($RootPath)) {
-    (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-} else {
-    (Resolve-Path -LiteralPath $RootPath).Path
-}
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $repoRoot
 
 $failures = [System.Collections.Generic.List[string]]::new()
@@ -1382,15 +1373,13 @@ foreach ($file in $pngFiles) {
         $badColorTypes.Add("$relativePath colorType=$($info.ColorType)") | Out-Null
     }
 
-    if (-not $SkipPngVisualContent) {
-        $visualStats = Get-PngVisualStats -Path $file.FullName -Info $info
-        if (-not $visualStats.Valid) {
-            $badVisualContent.Add("$relativePath $($visualStats.Error)") | Out-Null
-        } elseif ($visualStats.VisiblePixels -eq 0 -and $relativePath -notin $intentionalTransparentPngs) {
-            $badVisualContent.Add("$relativePath is fully transparent") | Out-Null
-        } elseif ($visualStats.UniquePixels -lt 2 -and $relativePath -notin $intentionalTransparentPngs) {
-            $badVisualContent.Add("$relativePath is a single-color placeholder") | Out-Null
-        }
+    $visualStats = Get-PngVisualStats -Path $file.FullName -Info $info
+    if (-not $visualStats.Valid) {
+        $badVisualContent.Add("$relativePath $($visualStats.Error)") | Out-Null
+    } elseif ($visualStats.VisiblePixels -eq 0 -and $relativePath -notin $intentionalTransparentPngs) {
+        $badVisualContent.Add("$relativePath is fully transparent") | Out-Null
+    } elseif ($visualStats.UniquePixels -lt 2 -and $relativePath -notin $intentionalTransparentPngs) {
+        $badVisualContent.Add("$relativePath is a single-color placeholder") | Out-Null
     }
 
     $expected = Get-ExpectedPngSize $relativePath
@@ -1416,9 +1405,7 @@ if ($badColorTypes.Count -eq 0) {
     Add-Fail "PNG assets must use RGBA color type 6: $($badColorTypes -join '; ')"
 }
 
-if ($SkipPngVisualContent) {
-    Add-Pass "PNG visual-content scan skipped by explicit targeted-fixture option"
-} elseif ($badVisualContent.Count -eq 0) {
+if ($badVisualContent.Count -eq 0) {
     Add-Pass "PNG assets contain visible, non-placeholder pixel content"
 } else {
     Add-Fail "PNG assets must not be fully transparent or single-color placeholders: $($badVisualContent -join '; ')"

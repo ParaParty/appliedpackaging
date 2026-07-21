@@ -27,7 +27,6 @@ runs
 run-data
 run-gtceu-fork
 
-repo
 .codex_tmp/
 
 # os/editor
