@@ -15,7 +15,7 @@ navigation:
 如果使用独立外部输入，直接将样板放入装配室的样板槽，并通过漏斗或管道从外部输入物品。
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../../assets/assemblies/package_assembly_line.snbt" />
+  <ImportStructure src="../assets/assemblies/package_assembly_line.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
   <BoxAnnotation color="#dddddd" min="0 0 0" max="2 2 2">

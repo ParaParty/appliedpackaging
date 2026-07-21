@@ -13,7 +13,7 @@
 - 删除 PackageEntity 的旧 `Package` NBT key 和高级终端旧输入迁移。
 - 删除上述路径对应的失效 GameTest；保留并更新当前全部正式样板语义、整包模拟/提交、真实 AE2 网络和客户端人工验收记录。
 - 删除已取消功能对应的无引用资源与测试，发布审计新增旧注册、旧数据存储和机器兼容路径的回归门禁。
-- 两台包裹机器的 16k / 64k / 256k storage component 容量升级确定为正式范围；空槽为 9 单位/9 类型，1k component、完整 storage cell、portable cell、4k 与附属容量档均不做。
+- 两台包裹机器的 16k / 64k / 256k storage component 容量升级确定为正式范围；空槽为默认 1k 档的 256 单位/9 类型。1k component 与空槽同档而不接受，完整 storage cell、portable cell、4k 与附属容量档均不做。
 - 删除没有运行时调用的 item handler 打包规划、Forge fluid handler 打包/拆包适配、旧 Package Export/即时拆包操作及其测试。卸货总线的 item handler 路径只保留整包累计模拟与 Pattern Provider 式 check-then-push，不再生成逐槽提交计划或反向抽取回滚。
 - 容量单位累计和整叠手动拆包增加 `long` 溢出保护；包裹 contents 不执行同类合并。
 - 用用户提供的正式空心框架模型、双周期传送带和四条动态帘子替换 ME Packager 的临时 Create 外壳；旧 `me_packager_create` 模型、贴图和 hatch/tray renderer 适配已删除。

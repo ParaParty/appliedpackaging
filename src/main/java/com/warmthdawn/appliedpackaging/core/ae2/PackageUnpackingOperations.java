@@ -1,13 +1,13 @@
 package com.warmthdawn.appliedpackaging.core.ae2;
 
-import appeng.api.stacks.AEItemKey;
+import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import com.warmthdawn.appliedpackaging.core.item_handler.PackageContentsInserter;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
 
@@ -22,8 +22,19 @@ public final class PackageUnpackingOperations {
     public static boolean canUnpack(ItemStack packageStack, IItemHandler target, boolean blockingMode) {
         return PackageItemStorage.isLegalPackageStack(packageStack)
                 && PackageDataStorage.read(packageStack)
-                        .map(data -> (!blockingMode || !containsPackageInput(data.contents(), target))
+                        .map(data -> (!blockingMode || isEmpty(target))
                                 && PackageContentsInserter.canInsert(data, target))
+                        .orElse(false);
+    }
+
+    public static boolean canUnpack(
+            ItemStack packageStack,
+            PackageUnpackingTarget target,
+            boolean blockingMode) {
+        return PackageItemStorage.isLegalPackageStack(packageStack)
+                && PackageDataStorage.read(packageStack)
+                        .map(data -> (!blockingMode || target.isEmpty())
+                                && canInsertAll(data.contents(), target))
                         .orElse(false);
     }
 
@@ -35,28 +46,57 @@ public final class PackageUnpackingOperations {
     public static boolean unpack(ItemStack packageStack, IItemHandler target, boolean blockingMode) {
         return PackageItemStorage.isLegalPackageStack(packageStack)
                 && PackageDataStorage.read(packageStack)
-                        .map(data -> (!blockingMode || !containsPackageInput(data.contents(), target))
+                        .map(data -> (!blockingMode || isEmpty(target))
                                 && PackageContentsInserter.insert(data, target))
                         .orElse(false);
     }
 
-    /** Mirrors Pattern Provider blocking: any target stack matching a package input type blocks the push. */
-    private static boolean containsPackageInput(List<GenericStack> contents, IItemHandler target) {
-        Set<AEKey> inputs = new HashSet<>();
-        for (var content : contents) {
-            if (content.what() instanceof AEItemKey itemKey) {
-                inputs.add(itemKey.dropSecondary());
+    public static boolean unpack(
+            ItemStack packageStack,
+            PackageUnpackingTarget target,
+            boolean blockingMode) {
+        return PackageItemStorage.isLegalPackageStack(packageStack)
+                && PackageDataStorage.read(packageStack)
+                        .map(data -> (!blockingMode || target.isEmpty())
+                                && insertAll(data.contents(), target))
+                        .orElse(false);
+    }
+
+    private static boolean canInsertAll(List<GenericStack> contents, PackageUnpackingTarget target) {
+        Map<AEKey, Long> totals = new LinkedHashMap<>();
+        for (GenericStack entry : contents) {
+            try {
+                totals.merge(entry.what(), entry.amount(), Math::addExact);
+            } catch (ArithmeticException ignored) {
+                return false;
             }
         }
-        if (inputs.isEmpty()) {
+        for (var entry : totals.entrySet()) {
+            if (target.insert(entry.getKey(), entry.getValue(), Actionable.SIMULATE) != entry.getValue()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean insertAll(List<GenericStack> contents, PackageUnpackingTarget target) {
+        if (!canInsertAll(contents, target)) {
             return false;
         }
-        for (int slot = 0; slot < target.getSlots(); slot++) {
-            ItemStack targetStack = target.getStackInSlot(slot);
-            if (!targetStack.isEmpty() && inputs.contains(AEItemKey.of(targetStack).dropSecondary())) {
-                return true;
+        for (GenericStack entry : contents) {
+            if (target.insert(entry.what(), entry.amount(), Actionable.MODULATE) != entry.amount()) {
+                return false;
             }
         }
-        return false;
+        return true;
+    }
+
+    private static boolean isEmpty(IItemHandler target) {
+        for (int slot = 0; slot < target.getSlots(); slot++) {
+            if (!target.getStackInSlot(slot).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 }

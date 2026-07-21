@@ -397,12 +397,15 @@ $sequenceBufferFaceNames = @(
     "tail_back"
 )
 
-$specializedPatternStylePath = "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json"
+$specializedPatternStylePath = "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_terminal.json"
 $forbiddenNativePatternStylePath = "src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json"
 $forbiddenNativeModesTexturePath = "src/main/resources/assets/appliedpackaging/textures/gui/pattern_modes.png"
 Assert-True `
     (Test-Path -LiteralPath $specializedPatternStylePath) `
     "Combined specialized pattern terminal screen style exists: $specializedPatternStylePath"
+Assert-True `
+    (-not ([System.IO.Path]::GetFileName($specializedPatternStylePath).Contains("pattern_encoding_terminal.json"))) `
+    "Combined specialized pattern terminal screen style avoids ExpandedAE's native-terminal rewrite suffix"
 Assert-True `
     (-not (Test-Path -LiteralPath $forbiddenNativePatternStylePath)) `
     "AE2 native pattern terminal ScreenStyle is not overridden"

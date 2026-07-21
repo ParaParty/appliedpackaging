@@ -1,27 +1,16 @@
 {
-  "type": "minecraft:crafting_shaped",
+  "type": "minecraft:crafting_shapeless",
   "category": "redstone",
-  "key": {
-    "a": {
-      "item": "ae2:annihilation_core"
+  "ingredients": [
+    {
+      "item": "appliedpackaging:me_packager"
     },
-    "f": {
-      "item": "ae2:formation_core"
+    {
+      "item": "ae2:molecular_assembler"
     },
-    "i": {
-      "tag": "forge:ingots/iron"
-    },
-    "p": {
-      "item": "ae2:blank_pattern"
-    },
-    "q": {
-      "item": "ae2:quartz_glass"
+    {
+      "item": "ae2:storage_bus"
     }
-  },
-  "pattern": [
-    "iqi",
-    "apa",
-    "ifi"
   ],
   "result": {
     "item": "appliedpackaging:package_assembler"

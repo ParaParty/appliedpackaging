@@ -11,7 +11,7 @@ navigation:
 将四个包裹存储总线连接到同一条橙色路由网络，并分别过滤为红、蓝、绿、黄。每个总线都贴在一台 ME 打包机上；打包机的颜色选择也设为与总线相同的颜色，另一侧粉色线缆则连接各自独立的目标网络。
 
 <GameScene zoom="2.75" background="transparent">
-  <ImportStructure src="../../../assets/assemblies/packager_color_routing.snbt" />
+  <ImportStructure src="../../assets/assemblies/packager_color_routing.snbt" />
   <IsometricCamera yaw="200" pitch="55" />
 
   <BoxAnnotation color="#dd8833" min="3 0 0" max="10 1 6">

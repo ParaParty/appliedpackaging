@@ -1,5 +1,6 @@
 package com.warmthdawn.appliedpackaging.gametest;
 
+import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKey;
@@ -35,10 +36,12 @@ import appeng.menu.SlotSemantics;
 import appeng.menu.slot.FakeSlot;
 import appeng.parts.encoding.PatternEncodingTerminalPart;
 import appeng.parts.encoding.EncodingMode;
+import appeng.me.storage.ExternalStorageFacade;
 import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackagePlan;
 import com.warmthdawn.appliedpackaging.core.ae2.MEStoragePackageTransactions;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageUnpackingOperations;
+import com.warmthdawn.appliedpackaging.core.ae2.PackageUnpackingTarget;
 import com.warmthdawn.appliedpackaging.core.ae2.PackageItemStorage;
 import com.warmthdawn.appliedpackaging.core.item_handler.PackageContentsInserter;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
@@ -111,7 +114,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.crafting.CraftingRecipe;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -122,6 +128,7 @@ import net.minecraft.world.level.material.Fluids;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fml.ModList;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -269,12 +276,21 @@ public final class PackageDataGameTests {
                 "Package patterns should only be produced by encoding, not ordinary crafting");
         helper.assertFalse(hasRecipeOutput(helper, APItems.ADVANCED_PROCESSING_PATTERN.get()),
                 "Advanced processing patterns should only be encoded in the advanced terminal");
-        assertRecipeOutput(helper, "package_assembler", APItems.PACKAGE_ASSEMBLER.get());
+        assertShapedRecipe(helper, "me_packager", APItems.ME_PACKAGER.get(), 3, 3,
+                "ae2:formation_core", "ae2:sky_dust", "ae2:annihilation_core",
+                "ae2:quartz_glass", "ae2:interface", "ae2:quartz_glass",
+                "minecraft:dried_kelp", "ae2:cell_component_4k", "minecraft:dried_kelp");
+        assertShapelessRecipe(helper, "package_assembler", APItems.PACKAGE_ASSEMBLER.get(),
+                "appliedpackaging:me_packager", "ae2:molecular_assembler", "ae2:storage_bus");
         assertRecipeOutput(helper, "sequence_buffer", APItems.SEQUENCE_BUFFER.get());
-        assertRecipeOutput(helper, "advanced_pattern_encoding_terminal",
-                APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get());
-        assertRecipeOutput(helper, "package_storage_bus", APItems.PACKAGE_STORAGE_BUS.get());
-        assertRecipeOutput(helper, "package_unpacking_bus", APItems.PACKAGE_UNPACKING_BUS.get());
+        assertShapedRecipe(helper, "advanced_pattern_encoding_terminal",
+                APItems.ADVANCED_PATTERN_ENCODING_TERMINAL.get(), 2, 2,
+                "ae2:pattern_encoding_terminal", "ae2:fluix_dust",
+                "ae2:sky_dust", "minecraft:dried_kelp");
+        assertShapedRecipe(helper, "package_storage_bus", APItems.PACKAGE_STORAGE_BUS.get(), 2, 2,
+                "ae2:storage_bus", "ae2:fluix_dust", "ae2:sky_dust", "minecraft:dried_kelp");
+        assertShapelessRecipe(helper, "package_unpacking_bus", APItems.PACKAGE_UNPACKING_BUS.get(),
+                "appliedpackaging:me_packager", "ae2:pattern_provider", "ae2:fluix_dust");
         helper.succeed();
     }
 
@@ -473,14 +489,14 @@ public final class PackageDataGameTests {
     public static void packagePlanRejectsCapacityOverflow(GameTestHelper helper) {
         PackagePlanResult result = PackagePlanBuilder.build(
                 PackageColor.FLUIX,
-                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640)),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_385)),
                 List.of(),
                 MarkerMergeMode.RETAIN,
                 Optional.empty(),
                 PackageCapacityProfile.DEFAULT,
                 0);
 
-        helper.assertFalse(result.success(), "Default capacity should reject ten item units");
+        helper.assertFalse(result.success(), "Default 1k capacity should reject the 257th item unit");
         helper.assertTrue(result.failure().orElseThrow() == PackagePlanFailure.CAPACITY_EXCEEDED,
                 "Failure should be capacity exceeded");
         helper.succeed();
@@ -753,18 +769,56 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageCapacityDefaultsToNineAndUpgradesMonotonically(GameTestHelper helper) {
+    public static void packageCapacityDefaultsToOneKAndUpgradesMonotonically(GameTestHelper helper) {
         helper.assertTrue(MePackagerBlockEntity.BASE_CAPACITY_PROFILE == PackageCapacityProfile.DEFAULT
-                        && PackageCapacityProfile.DEFAULT.unitLimit() == 9
+                        && PackageCapacityProfile.DEFAULT.unitLimit() == 256
                         && PackageCapacityProfile.DEFAULT.typeLimit() == 9,
-                "An empty package capacity slot should use the 9 unit / 9 type profile");
-        helper.assertTrue(PackageCapacityProfile.STORAGE_16K.unitLimit() == 16
+                "An empty package capacity slot should use one quarter of the default 1k tier and nine types");
+        helper.assertTrue(PackageCapacityProfile.STORAGE_16K.unitLimit() == 4_096
                         && PackageCapacityProfile.STORAGE_16K.typeLimit() == 16
-                        && PackageCapacityProfile.STORAGE_64K.unitLimit() == 64
+                        && PackageCapacityProfile.STORAGE_64K.unitLimit() == 16_384
                         && PackageCapacityProfile.STORAGE_64K.typeLimit() == 63
-                        && PackageCapacityProfile.STORAGE_256K.unitLimit() == 256
+                        && PackageCapacityProfile.STORAGE_256K.unitLimit() == 65_536
                         && PackageCapacityProfile.STORAGE_256K.typeLimit() == 63,
-                "Supported capacity components should upgrade monotonically from 16k to 256k");
+                "Supported components should provide one quarter of their nominal ME capacity");
+
+        PackagePlanResult quarterCellBoundary = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 4_096L * 64L)),
+                List.of(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                PackageCapacityProfile.STORAGE_16K,
+                0);
+        PackagePlanResult aboveQuarterCellBoundary = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 4_097L * 64L)),
+                List.of(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                PackageCapacityProfile.STORAGE_16K,
+                0);
+        helper.assertTrue(quarterCellBoundary.success() && !aboveQuarterCellBoundary.success(),
+                "The 16k component should accept exactly 4096 package units and reject the next unit");
+
+        PackagePlanResult defaultBoundary = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_384)),
+                List.of(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                PackageCapacityProfile.DEFAULT,
+                0);
+        PackagePlanResult aboveDefaultBoundary = PackagePlanBuilder.build(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_385)),
+                List.of(),
+                MarkerMergeMode.CLEAR,
+                Optional.empty(),
+                PackageCapacityProfile.DEFAULT,
+                0);
+        helper.assertTrue(defaultBoundary.success() && !aboveDefaultBoundary.success(),
+                "The empty 1k tier should accept exactly 256 package units and reject the next unit");
 
         List<GenericStack> nineTypes = List.of(
                 new GenericStack(AEItemKey.of(Items.IRON_INGOT), 1),
@@ -804,14 +858,14 @@ public final class PackageDataGameTests {
 
         PackagePlanResult tooManyUnits = PackagePlanBuilder.build(
                 PackageColor.FLUIX,
-                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 577)),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_385)),
                 List.of(),
                 MarkerMergeMode.CLEAR,
                 Optional.empty(),
                 MePackagerBlockEntity.BASE_CAPACITY_PROFILE,
                 0);
         helper.assertFalse(tooManyUnits.success(),
-                "The empty-slot profile should reject more than nine item units");
+                "The empty-slot 1k profile should reject more than 256 item units");
         helper.succeed();
     }
 
@@ -1654,8 +1708,8 @@ public final class PackageDataGameTests {
                 .thenExecute(() -> {
                     var storage = aeStorage(aeInterface);
                     var source = IActionSource.ofMachine(aeInterface);
-                    long inserted = storage.insert(AEItemKey.of(Items.IRON_INGOT), 640, Actionable.MODULATE, source);
-                    helper.assertTrue(inserted == 640,
+                    long inserted = storage.insert(AEItemKey.of(Items.IRON_INGOT), 16_448, Actionable.MODULATE, source);
+                    helper.assertTrue(inserted == 16_448,
                             "Pulse redstone AE network should accept iron before power is applied");
                     helper.getLevel().setBlock(
                             helper.absolutePos(packagerPos.above()),
@@ -1670,13 +1724,13 @@ public final class PackageDataGameTests {
                     helper.assertTrue(packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).isEmpty(),
                             "Pulse redstone should not expose output until the packing animation finishes");
                     helper.assertTrue(storage.extract(AEItemKey.of(Items.IRON_INGOT), 64, Actionable.SIMULATE, source) == 64,
-                            "Pulse redstone should leave contents beyond the 9-unit base profile in the AE network");
+                            "Pulse redstone should leave contents beyond the default 1k tier in the AE network");
                 })
                 .thenExecuteAfter(MePackagerBlockEntity.PACKING_BASE_WORK_TICKS + 2, () -> {
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
-                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
-                            "Pulse redstone should package exactly nine item units without a component");
+                    helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 16_384,
+                            "Pulse redstone should package exactly 256 item units without a component");
                     packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
                 })
                 .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () -> {
@@ -1720,7 +1774,7 @@ public final class PackageDataGameTests {
                     ItemStack firstOutput = packager.getItems().getStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT).copy();
                     PackageData firstData = PackageDataStorage.read(firstOutput).orElseThrow();
                     helper.assertTrue(amountOf(firstData, AEItemKey.of(Items.IRON_INGOT)) == 576,
-                            "Cyclic redstone should package the full base-capacity batch");
+                            "Cyclic redstone should package the full available batch");
                     packager.getItems().setStackInSlot(MePackagerBlockEntity.SLOT_OUTPUT, ItemStack.EMPTY);
                 })
                 .thenExecuteAfter(MePackagerBlockEntity.CYCLIC_REDSTONE_INTERVAL_TICKS + 5, () -> {
@@ -1951,23 +2005,23 @@ public final class PackageDataGameTests {
         ItemStack pattern = packageCraftingPattern(
                 PackageColor.BLUE,
                 Optional.empty(),
-                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640));
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_448));
         IPatternDetails details = PatternDetailsHelper.decodePattern(pattern, helper.getLevel());
         helper.assertTrue(details instanceof PackageCraftingPatternDetails,
                 "AE2 should decode the large package crafting pattern");
 
         PackageAssemblerBlockEntity baseAssembler = newPackageAssembler();
         KeyCounter rejectedIron = new KeyCounter();
-        rejectedIron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+        rejectedIron.add(AEItemKey.of(Items.IRON_INGOT), 16_448);
         helper.assertFalse(baseAssembler.pushPattern(details, new KeyCounter[] { rejectedIron }, Direction.UP),
-                "Assembler should reject a ten-unit package pattern while its capacity slot is empty");
-        helper.assertTrue(rejectedIron.get(AEItemKey.of(Items.IRON_INGOT)) == 640,
+                "Assembler should reject a 257-unit package pattern while its capacity slot is empty");
+        helper.assertTrue(rejectedIron.get(AEItemKey.of(Items.IRON_INGOT)) == 16_448,
                 "Capacity rejection should not consume Pattern Provider inputs");
 
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY, component);
         KeyCounter iron = new KeyCounter();
-        iron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+        iron.add(AEItemKey.of(Items.IRON_INGOT), 16_448);
 
         boolean accepted = assembler.pushPattern(details, new KeyCounter[] { iron }, Direction.UP);
         ItemStack output = assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
@@ -1978,7 +2032,7 @@ public final class PackageDataGameTests {
         helper.assertTrue(iron.isEmpty(), "Accepted large package crafting push should consume the input holder");
         helper.assertTrue(output.is(APItems.packageItems().get(PackageColor.BLUE).get()),
                 "Large package crafting push should use the encoded package color");
-        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 640,
+        helper.assertTrue(amountOf(outputData, AEItemKey.of(Items.IRON_INGOT)) == 16_448,
                 "Large package crafting push should preserve all iron");
         helper.assertTrue(!assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY).isEmpty(),
                 "Package crafting push should not consume the capacity slot");
@@ -1988,7 +2042,7 @@ public final class PackageDataGameTests {
     @GameTest(template = "empty")
     public static void packageCraftingPatternRejectsContentsBeyondPackageCapacity(GameTestHelper helper) {
         GenericStack[] inputs = sparsePackageCraftingInputs(
-                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64L * 257L));
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 64L * 65_537L));
 
         helper.assertTrue(PackageCraftingPatternDataStorage.create(
                         PackageColor.FLUIX,
@@ -2173,23 +2227,23 @@ public final class PackageDataGameTests {
     @GameTest(template = "empty")
     public static void packageAssemblerProviderPreflightsOrdinaryAndAdvancedCapacity(GameTestHelper helper) {
         ItemStack ordinaryPattern = PatternDetailsHelper.encodeProcessingPattern(
-                new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640) },
+                new GenericStack[] { new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_448) },
                 new GenericStack[] { new GenericStack(AEItemKey.of(Items.DIAMOND), 1) });
         IPatternDetails ordinaryDetails = PatternDetailsHelper.decodePattern(ordinaryPattern, helper.getLevel());
         PackageAssemblerBlockEntity ordinaryAssembler = newPackageAssembler();
         KeyCounter ordinaryIron = new KeyCounter();
-        ordinaryIron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+        ordinaryIron.add(AEItemKey.of(Items.IRON_INGOT), 16_448);
 
         helper.assertFalse(ordinaryAssembler.pushPattern(
                         ordinaryDetails,
                         new KeyCounter[] { ordinaryIron },
                         Direction.UP),
                 "Ordinary provider pushes should be rejected before exceeding default package capacity");
-        helper.assertTrue(ordinaryIron.get(AEItemKey.of(Items.IRON_INGOT)) == 640,
+        helper.assertTrue(ordinaryIron.get(AEItemKey.of(Items.IRON_INGOT)) == 16_448,
                 "Rejected ordinary provider pushes must preserve every input");
 
         GenericStack[] advancedInputs = {
-                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640)
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_448)
         };
         ItemStack advancedPattern = APItems.ADVANCED_PROCESSING_PATTERN.get().encode(
                 advancedInputs,
@@ -2202,14 +2256,14 @@ public final class PackageDataGameTests {
         IPatternDetails advancedDetails = PatternDetailsHelper.decodePattern(advancedPattern, helper.getLevel());
         PackageAssemblerBlockEntity advancedAssembler = newPackageAssembler();
         KeyCounter advancedIron = new KeyCounter();
-        advancedIron.add(AEItemKey.of(Items.IRON_INGOT), 640);
+        advancedIron.add(AEItemKey.of(Items.IRON_INGOT), 16_448);
 
         helper.assertFalse(advancedAssembler.pushPattern(
                         advancedDetails,
                         new KeyCounter[] { advancedIron },
                         Direction.UP),
                 "Advanced provider pushes should preflight every output column against package capacity");
-        helper.assertTrue(advancedIron.get(AEItemKey.of(Items.IRON_INGOT)) == 640,
+        helper.assertTrue(advancedIron.get(AEItemKey.of(Items.IRON_INGOT)) == 16_448,
                 "Rejected advanced provider pushes must preserve every input");
 
         ItemStack component = ae2Item("cell_component_16k");
@@ -2232,7 +2286,7 @@ public final class PackageDataGameTests {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         PackageData target = PackageData.create(
                 PackageColor.FLUIX,
-                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640)),
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_448)),
                 Optional.empty(),
                 0);
         assembler.getItems().setStackInSlot(
@@ -2241,21 +2295,21 @@ public final class PackageDataGameTests {
         assembler.getItems().setStackInSlot(
                 PackageAssemblerBlockEntity.SLOT_CAPACITY,
                 ae2Item("cell_component_16k"));
-        for (int stack = 0; stack < 10; stack++) {
+        for (int stack = 0; stack < 257; stack++) {
             helper.assertTrue(assembler.insertMenuInput(
                             0,
                             new ItemStack(Items.IRON_INGOT, 64),
                             64,
                             false) == 64,
-                    "16k capacity should allow all ten input stacks before the component is removed");
+                    "16k capacity should allow all 257 input stacks before the component is removed");
         }
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_CAPACITY, ItemStack.EMPTY);
 
         PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
 
         helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.PATTERN_MISMATCH,
-                "Removing the capacity component should restore the 9-unit limit before assembly");
-        helper.assertTrue(assembler.menuInputAmountForDisplay(0) == 640,
+                "Removing the capacity component should restore the default 1k limit before assembly");
+        helper.assertTrue(assembler.menuInputAmountForDisplay(0) == 16_448,
                 "Capacity rejection should preserve all buffered inputs");
         helper.assertTrue(assembler.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT).isEmpty(),
                 "Capacity rejection should not create a package output");
@@ -2271,11 +2325,11 @@ public final class PackageDataGameTests {
         ItemStack pattern = packageCraftingPattern(
                 PackageColor.FLUIX,
                 Optional.empty(),
-                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 640));
+                new GenericStack(AEItemKey.of(Items.IRON_INGOT), 16_448));
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, pattern);
         PackageAssemblerMenu menu = new PackageAssemblerMenu(7, new Inventory(newFakePlayer(helper)), assembler);
         menu.broadcastChanges();
-        IItemHandler external = assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+        MEStorage external = assembler.getCapability(appeng.capabilities.Capabilities.STORAGE, Direction.NORTH)
                 .orElseThrow(IllegalStateException::new);
 
         helper.assertFalse(assembler.isPatternCapacityValid() || menu.isPatternCapacityValid(),
@@ -2285,8 +2339,12 @@ public final class PackageDataGameTests {
                         new ItemStack(Items.IRON_INGOT, 64),
                         64,
                         false) == 0
-                        && !external.isItemValid(0, new ItemStack(Items.IRON_INGOT)),
-                "Capacity-invalid local patterns should reject menu and external inputs before buffering them");
+                        && external.insert(
+                                AEItemKey.of(Items.IRON_INGOT),
+                                64,
+                                Actionable.SIMULATE,
+                                IActionSource.empty()) == 0,
+                "Capacity-invalid local patterns should reject menu and generic AEKey inputs before buffering them");
 
         assembler.getItems().setStackInSlot(
                 PackageAssemblerBlockEntity.SLOT_CAPACITY,
@@ -2294,7 +2352,11 @@ public final class PackageDataGameTests {
         menu.broadcastChanges();
         helper.assertTrue(assembler.isPatternCapacityValid()
                         && menu.isPatternCapacityValid()
-                        && external.isItemValid(0, new ItemStack(Items.IRON_INGOT))
+                        && external.insert(
+                                AEItemKey.of(Items.IRON_INGOT),
+                                64,
+                                Actionable.SIMULATE,
+                                IActionSource.empty()) == 64
                         && assembler.insertMenuInput(
                                 0,
                                 new ItemStack(Items.IRON_INGOT, 64),
@@ -2418,7 +2480,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageAssemblerExternalHandlerExtractsOnePackageInOrder(GameTestHelper helper) {
+    public static void packageAssemblerGenericStorageExtractsOnePackageInOrder(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         assembler.getItems().setStackInSlot(
                 PackageAssemblerBlockEntity.SLOT_PATTERN,
@@ -2431,37 +2493,46 @@ public final class PackageDataGameTests {
         CompoundTag saved = assembler.saveWithoutMetadata();
         PackageAssemblerBlockEntity loaded = newPackageAssembler();
         loaded.load(saved);
-        IItemHandler handler = loaded.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+        MEStorage storage = loaded.getCapability(appeng.capabilities.Capabilities.STORAGE, Direction.NORTH)
+                .orElseThrow(IllegalStateException::new);
+        GenericInternalInventory inventory = loaded
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.NORTH)
                 .orElseThrow(IllegalStateException::new);
         int outputSlot = loaded.externalOutputSlot();
+        AEItemKey firstKey = AEItemKey.of(first);
+        AEItemKey secondKey = AEItemKey.of(second);
 
-        ItemStack skipped = handler.extractItem(0, 64, false);
-        ItemStack firstExtract = handler.extractItem(outputSlot, 64, false);
-        ItemStack secondExtract = handler.extractItem(outputSlot, 64, false);
-        ItemStack thirdExtract = handler.extractItem(outputSlot, 64, false);
+        long skipped = storage.extract(
+                AEItemKey.of(Items.IRON_INGOT), 64, Actionable.MODULATE, IActionSource.empty());
+        long firstExtract = storage.extract(firstKey, 64, Actionable.MODULATE, IActionSource.empty());
+        long secondExtract = storage.extract(firstKey, 64, Actionable.MODULATE, IActionSource.empty());
+        long thirdExtract = storage.extract(secondKey, 64, Actionable.MODULATE, IActionSource.empty());
 
-        helper.assertTrue(handler.getSlots() == 2 && outputSlot == 1 && skipped.isEmpty(),
-                "External handler should expose only the installed pattern input plus ordered output");
-        helper.assertTrue(firstExtract.getCount() == 1 && firstExtract.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
-                "External handler should extract one package from the first output slot");
-        helper.assertTrue(secondExtract.getCount() == 1 && secondExtract.is(APItems.packageItems().get(PackageColor.FLUIX).get()),
-                "External handler should extract the next package from the first output slot before later slots");
-        helper.assertTrue(thirdExtract.getCount() == 1 && thirdExtract.is(APItems.packageItems().get(PackageColor.RED).get()),
-                "External handler should promote the next queued package after earlier output is empty");
+        helper.assertTrue(inventory.size() == 2 && outputSlot == 1 && skipped == 0,
+                "Generic storage should expose only the installed pattern input plus ordered output");
+        helper.assertTrue(firstExtract == 1,
+                "Generic storage should extract one package from the first output slot");
+        helper.assertTrue(secondExtract == 1,
+                "Generic storage should extract the next package from the first output slot before later slots");
+        helper.assertTrue(thirdExtract == 1,
+                "Generic storage should promote the next queued package after earlier output is empty");
         helper.succeed();
     }
 
     @GameTest(template = "empty")
     public static void packageAssemblerExternalInputRequiresPatternAndPreservesPatternOrder(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
-        IItemHandler handler = assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
-                .orElseThrow(IllegalStateException::new);
-        helper.assertTrue(handler.getSlots() == 1 && assembler.externalOutputSlot() == 0,
-                "Assembler without a pattern should expose no external input slots");
-        ItemStack ironWithoutPattern = new ItemStack(Items.IRON_INGOT, 32);
-
-        helper.assertTrue(handler.insertItem(0, ironWithoutPattern, false).getCount() == 32,
-                "External input should reject items while no pattern is installed");
+        LazyOptional<GenericInternalInventory> genericHandle = assembler
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.NORTH);
+        GenericInternalInventory generic = genericHandle.orElseThrow(IllegalStateException::new);
+        helper.assertTrue(generic.size() == 1 && assembler.externalOutputSlot() == 0,
+                "Assembler without a pattern should expose no generic input slots");
+        helper.assertTrue(generic.insert(
+                        0,
+                        AEItemKey.of(Items.IRON_INGOT),
+                        32,
+                        Actionable.MODULATE) == 0,
+                "Generic input should reject item AEKeys while no pattern is installed");
 
         assembler.getItems().setStackInSlot(
                 PackageAssemblerBlockEntity.SLOT_PATTERN,
@@ -2469,9 +2540,24 @@ public final class PackageDataGameTests {
                         PackageColor.FLUIX,
                         Optional.empty(),
                         new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)));
-        helper.assertTrue(handler.getSlotLimit(0) == 0
-                        && !handler.isItemValid(0, new ItemStack(Items.WATER_BUCKET)),
-                "Forge item capability should not advertise a fluid pattern input as an item slot");
+        helper.assertFalse(genericHandle.isPresent(),
+                "Changing the pattern layout should invalidate the previous generic inventory view");
+        genericHandle = assembler.getCapability(
+                appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV,
+                Direction.NORTH);
+        generic = genericHandle.orElseThrow(IllegalStateException::new);
+        helper.assertTrue(generic.size() == 2
+                        && generic.insert(
+                                0,
+                                AEItemKey.of(Items.WATER_BUCKET),
+                                1,
+                                Actionable.SIMULATE) == 0
+                        && generic.insert(
+                                0,
+                                AEFluidKey.of(Fluids.WATER),
+                                1000,
+                                Actionable.SIMULATE) == 1000,
+                "Generic inventory should expose the fluid AEKey directly without a custom item view");
 
         PackageData target = PackageData.create(
                 PackageColor.FLUIX,
@@ -2484,22 +2570,42 @@ public final class PackageDataGameTests {
         assembler.getItems().setStackInSlot(
                 PackageAssemblerBlockEntity.SLOT_PATTERN,
                 packageCraftingPattern(PackageColor.FLUIX, target));
+        helper.assertFalse(genericHandle.isPresent(),
+                "Replacing the pattern should invalidate the previous generic inventory view");
+        generic = assembler
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.NORTH)
+                .orElseThrow(IllegalStateException::new);
 
-        helper.assertTrue(handler.isItemValid(0, new ItemStack(Items.IRON_INGOT))
-                        && !handler.isItemValid(0, new ItemStack(Items.COPPER_INGOT)),
-                "External input slots should use the installed pattern as a positional filter");
-        helper.assertTrue(handler.insertItem(0, new ItemStack(Items.COPPER_INGOT, 16), false).getCount() == 16,
-                "External input should reject an item in the wrong pattern position");
-        helper.assertTrue(handler.insertItem(0, new ItemStack(Items.IRON_INGOT, 32), false).isEmpty()
-                        && handler.insertItem(1, new ItemStack(Items.COPPER_INGOT, 16), false).isEmpty()
-                        && handler.insertItem(2, new ItemStack(Items.IRON_INGOT, 8), false).isEmpty(),
-                "External input should accept the complete installed pattern");
+        helper.assertTrue(generic.insert(
+                        0,
+                        AEItemKey.of(Items.COPPER_INGOT),
+                        16,
+                        Actionable.MODULATE) == 0,
+                "Generic input should reject an item AEKey in the wrong pattern position");
+        helper.assertTrue(generic.insert(
+                                0,
+                                AEItemKey.of(Items.IRON_INGOT),
+                                32,
+                                Actionable.MODULATE) == 32
+                        && generic.insert(
+                                1,
+                                AEItemKey.of(Items.COPPER_INGOT),
+                                16,
+                                Actionable.MODULATE) == 16
+                        && generic.insert(
+                                2,
+                                AEItemKey.of(Items.IRON_INGOT),
+                                8,
+                                Actionable.MODULATE) == 8,
+                "Generic input should accept the complete installed item AEKey pattern");
 
         PackageAssemblerBlockEntity.AssemblyResult result = assembler.tryAssemble();
-        helper.assertTrue(handler.getSlots() == 4 && assembler.externalOutputSlot() == 3,
-                "External input slot count should follow the three installed pattern inputs");
-        ItemStack output = handler.getStackInSlot(assembler.externalOutputSlot());
-        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+        helper.assertTrue(generic.size() == 4 && assembler.externalOutputSlot() == 3,
+                "Generic input slot count should follow the three installed pattern inputs");
+        GenericStack output = generic.getStack(assembler.externalOutputSlot());
+        helper.assertTrue(output != null && output.what() instanceof AEItemKey,
+                "Generic output slot should expose the assembled package AEKey");
+        PackageData outputData = PackageDataStorage.read(((AEItemKey) output.what()).toStack(1)).orElseThrow();
 
         helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
                 "Pattern-filtered external inputs should assemble successfully");
@@ -2511,6 +2617,70 @@ public final class PackageDataGameTests {
                         && outputData.contents().get(2).what().equals(AEItemKey.of(Items.IRON_INGOT))
                         && outputData.contents().get(2).amount() == 8,
                 "Pattern output should preserve every entry in exact pattern order");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageAssemblerGenericCapabilitiesAcceptFluidPatternInputs(GameTestHelper helper) {
+        PackageAssemblerBlockEntity assembler = placePackageAssembler(
+                helper,
+                new BlockPos(0, 0, 0),
+                Direction.NORTH);
+        LazyOptional<GenericInternalInventory> emptyGenericInventory = assembler
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.UP);
+        helper.assertTrue(emptyGenericInventory.map(GenericInternalInventory::size).orElse(0) == 1,
+                "An assembler without a local pattern should expose only its ordered output slot");
+        PackageData target = PackageData.create(
+                PackageColor.FLUIX,
+                List.of(new GenericStack(AEFluidKey.of(Fluids.WATER), 4_000)),
+                Optional.empty(),
+                0);
+        assembler.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_PATTERN,
+                packageCraftingPattern(PackageColor.FLUIX, target));
+        helper.assertFalse(emptyGenericInventory.isPresent(),
+                "Changing the pattern layout should invalidate the previous generic inventory view");
+
+        MEStorage storage = assembler.getCapability(appeng.capabilities.Capabilities.STORAGE, Direction.UP)
+                .orElseThrow(IllegalStateException::new);
+        GenericInternalInventory genericInventory = assembler
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.UP)
+                .orElseThrow(IllegalStateException::new);
+        IFluidHandler fluids = assembler.getCapability(ForgeCapabilities.FLUID_HANDLER, Direction.UP)
+                .orElseThrow(IllegalStateException::new);
+
+        helper.assertTrue(storage.insert(
+                        AEFluidKey.of(Fluids.WATER),
+                        4_000,
+                        Actionable.SIMULATE,
+                        IActionSource.empty()) == 4_000,
+                "The generic MEStorage capability should simulate the full fluid pattern input");
+        helper.assertTrue(fluids.fill(
+                        new FluidStack(Fluids.WATER, 4_000),
+                        IFluidHandler.FluidAction.EXECUTE) == 4_000,
+                "AE2's generic inventory wrapper should expose the same input through Forge fluid capability");
+        helper.assertTrue(genericInventory.getKey(0).equals(AEFluidKey.of(Fluids.WATER))
+                        && genericInventory.getAmount(0) == 4_000
+                        && genericInventory.size() == 2,
+                "All capability views should share one AEKey-backed assembler input buffer");
+
+        CompoundTag saved = assembler.saveWithoutMetadata();
+        PackageAssemblerBlockEntity loaded = newPackageAssembler();
+        loaded.load(saved);
+        GenericInternalInventory loadedInventory = loaded
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.UP)
+                .orElseThrow(IllegalStateException::new);
+        PackageAssemblerBlockEntity.AssemblyResult result = loaded.tryAssemble();
+        ItemStack output = loaded.getItems().getStackInSlot(PackageAssemblerBlockEntity.SLOT_OUTPUT);
+        PackageData outputData = PackageDataStorage.read(output).orElseThrow();
+
+        helper.assertTrue(loadedInventory.getKey(0) == null,
+                "Successful assembly should consume the persisted generic input buffer");
+        helper.assertTrue(result == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED
+                        && outputData.contents().size() == 1
+                        && outputData.contents().get(0).what().equals(AEFluidKey.of(Fluids.WATER))
+                        && outputData.contents().get(0).amount() == 4_000,
+                "A fluid supplied through external capabilities should survive save/load and package assembly");
         helper.succeed();
     }
 
@@ -2535,23 +2705,36 @@ public final class PackageDataGameTests {
                 "Reviving the ME Packager should recreate both item capabilities");
 
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
-        LazyOptional<IItemHandler> assemblerItems =
-                assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP);
+        LazyOptional<GenericInternalInventory> assemblerGeneric =
+                assembler.getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.UP);
+        LazyOptional<MEStorage> assemblerStorage =
+                assembler.getCapability(appeng.capabilities.Capabilities.STORAGE, Direction.UP);
         LazyOptional<?> assemblerCrafting =
                 assembler.getCapability(appeng.capabilities.Capabilities.CRAFTING_MACHINE, Direction.UP);
-        helper.assertTrue(assemblerItems.isPresent() && assemblerCrafting.isPresent(),
-                "Package Assembler item and crafting-machine capabilities should initially be available");
+        helper.assertTrue(assemblerGeneric.isPresent()
+                        && assemblerStorage.isPresent()
+                        && assemblerCrafting.isPresent(),
+                "Package Assembler generic storage and crafting capabilities should initially be available");
 
         assembler.invalidateCaps();
-        helper.assertFalse(assemblerItems.isPresent() || assemblerCrafting.isPresent(),
+        helper.assertFalse(assemblerGeneric.isPresent()
+                        || assemblerStorage.isPresent()
+                        || assemblerCrafting.isPresent(),
                 "Invalidating Package Assembler capabilities should invalidate existing handles");
         assembler.reviveCaps();
-        helper.assertTrue(assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.UP).isPresent()
+        helper.assertTrue(assembler.getCapability(
+                                        appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV,
+                                        Direction.UP)
+                                .isPresent()
+                        && assembler.getCapability(
+                                        appeng.capabilities.Capabilities.STORAGE,
+                                        Direction.UP)
+                                .isPresent()
                         && assembler.getCapability(
                                         appeng.capabilities.Capabilities.CRAFTING_MACHINE,
                                         Direction.UP)
                                 .isPresent(),
-                "Reviving the Package Assembler should recreate item and crafting-machine capabilities");
+                "Reviving the Package Assembler should recreate all generic and crafting capabilities");
         helper.succeed();
     }
 
@@ -3780,7 +3963,7 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void packageUnpackingBlockingMatchesPatternProviderInputRule(GameTestHelper helper) {
+    public static void packageUnpackingBlockingRequiresEmptyTarget(GameTestHelper helper) {
         ItemStack packageStack = packageStack(PackageColor.RED, ironPackageData(PackageColor.RED, 32));
         ItemStackHandler target = new ItemStackHandler(2);
         target.setStackInSlot(0, new ItemStack(Items.IRON_INGOT, 1));
@@ -3788,12 +3971,135 @@ public final class PackageDataGameTests {
         helper.assertTrue(PackageUnpackingOperations.canUnpack(packageStack, target, false),
                 "Non-blocking unpacking should allow merging with an existing package input type");
         helper.assertFalse(PackageUnpackingOperations.canUnpack(packageStack, target, true),
-                "Pattern Provider blocking should reject a target containing a package input type");
+                "Blocking mode should reject a target containing package input items");
 
         target.setStackInSlot(0, new ItemStack(Items.GOLD_INGOT, 1));
+        helper.assertFalse(PackageUnpackingOperations.canUnpack(packageStack, target, true),
+                "Blocking mode should reject a target containing unrelated items");
+        target.setStackInSlot(0, ItemStack.EMPTY);
         helper.assertTrue(PackageUnpackingOperations.canUnpack(packageStack, target, true),
-                "Blocking mode should ignore target stacks that are not package input types");
+                "Blocking mode should allow unpacking after the complete target becomes empty");
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageUnpackingRoutesContentsToMatchingCapabilities(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.CYAN,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
+                        new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.CYAN, data);
+        MemoryMEStorage genericStorage = new MemoryMEStorage();
+        PackageUnpackingTarget genericTarget = packageUnpackingTarget(genericStorage);
+        genericStorage.add(AEItemKey.of(Items.GOLD_INGOT), 1);
+        helper.assertFalse(PackageUnpackingOperations.canUnpack(packageStack, genericTarget, true),
+                "Blocking mode should reject unrelated AEKey contents exposed by the generic target");
+        genericStorage.extract(
+                AEItemKey.of(Items.GOLD_INGOT), 1, Actionable.MODULATE, IActionSource.empty());
+
+        helper.assertTrue(PackageUnpackingOperations.unpack(packageStack, genericTarget, false),
+                "A Pattern Provider target should accept every registered AEKey type in the package");
+        helper.assertTrue(genericStorage.amount(AEItemKey.of(Items.IRON_INGOT)) == 32
+                        && genericStorage.amount(AEFluidKey.of(Fluids.WATER)) == 1000,
+                "Generic capability routing should preserve item and fluid amounts");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void packageUnpackingFluidSimulationIsCumulative(GameTestHelper helper) {
+        PackageData data = PackageData.create(
+                PackageColor.CYAN,
+                List.of(
+                        new GenericStack(AEFluidKey.of(Fluids.WATER), 700),
+                        new GenericStack(AEFluidKey.of(Fluids.WATER), 700)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.CYAN, data);
+        FluidTank fluids = new FluidTank(1000);
+        PackageUnpackingTarget target = packageUnpackingTarget(ExternalStorageFacade.of(fluids));
+
+        helper.assertFalse(PackageUnpackingOperations.canUnpack(packageStack, target, false),
+                "Repeated fluid entries must compete for the same cumulative tank capacity");
+        helper.assertFalse(PackageUnpackingOperations.unpack(packageStack, target, false),
+                "An over-capacity fluid package must not partially commit");
+        helper.assertTrue(fluids.isEmpty(),
+                "Failed complete-package fluid simulation must leave the target unchanged");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void packageUnpackingBusFluidBlockingClearsAfterTargetEmpties(GameTestHelper helper) {
+        BlockPos targetPos = new BlockPos(1, 1, 0);
+        BlockPos partPos = new BlockPos(1, 1, 1);
+        helper.getLevel().setBlock(helper.absolutePos(targetPos), Blocks.CHEST.defaultBlockState(), 3);
+        TestFluidTankBlockEntity target = new TestFluidTankBlockEntity(
+                helper.absolutePos(targetPos),
+                helper.getLevel().getBlockState(helper.absolutePos(targetPos)),
+                2000);
+        helper.getLevel().setBlockEntity(target);
+        target.fill(new FluidStack(Fluids.WATER, 250), IFluidHandler.FluidAction.EXECUTE);
+
+        PackageUnpackingBusPart part = placePoweredUnpackingBusPart(helper, partPos, Direction.NORTH);
+        part.getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.YES);
+        PackageData data = PackageData.create(
+                PackageColor.CYAN,
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.IRON_INGOT), 32),
+                        new GenericStack(AEFluidKey.of(Fluids.WATER), 1000)),
+                Optional.empty(),
+                0);
+        ItemStack packageStack = packageStack(PackageColor.CYAN, data);
+        AEItemKey packageKey = AEItemKey.of(packageStack);
+
+        helper.startSequence()
+                .thenWaitUntil(() -> {
+                    helper.assertTrue(part.getMainNode().isOnline(),
+                            "Package unpacking part should join its powered AE grid");
+                    helper.assertTrue(part.getMainNode().getGrid() != null,
+                            "Package unpacking part should expose its connected grid");
+                })
+                .thenExecute(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(part)) == 0,
+                            "Matching fluid already in the target should activate blocking mode");
+                    target.getCapability(ForgeCapabilities.FLUID_HANDLER, Direction.SOUTH)
+                            .orElseThrow(() -> new IllegalStateException("Test target must expose a fluid handler"))
+                            .drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.EXECUTE);
+                })
+                .thenWaitUntil(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.SIMULATE,
+                                    IActionSource.ofMachine(part)) == 1,
+                            "Clearing the target fluid capability should immediately clear package blocking");
+                })
+                .thenExecute(() -> {
+                    MEStorage storage = part.getMainNode().getGrid().getStorageService().getInventory();
+                    helper.assertTrue(storage.insert(
+                                    packageKey,
+                                    1,
+                                    Actionable.MODULATE,
+                                    IActionSource.ofMachine(part)) == 1,
+                            "The bus should reserve the mixed package after fluid blocking clears");
+                })
+                .thenExecuteAfter(PackageUnpackingBusPart.ANIMATION_CYCLE_TICKS + 2, () -> {
+                    helper.assertTrue(part.heldPackage().isEmpty(),
+                            "The mixed held package should commit instead of remaining permanently blocked");
+                    helper.assertTrue(itemAmountInContainer(target, Items.IRON_INGOT) == 32,
+                            "The bus should deliver mixed-package item contents");
+                    helper.assertTrue(target.getFluidAmount() == 1000,
+                            "The bus should deliver mixed-package fluid contents");
+                })
+                .thenSucceed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 200)
@@ -3913,7 +4219,7 @@ public final class PackageDataGameTests {
                                     1,
                                     Actionable.SIMULATE,
                                     IActionSource.ofMachine(part)) == 0,
-                            "Pattern Provider blocking should reject a package whose input type exists in target");
+                            "Blocking mode should reject a package while any unrelated target item exists");
                     helper.assertTrue(part.heldPackage().isEmpty(),
                             "A blocked formation-style input must not become local storage");
                     chest.setItem(0, ItemStack.EMPTY);
@@ -3953,7 +4259,7 @@ public final class PackageDataGameTests {
         BlockPos partPos = new BlockPos(1, 1, 1);
         helper.getLevel().setBlock(helper.absolutePos(chestPos), Blocks.CHEST.defaultBlockState(), 3);
         ChestBlockEntity chest = (ChestBlockEntity) helper.getBlockEntity(chestPos);
-        chest.setItem(0, new ItemStack(Items.IRON_INGOT, 1));
+        chest.setItem(0, new ItemStack(Items.GOLD_INGOT, 1));
         PackageUnpackingBusPart part = placePoweredUnpackingBusPart(helper, partPos, Direction.NORTH);
         part.getConfigManager().putSetting(Settings.BLOCKING_MODE, YesNo.YES);
         ItemStack packageStack = packageStack(PackageColor.BLUE, ironPackageData(PackageColor.BLUE, 32));
@@ -3971,7 +4277,7 @@ public final class PackageDataGameTests {
                     var source = IActionSource.ofMachine(part);
                     helper.assertTrue(part.antiClogMode()
                                     && storage.insert(packageKey, 1, Actionable.SIMULATE, source) == 0,
-                            "Unpacking Bus anti-clog mode should default on and include Pattern Provider blocking");
+                            "Unpacking Bus anti-clog mode should default on and require an empty blocking target");
 
                     part.setAntiClogMode(false);
                     helper.assertTrue(storage.insert(packageKey, 1, Actionable.MODULATE, source) == 1,
@@ -4902,11 +5208,13 @@ public final class PackageDataGameTests {
                             Optional.empty(),
                             0);
                     ItemStack sourcePackage = packageStack(PackageColor.FLUIX, sourceData);
-                    IItemHandler target = assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.SOUTH)
+                    MEStorage targetStorage = assembler
+                            .getCapability(appeng.capabilities.Capabilities.STORAGE, Direction.SOUTH)
                             .orElseThrow(IllegalStateException::new);
+                    PackageUnpackingTarget target = packageUnpackingTarget(targetStorage);
 
-                    helper.assertTrue(PackageUnpackingOperations.canUnpack(sourcePackage, target)
-                                    && PackageUnpackingOperations.unpack(sourcePackage, target),
+                    helper.assertTrue(PackageUnpackingOperations.canUnpack(sourcePackage, target, false)
+                                    && PackageUnpackingOperations.unpack(sourcePackage, target, false),
                             "Unpacking should push repeated package entries into separate filtered assembler slots");
                     helper.assertTrue(assembler.menuInputAmountForDisplay(0) == 1
                                     && assembler.menuInputAmountForDisplay(1) == 1,
@@ -5071,13 +5379,15 @@ public final class PackageDataGameTests {
         helper.assertTrue(assembler.isMenuInputSlotEnabled(3) && !assembler.isMenuInputSlotEnabled(4),
                 "Only dense non-empty advanced inputs should unlock local slots");
         PackageAssemblerMenu menu = new PackageAssemblerMenu(32, new Inventory(newFakePlayer(helper)), assembler);
-        IItemHandler external = assembler.getCapability(ForgeCapabilities.ITEM_HANDLER, Direction.NORTH)
+        LazyOptional<GenericInternalInventory> compactInventoryHandle = assembler
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.NORTH);
+        GenericInternalInventory compactInventory = compactInventoryHandle
                 .orElseThrow(IllegalStateException::new);
         menu.broadcastChanges();
         helper.assertTrue(assembler.menuInputSlotCount() == 4
                         && menu.menuInputSlotCount() == 4
                         && menu.maxScrollOffset() == 0
-                        && external.getSlots() == 5
+                        && compactInventory.size() == 5
                         && assembler.externalOutputSlot() == 4,
                 "Sparse advanced patterns should expose only their four dense inputs and should not scroll");
 
@@ -5096,15 +5406,24 @@ public final class PackageDataGameTests {
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, largePattern);
         menu.broadcastChanges();
         menu.setScrollOffset(menu.maxScrollOffset());
+        helper.assertFalse(compactInventoryHandle.isPresent(),
+                "Changing the dynamic pattern size should invalidate the previous generic inventory view");
+        GenericInternalInventory largeInventory = assembler
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.NORTH)
+                .orElseThrow(IllegalStateException::new);
 
         helper.assertTrue(assembler.menuInputSlotCount() == 70
                         && menu.menuInputSlotCount() == 70
-                        && external.getSlots() == 71
+                        && largeInventory.size() == 71
                         && assembler.externalOutputSlot() == 70,
-                "Assembler input storage and external capability should resize to the installed pattern");
+                "Assembler input storage and generic capability should resize to the installed pattern");
         helper.assertTrue(!assembler.menuInputFilterStack(69).isEmpty()
                         && assembler.menuInputFilterStack(70).isEmpty()
-                        && external.isItemValid(69, new ItemStack(Items.IRON_INGOT)),
+                        && largeInventory.insert(
+                                69,
+                                AEItemKey.of(Items.IRON_INGOT),
+                                1,
+                                Actionable.SIMULATE) == 1,
                 "Inputs beyond the former 68-slot limit should remain visible and externally addressable");
         helper.assertTrue(menu.maxScrollOffset() == 14
                         && menu.inputSlotForVisibleIndex(13) == 69
@@ -5121,10 +5440,13 @@ public final class PackageDataGameTests {
 
         assembler.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, compactPattern);
         menu.broadcastChanges();
+        GenericInternalInventory compactAgain = assembler
+                .getCapability(appeng.capabilities.Capabilities.GENERIC_INTERNAL_INV, Direction.NORTH)
+                .orElseThrow(IllegalStateException::new);
         helper.assertTrue(menu.menuInputSlotCount() == 4
                         && menu.maxScrollOffset() == 0
                         && menu.scrollOffset() == 0
-                        && external.getSlots() == 5,
+                        && compactAgain.size() == 5,
                 "Replacing the pattern with a shorter input list should remove disabled tail rows and scrolling");
 
         PackageAssemblerBlockEntity localAssembler = newPackageAssembler();
@@ -5681,27 +6003,66 @@ public final class PackageDataGameTests {
 
     @GameTest(template = "empty")
     public static void standardRecipeTransferUsesJeiRolesForBothPatternModes(GameTestHelper helper) {
+        if (skipJeiIntegrationTest(helper)) {
+            return;
+        }
         OptionalRecipeIntegrationGameTests.standardRecipeTransferUsesJeiRolesForBothPatternModes(helper);
     }
 
     @GameTest(template = "empty")
     public static void genericRecipeTransferRejectsRandomOutputDefinitions(GameTestHelper helper) {
+        if (skipJeiIntegrationTest(helper)) {
+            return;
+        }
         OptionalRecipeIntegrationGameTests.genericRecipeTransferRejectsRandomOutputDefinitions(helper);
     }
 
     @GameTest(template = "empty")
     public static void createSequencedAssemblyBuildsOrderedAdvancedPlan(GameTestHelper helper) {
+        if (skipJeiIntegrationTest(helper)) {
+            return;
+        }
         OptionalRecipeIntegrationGameTests.createSequencedAssemblyBuildsOrderedAdvancedPlan(helper);
     }
 
     @GameTest(template = "empty")
     public static void createMechanicalCraftingChoosesFewerRowOrColumnPackages(GameTestHelper helper) {
+        if (skipJeiIntegrationTest(helper)) {
+            return;
+        }
         OptionalRecipeIntegrationGameTests.createMechanicalCraftingChoosesFewerRowOrColumnPackages(helper);
     }
 
     @GameTest(template = "empty")
     public static void gtceuDeterministicRecipeBuildsAdvancedPlan(GameTestHelper helper) {
+        if (skipJeiIntegrationTest(helper)) {
+            return;
+        }
         OptionalRecipeIntegrationGameTests.gtceuDeterministicRecipeBuildsAdvancedPlan(helper);
+    }
+
+    @GameTest(template = "empty")
+    public static void gtceuLayeredRecipeGroupsEachLayerIntoOnePackageColumn(GameTestHelper helper) {
+        if (skipJeiIntegrationTest(helper)) {
+            return;
+        }
+        OptionalRecipeIntegrationGameTests.gtceuLayeredRecipeGroupsEachLayerIntoOnePackageColumn(helper);
+    }
+
+    @GameTest(template = "empty")
+    public static void gtceuPublicRegistryRecoversDisplayRecipeById(GameTestHelper helper) {
+        if (skipJeiIntegrationTest(helper)) {
+            return;
+        }
+        OptionalRecipeIntegrationGameTests.gtceuPublicRegistryRecoversDisplayRecipeById(helper);
+    }
+
+    private static boolean skipJeiIntegrationTest(GameTestHelper helper) {
+        if (ModList.get().isLoaded("jei")) {
+            return false;
+        }
+        helper.succeed();
+        return true;
     }
 
 
@@ -6069,13 +6430,69 @@ public final class PackageDataGameTests {
     }
 
     private static void assertRecipeOutput(GameTestHelper helper, String recipeName, Item item) {
+        Recipe<?> recipe = requireRecipe(helper, recipeName);
+        ItemStack result = recipe.getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(item), "Recipe should output " + BuiltInRegistries.ITEM.getKey(item));
+    }
+
+    private static Recipe<?> requireRecipe(GameTestHelper helper, String recipeName) {
         ResourceLocation id = ResourceLocation.tryParse(AppliedPackaging.MOD_ID + ":" + recipeName);
         Optional<? extends Recipe<?>> recipe = id == null
                 ? Optional.empty()
                 : helper.getLevel().getRecipeManager().byKey(id);
         helper.assertTrue(recipe.isPresent(), "Recipe should exist: " + recipeName);
-        ItemStack result = recipe.orElseThrow().getResultItem(helper.getLevel().registryAccess());
-        helper.assertTrue(result.is(item), "Recipe should output " + BuiltInRegistries.ITEM.getKey(item));
+        return recipe.orElseThrow();
+    }
+
+    private static void assertShapedRecipe(GameTestHelper helper, String recipeName, Item resultItem,
+            int width, int height, String... expectedIngredients) {
+        Recipe<?> recipe = requireRecipe(helper, recipeName);
+        helper.assertTrue(recipe instanceof ShapedRecipe, "Recipe should be shaped: " + recipeName);
+        ShapedRecipe shaped = (ShapedRecipe) recipe;
+        helper.assertTrue(shaped.getWidth() == width && shaped.getHeight() == height,
+                "Recipe should have shape " + width + "x" + height + ": " + recipeName);
+        helper.assertTrue(shaped.getIngredients().size() == expectedIngredients.length,
+                "Recipe should have the expected slot count: " + recipeName);
+        for (int index = 0; index < expectedIngredients.length; index++) {
+            assertExactIngredient(helper, recipeName, index, shaped.getIngredients().get(index),
+                    expectedIngredients[index]);
+        }
+        ItemStack result = shaped.getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(resultItem),
+                "Recipe should output " + BuiltInRegistries.ITEM.getKey(resultItem));
+    }
+
+    private static void assertShapelessRecipe(GameTestHelper helper, String recipeName, Item resultItem,
+            String... expectedIngredients) {
+        Recipe<?> recipe = requireRecipe(helper, recipeName);
+        helper.assertTrue(recipe instanceof ShapelessRecipe, "Recipe should be shapeless: " + recipeName);
+        ShapelessRecipe shapeless = (ShapelessRecipe) recipe;
+        List<String> actualIngredients = shapeless.getIngredients().stream()
+                .map(ingredient -> exactIngredientId(helper, recipeName, ingredient))
+                .sorted()
+                .toList();
+        List<String> sortedExpected = List.of(expectedIngredients).stream().sorted().toList();
+        helper.assertTrue(actualIngredients.equals(sortedExpected),
+                "Recipe should have the expected shapeless ingredients: " + recipeName);
+        ItemStack result = shapeless.getResultItem(helper.getLevel().registryAccess());
+        helper.assertTrue(result.is(resultItem),
+                "Recipe should output " + BuiltInRegistries.ITEM.getKey(resultItem));
+    }
+
+    private static void assertExactIngredient(GameTestHelper helper, String recipeName, int slot,
+            Ingredient ingredient, String expectedItemId) {
+        String actualItemId = exactIngredientId(helper, recipeName + " slot " + slot, ingredient);
+        helper.assertTrue(actualItemId.equals(expectedItemId),
+                "Recipe ingredient mismatch in " + recipeName + " slot " + slot
+                        + ": expected " + expectedItemId + ", got " + actualItemId);
+    }
+
+    private static String exactIngredientId(GameTestHelper helper, String recipeName, Ingredient ingredient) {
+        ItemStack[] accepted = ingredient.getItems();
+        helper.assertTrue(accepted.length == 1,
+                "Recipe ingredient should resolve to exactly one item: " + recipeName);
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(accepted[0].getItem());
+        return id.toString();
     }
 
     private static final class CpuCraftingJob {
@@ -6199,6 +6616,10 @@ public final class PackageDataGameTests {
         public Component getDescription() {
             return Component.literal("memory");
         }
+    }
+
+    private static PackageUnpackingTarget packageUnpackingTarget(MEStorage storage) {
+        return PackageUnpackingTarget.of(storage, IActionSource.empty());
     }
 
     private static final class CapacityMEStorage implements MEStorage {

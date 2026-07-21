@@ -62,7 +62,7 @@ public final class AppliedPackagingClient {
             InitScreens.register(
                     APMenus.ADVANCED_PATTERN_ENCODING_TERMINAL.get(),
                     AdvancedPatternEncodingTermScreen::new,
-                    "/screens/appliedpackaging/advanced_pattern_encoding_terminal.json");
+                    "/screens/appliedpackaging/advanced_pattern_terminal.json");
             InitScreens.register(
                     APMenus.PACKAGE_BUS.get(),
                     PackageBusScreen::new,

@@ -14,14 +14,14 @@ categories:
 
 <BlockImage id="appliedpackaging:package_assembler" scale="8" />
 
-ME 包裹装配室接收输入的物品，根据相邻 <ItemLink id="ae2:pattern_provider" /> 或插入的[包裹样板](../devices/advanced-pattern-terminal.md)、[高级处理样板](../devices/advanced-pattern-terminal.md)或普通 AE2 样板执行装配操作，然后输出生成的包裹。默认情况下，输出进入相连的 ME 存储。
+ME 包裹装配室接收物品、流体和其它与 AEKey 兼容的输入，根据相邻 <ItemLink id="ae2:pattern_provider" /> 或插入的[包裹样板](../devices/advanced-pattern-terminal.md)、[高级处理样板](../devices/advanced-pattern-terminal.md)或普通 AE2 样板执行装配操作，然后输出生成的包裹。与 ME 接口一样，它只实现一份通用 AEKey 库存，不另行实现物品 handler 视图；各资源类型的外部 capability 由 AE2 从该库存派生。默认情况下，输出进入相连的 ME 存储。
 
 ## 插入样板并使用漏斗输入输出
 
 例如，装配室中有一个包裹样板，指定煤炭在槽位 1、圆石在槽位 2。当煤炭和圆石从输入漏斗送入时，装配室装配出一个包裹，并将其输出到下方的漏斗中。
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../../assets/assemblies/package_assembler_hopper.snbt" />
+  <ImportStructure src="../assets/assemblies/package_assembler_hopper.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
   <BoxAnnotation color="#66aaff" min="2 1 0" max="3 2 1">
@@ -44,7 +44,7 @@ ME 包裹装配室接收输入的物品，根据相邻 <ItemLink id="ae2:pattern
 示例是一个 2×2×2 棋盘式网格：4 个样板供应器和 4 个包裹装配室。供应器会占用 4 个频道。结构留出了一段智能线缆，用于接入主网络。
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../../assets/assemblies/package_assembly_line.snbt" />
+  <ImportStructure src="../assets/assemblies/package_assembly_line.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
   <BoxAnnotation color="#dddddd" min="0 0 0" max="2 2 2">
@@ -62,7 +62,7 @@ ME 包裹装配室接收输入的物品，根据相邻 <ItemLink id="ae2:pattern
 当你需要按颜色路由包裹时，请使用方向性样板供应器。用 <ItemLink id="ae2:certus_quartz_wrench" /> 右键调整供应器，使朝向装配室的选中面不提供网络连接。保持装配室输出为“输出到 ME 网络”（默认），并将它连接到独立子网络；该子网络只使用一个或多个按不同颜色过滤的包裹存储总线作为存储。
 
 <GameScene zoom="5" background="transparent">
-  <ImportStructure src="../../assets/assemblies/package_assembler_subnetwork.snbt" />
+  <ImportStructure src="../assets/assemblies/package_assembler_subnetwork.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
   <BoxAnnotation color="#66aaff" min="0 0 0" max="1 1 2">
@@ -102,14 +102,16 @@ ME 包裹装配室接收输入的物品，根据相邻 <ItemLink id="ae2:pattern
 
 装配室在消耗任何原料之前，会先确认每个包裹是否在容量限制内：
 
-| 组件 | 最多类型 | 最多件数 |
+| 组件 | 最多类型 | 最多单位 |
 |------|---------|---------|
-| 无 | 9 | 9 |
-| <ItemLink id="ae2:cell_component_16k" /> | 16 | 16 |
-| <ItemLink id="ae2:cell_component_64k" /> | 63 | 64 |
-| <ItemLink id="ae2:cell_component_256k" /> | 63 | 256 |
+| 无（默认 1k 档） | 9 | 256 |
+| <ItemLink id="ae2:cell_component_16k" /> | 16 | 4,096 |
+| <ItemLink id="ae2:cell_component_64k" /> | 63 | 16,384 |
+| <ItemLink id="ae2:cell_component_256k" /> | 63 | 65,536 |
 
-成品存储元件和 1k 组件不可使用。将组件安装在装配室的组件槽中。
+空槽默认 1k 档与每种受支持的元件都提供其 ME 名义容量四分之一的包裹单位上限。
+
+成品存储元件和 1k 组件不可使用；空槽已经提供 1k 档。将受支持的升级组件安装在装配室的组件槽中。
 
 ## 颜色和标记
 

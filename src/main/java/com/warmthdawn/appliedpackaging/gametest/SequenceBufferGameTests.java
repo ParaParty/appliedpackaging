@@ -992,6 +992,38 @@ public final class SequenceBufferGameTests {
     }
 
     @GameTest(template = "sequence_buffer_empty")
+    public static void unpackingBusBlockingRequiresEverySequenceMemberEmpty(GameTestHelper helper) {
+        List<SequenceBufferBlockEntity> blocks = formEastLine(helper, 4);
+        SequenceBufferBlockEntity endpoint = blocks.get(0);
+        var configuration = endpoint.configurationCopy();
+        configuration.setPatternMode(true);
+        endpoint.updateConfiguration(configuration);
+
+        List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(endpoint);
+        MEStorage firstMemberStorage = members.get(0).getCapability(Capabilities.STORAGE)
+                .orElseThrow(IllegalStateException::new);
+        helper.assertTrue(firstMemberStorage.insert(
+                        AEItemKey.of(Items.DIAMOND),
+                        1,
+                        Actionable.MODULATE,
+                        IActionSource.empty())
+                        == 1,
+                "Sequence blocking fixture should occupy an unrelated member");
+
+        PackageData packageData = PackageData.create(
+                PackageColor.BLUE,
+                List.of(new GenericStack(AEItemKey.of(Items.IRON_INGOT), 8)),
+                Optional.of(new PackageLayout(3, List.of(1))),
+                Optional.empty(),
+                0);
+        helper.assertFalse(endpoint.acceptPackage(packageData, true, true),
+                "Unpacking Bus blocking should reject a sequence target when any member has contents");
+        helper.assertTrue(endpoint.acceptPackage(packageData, false, true),
+                "The same package should pass simulation when bus blocking is disabled and its target member is empty");
+        helper.succeed();
+    }
+
+    @GameTest(template = "sequence_buffer_empty")
     public static void advancedPatternAlwaysUsesDenseInputOrder(GameTestHelper helper) {
         List<SequenceBufferBlockEntity> blocks = formEastLine(helper, 4);
         SequenceBufferBlockEntity endpoint = blocks.get(0);

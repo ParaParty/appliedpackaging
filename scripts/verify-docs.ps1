@@ -320,6 +320,50 @@ function Test-GuideMePages {
         }
     }
 
+    $itemIndexOwners = @{}
+    foreach ($pageName in $basePages) {
+        $englishPath = Join-Path $guideRoot $pageName
+        $translatedPath = Join-Path $translatedRoot $pageName
+        if (-not (Test-Path -LiteralPath $englishPath) -or -not (Test-Path -LiteralPath $translatedPath)) {
+            continue
+        }
+
+        $englishContent = Get-Content -LiteralPath $englishPath -Raw
+        $translatedContent = Get-Content -LiteralPath $translatedPath -Raw
+        $itemBlockPattern = '(?ms)^item_ids:\s*\r?\n(?<items>(?:-\s+\S+\s*\r?\n)+)'
+        $englishBlock = [regex]::Match($englishContent, $itemBlockPattern)
+        $translatedBlock = [regex]::Match($translatedContent, $itemBlockPattern)
+        $englishItemIds = @()
+        $translatedItemIds = @()
+        if ($englishBlock.Success) {
+            $englishItemIds = @(
+                [regex]::Matches($englishBlock.Groups["items"].Value, '(?m)^-\s+(?<id>\S+)\s*$') |
+                    ForEach-Object { $_.Groups["id"].Value }
+            )
+        }
+        if ($translatedBlock.Success) {
+            $translatedItemIds = @(
+                [regex]::Matches($translatedBlock.Groups["items"].Value, '(?m)^-\s+(?<id>\S+)\s*$') |
+                    ForEach-Object { $_.Groups["id"].Value }
+            )
+        }
+
+        if (($englishItemIds -join "`n") -eq ($translatedItemIds -join "`n")) {
+            Add-Pass "GuideME English and zh_cn item indexes match: $pageName"
+        } else {
+            Add-Fail "GuideME English and zh_cn item indexes match: $pageName"
+        }
+
+        foreach ($itemId in $englishItemIds) {
+            if ($itemIndexOwners.ContainsKey($itemId)) {
+                Add-Fail "GuideME item index is unique: $itemId maps to both $($itemIndexOwners[$itemId]) and $pageName"
+            } else {
+                $itemIndexOwners[$itemId] = $pageName
+            }
+        }
+    }
+    Add-Pass "Checked $($itemIndexOwners.Count) unique GuideME item index entr$(if ($itemIndexOwners.Count -eq 1) { 'y' } else { 'ies' })"
+
     $expectedTagCounts = [ordered]@{
         "devices/advanced-pattern-terminal.md|GameScene" = 1
         "devices/advanced-pattern-terminal.md|RecipeFor" = 1
@@ -370,7 +414,19 @@ function Test-GuideMePages {
         $content = Get-Content -LiteralPath $pageFile.FullName -Raw
         foreach ($match in [regex]::Matches($content, '<ImportStructure\s+src="(?<src>[^"]+)"')) {
             $src = $match.Groups["src"].Value
-            $candidate = [System.IO.Path]::GetFullPath((Join-Path $pageFile.DirectoryName $src))
+            # GuideME registers a translated file such as _zh_cn/devices/page.md
+            # under the canonical page id devices/page.md. Runtime-relative
+            # resources are therefore resolved from the canonical page directory,
+            # not from the physical _zh_cn directory in the source tree.
+            $runtimePage = if ($pageFile.FullName.StartsWith(
+                    $resolvedTranslatedRoot + [System.IO.Path]::DirectorySeparatorChar,
+                    [System.StringComparison]::OrdinalIgnoreCase)) {
+                [System.IO.Path]::GetRelativePath($resolvedTranslatedRoot, $pageFile.FullName)
+            } else {
+                [System.IO.Path]::GetRelativePath($resolvedGuideRoot, $pageFile.FullName)
+            }
+            $runtimePageDirectory = Split-Path -Parent (Join-Path $resolvedGuideRoot $runtimePage)
+            $candidate = [System.IO.Path]::GetFullPath((Join-Path $runtimePageDirectory $src))
             $relativePage = [System.IO.Path]::GetRelativePath($repoRoot, $pageFile.FullName).Replace("\", "/")
             if (-not ($candidate.Equals($resolvedGuideRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
                     $candidate.StartsWith($resolvedGuideRoot + "\", [System.StringComparison]::OrdinalIgnoreCase))) {
@@ -382,6 +438,31 @@ function Test-GuideMePages {
             }
         }
     }
+
+    $explicitHelpTopicsChecked = 0
+    $javaRoot = Join-Path $repoRoot "src/main/java"
+    if (Test-Path -LiteralPath $javaRoot) {
+        foreach ($javaFile in Get-ChildItem -LiteralPath $javaRoot -Filter "*.java" -File -Recurse) {
+            $content = Get-Content -LiteralPath $javaFile.FullName -Raw
+            foreach ($match in [regex]::Matches(
+                    $content,
+                    'AppliedPackaging\.id\("(?<page>[^"\r\n]+\.md)"\)')) {
+                $page = $match.Groups["page"].Value.Replace("\", "/")
+                $candidate = [System.IO.Path]::GetFullPath((Join-Path $resolvedGuideRoot $page))
+                $relativeJava = [System.IO.Path]::GetRelativePath($repoRoot, $javaFile.FullName).Replace("\", "/")
+                $explicitHelpTopicsChecked += 1
+                if (-not ($candidate.Equals($resolvedGuideRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+                        $candidate.StartsWith($resolvedGuideRoot + "\", [System.StringComparison]::OrdinalIgnoreCase))) {
+                    Add-Fail "GuideME help topic escapes guide root in $relativeJava -> $page"
+                } elseif (-not (Test-Path -LiteralPath $candidate)) {
+                    Add-Fail "Missing GuideME help topic in $relativeJava -> $page"
+                } else {
+                    Add-Pass "GuideME help topic resolves in $relativeJava -> $page"
+                }
+            }
+        }
+    }
+    Add-Pass "Checked $explicitHelpTopicsChecked explicit GuideME help topic(s)"
 
     $orderedInputsPage = Join-Path $guideRoot "example-setups/ordered-machine-inputs.md"
     $orderedInputsZhPage = Join-Path $translatedRoot "example-setups/ordered-machine-inputs.md"

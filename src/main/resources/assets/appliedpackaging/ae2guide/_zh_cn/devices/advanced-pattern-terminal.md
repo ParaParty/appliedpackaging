@@ -16,7 +16,7 @@ categories:
 # 高级样板编码终端
 
 <GameScene zoom="8" background="transparent">
-  <ImportStructure src="../../assets/blocks/advanced_pattern_encoding_terminal.snbt" />
+  <ImportStructure src="../assets/blocks/advanced_pattern_encoding_terminal.snbt" />
   <IsometricCamera yaw="180" />
 </GameScene>
 

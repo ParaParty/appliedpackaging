@@ -154,6 +154,7 @@
   "gui.appliedpackaging.jei_transfer.too_many_inputs": "A package stage needs %s inputs; each column supports %s.",
   "gui.appliedpackaging.jei_transfer.too_many_outputs": "This recipe has %s outputs; the terminal supports %s.",
   "gui.appliedpackaging.jei_transfer.payload_too_large": "This recipe is too large to send to the server safely.",
+  "gui.appliedpackaging.jei_transfer.internal_error": "An unexpected error occurred while preparing this recipe for encoding.",
   "gui.appliedpackaging.package_bus.set_filter": "Set filter from cursor",
   "gui.appliedpackaging.package_bus.clear_filter": "Clear filter",
   "gui.appliedpackaging.package_bus.title": "Package Bus",

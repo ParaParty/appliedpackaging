@@ -5,26 +5,29 @@
     "a": {
       "item": "ae2:annihilation_core"
     },
-    "c": {
-      "item": "minecraft:chest"
+    "d": {
+      "item": "ae2:sky_dust"
     },
     "f": {
       "item": "ae2:formation_core"
     },
     "i": {
-      "tag": "forge:ingots/iron"
+      "item": "ae2:interface"
+    },
+    "k": {
+      "item": "ae2:cell_component_4k"
     },
     "p": {
-      "item": "minecraft:piston"
+      "item": "minecraft:dried_kelp"
     },
     "q": {
       "item": "ae2:quartz_glass"
     }
   },
   "pattern": [
-    "iqi",
-    "acf",
-    "ipi"
+    "fda",
+    "qiq",
+    "pkp"
   ],
   "result": {
     "item": "appliedpackaging:me_packager"

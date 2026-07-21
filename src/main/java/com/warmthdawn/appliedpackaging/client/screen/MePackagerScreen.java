@@ -2,7 +2,6 @@ package com.warmthdawn.appliedpackaging.client.screen;
 
 import appeng.api.config.ActionItems;
 import appeng.client.gui.Icon;
-import appeng.client.guidebook.PageAnchor;
 import appeng.client.gui.style.ScreenStyle;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.IconButton;
@@ -15,7 +14,6 @@ import com.warmthdawn.appliedpackaging.client.widget.ModernSlotRendering;
 import com.warmthdawn.appliedpackaging.client.widget.PackageColorPicker;
 import com.warmthdawn.appliedpackaging.client.widget.PackageToolbarSprites;
 import com.warmthdawn.appliedpackaging.client.widget.SpriteToggleButton;
-import com.warmthdawn.appliedpackaging.AppliedPackaging;
 import com.warmthdawn.appliedpackaging.world.block.entity.MePackagerBlockEntity;
 import com.warmthdawn.appliedpackaging.world.menu.MePackagerMenu;
 import java.util.List;
@@ -86,11 +84,6 @@ public class MePackagerScreen extends ModernUpgradeableScreen<MePackagerMenu> {
         colorButton.setX(leftPos + COLOR_BUTTON_X);
         colorButton.setY(topPos + COLOR_BUTTON_Y);
         addRenderableWidget(colorButton);
-    }
-
-    @Override
-    protected PageAnchor getHelpTopic() {
-        return PageAnchor.page(AppliedPackaging.id("me_packager.md"));
     }
 
     @Override

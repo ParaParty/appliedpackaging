@@ -50,16 +50,18 @@ Both pattern types are encoded in the [Advanced Pattern Encoding Terminal](../de
 
 ## Capacity
 
-By default each package holds up to 9 item types and 9 total items. AE2 storage components installed in the machine that creates the package increase these limits:
+With no component installed, the machine uses its default 1k tier: up to 9 types and 256 package units. AE2 storage components installed in the machine that creates the package increase these limits:
 
-| Component | Max Types | Max Total |
+| Component | Max Types | Max Units |
 |-----------|-----------|-----------|
-| None | 9 | 9 |
-| <ItemLink id="ae2:cell_component_16k" /> | 16 | 16 |
-| <ItemLink id="ae2:cell_component_64k" /> | 63 | 64 |
-| <ItemLink id="ae2:cell_component_256k" /> | 63 | 256 |
+| None (default 1k tier) | 9 | 256 |
+| <ItemLink id="ae2:cell_component_16k" /> | 16 | 4,096 |
+| <ItemLink id="ae2:cell_component_64k" /> | 63 | 16,384 |
+| <ItemLink id="ae2:cell_component_256k" /> | 63 | 65,536 |
 
-Storage cells and 1k components are not accepted. Only 16k, 64k, and 256k raw components work.
+The empty default 1k tier and each supported component provide one quarter of their nominal ME capacity in package units.
+
+Storage cells and 1k components are not accepted; the empty slot already provides the 1k tier. Only 16k, 64k, and 256k raw components work as upgrades.
 
 ## Contents, Color, and Marker
 

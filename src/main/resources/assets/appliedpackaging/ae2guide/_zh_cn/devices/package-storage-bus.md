@@ -13,7 +13,7 @@ categories:
 # 包裹存储总线
 
 <GameScene zoom="8" background="transparent">
-<ImportStructure src="../../assets/blocks/package_storage_bus.snbt" />
+<ImportStructure src="../assets/blocks/package_storage_bus.snbt" />
 </GameScene>
 
 包裹存储总线将其贴附的容器转化为包裹的网络存储。它让网络看到该容器中的包裹，并根据网络中设备的推拉需求从该容器中存取包裹。

@@ -11,7 +11,7 @@ navigation:
 在样板供应器内放入一个 5×5 的高级样板。5 列分别使用不同颜色，每列中的 5 个位置按顺序写入，空位也保留。用扳手将供应器的选定输出面转向包裹装配室；装配室开启阻挡模式，再由 5 个按颜色过滤的包裹卸货总线将 5 个包裹送入对应缓存行。
 
 <GameScene zoom="3.25" background="transparent">
-  <ImportStructure src="../../../assets/assemblies/sequence_mechanical_crafting_5x5.snbt" />
+  <ImportStructure src="../../assets/assemblies/sequence_mechanical_crafting_5x5.snbt" />
   <IsometricCamera yaw="215" pitch="25" />
 
   <BoxAnnotation color="#dd88cc" min="0 0 4" max="3 1 6">

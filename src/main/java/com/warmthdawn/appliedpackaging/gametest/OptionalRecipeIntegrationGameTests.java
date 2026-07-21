@@ -2,14 +2,20 @@ package com.warmthdawn.appliedpackaging.gametest;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.menu.me.common.GridInventoryEntry;
+import com.gregtechceu.gtceu.api.capability.recipe.ItemRecipeCapability;
+import com.gregtechceu.gtceu.api.recipe.GTRecipe;
+import com.gregtechceu.gtceu.api.registry.GTRegistries;
 import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
 import com.warmthdawn.appliedpackaging.core.pattern.PackagePatternTransferPlan;
-import com.warmthdawn.appliedpackaging.integration.jei.RecipeTransferSemantics;
-import com.warmthdawn.appliedpackaging.integration.jei.RecipeIngredientSelector;
-import com.warmthdawn.appliedpackaging.integration.jei.StandardRecipeTransferAdapter;
-import com.warmthdawn.appliedpackaging.integration.jei.create.CreateRecipeTransferAdapter;
-import com.warmthdawn.appliedpackaging.integration.jei.gtceu.GtceuRecipeTransferAdapter;
+import com.warmthdawn.appliedpackaging.integration.jei.JeiRecipeExtractor;
+import com.warmthdawn.appliedpackaging.integration.recipe.RecipeIngredientSelector;
+import com.warmthdawn.appliedpackaging.integration.recipe.RecipeTransferSemantics;
+import com.warmthdawn.appliedpackaging.integration.recipe.StandardRecipePlanFactory;
+import com.warmthdawn.appliedpackaging.integration.recipe.create.CreateRecipeSemanticEncoder;
+import com.warmthdawn.appliedpackaging.integration.recipe.gtceu.GtceuRecipeLookup;
+import com.warmthdawn.appliedpackaging.integration.recipe.gtceu.GtceuRecipeSemanticEncoder;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +40,8 @@ import net.minecraftforge.fluids.FluidStack;
  * Optional recipe-viewer assertions kept outside Forge's annotated GameTest holders.
  *
  * <p>Forge reflectively discovers annotated holders before filtering namespaces. Keeping optional
- * JEI signatures here leaves the annotated holder viewer-neutral; TMRV supplies those signatures
- * for EMI runs, and GameTestServer invokes these assertions through neutral wrapper methods.
+ * JEI signatures here leaves the annotated holder viewer-neutral. The holder skips these assertions
+ * when JEI is absent, while GameTestServer still verifies that the main mod loads without a viewer.
  */
 public final class OptionalRecipeIntegrationGameTests {
     private OptionalRecipeIntegrationGameTests() {
@@ -48,9 +54,12 @@ public final class OptionalRecipeIntegrationGameTests {
                 TestRecipeSlot.item(RecipeIngredientRole.CATALYST, new ItemStack(Items.IRON_PICKAXE)),
                 TestRecipeSlot.item(RecipeIngredientRole.RENDER_ONLY, new ItemStack(Items.BARRIER)),
                 TestRecipeSlot.item(RecipeIngredientRole.OUTPUT, new ItemStack(Items.DIAMOND, 2))));
-        StandardRecipeTransferAdapter adapter = new StandardRecipeTransferAdapter();
+        StandardRecipePlanFactory planFactory = new StandardRecipePlanFactory();
 
-        var advanced = adapter.createPlan(new Object(), slots);
+        var advanced = planFactory.createAdvancedPlan(
+                new Object(),
+                JeiRecipeExtractor.extractStandardData(slots),
+                RecipeIngredientSelector.empty());
         helper.assertTrue(advanced.error() == null && advanced.plan() != null,
                 "A normal deterministic JEI item recipe should produce an advanced pattern plan");
         helper.assertTrue(advanced.plan().columns().size() == 2
@@ -65,7 +74,9 @@ public final class OptionalRecipeIntegrationGameTests {
                         && advanced.plan().outputs().get(0).amount() == 2,
                 "The deterministic JEI OUTPUT slot should retain its amount");
 
-        var packaged = adapter.createPackagePlan(new Object(), slots);
+        var packaged = planFactory.createPackagePlan(
+                new Object(),
+                JeiRecipeExtractor.extractStandardData(slots));
         helper.assertTrue(packaged.error() == null && packaged.plan() != null,
                 "The same normal JEI recipe should produce a package-pattern plan");
         helper.assertTrue(packaged.plan().inputs().size() == 2
@@ -91,7 +102,10 @@ public final class OptionalRecipeIntegrationGameTests {
                                 TestTypedIngredient.fluid(new FluidStack(Fluids.WATER, 250)),
                                 TestTypedIngredient.fluid(new FluidStack(Fluids.LAVA, 250)))),
                 TestRecipeSlot.item(RecipeIngredientRole.OUTPUT, new ItemStack(Items.DIAMOND))));
-        var preferred = adapter.createPlan(new Object(), alternatives, currentInventory);
+        var preferred = planFactory.createAdvancedPlan(
+                new Object(),
+                JeiRecipeExtractor.extractStandardData(alternatives),
+                currentInventory);
         helper.assertTrue(preferred.error() == null
                         && preferred.plan() != null
                         && preferred.plan().columns().get(0).get(0).what()
@@ -122,7 +136,10 @@ public final class OptionalRecipeIntegrationGameTests {
                         List.of(
                                 TestTypedIngredient.item(new ItemStack(Items.DIAMOND)),
                                 TestTypedIngredient.item(new ItemStack(Items.EMERALD))))));
-        helper.assertTrue(adapter.createPlan(new Object(), ambiguousOutput).error() != null,
+        helper.assertTrue(planFactory.createAdvancedPlan(
+                        new Object(),
+                        JeiRecipeExtractor.extractStandardData(ambiguousOutput),
+                        RecipeIngredientSelector.empty()).error() != null,
                 "A JEI output slot with multiple alternatives must be rejected as ambiguous");
         helper.succeed();
     }
@@ -143,10 +160,10 @@ public final class OptionalRecipeIntegrationGameTests {
     static void createSequencedAssemblyBuildsOrderedAdvancedPlan(GameTestHelper helper) {
         ResourceLocation id = new ResourceLocation("create", "sequenced_assembly/sturdy_sheet");
         Recipe<?> recipe = helper.getLevel().getRecipeManager().byKey(id).orElseThrow();
-        CreateRecipeTransferAdapter adapter = new CreateRecipeTransferAdapter();
-        var result = adapter.createPlan(recipe, null);
+        CreateRecipeSemanticEncoder encoder = new CreateRecipeSemanticEncoder();
+        var result = encoder.createPlan(recipe);
 
-        helper.assertTrue(adapter.supports(recipe),
+        helper.assertTrue(encoder.supports(recipe),
                 "Create sequenced assembly should be claimed by the Create transfer adapter");
         helper.assertTrue(result.error() == null && result.plan() != null,
                 "Deterministic Create sequenced assembly should produce an advanced pattern plan");
@@ -164,10 +181,10 @@ public final class OptionalRecipeIntegrationGameTests {
     static void createMechanicalCraftingChoosesFewerRowOrColumnPackages(GameTestHelper helper) {
         ResourceLocation id = new ResourceLocation("create", "mechanical_crafting/extendo_grip");
         Recipe<?> recipe = helper.getLevel().getRecipeManager().byKey(id).orElseThrow();
-        CreateRecipeTransferAdapter adapter = new CreateRecipeTransferAdapter();
-        var result = adapter.createPlan(recipe, null);
+        CreateRecipeSemanticEncoder encoder = new CreateRecipeSemanticEncoder();
+        var result = encoder.createPlan(recipe);
 
-        helper.assertTrue(adapter.supports(recipe),
+        helper.assertTrue(encoder.supports(recipe),
                 "Create mechanical crafting should be claimed by the Create transfer adapter");
         helper.assertTrue(result.error() == null && result.plan() != null,
                 "Deterministic Create mechanical crafting should produce an advanced pattern plan");
@@ -197,10 +214,15 @@ public final class OptionalRecipeIntegrationGameTests {
     }
 
     static void gtceuDeterministicRecipeBuildsAdvancedPlan(GameTestHelper helper) {
-        GtceuRecipeTransferAdapter adapter = new GtceuRecipeTransferAdapter();
+        GtceuRecipeSemanticEncoder encoder = new GtceuRecipeSemanticEncoder();
         var result = helper.getLevel().getRecipeManager().getRecipes().stream()
-                .filter(adapter::supports)
-                .map(recipe -> adapter.createPlan(recipe, null))
+                .filter(encoder::supports)
+                .map(GTRecipe.class::cast)
+                .filter(recipe -> recipe.data == null
+                        || (!recipe.data.contains("layered_steps")
+                        && !recipe.data.contains("layered_xei")
+                        && !recipe.data.contains("layered_info")))
+                .map(encoder::createPlan)
                 .filter(candidate -> candidate.error() == null
                         && candidate.plan() != null
                         && candidate.plan().columns().size() >= 2)
@@ -214,6 +236,147 @@ public final class OptionalRecipeIntegrationGameTests {
         helper.assertTrue(!plan.outputs().isEmpty(),
                 "GTCEu recipe import should preserve at least one deterministic output");
         helper.succeed();
+    }
+
+    static void gtceuPublicRegistryRecoversDisplayRecipeById(GameTestHelper helper) {
+        GTRecipe candidate = null;
+        boolean layeredCandidate = false;
+        search:
+        for (var recipeType : GTRegistries.RECIPE_TYPES) {
+            for (var category : recipeType.getCategories()) {
+                for (GTRecipe recipe : recipeType.getRecipesInCategory(category)) {
+                    candidate = recipe;
+                    if (recipe.data != null
+                            && (recipe.data.contains("layered_steps")
+                            || recipe.data.contains("layered_xei")
+                            || recipe.data.contains("layered_info"))) {
+                        layeredCandidate = true;
+                        break search;
+                    }
+                }
+            }
+        }
+
+        helper.assertTrue(candidate != null,
+                "GTCEu should expose at least one public category recipe for EMI recovery");
+        Object recovered = GtceuRecipeLookup.findById(candidate.getId());
+        helper.assertTrue(recovered instanceof GTRecipe
+                        && ((GTRecipe) recovered).getId().equals(candidate.getId()),
+                "GTCEu EMI recovery must find display recipes by id through public registries");
+        if (layeredCandidate) {
+            GTRecipe layered = (GTRecipe) recovered;
+            helper.assertTrue(layered.data != null
+                            && (layered.data.contains("layered_steps")
+                            || layered.data.contains("layered_xei")
+                            || layered.data.contains("layered_info")),
+                    "StarT layered display recovery must preserve public layered recipe data");
+        }
+        helper.succeed();
+    }
+
+    static void gtceuLayeredRecipeGroupsEachLayerIntoOnePackageColumn(GameTestHelper helper) {
+        Class<?> layeredHelper;
+        try {
+            layeredHelper = Class.forName("com.gregtechceu.gtceu.api.recipe.LayeredRecipeHelper");
+        } catch (ClassNotFoundException e) {
+            helper.succeed();
+            return;
+        }
+
+        GtceuRecipeSemanticEncoder encoder = new GtceuRecipeSemanticEncoder();
+        GTRecipe seed = helper.getLevel().getRecipeManager().getRecipes().stream()
+                .filter(GTRecipe.class::isInstance)
+                .map(GTRecipe.class::cast)
+                .filter(recipe -> recipe.inputs.getOrDefault(ItemRecipeCapability.CAP, List.of()).size() >= 4)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "StarT Fork should expose a GT recipe type that accepts four item inputs"));
+
+        GTRecipe layeredInfoRecipe;
+        GTRecipe xeiRecipe;
+        GTRecipe xeiPointerRecipe;
+        try {
+            Class<?> recipeType = Class.forName("com.gregtechceu.gtceu.api.recipe.GTRecipeType");
+            Class<?> recipeBuilder = Class.forName("com.gregtechceu.gtceu.data.recipe.builder.GTRecipeBuilder");
+            Object builder = recipeBuilder.getMethod("of", ResourceLocation.class, recipeType)
+                    .invoke(null, new ResourceLocation("appliedpackaging", "layered_xei_fixture"), seed.recipeType);
+            recipeBuilder.getMethod("EUt", long.class).invoke(builder, 8L);
+            recipeBuilder.getMethod("outputItems", ItemStack[].class)
+                    .invoke(builder, (Object) new ItemStack[] { new ItemStack(Items.EMERALD) });
+
+            Class<?> layeredBuilder =
+                    Class.forName("com.gregtechceu.gtceu.data.recipe.builder.LayeredRecipeInfo$Builder");
+            Object layers = layeredBuilder.getConstructor(recipeBuilder).newInstance(builder);
+            var inputItems = layeredBuilder.getMethod("inputItems", ItemStack[].class);
+            var duration = layeredBuilder.getMethod("duration", int.class);
+            var next = layeredBuilder.getMethod("next");
+            inputItems.invoke(layers, (Object) new ItemStack[] {
+                    new ItemStack(Items.IRON_INGOT, 2), new ItemStack(Items.GOLD_INGOT, 3)
+            });
+            duration.invoke(layers, 20);
+            next.invoke(layers);
+            inputItems.invoke(layers, (Object) new ItemStack[] {
+                    new ItemStack(Items.COPPER_INGOT, 4), new ItemStack(Items.DIAMOND, 5)
+            });
+            duration.invoke(layers, 30);
+            layeredBuilder.getMethod("apply").invoke(layers);
+            layeredInfoRecipe = ((GTRecipe) recipeBuilder.getMethod("buildRawRecipe").invoke(builder)).copy();
+
+            layeredHelper.getMethod("applyLayeredRecipeModifications", recipeBuilder).invoke(null, builder);
+            GTRecipe serverRecipe = (GTRecipe) recipeBuilder.getMethod("buildRawRecipe").invoke(builder);
+            helper.assertTrue(serverRecipe.data.contains("layered_steps")
+                            && serverRecipe.data.contains("layered_xei"),
+                    "The Fork server recipe fixture should contain both executable steps and its XEI recipe");
+            xeiPointerRecipe = serverRecipe.copy();
+            xeiPointerRecipe.data.remove("layered_steps");
+            xeiPointerRecipe.data.remove("layered_info");
+            xeiRecipe = (GTRecipe) layeredHelper.getMethod("getXeiLayeredRecipe", GTRecipe.class)
+                    .invoke(null, serverRecipe);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Could not construct the StarT Fork layered XEI recipe fixture", e);
+        }
+        helper.assertTrue(layeredInfoRecipe.data.contains("layered_info")
+                        && !layeredInfoRecipe.data.contains("layered_steps"),
+                "The pre-expansion XEI representation should retain layered_info without executable steps");
+        helper.assertTrue(xeiRecipe != null,
+                "The Fork server recipe should expose its embedded layered_xei representation");
+
+        assertLayeredPlan(helper, encoder.createPlan(layeredInfoRecipe).plan(),
+                "The layered_info XEI representation");
+        assertLayeredPlan(helper, encoder.createPlan(xeiRecipe).plan(),
+                "The embedded layered_xei representation");
+        assertLayeredPlan(helper, encoder.createPlan(xeiPointerRecipe).plan(),
+                "The layered_xei-only server representation");
+        helper.succeed();
+    }
+
+    private static void assertLayeredPlan(
+            GameTestHelper helper,
+            AdvancedPatternTransferPlan plan,
+            String representation) {
+        helper.assertTrue(plan != null,
+                representation + " should produce an advanced pattern plan");
+        helper.assertTrue(plan.columns().size() == 2,
+                representation + " should create exactly one package column for every layer");
+        assertItemColumn(helper, plan.columns().get(0),
+                Items.IRON_INGOT, 2, Items.GOLD_INGOT, 3);
+        assertItemColumn(helper, plan.columns().get(1),
+                Items.COPPER_INGOT, 4, Items.DIAMOND, 5);
+    }
+
+    private static void assertItemColumn(
+            GameTestHelper helper,
+            List<GenericStack> column,
+            net.minecraft.world.item.Item firstItem,
+            long firstAmount,
+            net.minecraft.world.item.Item secondItem,
+            long secondAmount) {
+        helper.assertTrue(column.size() == 2
+                        && column.get(0).what().equals(AEItemKey.of(firstItem))
+                        && column.get(0).amount() == firstAmount
+                        && column.get(1).what().equals(AEItemKey.of(secondItem))
+                        && column.get(1).amount() == secondAmount,
+                "Every layered XEI package column must preserve all materials and amounts from that layer");
     }
 
     public static final class TestChanceRecipe {

@@ -154,6 +154,7 @@
   "gui.appliedpackaging.jei_transfer.too_many_inputs": "某个包裹阶段需要 %s 个输入，每列最多支持 %s 个。",
   "gui.appliedpackaging.jei_transfer.too_many_outputs": "此配方有 %s 个输出，终端最多支持 %s 个。",
   "gui.appliedpackaging.jei_transfer.payload_too_large": "此配方数据过大，无法安全发送到服务端。",
+  "gui.appliedpackaging.jei_transfer.internal_error": "准备编码此配方时发生了意外错误。",
   "gui.appliedpackaging.package_bus.set_filter": "从光标设置过滤",
   "gui.appliedpackaging.package_bus.clear_filter": "清除过滤",
   "gui.appliedpackaging.package_bus.title": "包裹总线",

@@ -1,13 +1,23 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "redstone",
-  "ingredients": [
-    {
-      "item": "ae2:pattern_encoding_terminal"
+  "key": {
+    "d": {
+      "item": "ae2:sky_dust"
     },
-    {
-      "item": "ae2:advanced_card"
+    "f": {
+      "item": "ae2:fluix_dust"
+    },
+    "p": {
+      "item": "minecraft:dried_kelp"
+    },
+    "t": {
+      "item": "ae2:pattern_encoding_terminal"
     }
+  },
+  "pattern": [
+    "tf",
+    "dp"
   ],
   "result": {
     "item": "appliedpackaging:advanced_pattern_encoding_terminal"

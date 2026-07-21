@@ -11,7 +11,7 @@ navigation:
 在样板供应器内放入一个加工样板：输入 1 为煤炭 ×1，输入 2 为粗铁 ×8，输出为铁锭 ×8。用扳手将供应器的选定输出面转向包裹装配室。装配室把这一整批原料封成一个包裹，再由白色处理子网将包裹送入四条熔炉支路中当前能够完整接收它的一条。
 
 <GameScene zoom="3.5" background="transparent">
-  <ImportStructure src="../../../assets/assemblies/sequence_furnace_array.snbt" />
+  <ImportStructure src="../../assets/assemblies/sequence_furnace_array.snbt" />
   <IsometricCamera yaw="215" pitch="30" />
 
   <BoxAnnotation color="#dd88cc" min="0 1 2" max="1 2 5">

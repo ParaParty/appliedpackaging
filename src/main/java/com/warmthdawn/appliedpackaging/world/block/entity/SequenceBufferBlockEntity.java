@@ -28,7 +28,6 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageData;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageLayout;
 import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferConfiguration;
 import com.warmthdawn.appliedpackaging.core.sequence_buffer.SequenceBufferTopology;
-import com.warmthdawn.appliedpackaging.diagnostic.RoutingTrace;
 import com.warmthdawn.appliedpackaging.registry.APBlockEntities;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
 import com.warmthdawn.appliedpackaging.world.block.SequenceBufferBlock;
@@ -39,7 +38,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.StringJoiner;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -69,7 +67,6 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     private static final String UPGRADES = "upgrades";
     public static final int FILTER_SLOT_COUNT = 9;
     public static final int UPGRADE_SLOT_COUNT = 1;
-    private static final int REPEATED_TRACE_INTERVAL_TICKS = 20;
     private static final Direction[] OUTPUT_ORDER = {
         Direction.DOWN,
         Direction.UP,
@@ -88,7 +85,6 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
     private Direction sequenceDirection = Direction.NORTH;
     private int sequenceIndex = -1;
     private boolean synchronizingInputFilter;
-    private final Map<String, Long> repeatedTraceTicks = new HashMap<>();
 
     private final GenericStackInv inputFilter = new GenericStackInv(
             this::onInputFilterChanged,
@@ -310,39 +306,16 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
 
     public boolean acceptPackage(PackageData data, boolean blocking, boolean simulate) {
         SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
-        trace(
-                "package_accept_attempt",
-                "action=" + (simulate ? "SIMULATE" : "MODULATE")
-                        + " busBlocking=" + blocking
-                        + " patternMode=" + runtimeConfiguration.patternMode()
-                        + " data=" + RoutingTrace.packageData(data)
-                        + " members=" + traceMembers());
         if (data == null) {
-            trace(
-                    "package_accept_rejected",
-                    "reason=null_data action=" + (simulate ? "SIMULATE" : "MODULATE"));
             return false;
         }
         if (!isEndpoint()) {
-            trace(
-                    "package_accept_rejected",
-                    "reason=not_endpoint action=" + (simulate ? "SIMULATE" : "MODULATE"));
             return false;
         }
         if (blocking) {
             List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(this);
-            for (int memberIndex = 0; memberIndex < members.size(); memberIndex++) {
-                SequenceBufferBlockEntity member = members.get(memberIndex);
-                if (!member.isEmpty()
-                        && data.contents().stream().anyMatch(stack -> stack.what().equals(member.storedKey))) {
-                    trace(
-                            "package_accept_rejected",
-                            "reason=bus_blocking_matching_member"
-                                    + " action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                    + " memberSlot=" + memberIndex
-                                    + " memberPos=" + member.worldPosition.toShortString()
-                                    + " memberKey=" + RoutingTrace.key(member.storedKey)
-                                    + " memberAmount=" + member.storedAmount);
+            for (SequenceBufferBlockEntity member : members) {
+                if (!member.isEmpty()) {
                     return false;
                 }
             }
@@ -363,20 +336,7 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         for (int i = 0; i < data.contents().size(); i++) {
             plan.add(new PlannedInput(slots.get(i), data.contents().get(i)));
         }
-        trace(
-                "package_input_plan",
-                "action=" + (simulate ? "SIMULATE" : "MODULATE")
-                        + " layout=" + activeLayout.map(value -> value.slotCount() + ":" + value.contentSlots())
-                                .orElse("dense")
-                        + " plan=" + tracePlan(plan));
-        boolean accepted = applyInputPlan(plan, simulate);
-        trace(
-                accepted ? "package_accept_succeeded" : "package_accept_rejected",
-                "reason=" + (accepted ? "input_plan_applied" : "input_plan_rejected")
-                        + " action=" + (simulate ? "SIMULATE" : "MODULATE")
-                        + " plan=" + tracePlan(plan)
-                        + " members=" + traceMembers());
-        return accepted;
+        return applyInputPlan(plan, simulate);
     }
 
     public void dropStoredContents() {
@@ -549,11 +509,6 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         SequenceBufferBlockEntity authority = SequenceBufferTopology.resolveEndpoint(this).orElse(this);
         authority.releaseAtGameTime = Math.max(authority.releaseAtGameTime, releaseAt);
         authority.setChanged();
-        trace(
-                "input_delay_marked",
-                "releaseAt=" + releaseAt
-                        + " authority=" + authority.worldPosition.toShortString()
-                        + " authorityReleaseAt=" + authority.releaseAtGameTime);
     }
 
     private boolean inputAdmissionBlocked() {
@@ -592,30 +547,13 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             return;
         }
         if (extractionBlocked()) {
-            traceRepeated(
-                    "auto_output_blocked",
-                    "reason=input_delay mode=individual key=" + RoutingTrace.key(storedKey)
-                            + " amount=" + storedAmount
-                            + " releaseAt=" + releaseAtGameTime);
             return;
         }
         TransferTarget target = findTransferTarget(storedKey, storedAmount, requireFullAmount).orElse(null);
         if (target == null) {
-            traceRepeated(
-                    "auto_output_blocked",
-                    "reason=no_transfer_target mode=individual key=" + RoutingTrace.key(storedKey)
-                            + " amount=" + storedAmount);
             return;
         }
-        AEKey outputKey = storedKey;
-        long requested = storedAmount;
         long inserted = target.insert(storedKey, storedAmount, false);
-        trace(
-                "auto_output_commit",
-                "mode=individual target=" + targetName(target)
-                        + " key=" + RoutingTrace.key(outputKey)
-                        + " requested=" + requested
-                        + " inserted=" + inserted);
         if (inserted > 0) {
             removeStoredAmount(inserted);
         }
@@ -628,27 +566,15 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             return;
         }
         if (extractionBlocked()) {
-            traceRepeated(
-                    "auto_output_blocked",
-                    "reason=input_delay mode=synchronized releaseAt=" + releaseAtGameTime
-                            + " members=" + traceMembers(members));
             return;
         }
         List<PlannedOutput> plan = new ArrayList<>();
-        for (int memberIndex = 0; memberIndex < members.size(); memberIndex++) {
-            SequenceBufferBlockEntity member = members.get(memberIndex);
+        for (SequenceBufferBlockEntity member : members) {
             if (member.isEmpty()) {
                 continue;
             }
             TransferTarget target = member.findTransferTarget(member.storedKey, member.storedAmount, true).orElse(null);
             if (target == null) {
-                traceRepeated(
-                        "auto_output_blocked",
-                        "reason=member_no_transfer_target mode=synchronized"
-                                + " memberSlot=" + memberIndex
-                                + " memberPos=" + member.worldPosition.toShortString()
-                                + " key=" + RoutingTrace.key(member.storedKey)
-                                + " amount=" + member.storedAmount);
                 return;
             }
             plan.add(new PlannedOutput(member, target, member.storedKey, member.storedAmount));
@@ -656,16 +582,8 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
         if (plan.isEmpty()) {
             return;
         }
-        trace("auto_output_plan", "mode=synchronized plan=" + traceOutputPlan(plan));
         for (PlannedOutput output : plan) {
             long inserted = output.target().insert(output.key(), output.amount(), false);
-            trace(
-                    "auto_output_commit",
-                    "mode=synchronized memberPos=" + output.member().worldPosition.toShortString()
-                            + " target=" + targetName(output.target())
-                            + " key=" + RoutingTrace.key(output.key())
-                            + " requested=" + output.amount()
-                            + " inserted=" + inserted);
             if (inserted > 0) {
                 output.member().removeStoredAmount(inserted);
             }
@@ -674,11 +592,6 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
 
     private Optional<TransferTarget> findTransferTarget(AEKey key, long amount, boolean requireFullAmount) {
         if (level == null || key == null || amount <= 0) {
-            traceRepeated(
-                    "transfer_target_rejected",
-                    "reason=invalid_request key=" + RoutingTrace.key(key)
-                            + " amount=" + amount
-                            + " requireFull=" + requireFullAmount);
             return Optional.empty();
         }
         for (Direction direction : outputDirections()) {
@@ -706,58 +619,13 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             }
             for (TransferTarget candidate : candidates) {
                 if (effectiveConfiguration().blockingMode()) {
-                    boolean targetEmpty = candidate.isEmpty();
-                    traceRepeated(
-                            "transfer_target_blocking_check",
-                            "direction=" + direction
-                                    + " targetPos=" + targetPos.toShortString()
-                                    + " target=" + targetName(candidate)
-                                    + " empty=" + targetEmpty
-                                    + " key=" + RoutingTrace.key(key)
-                                    + " amount=" + amount);
-                    if (!targetEmpty) {
-                        traceRepeated(
-                                "transfer_target_rejected",
-                                "reason=blocking_target_not_empty direction=" + direction
-                                        + " targetPos=" + targetPos.toShortString()
-                                        + " target=" + targetName(candidate));
+                    if (!candidate.isEmpty()) {
                         continue;
                     }
                 }
                 long accepted = candidate.insert(key, amount, true);
-                traceRepeated(
-                        "transfer_target_preflight",
-                        "direction=" + direction
-                                + " targetPos=" + targetPos.toShortString()
-                                + " target=" + targetName(candidate)
-                                + " key=" + RoutingTrace.key(key)
-                                + " requested=" + amount
-                                + " accepted=" + accepted
-                                + " requireFull=" + requireFullAmount);
                 if (accepted > 0 && (!requireFullAmount || accepted == amount)) {
-                    trace(
-                            "transfer_target_selected",
-                            "direction=" + direction
-                                    + " targetPos=" + targetPos.toShortString()
-                                    + " target=" + targetName(candidate)
-                                    + " key=" + RoutingTrace.key(key)
-                                    + " amount=" + amount);
                     return Optional.of(candidate);
-                }
-                if (accepted <= 0) {
-                    traceRepeated(
-                            "transfer_target_rejected",
-                            "reason=simulation_zero direction=" + direction
-                                    + " targetPos=" + targetPos.toShortString()
-                                    + " target=" + targetName(candidate));
-                } else if (requireFullAmount) {
-                    traceRepeated(
-                            "transfer_target_rejected",
-                            "reason=partial_when_full_required direction=" + direction
-                                    + " targetPos=" + targetPos.toShortString()
-                                    + " target=" + targetName(candidate)
-                                    + " accepted=" + accepted
-                                    + " requested=" + amount);
                 }
             }
         }
@@ -775,119 +643,46 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
 
     private boolean applyInputPlan(List<PlannedInput> plan, boolean simulate) {
         SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
-        trace(
-                "input_plan_check",
-                "action=" + (simulate ? "SIMULATE" : "MODULATE")
-                        + " plan=" + tracePlan(plan)
-                        + " members=" + traceMembers());
         if (!isEndpoint()) {
-            trace(
-                    "input_plan_rejected",
-                    "reason=not_endpoint action=" + (simulate ? "SIMULATE" : "MODULATE"));
             return false;
         }
         if (plan.isEmpty()) {
-            trace(
-                    "input_plan_rejected",
-                    "reason=empty_plan action=" + (simulate ? "SIMULATE" : "MODULATE"));
             return false;
         }
         List<SequenceBufferBlockEntity> members = SequenceBufferTopology.members(this);
-        for (int inputIndex = 0; inputIndex < plan.size(); inputIndex++) {
-            PlannedInput input = plan.get(inputIndex);
+        for (PlannedInput input : plan) {
             if (input.memberSlot() < 0 || input.memberSlot() >= members.size()) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=member_slot_out_of_range"
-                                + " action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot()
-                                + " memberCount=" + members.size());
                 return false;
             }
             GenericStack stack = input.stack();
             SequenceBufferBlockEntity member = members.get(input.memberSlot());
             if (stack == null) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=null_stack action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot());
                 return false;
             }
             if (stack.what() == null) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=null_key action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot());
                 return false;
             }
             if (stack.amount() <= 0) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=non_positive_amount action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot()
-                                + " amount=" + stack.amount());
                 return false;
             }
             if (stack.amount() > APServerConfig.sequenceBufferCapacity()) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=over_capacity action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot()
-                                + " amount=" + stack.amount()
-                                + " capacity=" + APServerConfig.sequenceBufferCapacity());
                 return false;
             }
             if (!member.isEmpty()) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=member_not_empty action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot()
-                                + " memberPos=" + member.worldPosition.toShortString()
-                                + " memberKey=" + RoutingTrace.key(member.storedKey)
-                                + " memberAmount=" + member.storedAmount);
                 return false;
             }
             if (member.inputAdmissionBlocked()) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=member_input_admission_cooldown action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot()
-                                + " memberPos=" + member.worldPosition.toShortString()
-                                + " openAt=" + member.admissionOpenAtGameTime);
                 return false;
             }
             if (!runtimeConfiguration.accepts(stack.what())) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=input_filter_rejected action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot()
-                                + " key=" + RoutingTrace.key(stack.what()));
                 return false;
             }
             if (runtimeConfiguration.antiClogMode()
                     && member.findTransferTarget(stack.what(), stack.amount(), true).isEmpty()) {
-                trace(
-                        "input_plan_rejected",
-                        "reason=anti_clog_output_unavailable action=" + (simulate ? "SIMULATE" : "MODULATE")
-                                + " inputIndex=" + inputIndex
-                                + " memberSlot=" + input.memberSlot()
-                                + " key=" + RoutingTrace.key(stack.what())
-                                + " amount=" + stack.amount());
                 return false;
             }
         }
         if (simulate) {
-            trace(
-                    "input_plan_simulated",
-                    "accepted=true plan=" + tracePlan(plan) + " members=" + traceMembers(members));
             return true;
         }
         for (PlannedInput input : plan) {
@@ -895,97 +690,10 @@ public class SequenceBufferBlockEntity extends BlockEntity implements ICraftingM
             member.storedKey = input.stack().what();
             member.storedAmount = input.stack().amount();
             member.setChanged();
-            trace(
-                    "input_member_committed",
-                    "memberSlot=" + input.memberSlot()
-                            + " memberPos=" + member.worldPosition.toShortString()
-                            + " key=" + RoutingTrace.key(input.stack().what())
-                            + " amount=" + input.stack().amount());
         }
         markInputDelay();
-        trace("input_plan_committed", "plan=" + tracePlan(plan) + " members=" + traceMembers(members));
         return true;
     }
-
-    private void trace(String event, String details) {
-        SequenceBufferConfiguration runtimeConfiguration = effectiveConfiguration();
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "sequence_buffer",
-                event,
-                "endpoint=" + isEndpoint()
-                        + " controller=" + controllerPos.toShortString()
-                        + " index=" + sequenceIndex
-                        + " sequenceDirection=" + sequenceDirection
-                        + " bufferBlocking=" + runtimeConfiguration.blockingMode()
-                        + " synchronized=" + runtimeConfiguration.synchronizedOutput()
-                        + " autoOutput=" + runtimeConfiguration.autoOutput()
-                        + " " + details);
-    }
-
-    private void traceRepeated(String event, String details) {
-        if (level == null) {
-            trace(event, details);
-            return;
-        }
-        long tick = level.getGameTime();
-        String signature = event + '|' + details;
-        long previousTick = repeatedTraceTicks.getOrDefault(signature, Long.MIN_VALUE);
-        if (previousTick != Long.MIN_VALUE && tick - previousTick < REPEATED_TRACE_INTERVAL_TICKS) {
-            return;
-        }
-        repeatedTraceTicks.put(signature, tick);
-        trace(event, details);
-    }
-
-    private String traceMembers() {
-        return traceMembers(isEndpoint() ? SequenceBufferTopology.members(this) : List.of(this));
-    }
-
-    private static String traceMembers(List<SequenceBufferBlockEntity> members) {
-        StringJoiner joiner = new StringJoiner(",", "[", "]");
-        for (int memberSlot = 0; memberSlot < members.size(); memberSlot++) {
-            SequenceBufferBlockEntity member = members.get(memberSlot);
-            joiner.add(memberSlot
-                    + "@" + member.worldPosition.toShortString()
-                    + "=" + RoutingTrace.key(member.storedKey)
-                    + "x" + member.storedAmount
-                    + ":inputOpenAt=" + member.admissionOpenAtGameTime
-                    + ":inputBlocked=" + member.inputAdmissionBlocked());
-        }
-        return joiner.toString();
-    }
-
-    private static String tracePlan(List<PlannedInput> plan) {
-        if (plan == null) {
-            return "null";
-        }
-        StringJoiner joiner = new StringJoiner(",", "[", "]");
-        for (int inputIndex = 0; inputIndex < plan.size(); inputIndex++) {
-            PlannedInput input = plan.get(inputIndex);
-            joiner.add(inputIndex + "->" + input.memberSlot() + "=" + RoutingTrace.genericStack(input.stack()));
-        }
-        return joiner.toString();
-    }
-
-    private static String traceOutputPlan(List<PlannedOutput> plan) {
-        StringJoiner joiner = new StringJoiner(",", "[", "]");
-        for (int outputIndex = 0; outputIndex < plan.size(); outputIndex++) {
-            PlannedOutput output = plan.get(outputIndex);
-            joiner.add(outputIndex
-                    + "@" + output.member().worldPosition.toShortString()
-                    + "=" + RoutingTrace.key(output.key())
-                    + "x" + output.amount()
-                    + "->" + targetName(output.target()));
-        }
-        return joiner.toString();
-    }
-
-    private static String targetName(TransferTarget target) {
-        return target == null ? "null" : target.getClass().getSimpleName();
-    }
-
     @Override
     public PatternContainerGroup getCraftingMachineInfo() {
         return PatternContainerGroup.nothing();

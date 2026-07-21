@@ -170,10 +170,12 @@ other AEKey: adapter 提供单位，未知类型默认 amount=1 为 1 unit
 
 | 档位 | 单包单位上限 | 类型上限 |
 | --- | ---: | ---: |
-| default | 9 | 9 |
-| 16k | 16 | 16 |
-| 64k | 64 | 63 |
-| 256k | 256 | 63 |
+| default（空槽，1k 档） | 256 | 9 |
+| 16k | 4096 | 16 |
+| 64k | 16384 | 63 |
+| 256k | 65536 | 63 |
+
+三个容量元件档的单位上限分别等于其 AE2 名义容量的四分之一；类型上限继续使用 16/63/63，不把单位容量换算与类型数合并为一个近似值。
 
 容量元件识别：
 
@@ -330,11 +332,11 @@ SLOT_PATTERN = 0
 SLOT_OUTPUT = 1
 SLOT_CAPACITY = 2
 extra output slots 3-18；机器内部 ItemStackHandler 共 19 槽
-Forge item handler capability 按当前样板动态暴露 N 个 menuInputBuffer 输入位和紧随其后的 1 个严格有序输出位；没有样板且没有残留输入时只暴露输出位。只有本地样板槽中存在有效且符合当前容量档的样板时，输入位才按稠密非空样板位置、AEItemKey 与目标数量接受外部插入。外部不能抽取输入位，也不能插入输出位，只能从输出位按队首顺序抽取；样板、容量和升级配置槽始终不暴露
+装配室按普通 AE2 ME Interface 的 capability 架构只实现 `GenericInternalInventory` 与 `Capabilities.STORAGE`：当前样板动态形成 N 个 `AEKey + long amount` 的 menuInputBuffer 输入位和紧随其后的 1 个严格有序输出位。装配室不注册自定义 `IItemHandler`；物品、流体以及附属类型的 Forge capability 如有需要，统一由 AE2 的 generic inventory wrapper 从同一份 AEKey 库存派生。没有样板且没有残留输入时只暴露输出位。只有本地样板槽中存在有效且符合当前容量档的样板时，输入位才按稠密非空样板位置、任意 AEKey 与目标数量接受外部插入。外部不能抽取输入位，也不能插入输出位，只能从输出位按队首顺序抽取；样板、容量和升级配置槽始终不暴露
 AE2 CRAFTING_MACHINE capability 暴露装配室本体
-方块实体 capability invalidation 后会在 revive 时重建 item handler 与 CRAFTING_MACHINE `LazyOptional`，区块卸载/重新激活后自动化入口不得永久失效
+方块实体 capability invalidation 后会在 revive 时重建 `GenericInternalInventory`、`Capabilities.STORAGE` 与 `CRAFTING_MACHINE` 的 `LazyOptional`，区块卸载/重新激活后自动化入口不得永久失效
 pending package queue 与 active package queue 持久化保存
-容量槽只识别 AE2 16k/64k/256k storage component；空槽使用 default 9/9，拒绝 1k component、完整 storage cell 与 portable cell
+容量槽只识别 AE2 16k/64k/256k storage component；空槽等同默认 1k 档并使用 256/9，三个元件的单位/类型上限依次为 4096/16、16384/63、65536/63。1k component 因与空槽同档而不接受，完整 storage cell 与 portable cell 同样拒绝
 装配室持久保存 `selectedColor` 与 `markerFilter`。普通 AE2 已编码样板使用所选颜色，并在 marker 过滤槽非空时覆盖主输出；包裹样板读取自身颜色/marker，高级样板读取各列颜色和主产物 marker。菜单另同步只读的有效颜色与有效 marker：本地样板存在时显示该样板将使用的值，Pattern Provider `pushPattern` 工作期间从 `activePackages` 显示活动批次的共同值；多包颜色不同则显示 None，多包 marker 不同或全部无 marker 则显示空 marker。显示覆盖不写入真实 `selectedColor/markerFilter`，样板移除或任务结束后恢复机器配置
 selectedColor、markerFilter、outputMode、blockingMode、autoExportBatchActive/Mode/Direction、craftProgress、严格有序输出队列与 upgrade inventory 均持久化保存
 输出由一个真实主输出和一个只读的下一包预览组成；其余成品保存在严格有序队列中。GUI、玩家、自动导出和 Forge item handler 每次都只能从主输出取 1 个包裹，取出后立即把队首提升为新的主输出
@@ -411,7 +413,7 @@ GUI shift-click 会优先把任意 AE2 可解码已编码样板放入样板槽�
 输入中的合法包裹会在其输入位置展开有序 contents，再与前后输入按原位置封装；同类条目不合并，展开内容不移动到列表末尾。
 任意输出槽已有物品时阻挡，不消耗任何输入。
 样板槽可放入 package_pattern、advanced_processing_pattern 与任意 AE2 可解码已编码样板。
-容量槽通过 `PackageCapacityProfile` 使用与 ME Packager 相同的 AE2 16k/64k/256k storage component 映射，并且不消耗容量元件；空槽严格使用 default 9/9。全部本地样板在解锁输入槽前就计算预计包裹容量；超限时样板槽标红、GUI 与外部输入锁定、合成拒绝。全部 Pattern Provider push 均在消费输入前逐个预计包裹复验当前档位，高级样板按输出列独立计算，任一包超限即整批拒绝。
+容量槽通过 `PackageCapacityProfile` 使用与 ME Packager 相同的 AE2 16k/64k/256k storage component 映射，并且不消耗容量元件；空槽严格使用默认 1k 档的 256/9。全部本地样板在解锁输入槽前就计算预计包裹容量；超限时样板槽标红、GUI 与外部输入锁定、合成拒绝。全部 Pattern Provider push 均在消费输入前逐个预计包裹复验当前档位，高级样板按输出列独立计算，任一包超限即整批拒绝。
 如果 package_pattern 已编码，装配室只接受与样板 canonical hash 完全一致的输入计划。
 已编码 package_pattern 不会被消耗，输出包裹颜色跟随样板颜色。
 如果 advanced_processing_pattern 已编码，装配室按连续列读取有序多包裹计划；17 格输出槽优先接收，超过可用输出槽的余量进入 pending queue。
@@ -432,7 +434,7 @@ GUI shift-click 会优先把任意 AE2 可解码已编码样板放入样板槽�
 从端点生成包裹
 把输入包裹拆入端点
 包裹展开再封装
-空容量槽 9 单位/9 类型以及 16k/64k/256k 容量元件档、过滤、marker、颜色策略
+空容量槽默认 1k 档的 256 单位/9 类型，以及 16k/64k/256k 容量元件档、过滤、marker、颜色策略
 GUI、快速交互和红石触发
 ```
 
@@ -450,7 +452,7 @@ GUI、快速交互和红石触发
 
 ```text
 heldBox: 唯一包裹工作槽，`heldBoxState` 区分 EMPTY / UNPACK_INPUT / PACK_OUTPUT
-capacitySlot: 只允许 AE2 16k/64k/256k storage component；为空时使用 default 9 单位/9 类型
+capacitySlot: 只允许 AE2 16k/64k/256k storage component；为空时使用默认 1k 档的 256 单位/9 类型
 contentFilter: 45 格 AE2 GenericStack 配置，基础 2 行，最多 3 张容量卡各解锁 1 行
 upgradeSlots: 6 格 AE2 upgrade inventory，当前支持 capacity/speed/inverter card
 selectedColor
@@ -556,8 +558,8 @@ ME 打包机使用两套离散速度表：打包 0-6 张加速卡为 40/30/20/15
 真实 AE2 底面 Interface GameTest 覆盖固定底部接线；独立真实线缆 GameTest 覆盖固定模型背面接线，并逐面断言其它四面为 `AECableType.NONE`。
 真实世界相邻 Forge item handler / fluid handler 反例 GameTest 覆盖无 MEStorage 时不打包、不拆包、不消耗相邻 Forge 端点。
 唯一 heldBox 是当前工作项：拆包时保存输入包裹，打包时保存已生成待输出包裹；`held_box_state` 明确区分两种语义。
-输入侧为空且机器空闲时，从已连接 AE 网络选择空容量槽 9 单位、9 类型上限可承载的内容生成包裹；生成包裹先进入 packing 工作态，动画结束后进入唯一 outputSlot，客户端停在本地 `(x=10/16,z=8/16)` 的 12x16 前部区域中心，物品模型底面精确贴合传送带顶面 `y=2/16`。BER 在机器局部坐标内为包裹额外施加 `Y +90°`，使 `FIXED` item transform 后的正面朝向本地工作口 +X，再统一随方块 `facing` 旋转。BER 只渲染方块实体 stream 明确同步的 `renderedBox`；服务端清空该视觉栈后必须立即停止渲染，不得回退到客户端可能过期的 heldBox NBT。
-容量元件槽可把当前单包容量提升到 16k/64k/256k；容量卡只解锁过滤行，不改变包裹容量档。
+输入侧为空且机器空闲时，从已连接 AE 网络选择空容量槽默认 1k 档的 256 单位、9 类型上限可承载的内容生成包裹；生成包裹先进入 packing 工作态，动画结束后进入唯一 outputSlot，客户端停在本地 `(x=10/16,z=8/16)` 的 12x16 前部区域中心，物品模型底面精确贴合传送带顶面 `y=2/16`。BER 在机器局部坐标内为包裹额外施加 `Y +90°`，使 `FIXED` item transform 后的正面朝向本地工作口 +X，再统一随方块 `facing` 旋转。BER 只渲染方块实体 stream 明确同步的 `renderedBox`；服务端清空该视觉栈后必须立即停止渲染，不得回退到客户端可能过期的 heldBox NBT。
+容量元件槽可把当前单包单位上限提升到对应元件名义容量四分之一的 4096/16384/65536；容量卡只解锁过滤行，不改变包裹容量档。
 过滤配置只使用当前 45 格 contentFilter，不读取隐藏旧槽。
 过滤模板接受已编码 package_pattern 或带 PackageData 的包裹。
 过滤模板会提供颜色、marker 与 requiredContents：
@@ -655,18 +657,18 @@ AE2 原版 Pattern Encoding Terminal 继续由 AE2 的 `InitScreens` factory 创
 
 ```text
 作为默认优先级 0 的 Formation Plane 式只写入端点接收网络路由包裹
-模拟过滤、Pattern Provider 阻挡条件和完整相邻目标容量
+模拟过滤、目标完全为空的阻挡条件和完整相邻目标容量
 把接受的一个包裹直接保存在本地 heldPackage，并把这个未拆完的整包作为数量 1 的可抽取网络库存报告
 播放与 ME 打包机拆包模式相同的工作进度
 进度结束时重新验证过滤、阻挡与目标容量
-成功时按 Pattern Provider 的 check-then-push 约定，按 contents 条目顺序逐条推入全部散装内容并清空 heldPackage；重复 AEKey 条目不预先聚合
+成功时按 Pattern Provider 的 check-then-push 约定，模拟阶段按精确 AEKey 汇总重复条目，提交阶段仍按 contents 条目顺序逐条推入全部散装内容并清空 heldPackage
 失败时保留同一个 heldPackage，进入阻塞并定时重试
 ```
 
 目标实现：
 
 ```text
-Package Storage Bus 与 Package Unpacking Bus 的玩家入口和运行时实现均为 AE2 `PartItem`，安装在 cable bus 面上并各自要求一个 channel；part 安装面指向相邻 Forge item handler。旧的三个 Package Bus 方块/方块实体及其资源已删除，不再作为并行兼容实现注册。
+Package Storage Bus 与 Package Unpacking Bus 的玩家入口和运行时实现均为 AE2 `PartItem`，安装在 cable bus 面上并各自要求一个 channel。Package Storage Bus 的安装面读取相邻 Forge item handler；Package Unpacking Bus 的安装面优先解析序列缓存器端点，否则通过与 AE2 Pattern Provider 相同的外部存储扩展链建立通用目标。旧的三个 Package Bus 方块/方块实体及其资源已删除，不再作为并行兼容实现注册。
 Package Export Bus 与独立 Package Pattern Terminal 已从正式范围删除，不保留玩家注册、配方、创造栏入口或客户端界面。
 
 package_storage_bus:
@@ -685,12 +687,13 @@ package_unpacking_bus:
   自身注册 IStorageProvider，挂载使用一个只保存唯一 held 工作包裹的 MEStorage；与 package_storage_bus 一样默认优先级为 0，挂载时直接使用玩家在右上角 Priority 子菜单配置的数值，不增加隐藏偏移。
   对合法包裹返回 `isPreferredStorageFor=true`；因此与 package_storage_bus 数值相同时先尝试拆包端点，只有拆包端点因 held 忙碌、过滤、阻挡或目标容量拒绝时才继续路由到存储总线。
   该挂载不周期扫描或主动抽取 Drive、Storage Bus、Cell 等其它网络存储；仅当本机 `heldPackage` 非空时把它按精确 `AEItemKey`、数量 1 加入 available stack，并允许网络模拟或提交抽取同一个整包。空闲时不报告容量，不接收无法立即进入拆包流程的包裹，因此不具备一般存储功能。
-  网络 insert 每次最多接受 1 个合法包裹；只有空闲、过滤匹配、相邻 item handler 存在、整包累计模拟通过且阻挡条件满足时，SIMULATE 才返回 1。MODULATE 把同一包裹直接转移到 part 自己的 `heldPackage` 并开始工作，此时目标仍不获得任何内容。
+  网络 insert 每次最多接受 1 个合法包裹；只有空闲、过滤匹配、相邻通用目标存在、整包模拟通过且阻挡条件满足时，SIMULATE 才返回 1。MODULATE 把同一包裹直接转移到 part 自己的 `heldPackage` 并开始工作，此时目标仍不获得任何内容。
   `heldPackage`、工作态、剩余工作 tick、阻塞态和重试冷却写入 part NBT；工作槽直接同步该真实 held 状态，不再使用空预览占位。held 从空到非空或从非空到空时请求重新挂载 IStorageProvider，使 ME 可见包裹和阻挡检查及时更新。
-  阻挡模式类型与 AE2 Pattern Provider 一致，默认关闭。开启时把包裹内容物的 item key 视作 pattern inputs，按 `dropSecondary` 比较相邻目标现有 stack；目标包含任一输入类型即拒绝首次接收或最终提交。
-  实际工作周期复用 ME 打包机的拆包速度表，0-4 张加速卡分别为 20/15/10/6/4 tick，最多识别 4 张且最快 4 tick。开始工作时锁定本次周期总长并与剩余 tick 一起持久化；菜单进度按该总长缩放为 15 级。进度结束时重新校验当前过滤规则、阻挡条件、目标存在性，并在保留 `slot limit` / `isItemValid` 的累计快照中模拟全部物品；全部通过后才逐项真实插入并清空 held 状态。
+  阻挡模式默认关闭。开启时要求通用目标的全部可见 AEKey 为空；任意物品、流体或附属模组 key 已存在都拒绝首次接收或最终提交，不能只比较本包裹的输入类型。序列缓存器端点同样要求全部成员为空，即使已有内容位于本包裹不会使用的位置也必须阻挡。
+  实际工作周期复用 ME 打包机的拆包速度表，0-4 张加速卡分别为 20/15/10/6/4 tick，最多识别 4 张且最快 4 tick。开始工作时锁定本次周期总长并与剩余 tick 一起持久化；菜单进度按该总长缩放为 15 级。进度结束时重新校验当前过滤规则、阻挡条件和目标存在性；模拟阶段按精确 AEKey 汇总重复条目并要求目标完整接收每个汇总量，全部通过后才按原始 contents 顺序逐项真实插入并清空 held 状态。
+  普通目标通过 `PackageUnpackingTarget` 按 AE2 Pattern Provider 的同一扩展链解析：先读取 AE2 `Capabilities.STORAGE`，否则由 `StackWorldBehaviors` 构造所有已注册 `ExternalStorageStrategy`，按 `AEKeyType` 包装并组成 `CompositeStorage`。该目标直接保留统一 `MEStorage`，使阻挡判定能够检查完整可见库存，而不受 `PatternProviderTarget.containsPatternInput` 只能匹配指定输入集合的语义限制。实现不枚举固定 handler 类型；AE2 默认注册物品与流体策略，附属模组注册的其它 AEKey 类型自动沿用同一路径。
   防堵塞模式使用独立 boolean 与 Part NBT key，默认开启。开启时网络插入的 SIMULATE/MODULATE 都必须调用与自动拆包相同的 `canUnpackIntoTarget`，因此现有阻挡模式、序列缓存器原子计划、目标类型和整包容量任一失败都拒绝接收。关闭时通过包裹合法性与过滤后即可写入唯一 held 槽；预检失败时设置阻塞但不开始工作，定时重试通过后才进入完整进度。等待、工作和最终失败状态都继续枚举同一真实包裹并允许网络/GUI 取回。
-  最终模拟失败时不写入任何内容、不把包裹写回 ME 网络，也不切换到其它包裹；保持同一个 `heldPackage`，清空进度并进入阻塞态，按同一加速卡公式等待下一次重新验证，随后从新的完整加速周期重新开始。目标 handler 必须遵守 Forge 的 simulate/execute 一致性约定；本 Mod 不再构造逐槽计划或反向抽取回滚。
+  最终模拟失败时不写入任何内容、不把包裹写回 ME 网络，也不切换到其它包裹；保持同一个 `heldPackage`，清空进度并进入阻塞态，按同一加速卡公式等待下一次重新验证，随后从新的完整加速周期重新开始。第三方目标必须遵守其 AE2 外部存储策略的 simulate/execute 一致性约定；本 Mod 不再构造逐槽计划或反向抽取回滚。
   工作、阻塞或其它 held 状态都允许网络按精确 key 抽取，也允许玩家从 GUI 工作槽取回。SIMULATE 不改变状态；MODULATE 或玩家真实取回时返回完整的一个包裹并原子清空 working、blocked、进度、周期总长和 retry cooldown，目标不得获得任何部分内容。part 被拆除时 held 包裹作为额外掉落返还，`clearContent` 同步清空，避免复制或丢失。
   不接受部分拆包。
 
@@ -826,7 +829,7 @@ SequenceBufferSideMenu  由普通成员或未成型单块打开；host=解析后
 
 第一版 main/side 菜单不调用 `addExpandableConfigSlots`，两套 ScreenStyle 也不声明 `CONFIG` 槽或过滤背景；允许输入的精确 AEKey 过滤库存继续由端点 `SequenceBufferConfiguration` 和 `inputFilter` 保存，但不显示独立 3x3 面板。仅当菜单声明 `configurationEditable=true` 时，`AbstractSequenceBufferScreen` 才使用项目现有 AE2 竖向按钮栏创建自动输出、阻挡、防堵塞、同步输出、样板模式和输入延迟按钮；延迟按钮以 `0/1/5/10/20/40/100 tick` 循环并读取 AEBaseScreen 的右键方向。服务端再次检查该权限，防止隐藏按钮后仍可伪造 action。成员/单块侧面 Screen 不创建这些按钮；成型成员只创建 `Icon.ENTER` 跳转按钮，`ModernVerticalToolbar` 从 current-AE2 `ae2-states.png [112,0]` 绘制图标，单块时按钮隐藏。端点更新只写端点自身 `SequenceBufferConfiguration`；成员运行路径通过 `effectiveConfiguration()` 实时解析端点，成型/更新均不复制成员 NBT。红石卡升级面板使用 `{right:2,top:0}` 附着主面板右侧。主界面滚动条使用项目缓存 current-AE2 `ModernScrollbarStyles.BIG` 的标准 12x15 handle，组件起点 `(175,18)` 使其相对底图 `x=178..183` 的窄轨道对称居中；范围为 0 时仍绘制 current-AE2 disabled handle，不得隐藏。
 
-## 13. JEI / EMI 单插件配方导入
+## 13. JEI / EMI 双前端配方导入
 
 ### 13.1 计划与传输
 
@@ -862,6 +865,10 @@ RENDER_ONLY -> 跳过
 
 GTCEu 适配器只把确定性的 item/fluid capability content 写入样板。每个一次性输入独占一个包裹列；每个 tick input 先把固定 amount 乘 recipe duration 后同样独占一列；输入的替代 item/fluid 候选使用共享库存优先级，输出保持配方声明结果；输出采用相同数量换算。每个 `Content` 使用独立乘数，不能让前一个区间 ingredient 的固定数量污染后续 content。`chance == 0` 的输入视为不消耗催化剂而跳过；其它概率值、`min != max` 的区间数量、乘法溢出、缺少可表示候选或超出终端边界时拒绝。能量等机器运行 capability 不是待封装资源，不写入高级样板。
 
+StarT Fork 的 layered recipe 是上述逐材料规则的专用例外。服务器配方含 `layered_steps` 时，适配器调用 `LayeredRecipeHelper.getLayeredSteps`；JEI/JEMI 传入只含 `layered_info` 的预展开 XEI 展示配方时，调用 `calculateRecipeSteps` 按索引映射重建步骤；只有 `layered_xei` 时先通过 `getXeiLayeredRecipe` 解码，再按解码对象实际携带的 `layered_steps` 或 `layered_info` 选择同一路径。返回列表中的每个 `GTRecipe` 就是机器实际执行的一个 layer，按列表顺序写入一个包裹列；该步骤的一次性 item、一次性 fluid、按该步骤 duration 展开的 tick item/fluid 全部留在同一列，步骤内不再按材料拆包。输出仍读取 layered recipe 的确定性最终输出。由于该公开 helper 只存在于 StarT Fork、不存在于上游 GTCEu 7.5.3 编译 API，Fork 专用桥在 `GtceuRecipeSemanticEncoder` 内按固定类名反射调用公开方法；它不是 viewer wrapper 解包、handler 发现或 EMI recipe recovery。只要 layer 数据存在却无法取得完整步骤，就明确拒绝，不能回退到已经丢失层边界的扁平输入。
+
+原生 GTCEu EMI 分类虽使用 `GTEmiRecipe` 展示，但 Applied Packaging 不读取其非公开 `recipe` 字段。`EmiRecipeResolver` 先读取公开 `EmiRecipe#getBackingRecipe()`；为空时按 `EmiRecipe#getId()` 查询当前 `RecipeManager`；仍为空且 GTCEu 已加载时，调用隔离的 `GtceuRecipeLookup` 遍历公开 `GTRegistries.RECIPE_TYPES`、每个 `GTRecipeType#getCategories()` 与 `getRecipesInCategory()`，按 ID 找回 category/XEI-only `GTRecipe`。同 ID 存在普通与 layered 表示时优先携带 `layered_steps`、`layered_xei` 或 `layered_info` 的对象。三步均失败才允许原生 EMI 标准 item/fluid 数据回退；不能用私有字段反射伪造成功。
+
 开发编译固定使用 GTCEu 7.5.3 API。GregTech Modern - StarT Fork 1.7.0b 仍声明 `modId=gtceu`，且本集成使用的 `GTRecipe`、`Content`、`ItemRecipeCapability`、`FluidRecipeCapability` 公共成员保持兼容；`-PgtceuRuntimeJar=<jar>` 只替换开发运行时，不改变发布 metadata 或引入 fork 硬依赖。fork 运行使用独立目录，避免与上游 GTCEu world registry 快照互相产生 missing mapping 噪音。
 
 ### 13.5 已审查的通用兼容边界
@@ -883,10 +890,10 @@ Ender IO Sag Mill                     chance 必须为 1 且 grinding-ball bonus
 
 `AdvancedRecipeTransferHandler` 只注册 `AdvancedPatternEncodingTermMenu.TYPE` 和 `RecipeType<?>` 通配入口，避免覆盖 AE2 原版终端已有转移器。专用适配器成功时保留其高级语义；没有专用适配器时进入 JEI 标准槽位回退。适配器明确拒绝时返回用户可见的本地化 error tooltip。JEI 调用 `doTransfer=false` 只进行完整可行性检查，不修改菜单；`doTransfer=true` 也只发送一次当前页面 action，最终状态仍以服务端校验结果为准。
 
-### 13.7 TMRV 单入口边界
+### 13.7 JEI / EMI 双前端领域共享边界
 
-Applied Packaging 只发布 `AppliedPackagingJeiPlugin` 与 `AdvancedRecipeTransferHandler`，不声明 `@EmiEntrypoint`，也不维护 `EmiRecipeHandler` 副本。JEI 环境直接加载该插件；EMI 环境要求 EMI+TMRV，由 TMRV 提供 JEI API replacement 并把同一套插件注册、槽位角色与 recipe transfer 调用映射到 EMI。这样 Create/GTCEu 专用语义、通用确定性门禁与错误提示只有一个实现源。Gradle 只编译 JEI API；`recipeViewerRuntime=jei` 与 `recipeViewerRuntime=emi` 分别验证 JEI 和互不共存的 EMI+TMRV，三者都不写入发布硬依赖。
+Applied Packaging 发布 `AppliedPackagingJeiPlugin` 与 `AppliedPackagingEmiPlugin` 两个独立入口。JEI universal handler 调用 `JeiRecipeExtractor`，直接接收传入 recipe object 并把 `IRecipeSlotsView` 转为 `StandardRecipeData`；原生 EMI handler 调用 `EmiRecipeExtractor`，只在 `EmiCraftContext.Type.FILL_BUTTON` 上下文工作，并在 EMI API 边界处理 chance、amount、tooltip 与 craft 生命周期。`RecipeExtraction` 只保存可空 semantic recipe 和 item/fluid 领域数据；`PatternTransferPlanFactory` 是两条前端唯一共享边界，Create/GTCEu 语义编码器、标准计划工厂、候选选择、payload 上限和菜单写入均不依赖 JEI/EMI 类型。handler、extractor、EMI resolver 与计划工厂直接调用编译期公共 API，不使用 `Class.forName`、反射字段或 viewer 实现类判断。EMI 1.1.24 为 JEMI bridge recipe 的公开 ID 分配 `jei` namespace；原生 EMI handler 只据此返回不支持，继续由 EMI 内置 `JemiRecipeHandler` 调用 JEI `transferRecipe()`，避免同一点击存在两条竞争 transfer 路径。Gradle 对 JEI 与 EMI API 都只做 compile-only；`recipeViewerRuntime=jei` 与 `recipeViewerRuntime=emi` 分别验证两条可选类加载边界，整合包另验证 JEI+EMI/JEMI 共存，两个查看器都不写入发布硬依赖。
 
-### 13.8 Star Technology 星门装配评审边界
+### 13.8 Star Technology 星门装配边界
 
-Star Technology 的 `stargate_component_assembly` 由 KubeJS startup script 注册为 GTCEu recipe type，实际 server recipe 通过 `.layeredRecipe(...)` 声明层序列；它不是可直接依赖的独立 Java recipe category。现有 `GtceuRecipeTransferAdapter` 可以看到扁平 `GTRecipe` item/fluid content，但不能据此证明层边界得到保留。本轮不实现该映射。后续应先确定目标语义：每个 layer 一个包裹，或 layer 内仍每种材料一个包裹并额外保存层边界；只有 GTCEu Fork 的 layered 数据 API 稳定后才加入专用适配。泛 KubeJS 接口只在其它脚本配方确实需要显式声明分组时再设计。
+Star Technology 的 `stargate_component_assembly` 由 KubeJS startup script 注册为 GTCEu recipe type，实际 server recipe 通过 `.layeredRecipe(...)` 声明层序列；它不是可直接依赖的独立 Java recipe category。分组权威来自 StarT Fork 已序列化的 `layered_steps` / `layered_xei` / `layered_info` 和 `LayeredRecipeHelper`，不是 recipe type 名称，也不是已经压平的 capability content。高级样板固定按“每个 layer 一个包裹列”编码；layer 内物品和流体保持同包。普通 GTCEu 配方仍逐材料分包，泛 KubeJS 接口只在其它脚本配方确实需要显式声明分组时再设计。

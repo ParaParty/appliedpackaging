@@ -1,4 +1,4 @@
-package com.warmthdawn.appliedpackaging.integration.jei;
+package com.warmthdawn.appliedpackaging.integration.recipe;
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
@@ -7,40 +7,24 @@ import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatte
 import com.warmthdawn.appliedpackaging.core.package_data.PackageCraftingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
 import com.warmthdawn.appliedpackaging.core.pattern.PackagePatternTransferPlan;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-import mezz.jei.api.forge.ForgeTypes;
-import mezz.jei.api.gui.ingredient.IRecipeSlotView;
-import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
-import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.recipe.RecipeIngredientRole;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.fluids.FluidStack;
 
-/** JEI-role based fallback used for mods that expose normal item/fluid recipe slots. */
-public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransferAdapter {
+/** Builds transfer plans from frontend-extracted standard item/fluid recipe data. */
+public final class StandardRecipePlanFactory {
     private static final String INVALID_INGREDIENT = "gui.appliedpackaging.jei_transfer.invalid_ingredient";
     private static final String UNSUPPORTED_INGREDIENT =
             "gui.appliedpackaging.jei_transfer.unsupported_ingredient_type";
     private static final String AMBIGUOUS_OUTPUT = "gui.appliedpackaging.jei_transfer.ambiguous_output";
     private static final String NO_OUTPUT = "gui.appliedpackaging.jei_transfer.no_output";
 
-    @Override
-    public boolean supports(Object recipe) {
-        return recipe != null;
-    }
-
-    @Override
-    public AdvancedRecipeTransferResult createPlan(
+    public AdvancedRecipeTransferResult createAdvancedPlan(
             Object recipe,
-            IRecipeSlotsView recipeSlots,
+            StandardRecipeData recipeData,
             RecipeIngredientSelector ingredientSelector) {
-        ParseResult parsed = parse(recipe, recipeSlots, ingredientSelector);
+        ParseResult parsed = parse(recipe, recipeData, ingredientSelector);
         if (parsed.error() != null) {
             return new AdvancedRecipeTransferResult(null, parsed.error());
         }
@@ -69,15 +53,15 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         }
     }
 
-    public PackageRecipeTransferResult createPackagePlan(Object recipe, IRecipeSlotsView recipeSlots) {
-        return createPackagePlan(recipe, recipeSlots, RecipeIngredientSelector.empty());
+    public PackageRecipeTransferResult createPackagePlan(Object recipe, StandardRecipeData recipeData) {
+        return createPackagePlan(recipe, recipeData, RecipeIngredientSelector.empty());
     }
 
     public PackageRecipeTransferResult createPackagePlan(
             Object recipe,
-            IRecipeSlotsView recipeSlots,
+            StandardRecipeData recipeData,
             RecipeIngredientSelector ingredientSelector) {
-        ParseResult parsed = parse(recipe, recipeSlots, ingredientSelector);
+        ParseResult parsed = parse(recipe, recipeData, ingredientSelector);
         if (parsed.error() != null) {
             return new PackageRecipeTransferResult(null, parsed.error());
         }
@@ -101,22 +85,23 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
 
     private static ParseResult parse(
             Object recipe,
-            IRecipeSlotsView recipeSlots,
+            StandardRecipeData recipeData,
             RecipeIngredientSelector ingredientSelector) {
         String rejectionKey = RecipeTransferSemantics.rejectionKey(recipe);
         if (rejectionKey != null) {
             return ParseResult.error(rejectionKey);
         }
-        if (recipeSlots == null) {
+        if (recipeData == null) {
             return ParseResult.error(INVALID_INGREDIENT);
         }
 
-        Object semanticRecipe = unwrapRecipe(recipe);
-        ThermalInputCounts thermalInputs = thermalConsumableInputCounts(semanticRecipe);
+        Object semanticRecipe = ThermalRecipeSemantics.unwrap(recipe);
+        ThermalRecipeSemantics.InputCounts thermalInputs =
+                ThermalRecipeSemantics.consumableInputCounts(semanticRecipe);
         int thermalItemInputs = 0;
         int thermalFluidInputs = 0;
         List<GenericStack> inputs = new ArrayList<>();
-        for (IRecipeSlotView slot : recipeSlots.getSlotViews(RecipeIngredientRole.INPUT)) {
+        for (StandardRecipeData.Slot slot : recipeData.inputs()) {
             SlotResult converted = convertInput(slot, ingredientSelector);
             if (converted.errorKey() != null) {
                 return ParseResult.error(converted.errorKey());
@@ -149,7 +134,7 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         }
 
         List<GenericStack> outputs = new ArrayList<>();
-        for (IRecipeSlotView slot : recipeSlots.getSlotViews(RecipeIngredientRole.OUTPUT)) {
+        for (StandardRecipeData.Slot slot : recipeData.outputs()) {
             SlotResult converted = convertOutput(slot);
             if (converted.errorKey() != null) {
                 return ParseResult.error(converted.errorKey());
@@ -162,107 +147,36 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
     }
 
     private static SlotResult convertInput(
-            IRecipeSlotView slot,
+            StandardRecipeData.Slot slot,
             RecipeIngredientSelector ingredientSelector) {
-        List<ITypedIngredient<?>> ingredients = slot.getAllIngredients().toList();
-        if (ingredients.isEmpty()) {
+        if (slot.errorKey() != null) {
+            return SlotResult.error(slot.errorKey());
+        }
+        if (slot.candidates().isEmpty()) {
             return SlotResult.empty();
         }
-        GenericStack displayed = slot.getDisplayedIngredient()
-                .map(StandardRecipeTransferAdapter::toGenericStack)
-                .orElse(null);
-        List<GenericStack> candidates = new ArrayList<>();
-        for (ITypedIngredient<?> ingredient : ingredients) {
-            GenericStack stack = toGenericStack(ingredient);
-            if (stack != null) {
-                candidates.add(stack);
-            }
-        }
-        GenericStack selected = ingredientSelector.select(candidates, displayed);
+        GenericStack selected = ingredientSelector.select(slot.candidates(), slot.displayed());
         if (selected != null) {
             return SlotResult.success(selected);
         }
         return SlotResult.error(UNSUPPORTED_INGREDIENT);
     }
 
-    private static SlotResult convertOutput(IRecipeSlotView slot) {
-        List<ITypedIngredient<?>> ingredients = slot.getAllIngredients().toList();
-        if (ingredients.isEmpty()) {
+    private static SlotResult convertOutput(StandardRecipeData.Slot slot) {
+        if (slot.errorKey() != null) {
+            return SlotResult.error(slot.errorKey());
+        }
+        if (slot.candidates().isEmpty()) {
             return SlotResult.empty();
         }
-        LinkedHashSet<GenericStack> candidates = new LinkedHashSet<>();
-        boolean unsupported = false;
-        for (ITypedIngredient<?> ingredient : ingredients) {
-            GenericStack stack = toGenericStack(ingredient);
-            if (stack == null) {
-                unsupported = true;
-            } else {
-                candidates.add(stack);
-            }
-        }
+        LinkedHashSet<GenericStack> candidates = new LinkedHashSet<>(slot.candidates());
         if (candidates.isEmpty()) {
             return SlotResult.error(UNSUPPORTED_INGREDIENT);
         }
-        if (unsupported || candidates.size() != 1) {
+        if (candidates.size() != 1) {
             return SlotResult.error(AMBIGUOUS_OUTPUT);
         }
         return SlotResult.success(candidates.iterator().next());
-    }
-
-    private static GenericStack toGenericStack(ITypedIngredient<?> ingredient) {
-        ItemStack itemStack = ingredient.getItemStack().orElse(ItemStack.EMPTY);
-        GenericStack item = GenericStack.fromItemStack(itemStack);
-        if (item != null && item.amount() > 0) {
-            return item;
-        }
-        FluidStack fluidStack = ingredient.getIngredient(ForgeTypes.FLUID_STACK).orElse(FluidStack.EMPTY);
-        GenericStack fluid = GenericStack.fromFluidStack(fluidStack);
-        return fluid != null && fluid.amount() > 0 ? fluid : null;
-    }
-
-    private static ThermalInputCounts thermalConsumableInputCounts(Object recipe) {
-        if (recipe == null || !recipe.getClass().getName().startsWith("cofh.thermal.")) {
-            return null;
-        }
-        try {
-            return new ThermalInputCounts(
-                    collectionSize(recipe, "getInputItems"),
-                    collectionSize(recipe, "getInputFluids"));
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            return null;
-        }
-    }
-
-    private static Object unwrapRecipe(Object recipe) {
-        if (recipe == null || !recipe.getClass().getName().startsWith("cofh.thermal.")) {
-            return recipe;
-        }
-        try {
-            Method valueMethod = recipe.getClass().getMethod("value");
-            Object value = valueMethod.invoke(recipe);
-            return value != null && value != recipe ? value : recipe;
-        } catch (ReflectiveOperationException | RuntimeException ignored) {
-            return recipe;
-        }
-    }
-
-    private static int collectionSize(Object target, String methodName) throws ReflectiveOperationException {
-        Method method;
-        try {
-            method = target.getClass().getMethod(methodName);
-        } catch (NoSuchMethodException ignored) {
-            return 0;
-        }
-        try {
-            Object value = method.invoke(target);
-            return value instanceof Collection<?> collection ? collection.size() : 0;
-        } catch (InvocationTargetException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof RuntimeException runtimeException) {
-                throw runtimeException;
-            }
-            throw e;
-        }
     }
 
     private record ParseResult(List<GenericStack> inputs, List<GenericStack> outputs, Component error) {
@@ -289,6 +203,4 @@ public final class StandardRecipeTransferAdapter implements AdvancedRecipeTransf
         }
     }
 
-    private record ThermalInputCounts(int items, int fluids) {
-    }
 }

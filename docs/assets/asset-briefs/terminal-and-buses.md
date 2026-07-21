@@ -12,7 +12,7 @@ src/main/resources/assets/appliedpackaging/textures/gui/package-storagebus-sprit
 src/main/resources/assets/appliedpackaging/textures/gui/ae2-states.png
   src/main/resources/assets/appliedpackaging/textures/gui/package_bus_extra_panels.png
   src/main/resources/assets/appliedpackaging/textures/gui/package_bus_vertical_buttons_bg.png
-  src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json
+  src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_terminal.json
 src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_dark.png
 src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_medium.png
 src/main/resources/assets/appliedpackaging/textures/part/advanced_pattern_encoding_terminal_bright.png

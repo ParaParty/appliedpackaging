@@ -1,6 +1,7 @@
 package com.warmthdawn.appliedpackaging.world.block.entity;
 
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.config.Actionable;
@@ -10,6 +11,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
@@ -30,7 +32,6 @@ import com.warmthdawn.appliedpackaging.core.package_data.PackageDataStorage;
 import com.warmthdawn.appliedpackaging.core.package_data.PackageLayout;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanBuilder;
 import com.warmthdawn.appliedpackaging.core.package_data.PackagePlanResult;
-import com.warmthdawn.appliedpackaging.diagnostic.RoutingTrace;
 import com.warmthdawn.appliedpackaging.item.PackageColor;
 import com.warmthdawn.appliedpackaging.item.PackageItem;
 import com.warmthdawn.appliedpackaging.registry.APBlocks;
@@ -139,6 +140,9 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             if (slot == SLOT_PATTERN && activePackages.isEmpty()) {
                 craftingProgress = 0;
             }
+            if (slot == SLOT_PATTERN) {
+                refreshGenericInventoryCapability();
+            }
             if (isOutputSlot(slot)) {
                 notifyComparatorOutputChanged();
             }
@@ -192,8 +196,10 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             key -> key instanceof AEItemKey itemKey && !(itemKey.getItem() instanceof PackageItem),
             1,
             this::setChanged);
-    private final ExternalItemHandler externalItemHandler = new ExternalItemHandler();
-    private LazyOptional<IItemHandler> itemHandler = createItemHandlerCapability();
+    private ExternalGenericInventory externalGenericInventory;
+    private final MEStorage externalStorage = new ExternalStorage();
+    private LazyOptional<GenericInternalInventory> genericInventory = LazyOptional.empty();
+    private LazyOptional<MEStorage> storage = createStorageCapability();
     private LazyOptional<ICraftingMachine> craftingMachine = createCraftingMachineCapability();
     private final List<QueuedPackage> activePackages = new ArrayList<>();
     private final List<QueuedPackage> pendingPackages = new ArrayList<>();
@@ -216,6 +222,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     public PackageAssemblerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.PACKAGE_ASSEMBLER.get(), pos, blockState);
         getMainNode().setIdlePowerUsage(0.0);
+        refreshGenericInventoryCapability();
     }
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, PackageAssemblerBlockEntity blockEntity) {
@@ -556,29 +563,39 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (stack.isEmpty() || requestedAmount <= 0 || !isPatternCapacityValid()) {
             return 0;
         }
-        ItemStack keyStack = stack.copy();
-        keyStack.setCount(1);
+        AEItemKey key = AEItemKey.of(stack);
+        if (key == null) {
+            return 0;
+        }
         int amount = Math.min(requestedAmount, stack.getCount());
-        int inserted = 0;
+        long inserted = insertMenuInput(preferredSlot, key, amount, Actionable.ofSimulate(simulate));
+        return (int) inserted;
+    }
+
+    private long insertMenuInput(int preferredSlot, AEKey key, long requestedAmount, Actionable mode) {
+        if (key == null || requestedAmount <= 0 || !isPatternCapacityValid()) {
+            return 0;
+        }
+        long inserted = 0;
 
         int inputSlotCount = Math.min(menuInputFilters().size(), MAX_MENU_INPUT_SLOT_COUNT);
         if (preferredSlot >= 0 && preferredSlot < inputSlotCount) {
-            inserted = insertMenuInputIntoSlot(preferredSlot, keyStack, amount, simulate);
+            inserted = insertMenuInputIntoSlot(preferredSlot, key, requestedAmount, mode);
         } else {
-            for (int slot = 0; slot < inputSlotCount && inserted < amount; slot++) {
+            for (int slot = 0; slot < inputSlotCount && inserted < requestedAmount; slot++) {
                 MenuInputEntry entry = menuInput(slot);
-                if (entry != null && ItemStack.isSameItemSameTags(entry.stack(), keyStack)) {
-                    inserted += insertMenuInputIntoSlot(slot, keyStack, amount - inserted, simulate);
+                if (entry != null && entry.key().equals(key)) {
+                    inserted += insertMenuInputIntoSlot(slot, key, requestedAmount - inserted, mode);
                 }
             }
-            for (int slot = 0; slot < inputSlotCount && inserted < amount; slot++) {
+            for (int slot = 0; slot < inputSlotCount && inserted < requestedAmount; slot++) {
                 if (menuInput(slot) == null) {
-                    inserted += insertMenuInputIntoSlot(slot, keyStack, amount - inserted, simulate);
+                    inserted += insertMenuInputIntoSlot(slot, key, requestedAmount - inserted, mode);
                 }
             }
         }
 
-        if (inserted > 0 && !simulate) {
+        if (inserted > 0 && mode == Actionable.MODULATE) {
             setChanged();
         }
         return inserted;
@@ -589,64 +606,43 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (entry == null || requestedAmount <= 0) {
             return ItemStack.EMPTY;
         }
-        int amount = (int) Math.min(Math.min(entry.amount(), requestedAmount), entry.stack().getMaxStackSize());
-        ItemStack extracted = entry.stack().copy();
-        extracted.setCount(amount);
+        if (!(entry.key() instanceof AEItemKey itemKey)) {
+            return ItemStack.EMPTY;
+        }
+        int amount = (int) Math.min(Math.min(entry.amount(), requestedAmount), itemKey.getMaxStackSize());
+        ItemStack extracted = itemKey.toStack(amount);
         if (!simulate) {
             long remaining = entry.amount() - amount;
-            menuInputs[slot] = remaining <= 0 ? null : new MenuInputEntry(entry.stack(), remaining);
+            menuInputs[slot] = remaining <= 0 ? null : new MenuInputEntry(entry.key(), remaining);
             trimMenuInputStorage();
             setChanged();
         }
         return extracted;
     }
 
-    private int insertMenuInputIntoSlot(int slot, ItemStack keyStack, int requestedAmount, boolean simulate) {
+    private long insertMenuInputIntoSlot(int slot, AEKey key, long requestedAmount, Actionable mode) {
         if (requestedAmount <= 0) {
             return 0;
         }
         MenuInputEntry current = menuInput(slot);
-        if (current != null && !ItemStack.isSameItemSameTags(current.stack(), keyStack)) {
+        if (current != null && !current.key().equals(key)) {
             return 0;
         }
-        int low = 0;
-        int high = requestedAmount;
-        while (low < high) {
-            int mid = (low + high + 1) / 2;
-            if (canInsertMenuInputIntoSlot(slot, keyStack, mid)) {
-                low = mid;
-            } else {
-                high = mid - 1;
-            }
-        }
-        if (low > 0 && !simulate) {
-            long amount = (current == null ? 0 : current.amount()) + low;
-            ensureMenuInputStorageCapacity(slot + 1);
-            menuInputs[slot] = new MenuInputEntry(keyStack, amount);
-        }
-        return low;
-    }
-
-    private boolean canInsertMenuInputIntoSlot(int slot, ItemStack keyStack, int amount) {
-        if (!isPatternCapacityValid()) {
-            return false;
-        }
         List<GenericStack> filters = menuInputFilters();
-        if (slot < 0 || slot >= filters.size()) {
-            return false;
+        if (!isPatternCapacityValid() || slot < 0 || slot >= filters.size()) {
+            return 0;
         }
-        MenuInputEntry current = menuInput(slot);
-        long newAmount = (current == null ? 0 : current.amount()) + amount;
-        if (newAmount <= 0) {
-            return false;
+        GenericStack filter = filters.get(slot);
+        if (filter == null || !filter.what().equals(key)) {
+            return 0;
         }
-        MenuInputEntry[] trial = copyMenuInputs(Math.max(filters.size(), slot + 1));
-        trial[slot] = new MenuInputEntry(keyStack, newAmount);
-        return menuInputsMatchFilters(trial, filters);
-    }
-
-    private MenuInputEntry[] copyMenuInputs(int minimumLength) {
-        return Arrays.copyOf(menuInputs, Math.max(menuInputs.length, minimumLength));
+        long currentAmount = current == null ? 0 : current.amount();
+        long inserted = Math.min(requestedAmount, Math.max(0, filter.amount() - currentAmount));
+        if (inserted > 0 && mode == Actionable.MODULATE) {
+            ensureMenuInputStorageCapacity(slot + 1);
+            menuInputs[slot] = new MenuInputEntry(key, currentAmount + inserted);
+        }
+        return inserted;
     }
 
     private MenuInputEntry menuInput(int slot) {
@@ -667,6 +663,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
     private void clearMenuInputs() {
         menuInputs = new MenuInputEntry[0];
+        refreshGenericInventoryCapability();
         setChanged();
     }
 
@@ -686,6 +683,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         if (length != menuInputs.length) {
             menuInputs = Arrays.copyOf(menuInputs, length);
+            refreshGenericInventoryCapability();
         }
     }
 
@@ -772,7 +770,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         GenericStack filter = filters.get(slot);
         return filter != null
-                && filter.what().equals(AEItemKey.of(entry.stack()))
+                && filter.what().equals(entry.key())
                 && entry.amount() <= filter.amount();
     }
 
@@ -973,7 +971,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
             GenericStack filter = filters.get(slot);
             if (filter == null
-                    || !filter.what().equals(AEItemKey.of(entry.stack()))
+                    || !filter.what().equals(entry.key())
                     || entry.amount() > filter.amount()) {
                 return false;
             }
@@ -1004,7 +1002,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             if (entry == null) {
                 return false;
             }
-            if (!filter.what().equals(AEItemKey.of(entry.stack())) || entry.amount() != filter.amount()) {
+            if (!filter.what().equals(entry.key()) || entry.amount() != filter.amount()) {
                 return false;
             }
         }
@@ -1180,17 +1178,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
 
     private void beginCrafting(List<QueuedPackage> packages) {
         if (packages.isEmpty()) {
-            RoutingTrace.log(level, worldPosition, "assembler", "craft_begin_rejected", "reason=empty_packages");
             return;
         }
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "craft_begin",
-                "packages=" + traceQueuedPackages(packages)
-                        + " outputMode=" + outputMode
-                        + " blocking=" + blockingMode);
         activePackages.clear();
         activePackages.addAll(packages);
         activeMenuPattern = ItemStack.EMPTY;
@@ -1232,12 +1221,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         List<QueuedPackage> packages = List.copyOf(activePackages);
         if (activeMenuPlan.isPresent()
                 && !commitMenuExtractions(activeMenuPlan.get().menuExtractions())) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "craft_complete_blocked",
-                    "reason=menu_extraction_failed packages=" + traceQueuedPackages(packages));
             craftingProgress = MAX_CRAFT_PROGRESS - 1;
             setChanged();
             return;
@@ -1245,15 +1228,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         activePackages.clear();
         activeMenuPattern = ItemStack.EMPTY;
         craftingProgress = 0;
-        boolean committed = commitProviderPackages(packages);
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "craft_complete",
-                "committed=" + committed
-                        + " packages=" + traceQueuedPackages(packages)
-                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
+        commitProviderPackages(packages);
         setChanged();
         syncClientVisualState();
     }
@@ -1402,47 +1377,17 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             finishAutoExportBatchIfEmpty();
             return false;
         }
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "export_batch_check",
-                "target=me mode=" + mode
-                        + " blocking=" + blockingMode
-                        + " active=" + autoExportBatchActive
-                        + " outputs=" + RoutingTrace.stacks(outputs));
         if (autoExportBatchActive) {
-            boolean matches = autoExportBatchMode == mode;
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    matches ? "export_batch_continue" : "export_batch_rejected",
-                    "reason=" + (matches ? "active_batch" : "active_mode_mismatch")
-                            + " target=me activeMode=" + autoExportBatchMode);
-            return matches;
+            return autoExportBatchMode == mode;
         }
         Set<AEKey> outputTypes = outputTypes(outputs);
         if (blockingMode && containsAnyOutputType(target, outputTypes)) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_batch_rejected",
-                    "reason=blocking_target_contains_output_type target=me");
             return false;
         }
         if (!acceptsOutput(target, outputs.get(0))) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_batch_rejected",
-                    "reason=preflight_rejected_head target=me");
             return false;
         }
         startAutoExportBatch(mode, null);
-        RoutingTrace.log(level, worldPosition, "assembler", "export_batch_started", "target=me mode=" + mode);
         return true;
     }
 
@@ -1453,56 +1398,18 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             finishAutoExportBatchIfEmpty();
             return false;
         }
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "export_batch_check",
-                "target=container direction=" + direction
-                        + " blocking=" + blockingMode
-                        + " active=" + autoExportBatchActive
-                        + " outputs=" + RoutingTrace.stacks(outputs)
-                        + " targetContents=" + RoutingTrace.itemHandler(target));
         if (autoExportBatchActive) {
-            boolean matches = autoExportBatchMode == OutputMode.ADJACENT_BLOCK
+            return autoExportBatchMode == OutputMode.ADJACENT_BLOCK
                     && autoExportBatchDirection == direction;
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    matches ? "export_batch_continue" : "export_batch_rejected",
-                    "reason=" + (matches ? "active_batch" : "active_target_mismatch")
-                            + " target=container direction=" + direction
-                            + " activeMode=" + autoExportBatchMode
-                            + " activeDirection=" + autoExportBatchDirection);
-            return matches;
         }
         Set<AEKey> outputTypes = outputTypes(outputs);
         if (blockingMode && containsAnyOutputType(target, outputTypes)) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_batch_rejected",
-                    "reason=blocking_target_contains_output_type target=container direction=" + direction);
             return false;
         }
         if (!acceptsOutput(target, outputs.get(0))) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_batch_rejected",
-                    "reason=preflight_rejected_head target=container direction=" + direction);
             return false;
         }
         startAutoExportBatch(OutputMode.ADJACENT_BLOCK, direction);
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "export_batch_started",
-                "target=container direction=" + direction);
         return true;
     }
 
@@ -1537,15 +1444,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
         return outputs;
     }
-
-    private String traceQueuedPackages(List<QueuedPackage> packages) {
-        List<ItemStack> stacks = new ArrayList<>(packages.size());
-        for (QueuedPackage queuedPackage : packages) {
-            stacks.add(packageStack(queuedPackage.color(), queuedPackage.data()));
-        }
-        return RoutingTrace.stacks(stacks);
-    }
-
     private static Set<AEKey> outputTypes(List<ItemStack> outputs) {
         Set<AEKey> outputTypes = new HashSet<>();
         for (ItemStack output : outputs) {
@@ -1614,40 +1512,14 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private boolean exportOutputToMEStorage(int itemSlot, MEStorage target, ItemStack output) {
         AEItemKey key = AEItemKey.of(output);
         long simulated = target.insert(key, 1, Actionable.SIMULATE, IActionSource.empty());
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "export_attempt",
-                "target=me slot=" + itemSlot
-                        + " output=" + RoutingTrace.stack(output)
-                        + " simulated=" + simulated);
         if (simulated <= 0) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_rejected",
-                    "reason=simulation_zero target=me output=" + RoutingTrace.stack(output));
             return false;
         }
         long committed = target.insert(key, Math.min(1, simulated), Actionable.MODULATE, IActionSource.empty());
         if (committed <= 0) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_rejected",
-                    "reason=commit_zero target=me output=" + RoutingTrace.stack(output));
             return false;
         }
         items.extractItem(itemSlot, (int) committed, false);
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "export_committed",
-                "target=me committed=" + committed + " output=" + RoutingTrace.stack(output));
         promoteNextOutput();
         setChanged();
         return true;
@@ -1658,55 +1530,20 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         single.setCount(1);
         ItemStack simulatedRemainder = ItemHandlerHelper.insertItemStacked(target, single.copy(), true);
         int transferable = single.getCount() - simulatedRemainder.getCount();
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "export_attempt",
-                "target=container slot=" + itemSlot
-                        + " output=" + RoutingTrace.stack(output)
-                        + " simulated=" + transferable
-                        + " targetContents=" + RoutingTrace.itemHandler(target));
         if (transferable <= 0) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_rejected",
-                    "reason=simulation_zero target=container output=" + RoutingTrace.stack(output));
             return false;
         }
 
         ItemStack extracted = items.extractItem(itemSlot, transferable, true);
         if (extracted.isEmpty()) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_rejected",
-                    "reason=source_extract_zero target=container output=" + RoutingTrace.stack(output));
             return false;
         }
         ItemStack remainder = ItemHandlerHelper.insertItemStacked(target, extracted.copy(), false);
         int inserted = extracted.getCount() - remainder.getCount();
         if (inserted <= 0) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "export_rejected",
-                    "reason=commit_zero target=container output=" + RoutingTrace.stack(output));
             return false;
         }
         items.extractItem(itemSlot, inserted, false);
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "export_committed",
-                "target=container committed=" + inserted
-                        + " output=" + RoutingTrace.stack(output)
-                        + " targetContents=" + RoutingTrace.itemHandler(target));
         promoteNextOutput();
         setChanged();
         return true;
@@ -1854,7 +1691,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 return Optional.empty();
             }
             AdvancedMenuInputFilter filter = advancedFilters.get(denseSlot);
-            columnInputs.get(filter.column()).add(new GenericStack(AEItemKey.of(entry.stack()), entry.amount()));
+            columnInputs.get(filter.column()).add(new GenericStack(entry.key(), entry.amount()));
             extractions.add(new MenuInputExtraction(denseSlot, entry.amount()));
         }
         for (var column : encoded.get().columns()) {
@@ -1894,7 +1731,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 continue;
             }
 
-            Optional<PackageData> packageData = PackageDataStorage.read(entry.stack());
+            Optional<PackageData> packageData = packageData(entry);
             if (packageData.isPresent()) {
                 long packagesToUse = 0;
                 for (long count = 0; count < entry.amount() && packageFitsRemaining(packageData.get(), remaining); count++) {
@@ -1908,7 +1745,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 continue;
             }
 
-            AEItemKey key = AEItemKey.of(entry.stack());
+            AEKey key = entry.key();
             long required = remaining.getOrDefault(key, 0L);
             if (required <= 0) {
                 continue;
@@ -2205,60 +2042,24 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     private boolean commitProviderPackages(List<QueuedPackage> packages) {
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "package_commit_attempt",
-                "packages=" + traceQueuedPackages(packages)
-                        + " pendingCount=" + pendingPackages.size()
-                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
         if (packages.isEmpty()) {
-            RoutingTrace.log(level, worldPosition, "assembler", "package_commit_rejected", "reason=empty_packages");
             return false;
         }
         if (!pendingPackages.isEmpty()) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "package_commit_rejected",
-                    "reason=pending_packages_not_empty pendingCount=" + pendingPackages.size());
             return false;
         }
         if (!hasOutputRoom()) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "package_commit_rejected",
-                    "reason=no_output_room outputs=" + RoutingTrace.stacks(completedOutputStacks()));
             return false;
         }
         resetAutoExportBatch();
         QueuedPackage first = packages.get(0);
         scheduleComparatorSamplingNextTick();
         if (!insertOutputPackage(packageStack(first.color(), first.data())).isEmpty()) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "package_commit_rejected",
-                    "reason=primary_insert_remainder package="
-                            + RoutingTrace.stack(packageStack(first.color(), first.data())));
             return false;
         }
         if (packages.size() > 1) {
             pendingPackages.addAll(packages.subList(1, packages.size()));
         }
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "package_commit_succeeded",
-                "packages=" + traceQueuedPackages(packages)
-                        + " pendingCount=" + pendingPackages.size()
-                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
         setChanged();
         return true;
     }
@@ -2370,55 +2171,19 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             List<QueuedPackage> packages,
             KeyCounter[] inputHolder,
             List<GenericStack> consumedInputs) {
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "provider_craft_attempt",
-                "packages=" + traceQueuedPackages(packages)
-                        + " inputs=" + RoutingTrace.counters(inputHolder)
-                        + " pendingCount=" + pendingPackages.size()
-                        + " activeCount=" + activePackages.size()
-                        + " outputs=" + RoutingTrace.stacks(completedOutputStacks()));
         if (packages.isEmpty()) {
-            RoutingTrace.log(level, worldPosition, "assembler", "provider_craft_rejected", "reason=empty_packages");
             return false;
         }
         if (!pendingPackages.isEmpty()) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "provider_craft_rejected",
-                    "reason=pending_packages_not_empty pendingCount=" + pendingPackages.size());
             return false;
         }
         if (!activePackages.isEmpty()) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "provider_craft_rejected",
-                    "reason=craft_already_active activeCount=" + activePackages.size());
             return false;
         }
         if (!outputSlotsEmpty()) {
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "provider_craft_rejected",
-                    "reason=outputs_not_empty outputs=" + RoutingTrace.stacks(completedOutputStacks()));
             return false;
         }
         consumePatternInputs(inputHolder, consumedInputs);
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "provider_inputs_consumed",
-                "remainingInputs=" + RoutingTrace.counters(inputHolder)
-                        + " packages=" + traceQueuedPackages(packages));
         if (level == null) {
             return commitProviderPackages(packages);
         }
@@ -2514,8 +2279,11 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         if (capability == Capabilities.CRAFTING_MACHINE) {
             return Capabilities.CRAFTING_MACHINE.orEmpty(capability, craftingMachine);
         }
-        if (capability == ForgeCapabilities.ITEM_HANDLER) {
-            return itemHandler.cast();
+        if (capability == Capabilities.GENERIC_INTERNAL_INV) {
+            return genericInventory.cast();
+        }
+        if (capability == Capabilities.STORAGE) {
+            return storage.cast();
         }
         return super.getCapability(capability, side);
     }
@@ -2523,19 +2291,35 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     @Override
     public void invalidateCaps() {
         super.invalidateCaps();
-        itemHandler.invalidate();
+        genericInventory.invalidate();
+        storage.invalidate();
         craftingMachine.invalidate();
     }
 
     @Override
     public void reviveCaps() {
         super.reviveCaps();
-        itemHandler = createItemHandlerCapability();
+        genericInventory = createGenericInventoryCapability();
+        storage = createStorageCapability();
         craftingMachine = createCraftingMachineCapability();
     }
 
-    private LazyOptional<IItemHandler> createItemHandlerCapability() {
-        return LazyOptional.of(() -> externalItemHandler);
+    private LazyOptional<GenericInternalInventory> createGenericInventoryCapability() {
+        return LazyOptional.of(() -> externalGenericInventory);
+    }
+
+    private void refreshGenericInventoryCapability() {
+        int slotCount = externalSlotCount();
+        if (externalGenericInventory != null && externalGenericInventory.size() == slotCount) {
+            return;
+        }
+        genericInventory.invalidate();
+        externalGenericInventory = new ExternalGenericInventory(slotCount);
+        genericInventory = createGenericInventoryCapability();
+    }
+
+    private LazyOptional<MEStorage> createStorageCapability() {
+        return LazyOptional.of(() -> externalStorage);
     }
 
     private LazyOptional<ICraftingMachine> createCraftingMachineCapability() {
@@ -2654,7 +2438,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             }
             CompoundTag tag = new CompoundTag();
             tag.putInt(MENU_INPUT_SLOT_TAG, slot);
-            tag.put(MENU_INPUT_STACK_TAG, entry.stack().save(new CompoundTag()));
+            tag.put(MENU_INPUT_STACK_TAG, GenericStack.writeTag(new GenericStack(entry.key(), entry.amount())));
             tag.putLong(MENU_INPUT_AMOUNT_TAG, entry.amount());
             list.add(tag);
         }
@@ -2674,26 +2458,22 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                     || !entryTag.contains(MENU_INPUT_STACK_TAG, Tag.TAG_COMPOUND)) {
                 continue;
             }
-            ItemStack stack = ItemStack.of(entryTag.getCompound(MENU_INPUT_STACK_TAG));
-            long amount = entryTag.getLong(MENU_INPUT_AMOUNT_TAG);
-            if (!stack.isEmpty() && amount > 0) {
-                stack.setCount(1);
+            GenericStack stack = GenericStack.readTag(entryTag.getCompound(MENU_INPUT_STACK_TAG));
+            long amount = stack == null ? 0 : stack.amount();
+            if (stack != null && amount > 0) {
                 ensureMenuInputStorageCapacity(slot + 1);
-                menuInputs[slot] = new MenuInputEntry(stack, amount);
+                menuInputs[slot] = new MenuInputEntry(stack.what(), amount);
             }
         }
         trimMenuInputStorage();
+        refreshGenericInventoryCapability();
     }
 
     private static void dropMenuInput(Level level, BlockPos pos, MenuInputEntry entry) {
-        long remaining = entry.amount();
-        int maxStack = Math.max(1, entry.stack().getMaxStackSize());
-        while (remaining > 0) {
-            int amount = (int) Math.min(remaining, maxStack);
-            ItemStack drop = entry.stack().copy();
-            drop.setCount(amount);
+        List<ItemStack> drops = new ArrayList<>();
+        entry.key().addDrops(entry.amount(), drops, level, pos);
+        for (ItemStack drop : drops) {
             Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), drop);
-            remaining -= amount;
         }
     }
 
@@ -2749,14 +2529,14 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             GenericStack filter = filters.get(extraction.slot());
             if (entry == null
                     || filter == null
-                    || !filter.what().equals(AEItemKey.of(entry.stack()))
+                    || !filter.what().equals(entry.key())
                     || entry.amount() < extraction.amount()) {
                 return false;
             }
             long remaining = entry.amount() - extraction.amount();
             updated[extraction.slot()] = remaining <= 0
                     ? null
-                    : new MenuInputEntry(entry.stack(), remaining);
+                    : new MenuInputEntry(entry.key(), remaining);
         }
         menuInputs = updated;
         trimMenuInputStorage();
@@ -2771,7 +2551,7 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             if (entry == null || entry.amount() <= 0) {
                 continue;
             }
-            Optional<PackageData> packageData = PackageDataStorage.read(entry.stack());
+            Optional<PackageData> packageData = packageData(entry);
             if (packageData.isPresent()) {
                 for (long count = 0; count < entry.amount(); count++) {
                     sourcePackages.add(packageData.get());
@@ -2779,9 +2559,15 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
                 }
                 continue;
             }
-            orderedContents.add(new GenericStack(AEItemKey.of(entry.stack()), entry.amount()));
+            orderedContents.add(new GenericStack(entry.key(), entry.amount()));
         }
         return new MenuInputContents(List.copyOf(orderedContents), List.copyOf(sourcePackages));
+    }
+
+    private static Optional<PackageData> packageData(MenuInputEntry entry) {
+        return entry.key() instanceof AEItemKey itemKey
+                ? PackageDataStorage.read(itemKey.toStack(1))
+                : Optional.empty();
     }
 
     private static ItemStack displayStack(GenericStack stack) {
@@ -2870,13 +2656,6 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
             ItemStack next = items.extractItem(slot, 1, false);
             if (!next.isEmpty()) {
                 items.setStackInSlot(SLOT_OUTPUT, next);
-                RoutingTrace.log(
-                        level,
-                        worldPosition,
-                        "assembler",
-                        "output_promoted",
-                        "source=slot outputIndex=" + outputIndex
-                                + " package=" + RoutingTrace.stack(next));
                 return;
             }
         }
@@ -2888,88 +2667,202 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         ItemStack remainder = items.insertItem(SLOT_OUTPUT, nextStack, false);
         if (!remainder.isEmpty()) {
             pendingPackages.add(0, next);
-            RoutingTrace.log(
-                    level,
-                    worldPosition,
-                    "assembler",
-                    "output_promotion_rejected",
-                    "source=pending reason=insert_remainder package=" + RoutingTrace.stack(nextStack));
             return;
         }
-        RoutingTrace.log(
-                level,
-                worldPosition,
-                "assembler",
-                "output_promoted",
-                "source=pending package=" + RoutingTrace.stack(nextStack)
-                        + " remainingPending=" + pendingPackages.size());
     }
 
-    private final class ExternalItemHandler implements IItemHandler {
+    private GenericStack externalOutputStack() {
+        ItemStack output = items.getStackInSlot(SLOT_OUTPUT);
+        AEItemKey key = AEItemKey.of(output);
+        return key == null ? null : new GenericStack(key, output.getCount());
+    }
+
+    private long extractExternalOutput(AEKey key, long amount, Actionable mode) {
+        if (key == null || amount <= 0) {
+            return 0;
+        }
+        GenericStack output = externalOutputStack();
+        if (output == null || !output.what().equals(key)) {
+            return 0;
+        }
+        long extracted = Math.min(1, Math.min(amount, output.amount()));
+        if (extracted > 0 && mode == Actionable.MODULATE) {
+            extractPrimaryOutput((int) extracted, false);
+        }
+        return extracted;
+    }
+
+    private final class ExternalStorage implements MEStorage {
         @Override
-        public int getSlots() {
-            return externalSlotCount();
+        public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+            MEStorage.checkPreconditions(what, amount, mode, source);
+            return insertMenuInput(-1, what, amount, mode);
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
-            int outputSlot = externalOutputSlot();
+        public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+            MEStorage.checkPreconditions(what, amount, mode, source);
+            return extractExternalOutput(what, amount, mode);
+        }
+
+        @Override
+        public void getAvailableStacks(KeyCounter out) {
+            GenericStack output = externalOutputStack();
+            if (output != null) {
+                out.add(output.what(), output.amount());
+            }
+        }
+
+        @Override
+        public Component getDescription() {
+            return Component.translatable("block.appliedpackaging.package_assembler");
+        }
+    }
+
+    private final class ExternalGenericInventory implements GenericInternalInventory {
+        private final int slotCount;
+        private final int outputSlot;
+        private boolean batching;
+        private boolean changedWhileBatching;
+
+        private ExternalGenericInventory(int slotCount) {
+            this.slotCount = slotCount;
+            this.outputSlot = slotCount - 1;
+        }
+
+        @Override
+        public int size() {
+            return slotCount;
+        }
+
+        @Override
+        public GenericStack getStack(int slot) {
             if (slot >= 0 && slot < outputSlot) {
-                return menuInputDisplay(slot);
+                MenuInputEntry entry = menuInput(slot);
+                return entry == null ? null : new GenericStack(entry.key(), entry.amount());
             }
-            return slot == outputSlot
-                    ? items.getStackInSlot(SLOT_OUTPUT).copy()
-                    : ItemStack.EMPTY;
+            return slot == outputSlot ? externalOutputStack() : null;
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (slot < 0 || slot >= menuInputSlotCount() || stack.isEmpty()) {
-                return stack;
-            }
-            int inserted = insertMenuInput(slot, stack, stack.getCount(), simulate);
-            if (inserted <= 0) {
-                return stack;
-            }
-            ItemStack remainder = stack.copy();
-            remainder.shrink(inserted);
-            return remainder;
+        public AEKey getKey(int slot) {
+            GenericStack stack = getStack(slot);
+            return stack == null ? null : stack.what();
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (amount <= 0 || slot != externalOutputSlot()) {
-                return ItemStack.EMPTY;
-            }
-            return extractPrimaryOutput(amount, simulate);
+        public long getAmount(int slot) {
+            GenericStack stack = getStack(slot);
+            return stack == null ? 0 : stack.amount();
         }
 
         @Override
-        public int getSlotLimit(int slot) {
-            if (slot == externalOutputSlot()) {
-                return 1;
+        public long getMaxAmount(AEKey key) {
+            long maximum = 0;
+            for (GenericStack filter : menuInputFilters()) {
+                if (filter != null && filter.what().equals(key)) {
+                    maximum = Math.max(maximum, filter.amount());
+                }
             }
-            GenericStack filter = externalInputFilter(slot);
-            if (filter == null || !(filter.what() instanceof AEItemKey)) {
+            return Math.max(1, maximum);
+        }
+
+        @Override
+        public long getCapacity(AEKeyType keyType) {
+            long maximum = 0;
+            for (GenericStack filter : menuInputFilters()) {
+                if (filter != null && filter.what().getType() == keyType) {
+                    maximum = Math.max(maximum, filter.amount());
+                }
+            }
+            return Math.max(1, maximum);
+        }
+
+        @Override
+        public boolean canInsert() {
+            return true;
+        }
+
+        @Override
+        public boolean canExtract() {
+            return true;
+        }
+
+        @Override
+        public void setStack(int slot, GenericStack newStack) {
+            // External automation must use insert/extract so pattern limits and ordered-output semantics cannot be bypassed.
+        }
+
+        @Override
+        public boolean isAllowed(AEKey what) {
+            if (what == null || !isPatternCapacityValid()) {
+                return false;
+            }
+            for (GenericStack filter : menuInputFilters()) {
+                if (filter != null && filter.what().equals(what)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public long insert(int slot, AEKey what, long amount, Actionable mode) {
+            long inserted = insertMenuInputIntoSlot(slot, what, amount, mode);
+            if (inserted > 0 && mode == Actionable.MODULATE) {
+                onChange();
+            }
+            return inserted;
+        }
+
+        @Override
+        public long extract(int slot, AEKey what, long amount, Actionable mode) {
+            if (slot != outputSlot) {
                 return 0;
             }
-            return (int) Math.min(filter.amount(), Integer.MAX_VALUE);
+            long extracted = extractExternalOutput(what, amount, mode);
+            if (extracted > 0 && mode == Actionable.MODULATE) {
+                onChange();
+            }
+            return extracted;
         }
 
         @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            GenericStack filter = externalInputFilter(slot);
-            return filter != null
-                    && !stack.isEmpty()
-                    && filter.what().equals(AEItemKey.of(stack));
+        public void beginBatch() {
+            if (batching) {
+                throw new IllegalStateException("Generic assembler inventory batch already active");
+            }
+            batching = true;
         }
 
-        private GenericStack externalInputFilter(int slot) {
-            if (!isPatternCapacityValid() || slot < 0 || slot >= menuInputSlotCount()) {
-                return null;
+        @Override
+        public void endBatch() {
+            if (!batching) {
+                throw new IllegalStateException("Generic assembler inventory batch not active");
             }
-            List<GenericStack> filters = menuInputFilters();
-            return slot < filters.size() ? filters.get(slot) : null;
+            batching = false;
+            if (changedWhileBatching) {
+                changedWhileBatching = false;
+                setChanged();
+            }
+        }
+
+        @Override
+        public void endBatchSuppressed() {
+            if (!batching) {
+                throw new IllegalStateException("Generic assembler inventory batch not active");
+            }
+            batching = false;
+            changedWhileBatching = false;
+        }
+
+        @Override
+        public void onChange() {
+            if (batching) {
+                changedWhileBatching = true;
+            } else {
+                setChanged();
+            }
         }
     }
 
@@ -3068,14 +2961,18 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
         }
     }
 
-    private record MenuInputEntry(ItemStack stack, long amount) {
+    private record MenuInputEntry(AEKey key, long amount) {
         private MenuInputEntry {
-            stack = stack.copy();
-            stack.setCount(1);
+            if (key == null || amount <= 0) {
+                throw new IllegalArgumentException("Menu input entries require a key and positive amount");
+            }
         }
 
         private ItemStack displayStack() {
-            ItemStack display = stack.copy();
+            ItemStack display = key.wrapForDisplayOrFilter();
+            if (display.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
             display.setCount((int) Math.max(1L, Math.min(amount, Integer.MAX_VALUE)));
             return display;
         }

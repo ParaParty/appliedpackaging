@@ -14,7 +14,7 @@ categories:
 
 <BlockImage id="appliedpackaging:package_assembler" scale="8" />
 
-The ME Package Assembler takes items input into it and carries out the operation defined by an adjacent <ItemLink id="ae2:pattern_provider" />, or the inserted [package pattern](../devices/advanced-pattern-terminal.md), [advanced processing pattern](../devices/advanced-pattern-terminal.md), or regular AE2 pattern, then outputs the resulting packages. By default, the output goes to the connected ME storage.
+The ME Package Assembler accepts items, fluids, and other AEKey-compatible inputs and carries out the operation defined by an adjacent <ItemLink id="ae2:pattern_provider" />, or the inserted [package pattern](../devices/advanced-pattern-terminal.md), [advanced processing pattern](../devices/advanced-pattern-terminal.md), or regular AE2 pattern, then outputs the resulting packages. Like an ME Interface, it exposes one generic AEKey inventory and does not implement a separate item-handler view; AE2 derives resource-specific capabilities from that inventory. By default, the output goes to the connected ME storage.
 
 ## Inserted Pattern and Hopper I/O
 
@@ -102,14 +102,16 @@ Use adjacent output for the inserted-pattern setup with one-way external transpo
 
 Before consuming any ingredients, the assembler checks that every package fits within the capacity limit:
 
-| Component | Max Types | Max Total |
+| Component | Max Types | Max Units |
 |-----------|-----------|-----------|
-| None | 9 | 9 |
-| <ItemLink id="ae2:cell_component_16k" /> | 16 | 16 |
-| <ItemLink id="ae2:cell_component_64k" /> | 63 | 64 |
-| <ItemLink id="ae2:cell_component_256k" /> | 63 | 256 |
+| None (default 1k tier) | 9 | 256 |
+| <ItemLink id="ae2:cell_component_16k" /> | 16 | 4,096 |
+| <ItemLink id="ae2:cell_component_64k" /> | 63 | 16,384 |
+| <ItemLink id="ae2:cell_component_256k" /> | 63 | 65,536 |
 
-Storage cells and 1k components are not accepted. Install the component in the assembler's component slot.
+The empty default 1k tier and each supported component provide one quarter of their nominal ME capacity in package units.
+
+Storage cells and 1k components are not accepted; the empty slot already provides the 1k tier. Install a supported upgrade component in the assembler's component slot.
 
 ## Color and Marker
 

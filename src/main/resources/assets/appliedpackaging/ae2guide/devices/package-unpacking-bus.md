@@ -16,9 +16,9 @@ categories:
   <ImportStructure src="../assets/blocks/package_unpacking_bus.snbt" />
 </GameScene>
 
-The Package Unpacking Bus receives packages from network storage and inserts their contents into the inventory it is touching, in the order the items were encoded. It acts as a destination for packages — when a package is stored in the network, the bus takes it and places each item into the target inventory in sequence.
+The Package Unpacking Bus receives packages from network storage and inserts their contents into the compatible storage target it is touching, in the order they were encoded. It supports the same extensible external-storage targets as an AE2 Pattern Provider, including items, fluids, and additional AE key types registered by addons.
 
-The bus also functions as a sequenced supplier, similar to how a pattern provider pushes a complete batch of ingredients to an adjacent inventory. It delivers the full set of package contents before considering the operation complete.
+The bus also functions as a sequenced supplier, similar to how a pattern provider pushes a complete batch of ingredients to an adjacent target. It checks every content type before starting the push and preserves the encoded order during delivery.
 
 They are cable subparts.
 
@@ -37,7 +37,7 @@ Priorities can be set by clicking the wrench in the top-right of the GUI. Packag
 ## Settings
 
 *   The bus can be set to check whether the complete contents can be inserted before accepting a package (labeled "Anti-Clog Mode" in the GUI, on by default). When enabled, the bus rejects the package if the check fails, allowing the network to route it to another destination. When disabled, the bus accepts the package and holds it in the working slot until the target is ready.
-*   Blocking mode can be enabled to prevent unpacking when the target already contains any of the package's content types.
+*   Blocking mode can be enabled to prevent unpacking while the target contains anything. The target must be completely empty; unrelated contents also block.
 *   The package in the working slot is a real item. It can be extracted from the GUI at any time. Breaking the bus returns it.
 
 Package contents are never reported to network storage until the unpack commits successfully.

@@ -300,7 +300,7 @@ try {
     $nativeStyleOverridePath = Join-Path $nativeStyleOverrideFixture "src/main/resources/assets/ae2/screens/terminals/pattern_encoding_terminal.json"
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $nativeStyleOverridePath) | Out-Null
     Copy-Item `
-        -LiteralPath (Join-Path $nativeStyleOverrideFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json") `
+        -LiteralPath (Join-Path $nativeStyleOverrideFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_terminal.json") `
         -Destination $nativeStyleOverridePath
     Invoke-AssetsCase `
         -Name "forbidden AE2 native pattern ScreenStyle override fixture" `
@@ -309,7 +309,7 @@ try {
         -ExpectedText "AE2 native pattern terminal ScreenStyle is not overridden"
 
     $badPackageProfileFixture = New-AssetsFixture "bad-specialized-terminal-package-profile"
-    $badPackageProfilePath = Join-Path $badPackageProfileFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json"
+    $badPackageProfilePath = Join-Path $badPackageProfileFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_terminal.json"
     $badPackageProfile = Get-Content -Raw -LiteralPath $badPackageProfilePath | ConvertFrom-Json
     $badPackageProfile.widgets.packagePatternModeScrollbar.bottom = 177
     $badPackageProfile | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $badPackageProfilePath -Encoding UTF8
@@ -320,7 +320,7 @@ try {
         -ExpectedText "Combined specialized pattern terminal declares the package-mode scrollbar geometry"
 
     $overlappingAdvancedHeaderFixture = New-AssetsFixture "overlapping-specialized-terminal-header-controls"
-    $overlappingAdvancedHeaderPath = Join-Path $overlappingAdvancedHeaderFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json"
+    $overlappingAdvancedHeaderPath = Join-Path $overlappingAdvancedHeaderFixture "src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_terminal.json"
     $overlappingAdvancedHeader = Get-Content -Raw -LiteralPath $overlappingAdvancedHeaderPath | ConvertFrom-Json
     $overlappingAdvancedHeader.widgets.processingCycleOutput.bottom = 172
     $overlappingAdvancedHeader | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $overlappingAdvancedHeaderPath -Encoding UTF8

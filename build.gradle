@@ -238,16 +238,16 @@ dependencies {
     modImplementation "maven.modrinth:${ae2_modrinth_project}:${ae2_modrinth_version}"
     modImplementation "org.appliedenergistics:guideme:${guideme_version}"
 
-    // One JEI plugin implementation serves both viewers. TMRV maps that plugin to EMI without JEI.
+    // Each viewer owns its API lifecycle; only extracted domain data and pattern semantics are shared.
     // Complete viewer mods are development-only and are not published as transitive dependencies.
     modCompileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     modCompileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
+    modCompileOnly "dev.emi:emi-forge:${emi_version}"
     if (recipeViewerRuntime == 'jei') {
         modLocalRuntime "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
     }
     if (recipeViewerRuntime == 'emi') {
         modLocalRuntime "dev.emi:emi-forge:${emi_version}"
-        modLocalRuntime "maven.modrinth:tmrv:${tmrv_version}"
     }
     modCompileOnly "com.simibubi.create:create-${minecraft_version}:${create_version}:slim"
     // The Maven slim jar is suitable for compilation; the all jar carries Create's bundled runtime libraries.

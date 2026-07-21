@@ -27,7 +27,7 @@ categories:
 ### 包裹卸货总线输入
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../../assets/assemblies/sequence_line.snbt" />
+  <ImportStructure src="../assets/assemblies/sequence_line.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
 
   <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">
@@ -44,7 +44,7 @@ categories:
 ### 样板供应器输入
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../../assets/assemblies/sequence_line_pattern_provider.snbt" />
+  <ImportStructure src="../assets/assemblies/sequence_line_pattern_provider.snbt" />
   <IsometricCamera yaw="205" pitch="30" />
 
   <BoxAnnotation color="#ffbb55" min="0 0 0" max="1 1 2">

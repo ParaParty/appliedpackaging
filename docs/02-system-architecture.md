@@ -39,18 +39,18 @@ GuideME: [20.1.7,20.2.0)
 
 GuideME 页面位于 Applied Packaging namespace 的 AE2 `ae2guide` content root，由 AE2 已注册 Guide 合并发现，不创建第二本指南。英文页位于 content root，简体中文页位于 `_zh_cn/` 并保持一一对应；可视化结构统一存放在 `assets/blocks/` 与 `assets/assemblies/`。各设备页通过 `item_ids` 接入 AE2 原版物品索引，使基类自带的单个 Help 按钮直接定位到对应页面。首页使用 AE2 原版 `CategoryIndex` 组织物品、部件和机器，设备页使用 `BlockImage` / `GameScene`、`RecipeFor`、`ItemLink` 与本地页面链接；装配、包裹路由和序列输入示例共用可静态审计的 SNBT 场景。
 
-JEI 15.20.0.134、EMI 1.1.24+1.20.1、TMRV 0.9.0+mc.20.1、Create 6.0.8-291 和 GTCEu 7.5.3 只用于可选配方导入。Gradle 只对 JEI API compile-only；`-PrecipeViewerRuntime=jei` 加载 JEI，`-PrecipeViewerRuntime=emi` 加载互不共存的 EMI+TMRV，由 TMRV 把同一个 `@JeiPlugin` 映射到 EMI。Create 使用 slim compile-only 加 all runtime，GTCEu 使用 compile-only 加可替换 runtime；这些查看器与高级配方 Mod 都不进入 mandatory 发布依赖范围。Create/GTCEu 专用适配器继续由隔离类加载边界保护。其它 Mod 不加入 Gradle 依赖，而是经 JEI 标准 item/fluid recipe 输入通用兼容。`-PgtceuRuntimeJar=<versioned-jar>` 可把开发运行时替换为本地兼容 fork，并使用独立 `run-gtceu-fork` 目录；编译 API baseline 仍保持 GTCEu 7.5.3。
+JEI 15.20.0.134、EMI 1.1.24+1.20.1、Create 6.0.8-291 和 GTCEu 7.5.3 只用于可选配方导入。Gradle 对 JEI 与 EMI API compile-only；`-PrecipeViewerRuntime=jei` 加载 JEI，`-PrecipeViewerRuntime=emi` 加载原生 EMI，整合包中的 JEI+EMI/JEMI 共存组合另作真实环境验证。JEI 与 EMI 各自拥有 extractor 和 handler，不共享查看器生命周期；只共享 `PatternTransferPlanFactory`、领域 DTO、候选选择和配方语义编码。Create 使用 slim compile-only 加 all runtime，GTCEu 使用 compile-only 加可替换 runtime；这些查看器与高级配方 Mod 都不进入 mandatory 发布依赖范围。Create/GTCEu 语义编码器在对应 Mod 已加载时直接构造，不使用反射发现；其它 Mod 通过各查看器 extractor 提供的标准 item/fluid 数据通用兼容。`-PgtceuRuntimeJar=<versioned-jar>` 可把开发运行时替换为本地兼容 fork，并使用独立 `run-gtceu-fork` 目录；编译 API baseline 仍保持 GTCEu 7.5.3。
 
 ## 2. 核心架构
 
 ```text
 ME Package Assembler / ME 包裹装配室：
   类 AE2 Molecular Assembler。
-  接收 AE2 样板供应器推入的一批输入，或按本地任意可解码已编码样板锁定真实输入槽；安装有效本地样板时，Forge item capability 同步暴露这些按位置过滤的输入位与有序输出位。同一资源出现在多个样板位置时仍对应多个输入位和多个包裹 contents 条目。机器消耗本机 AE 网络能量推进合成进度；本地输入在完成前保留且可交互，缺料暂停、补齐继续，完成时先原子扣除全部对应槽位，成功后才提交包裹。
+  接收 AE2 样板供应器推入的一批输入，或按本地任意可解码已编码样板锁定真实输入槽；安装有效本地样板时，以 `GenericInternalInventory` 与 `Capabilities.STORAGE` 暴露按位置过滤的 AEKey 输入位和有序输出位，Forge item/fluid capability 由 AE2 通用包装层适配。同一资源出现在多个样板位置时仍对应多个输入位和多个包裹 contents 条目。机器消耗本机 AE 网络能量推进合成进度；本地输入在完成前保留且可交互，缺料暂停、补齐继续，完成时先原子扣除全部对应槽位，成功后才提交包裹。
 
 ME Packager / ME 打包机：
   类 Create Packager。
-  只通过固定底部与模型背面接入 AE 网络，在所连网格的 MEStorage 内容和包裹之间做整包转换；空容量槽为 9 单位/9 类型，只支持 16k/64k/256k storage component 升级。
+  只通过固定底部与模型背面接入 AE 网络，在所连网格的 MEStorage 内容和包裹之间做整包转换；空容量槽按默认 1k 档提供 256 单位/9 类型，16k/64k/256k storage component 分别提供名义容量四分之一的 4096/16384/65536 单位上限。
 
 Package Buses / 包裹总线家族：
   Package Storage Bus 与 Package Unpacking Bus 均为 AE2 cable part，只暴露合法包裹或在完整模拟通过后把合法包裹内容推入目标端点，并各自占用 channel。
@@ -118,7 +118,7 @@ registry / data / gametest
 
 1. `PackageData` 是纯数据，不直接调用 Forge 或 AE2 网络；`contents` 是身份相关的有序列表，数据层不合并同类条目也不排序；可选 `PackageLayout` 保存 sparse 样板的总槽数及每个条目的原槽位，并参与包裹身份。
 2. `PackageDataStorage` 是 1.20.1 NBT 与未来 Data Component 的唯一读写入口。
-3. 两台包裹机器共享 `PackageCapacityProfile` 的 storage component 映射和单包容量计算；包裹规划与 MEStorage 操作先模拟后提交，Package Assembler 的本地样板与 Pattern Provider 推送也必须在接收输入前预检全部预计包裹。Forge item handler 拆包采用 Pattern Provider 式 check-then-push，只在整包累计模拟通过后按 contents 顺序逐条真实推入，重复资源条目不预先聚合；不维护自定义跨 handler 回滚层。
+3. 两台包裹机器共享 `PackageCapacityProfile` 的 storage component 映射和单包容量计算；包裹规划与 MEStorage 操作先模拟后提交，Package Assembler 的本地样板与 Pattern Provider 推送也必须在接收输入前预检全部预计包裹。相邻目标拆包复用 Pattern Provider 的通用目标解析与 check-then-push：模拟阶段按精确 AEKey 汇总重复条目，提交阶段仍按 contents 原始顺序逐条推入；不维护自定义跨第三方 capability 回滚层。
 4. 打包和拆包以单个包裹为最小操作单位。
 5. ME 打包机只通过固定底部与模型背面加入 AE 网格并使用该网格的 MEStorage；其它面不接入 ME 线缆，不扫描相邻 Forge item/fluid handler，也不回落到 Forge item/fluid handler。
 6. 装配室只处理样板语义，不处理相邻存储打包和拆包。
@@ -221,14 +221,14 @@ incoming package stack
 
 ```text
 AE2 cable host -> part grid node
-part mounted side -> adjacent Forge item handler
+part mounted side -> PackageUnpackingTarget over adjacent direct MEStorage or ExternalStorageStrategy composite target
 mount a Formation-Plane-style insertion-only MEStorage at the exact player-configured priority, default 0
 use the same player-configured priority shown by the top-right Priority submenu; at an equal value, the unpacking sink enters AE2's preferred-storage pass before PackageItemStorage
-accept at most one network-routed package only after filter, Pattern Provider blocking and cumulative target simulation pass
+accept at most one network-routed package only after filter, complete-target-empty blocking and generic-target simulation pass
 move the accepted package directly into the part's persisted held state without exposing storage or extraction
 run the same 20-tick unpacking work phase as ME Packager
-revalidate filter, blocking and adjacent target capacity at the final tick
-push all package contents after the cumulative simulation succeeds, then clear held state
+revalidate filter, blocking and adjacent generic-target capacity at the final tick
+push all package contents in original order after exact-key totals pass simulation, then clear held state
 if final simulation rejects the package, retain the same held package locally and retry after the speed-card-adjusted interval
 allow idle/blocked GUI recovery and add the held package to part-removal drops
 ```
@@ -261,21 +261,26 @@ PackagePlanBuilder
 
 `PackageDataStorage` 隔离 NBT；实际网络读写只在 MEStorage 适配层中调用 AE2 runtime API。项目不保留尚未实现的 `AEGenericStackAdapter` 或 `GenericStorageEndpoint` 抽象。
 
-## 7. JEI / EMI 单插件配方导入架构
+## 7. JEI / EMI 双前端领域共享配方导入架构
 
 ```text
-JEI recipe context -> AppliedPackagingJeiPlugin -> AdvancedRecipeTransferHandler
+JEI API lifecycle -> AppliedPackagingJeiPlugin -> AdvancedRecipeTransferHandler
+  -> JeiRecipeExtractor(IRecipeSlotsView)
+EMI API lifecycle -> AppliedPackagingEmiPlugin -> AdvancedEmiRecipeHandler(FILL_BUTTON only)
+  -> EmiRecipeExtractor(EmiRecipe)
+  -> getBackingRecipe -> RecipeManager by id -> GTCEu public category registry by id
+JEMI display -> EMI built-in JEMI -> JEI transfer handler（不进入原生 EMI handler）
+两个 extractor -> RecipeExtraction / StandardRecipeData
+  -> PatternTransferPlanFactory
   -> RecipeIngredientSelector <- AE2 client repository + player inventory
-  -> CreateRecipeTransferAdapter / GtceuRecipeTransferAdapter / StandardRecipeTransferAdapter
-EMI recipe context -> TMRV JEI API replacement -> 上述同一个 JEI plugin/handler
-唯一查看器插件入口
+  -> CreateRecipeSemanticEncoder / GtceuRecipeSemanticEncoder / StandardRecipePlanFactory
   -> AdvancedPatternTransferPlan / PackagePatternTransferPlan
   -> 32 KiB 上限的 JSON action payload
   -> AdvancedPatternEncodingTermMenu 服务端重新解码和完整校验
   -> 当前页面状态的原子 replaceRecipe
 ```
 
-唯一 handler 不新增或复制第三方 recipe category，而是从 recipe object 与 `IRecipeSlotsView` 构造计划。handler 在计划构造前从 AE2 `clientRepo` 与玩家物品栏生成一次候选优先级快照；共享 `RecipeIngredientSelector` 按 AE2 样板终端的可合成、未损坏、现存数量顺序选择网络候选，玩家物品栏只作低优先级后备，库存均无匹配才回退查看器展示项或配方声明首项。Create/GTCEu 专用适配器优先保留工序、tick content 和概率语义；标准回退读取 `INPUT` / `OUTPUT` 并跳过 `CATALYST` / `RENDER_ONLY`。JEI 直接提供这些上下文；EMI+TMRV 把同一套 JEI API 调用映射为 EMI recipe/transfer 行为，因此两边不会形成会漂移的重复分支。TMRV 与 JEI 标记为互不兼容，开发验证不会同时加载二者；任一查看器未安装时，JEI plugin 类不进入主模组加载路径。
+两个前端都不新增或复制第三方 recipe category，也不把 `IRecipeSlotsView`、`EmiRecipe`、`EmiCraftContext` 或 tooltip/render 生命周期传入领域包。计划构造前从 AE2 `clientRepo` 与玩家物品栏生成一次候选优先级快照；共享 `RecipeIngredientSelector` 按 AE2 样板终端的可合成、未损坏、现存数量顺序选择网络候选，玩家物品栏只作低优先级后备，库存均无匹配才回退查看器展示项或配方声明首项。Create/GTCEu 语义编码器优先保留工序、tick content 和概率语义；StarT Fork layered recipe 由显式 Fork 兼容桥调用其公开 `LayeredRecipeHelper`，该桥位于 GTCEu 领域编码器之后，不属于 JEI/EMI handler、extractor 或 recipe recovery。`StandardRecipePlanFactory` 只处理 extractor 已转换的确定性 item/fluid 数据；Thermal 的公开方法兼容规则单独位于 `ThermalRecipeSemantics`。原生 EMI 恢复语义配方时只使用公开 backing recipe、`RecipeManager` 和 GTCEu recipe type/category 注册表，不读取 `GTEmiRecipe` 私有字段；JEI bridge 仅按公开 recipe ID 的 `jei` namespace 识别，并由 EMI 内置 JEMI transfer 路径处理。正式 viewer 路径和共享计划工厂不反射发现模块、不检查 viewer 实现类或访问包装字段。任一查看器未安装时，对应插件类不进入主模组加载路径。
 
 客户端计划先经过最多 81 列、每列最多 81 输入、最多 4 输出、数量、AEKey 和 32767 字符 AE2 client-action 上限检查；服务端收到 action 后重复 payload 大小与结构边界检查，再重建每个 stack。高级页成功后强制模式为 ADVANCED，保留重叠列的当前颜色，新增列按当前颜色模式赋色，并批量替换列/输出；包裹页成功后强制模式为 PACKAGE，保留当前包裹颜色并批量替换最多 81 个内容和可选 item marker。两个状态层都只发出一次 change callback，服务端校验失败不应用任何部分计划。
 

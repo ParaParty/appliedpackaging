@@ -11,7 +11,7 @@ navigation:
 将一个配方拆分为多个包裹组时，可以用颜色来标记不同组的去向。包裹存储总线和卸货总线都支持按颜色过滤——例如，红色包裹的一组原料去一个目的地，蓝色包裹的另一组去另一个目的地。
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../../assets/assemblies/package_routing.snbt" />
+  <ImportStructure src="../assets/assemblies/package_routing.snbt" />
   <IsometricCamera yaw="195" pitch="25" />
 
   <BoxAnnotation color="#66aaff" min="0 0 1" max="2 1 2">

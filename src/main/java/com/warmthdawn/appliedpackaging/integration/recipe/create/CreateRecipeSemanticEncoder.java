@@ -1,4 +1,4 @@
-package com.warmthdawn.appliedpackaging.integration.jei.create;
+package com.warmthdawn.appliedpackaging.integration.recipe.create;
 
 import appeng.api.stacks.GenericStack;
 import com.simibubi.create.content.kinetics.deployer.ItemApplicationRecipe;
@@ -9,20 +9,19 @@ import com.simibubi.create.content.processing.sequenced.IAssemblyRecipe;
 import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
 import com.warmthdawn.appliedpackaging.core.package_data.AdvancedProcessingPatternDataStorage;
 import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
-import com.warmthdawn.appliedpackaging.integration.jei.AdvancedRecipeTransferAdapter;
-import com.warmthdawn.appliedpackaging.integration.jei.AdvancedRecipeTransferResult;
-import com.warmthdawn.appliedpackaging.integration.jei.RecipeIngredientSelector;
-import com.warmthdawn.appliedpackaging.integration.jei.RecipeStackConversions;
+import com.warmthdawn.appliedpackaging.integration.recipe.AdvancedRecipeTransferResult;
+import com.warmthdawn.appliedpackaging.integration.recipe.RecipeIngredientSelector;
+import com.warmthdawn.appliedpackaging.integration.recipe.RecipeSemanticEncoder;
+import com.warmthdawn.appliedpackaging.integration.recipe.RecipeStackConversions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraftforge.fluids.FluidStack;
 
-public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransferAdapter {
+public final class CreateRecipeSemanticEncoder implements RecipeSemanticEncoder {
     private static final String INVALID_INGREDIENT = "gui.appliedpackaging.jei_transfer.invalid_ingredient";
     private static final String RANDOM_OUTPUT = "gui.appliedpackaging.jei_transfer.random_output";
 
@@ -36,7 +35,6 @@ public final class CreateRecipeTransferAdapter implements AdvancedRecipeTransfer
     @Override
     public AdvancedRecipeTransferResult createPlan(
             Object recipe,
-            IRecipeSlotsView recipeSlots,
             RecipeIngredientSelector ingredientSelector) {
         if (recipe instanceof SequencedAssemblyRecipe sequencedAssembly) {
             return createSequencedPlan(sequencedAssembly, ingredientSelector);

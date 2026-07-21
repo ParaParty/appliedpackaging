@@ -198,6 +198,56 @@ try {
         -ExpectedExitCode 1 `
         -ExpectedText "Missing GuideME structure"
 
+    $translatedGuideStructureFixture = New-DocsFixture "translated-guide-runtime-structure"
+    $translatedGuidePage = Join-Path $translatedGuideStructureFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/_zh_cn/devices/package-unpacking-bus.md"
+    )
+    $translatedGuideText = Get-Content -LiteralPath $translatedGuidePage -Raw
+    $translatedGuideText = $translatedGuideText.Replace(
+        "../assets/blocks/package_unpacking_bus.snbt",
+        "../../assets/blocks/package_unpacking_bus.snbt"
+    )
+    Set-Content -LiteralPath $translatedGuidePage -Value $translatedGuideText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "translated GuideME runtime structure fixture" `
+        -RootPath $translatedGuideStructureFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "GuideME structure reference escapes guide root"
+
+    $missingGuideHelpTopicFixture = New-DocsFixture "missing-guide-help-topic"
+    $helpTopicSource = Join-Path $missingGuideHelpTopicFixture (
+        "src/main/java/com/warmthdawn/appliedpackaging/client/screen/BrokenGuideScreen.java"
+    )
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $helpTopicSource) | Out-Null
+    Set-Content -LiteralPath $helpTopicSource -Value @'
+package com.warmthdawn.appliedpackaging.client.screen;
+
+final class BrokenGuideScreen {
+    private final Object topic = AppliedPackaging.id("missing-page.md");
+}
+'@ -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "missing GuideME help topic fixture" `
+        -RootPath $missingGuideHelpTopicFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "Missing GuideME help topic"
+
+    $wrongTranslatedItemIndexFixture = New-DocsFixture "wrong-translated-item-index"
+    $wrongTranslatedItemIndexPage = Join-Path $wrongTranslatedItemIndexFixture (
+        "src/main/resources/assets/appliedpackaging/ae2guide/_zh_cn/machines/me-packager.md"
+    )
+    $wrongTranslatedItemIndexText = Get-Content -LiteralPath $wrongTranslatedItemIndexPage -Raw
+    $wrongTranslatedItemIndexText = $wrongTranslatedItemIndexText.Replace(
+        "- appliedpackaging:me_packager",
+        "- appliedpackaging:package_assembler"
+    )
+    Set-Content -LiteralPath $wrongTranslatedItemIndexPage -Value $wrongTranslatedItemIndexText -Encoding UTF8
+    Invoke-DocsCase `
+        -Name "wrong translated GuideME item index fixture" `
+        -RootPath $wrongTranslatedItemIndexFixture `
+        -ExpectedExitCode 1 `
+        -ExpectedText "GuideME English and zh_cn item indexes match: machines/me-packager.md"
+
     $mergedOrderedInputsFixture = New-DocsFixture "merged-ordered-input-examples"
     $mergedOrderedInputsPage = Join-Path $mergedOrderedInputsFixture (
         "src/main/resources/assets/appliedpackaging/ae2guide/example-setups/ordered-machine-inputs.md"

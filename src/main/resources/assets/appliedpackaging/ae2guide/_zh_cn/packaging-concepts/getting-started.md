@@ -61,7 +61,7 @@ navigation:
 2. 网络将包裹路由到总线。圆石和煤炭按编码顺序出现在箱子中。
 
 <GameScene zoom="8" background="transparent">
-  <ImportStructure src="../../assets/blocks/package_unpacking_bus.snbt" />
+  <ImportStructure src="../assets/blocks/package_unpacking_bus.snbt" />
 </GameScene>
 
 ## 进一步探索

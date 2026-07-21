@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.nbt.TagParser;
 
-/** A dependency-neutral JEI import plan for the package-pattern page. */
+/** A viewer-neutral import plan for the package-pattern page. */
 public record PackagePatternTransferPlan(
         List<GenericStack> inputs,
         GenericStack marker) {

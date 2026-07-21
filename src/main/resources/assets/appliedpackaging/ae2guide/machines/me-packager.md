@@ -54,7 +54,7 @@ The packager can be triggered by redstone or configured to run continuously:
 
 ## Unpacking
 
-Place a package into the packager through the belt or the GUI to unpack its contents back into ME storage. Blocking mode prevents unpacking while the network already contains items matching the package contents. The pre-admission check, labeled "Anti-Clog Mode" in the GUI and on by default, verifies that the full contents will fit in ME storage before accepting the package.
+Place a package into the packager through the belt or the GUI to unpack its contents back into ME storage. Blocking mode prevents unpacking while the network contains anything; unrelated contents also block. The pre-admission check, labeled "Anti-Clog Mode" in the GUI and on by default, verifies that the full contents will fit in ME storage before accepting the package.
 
 ## Filter Modes
 
@@ -72,7 +72,7 @@ The ME Packager supports the following [upgrades](ae2:items-blocks-machines/upgr
 *   <ItemLink id="ae2:capacity_card" /> adds one content filter row (up to 3, for 5 total rows)
 *   <ItemLink id="ae2:inverter_card" /> inverts content filtering
 
-The packager also has a storage component slot that accepts 16k, 64k, and 256k raw components to increase the capacity of the packages it produces.
+The empty storage component slot uses the default 1k tier and provides one quarter of its nominal capacity: 256 package units and 9 types. A 16k, 64k, or 256k raw component raises the unit limit to 4,096, 16,384, or 65,536 respectively.
 
 ## Recipe
 

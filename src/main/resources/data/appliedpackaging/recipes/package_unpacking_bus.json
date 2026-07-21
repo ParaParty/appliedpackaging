@@ -3,13 +3,13 @@
   "category": "redstone",
   "ingredients": [
     {
-      "item": "ae2:export_bus"
+      "item": "appliedpackaging:me_packager"
     },
     {
-      "item": "ae2:blank_pattern"
+      "item": "ae2:pattern_provider"
     },
     {
-      "item": "ae2:annihilation_core"
+      "item": "ae2:fluix_dust"
     }
   ],
   "result": {

@@ -73,12 +73,13 @@ item handler 拆包可完整插入目标
 装配室输出阻挡时不消耗输入
 装配室输入包裹会展开后再封装
 装配室可使用已编码 package_pattern 精确匹配输入计划
-装配室安装支持的容量元件后，可使用已编码 package_pattern 重封装大于空槽 9 单位上限的源包裹
-装配室在 package_pattern 输入已缓存后移除容量元件，会恢复空槽 9/9 并拒绝本地执行且保留输入
+装配室安装支持的容量元件后，可使用已编码 package_pattern 重封装大于空槽默认 1k 档 256 单位上限的源包裹
+装配室在 package_pattern 输入已缓存后移除容量元件，会恢复空槽默认 1k 档的 256/9 并拒绝本地执行且保留输入
 装配室可用容量槽重封装超过默认容量的源包裹
 装配室可在不清空首个输出槽时使用额外输出槽生成后续处理包裹
 装配室可接受 AE2 Pattern Provider pushPattern 的物品输入
 装配室可接受 AE2 Pattern Provider pushPattern 的流体输入
+装配室本地样板输入通过 `GenericInternalInventory`、`Capabilities.STORAGE` 及 AE2 自动包装的 Forge fluid capability 接受同一份 AEKey 流体输入，保存/加载后仍能完成装配
 装配室普通 Pattern Provider pushPattern 可用容量槽承载超过 9 个物品栈的输入
 装配室默认容量下拒绝超量普通与高级 Pattern Provider pushPattern，且在容量预检失败时不消耗任一输入
 装配室输出阻挡时拒绝 Pattern Provider pushPattern 且不消耗输入
@@ -86,7 +87,7 @@ item handler 拆包可完整插入目标
 装配室 GUI 可见窗口为 4x4 输入格和 4 个输出格，滚动时输入/输出行同步映射
 装配室 GUI 真实输入缓冲可按 package_pattern 过滤材料并累计超过普通 stack size 的数量
 装配室空输入槽不把样板过滤物品或数量作为槽内容显示；真实插入后才显示对应输入物品
-装配室 Forge item capability 在无本地样板时拒绝输入；安装样板后按位置过滤外部输入且只允许从有序输出位抽取
+装配室通用 AEKey capability 在无本地样板时拒绝输入；安装样板后 `GenericInternalInventory`、`Capabilities.STORAGE` 与 item/fluid 包装视图都按位置过滤外部输入且只允许从有序输出位抽取
 装配室本地样板超出当前容量档时同步 GUI 无效状态、拒绝 GUI/外部输入与本地装配；安装足够容量元件后立即解锁，移除后重新锁定并保留已有输入
 装配室 package_pattern 的外部输入输出保留重复 AEKey 条目和样板输入顺序
 装配室自动导出设置可保存/读取
@@ -112,6 +113,8 @@ MEStorage 拆包在共享目标容量于提交阶段不足时回滚此前真实�
 真实 AE2 Package Unpacking Bus 与 Package Storage Bus part 的默认优先级都为 0；在 20 tick 进度完成前保持目标不变，不扫描或主动抽取其它 ME 存储
 两个 part 使用右上角 Priority 子菜单对应的同一 `IPriorityHost` 数值；数值不同时由较高值先接收，同值时 Package Unpacking Bus 先接收，拆包忙碌/拒绝时才回落到 Package Storage Bus
 Package Unpacking Bus 的 Pattern Provider 阻挡模式会在目标已有任一包裹内容物类型时拒绝网络接收；阻挡清除后直接接收并开始 held 工作
+Package Unpacking Bus 的通用目标解析覆盖直接 AE2 MEStorage 与 ExternalStorageStrategy 组合目标；混合物品/流体包裹按对应 capability 路由，流体阻挡在目标排空后解除
+Package Unpacking Bus 对重复流体 AEKey 执行累计模拟；总量超过目标容量时预检与提交都拒绝且目标保持为空
 真实 AE2 Package Unpacking Bus part 在最终目标变化或阻挡恢复时保留同一个 held 包裹、保持全量未提交，并在条件恢复后重新执行完整进度并成功提交；工作或阻塞期间由 ME/GUI 取回则原子取消且不产生部分内容
 Package Storage Bus 与 Package Unpacking Bus part 均只暴露 5 个共享升级槽，不按兼容卡种上限扩成 9 格；两者允许 5 格全部安装容量卡，第 6 张拒绝，并按基础 2 行加 5 张容量卡解锁到 7 行
 两个 Package Bus 的颜色空模式不限制包裹颜色；Package Storage Bus 的 Partition Storage 从相邻容器中的不同合法包裹生成多行过滤、跳过散装物品并在没有包裹时清空过滤
@@ -131,11 +134,11 @@ package_pattern 与 advanced_processing_pattern 不作为普通配方或创造�
 装配室可读取独立 package_pattern 并生成匹配包裹，且该 pattern 不支持分子装配室执行
 PackageFilter 可按流体 key 匹配内容 allowlist
 过滤系统可从已编码 package_pattern 读取过滤模板
-ME Packager 可识别 AE2 16k/64k/256k storage component 并映射到对应包裹容量档
+ME Packager 可识别 AE2 16k/64k/256k storage component，并把单包单位上限映射为其名义容量四分之一的 4096/16384/65536
 两台包裹机器容量槽拒绝 AE2 1k component、完整 storage cell 与 portable cell
 包裹物品丢出后替换为 appliedpackaging:package 实体并保留包裹数据
-两台包裹机器空容量槽固定为 9 单位/9 类型
-两台包裹机器通过同一 PackageCapacityProfile 映射 16k/64k/256k storage component
+两台包裹机器空容量槽固定为默认 1k 档的 256 单位/9 类型
+两台包裹机器通过同一 PackageCapacityProfile 映射 16k/64k/256k storage component，单位/类型上限一致为 4096/16、16384/63、65536/63
 ME Packager 底部与模型背面不暴露普通 item capability，其它四面暴露包裹输入/输出 capability；外部输入在无 AE 目标或不可完整拆包时拒绝
 ME Packager 外部 capability 接受包裹时直接提交拆包、保持 inputSlot 为空并进入 unpacking 工作态
 ME Packager 菜单 shift-click 玩家背包包裹时每次只直接拆包 1 个，保持 inputSlot 为空，并在 working 期间拒绝继续输入
@@ -166,6 +169,8 @@ MEStorage 打包计划在显式 clear 模式移除源包裹 marker
 2026-07-16 装配室与打包机容量元件识别收敛到共享 `PackageCapacityProfile`，装配室增加本地样板 GUI/外部输入门禁与 Pattern Provider 消费前逐包容量预检后，执行 `.\gradlew.bat runGameTestServer --stacktrace` 成功，112 个必需 GameTest 全部通过。首次复跑中既有 70 输入动态槽用例仍安装 16k 元件而按新规则正确超限，测试夹具改用 256k 以继续只验证超过旧 68 槽上限的动态输入能力，未放宽产品容量断言。
 2026-07-16 装配室本地样板槽扩展为任意 AE2 可解码已编码样板，普通 crafting/processing 样板改为 Fluix 包裹并使用归一化主输出 marker；本地输入改为合成完成时才扣除，合成中可取出，缺料暂停并在补齐后继续。新增 crafting pattern 重复输入顺序、Pattern Provider 推送、主输出 marker、本地取料暂停/恢复与待处理本地计划持久化/破坏掉落 GameTest 后，执行 `.\gradlew.bat runGameTestServer` 成功，115 个必需 GameTest 全部通过。
 2026-07-18 包裹装配室阻挡与连续输出最终对齐 AE2 Pattern Provider 的批次准入语义，同时保留装配室真实有序输出列表。容器测试在目标放置无关金锭和匹配红色包裹，确认只有匹配包裹类型阻挡；移除匹配包裹但保留金锭后，同一 tick 清空两列批次。容量受限 Chest 测试让三包批次只写入第一包，GUI 从活动列表取走第二包，下一 tick 在目标仍有同色第一包时继续写入第三包；随后生成的第二批则重新阻挡，且三个队首仍可由 GUI-backed handler 逐个取走。相邻输出测试把 Chest 放在装配室顶面，确认容器模式没有背面概念。真实 Drive + Interface 测试向本机网格同时放入无关铁锭和匹配 Fluix 包裹，只移除匹配包裹后装配室即直接写入所连 MEStorage。`.\gradlew.bat runGameTestServer --stacktrace --no-configuration-cache` 成功，154/154 required GameTest 全部通过。
+
+2026-07-20 包裹装配室输入缓冲改为 AE2 `GenericInternalInventory` / `MEStorage` 通用 AEKey 能力，并删除装配室自行实现的 `IItemHandler` capability；Forge item/fluid capability 仅由 AE2 的 generic inventory wrapper 按需派生，不再保留重复视图。样板改变时旧的动态槽 capability 会失效，任意 AEKey 输入可保存、读取并参与装配。空容量槽按默认 1k 档修正为 256 单位/9 类型；16k / 64k / 256k 元件档分别为 4,096 / 16,384 / 65,536 单位。`compileJava --rerun-tasks --stacktrace` 与 `build --stacktrace` 通过，`runGameTestServer --stacktrace` 为 173/173 required tests passed；`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。
 
 2026-07-16 收紧装配室普通样板的逐位置校验和完成扣料事务：重复 AEKey 的样板位置必须对应独立输入槽与独立包裹条目，完成时先在副本中验证全部槽位扣料，任一失败不得提交输出。拆包 item handler 路径明确按 contents 顺序逐条推入且不预聚合重复 key。新增“两个独立橡木板条目拆入两个装配槽、合成中保留、完成时同时扣除、输出仍为两个条目”的联动 GameTest；执行 `.\gradlew.bat runGameTestServer` 成功，116 个必需 GameTest 全部通过。
 本轮新增高级终端编码测试首次失败并暴露真实 marker 丢失：AE2 `ConfigInventory.CONFIG_TYPES` 会把类型槽 GenericStack amount 固定为 0，旧代码误用 `amount <= 0` 判断空槽。改为读取 `getKey()` 并在样板数据中归一为 1 后复跑通过；未删除或放宽该断言。
@@ -629,7 +634,7 @@ R3 相同包裹才可堆叠：已满足，有序 contents、canonical hash 和 N
 R4 GenericStack 数据模型：已满足，PackageData 使用 AEKey/GenericStack；物品由 Forge item handler 插入路径覆盖，物品/流体等泛型资源由 AE2 MEStorage 路径覆盖。
 R5 不允许真实嵌套：已满足，打包计划和 MEStorage 端点会展开源包裹，GameTest 覆盖。
 R6 ME 包裹装配室：已满足，任意 AE2 可解码已编码样板、普通样板 Fluix + 主输出 marker、按样板动态确定的稠密输入槽、81×81 高级样板逻辑上限、4x4 输入代理窗口、完成时扣料与缺料暂停、主输出/有序队列、样板门禁、样板权威颜色/marker、合成进度、pending queue、输出模式和顺序抽取均已覆盖。
-R7 ME 打包机：已满足，只接入固定底部与模型背面的 AE2 MEStorage，空容量槽 9 单位/9 类型和 16k/64k/256k storage component、红石模式、独立的 fake marker 与内容过滤、反转过滤和整包拆包均已覆盖。
+R7 ME 打包机：已满足，只接入固定底部与模型背面的 AE2 MEStorage，空容量槽默认 1k 档的 256 单位/9 类型和 16k/64k/256k storage component、红石模式、独立的 fake marker 与内容过滤、反转过滤和整包拆包均已覆盖。
 R8 样板终端：已满足，Advanced Pattern Encoding Terminal 使用一个 part/menu/screen 承载高级与包裹两页；右侧按钮切换并持久化当前页，放入两个专用载体会自动选择对应页。高级页的 1377 输入/4 输出与包裹页的 81 输入/marker/颜色/预览完全隔离；两页共享 195x245 外框与同一 132x78 面板锚点，在灰底后绘制当前页完整面板，菜单不创建 VIEW_CELL 槽。普通 AE2 Pattern Encoding Terminal 不增加包裹 UI，并拒绝 package_pattern 与 advanced_processing_pattern。独立 advanced_processing_pattern 使用自定义处理样板详情突破原版单样板 81 输入总上限，原版 AE2 processing_pattern 不承载高级列数据。
 R9 包裹总线：已满足，正式玩家入口只保留 Storage/Unpacking Bus 两个 AE2 cable part，均只处理合法包裹且不把内部内容暴露为 ME 散装库存；两者要求 AE channel，Storage Bus 在线缓存增删与过滤刷新已有真实网络测试。Unpacking Bus 已按 ME Packager 拆包模式接入真实 held 包裹与 20 tick 进度，最终提交失败时保留并重试同一个包裹，NBT、GUI 取回和 part 拆除返还边界已实现。
 R10 整包验证：已满足，MEStorage 打包/拆包先模拟后提交；Forge item handler 路径覆盖整包累计模拟拒绝与 check-then-push，不包含自定义逐槽回滚事务。
@@ -816,7 +821,7 @@ GameTest 已考虑但未重复运行：本轮只改变客户端空槽图标切�
 
 ### 2026-07-13 ME Packager 容量升级定稿与 item handler 插入收敛
 
-容量档最终收敛为 default 9/9、16k 16/16、64k 64/63、256k 256/63。ME Packager 与 Package Assembler 的容量槽都只接受 AE2 16k、64k、256k storage component；1k component、完整 storage cell、portable cell、4k 与附属 Mod 大容量档均拒绝。GameTest 覆盖三档组件映射、拒绝边界、空槽 9/9，以及 package_pattern 本地执行和 Pattern Provider push 无法绕过当前容量档。
+容量档当前为 default（空槽 1k 档）256/9、16k 4096/16、64k 16384/63、256k 65536/63；各档单位上限严格取对应名义容量的四分之一。ME Packager 与 Package Assembler 的容量槽都只接受 AE2 16k、64k、256k storage component；1k component 与空槽同档而不接受，完整 storage cell、portable cell、4k 与附属 Mod 大容量档同样拒绝。GameTest 覆盖三档组件映射、default 的 256/257 单位边界、16k 的 4096/4097 单位边界、default 9 类型边界，以及 package_pattern 本地执行和 Pattern Provider push 无法绕过当前容量档。
 
 卸货总线向 Forge item handler 拆包改为 Pattern Provider 式 check-then-push：完整包裹先在保留 slot limit / isItemValid 的累计快照上模拟，并额外调用真实 handler 的 simulate；全部通过后才用 `ItemHandlerHelper.insertItemStacked` 逐项真实插入。删除逐槽提交计划、反向抽取回滚和重复的提交前模拟。同步删除没有运行时调用的 item handler 打包规划、Forge fluid handler 适配、Package Export/即时拆包操作及其专用测试；包裹流体数据仍由 GenericStack/AEFluidKey 与 AE2 MEStorage 正式路径支持。
 
@@ -1017,7 +1022,7 @@ Advanced Pattern Encoding Terminal 的唯一 universal transfer handler 现按�
 
 终端提供转置、空手长按拾起后移动/交换、末尾新增列自动滚动，以及高级页独有的默认/循环颜色模式。转置按钮使用用户提供 sprite 的 8x8 裁片并位于清空按钮下方；颜色模式位于最左侧功能栏，不再是列头小图标。模式切换不重染既有列，只影响手动或 JEI/EMI 新增列：默认始终 Fluix，循环优先选择前面尚未使用的颜色，17 色齐全后从最后一列颜色的下一种继续。GameTest 覆盖模式切换保色、转置保色、17 色后的回绕与配方填充新增列分配；客户端启动继续覆盖 sprite/Screen 类加载与资源烘焙。
 
-查看器兼容只维护一套 JEI 插件与 recipe transfer handler：Gradle 只编译 JEI API，`mods.toml` 不声明 JEI、EMI 或 TMRV 硬依赖。`recipeViewerRuntime=jei` 直接加载 JEI；`recipeViewerRuntime=emi` 加载 EMI+TMRV，由 TMRV 在没有 JEI 的环境中提供兼容 API，并把同一套 `AppliedPackagingJeiPlugin` 映射到 EMI；项目不再发布原生 EMI handler，也不测试 JEI+EMI/JEMI 共存。通用配方、Create 普通 processing 与 GTCEu item/fluid/tick content 默认每个不同输入各占一个包裹；Create Sequenced Assembly 保留步骤列，Mechanical Crafting 继续按行/列选择较少包裹的方向。
+查看器兼容由 JEI 与 EMI 两条独立 API 生命周期组成：Gradle 对两套 API 都只做 compile-only，`mods.toml` 不声明查看器硬依赖；JEI universal handler 只读取 `IRecipeSlotsView`，EMI handler 只读取 `EmiRecipe` / `EmiCraftContext`，两者分别提取领域输入后调用共享的 `PatternTransferPlanFactory`。JEMI display 继续走 EMI 内置的 JEI transfer 路径，本 Mod 的原生 EMI handler 不解包 JEMI 私有对象；GTCEu 原生 EMI display 则按公开 backing recipe、`RecipeManager` 和 GTCEu recipe-type/category 注册表依次恢复语义配方。通用配方、Create 普通 processing 与 GTCEu item/fluid/tick content 默认每个不同输入各占一个包裹；Create Sequenced Assembly 保留步骤列，Mechanical Crafting 继续按行/列选择较少包裹的方向。
 
 验证结果：
 
@@ -1027,7 +1032,7 @@ Advanced Pattern Encoding Terminal 的唯一 universal transfer handler 现按�
 - JEI-only 真实客户端通过 Quick Play 进入隔离 smoke 世界，日志确认 `Registered JEI advanced recipe transfer for the Advanced Pattern Encoding Terminal.`，证明同一 handler 在 JEI 下直接注册。
 - EMI+TMRV 真实客户端命令行确认没有完整 JEI、同时存在 EMI 与 TMRV；Quick Play 进入隔离 smoke 世界后，TMRV 日志把 `appliedpackaging:jei_plugin` 列入 JEI plugins，按 `SYNC_EMI` 分发 `registerRecipeTransferHandlers`，并记录该插件在 17ms 内加载完成。Forge 会在客户端反射发现 GameTest holder，因此带 JEI 类型的测试体已隔离到无注解 helper；修正夹具反射可见性后，两套 147/147 GameTest 再次通过。日志中的 GTCEu synthetic recipe/tag 警告来自 GTCEu 侧，不涉及 Applied Packaging 插件异常。
 
-Star Technology 的星门部件装配由 KubeJS startup script 注册 GTCEu `stargate_component_assembly` recipe type，配方通过 `layeredRecipe` 表达层级。现有 GT adapter 能读取其平面 `GTRecipe` 输入，但不能保留 layer 边界；该项在确认“每层一个包裹”或“层内逐材料分包并额外保存层边界”前不实现，也不提前增加泛 KubeJS 接口。
+Star Technology 的星门部件装配由 KubeJS startup script 注册 GTCEu `stargate_component_assembly` recipe type，配方通过 `layeredRecipe` 表达层级。该语义现已固定为每个 layer 一个包裹列；实现读取 Fork 的 `layered_steps` / `layered_xei`，并从 XEI 展示对象的 `layered_info` 重建层，不会再把同一 layer 内的不同材料拆成不同包裹，也不会把平面展示输入直接当作普通 GTCEu 配方。
 
 ### 2026-07-18 高级样板 sparse 包裹到序列缓存器回归
 
@@ -1124,3 +1129,85 @@ Vanilla/AE2 的 `remoteSlots` 比较对象与客户端显示缓存都是上一�
 但本次客户端显示缓存分支不能由 server-side GameTest 直接执行，因此没有增加伪造客户端或反射内部窗口的测试。真实
 `.\gradlew.bat runClient --no-configuration-cache` 已完成模组初始化、资源重载、OpenAL 和全部 texture atlas 创建，随后只终止
 本轮客户端；最终“多列→滚到后续列→总清空→第一列立即为空”由开发客户端人工验收。
+
+### 2026-07-20 StarT LayeredRecipe 按层分包验证
+
+StarT Fork 的 layered recipe 必须读取真实 `layered_steps` / `layered_xei`，或从 XEI 展示对象的 `layered_info` 重建步骤；每个 layer 只生成一个包裹列，同一 layer 内的多个 item/fluid 和按该 layer duration 换算的 tick 输入必须保持在同列。普通 GTCEu 配方仍逐材料分包；layer 数据无法完整读取时拒绝，不允许回退到扁平输入。
+
+验证结果：
+
+- StarT Fork 1.7.0b：`.\gradlew.bat runGameTestServer '-PgtceuRuntimeJar=D:\MyGames\Minecraft\modpacks\stargt3\1.20.1\.minecraft\versions\Star Technology\mods\gtceu-st-1.20.1-1.7.0b.jar' --offline --no-configuration-cache`，170/170 required tests 通过。新增测试实际序列化两个 layer，每层包含多个材料，并断言最终只有两个包裹列、每层材料保持同列。
+- 上游 GTCEu 7.5.3：`.\gradlew.bat runGameTestServer --offline --no-configuration-cache`，170/170 required tests 通过；Fork helper 不存在时不产生可选类加载失败，普通 GTCEu 逐材料语义保持不变。
+- 第一次 Fork 运行中新增 layered 测试已通过，但旧普通 GTCEu 测试误选 layered representative 而失败；把旧夹具限定为无 layer 数据的普通配方后，两套运行时全量重跑通过。
+- `.\gradlew.bat build --offline --no-configuration-cache`、`scripts/verify-docs.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 通过；发布 jar 不含 GameTest class，包含反射隔离的 `GtceuRecipeTransferAdapter`，SHA-256 为 `E5598C0799D1A9CFDC86A38B5D60EADAFFF500B823EF36C4D8B60C5D0CFCAE60`。
+
+### 2026-07-20 EMI/JEMI 配方传输入口验证
+
+Star Technology 的配方页由 EMI/JEMI 显示，旧版仅有 JEI universal transfer handler，EMI 在调用共享语义适配前就判定当前菜单不受支持。当前实现提供薄 JEI/EMI 前端并共享唯一 `RecipeTransferPlanner`；JEMI wrapper 还原原始 GTCEu/Create recipe object，不能以普通显示槽位回退代替专用语义。
+
+验证结果：
+
+- `.\gradlew.bat runGameTestServer --offline --no-configuration-cache`：166/166 required tests 通过，覆盖现有 JEI、Create 与 GTCEu 语义断言。
+- `.\gradlew.bat -PrecipeViewerRuntime=none runGameTestServer --offline --no-configuration-cache`：166/166 required tests 通过，确认 JEI、EMI 均缺席时无可选类加载失败。第一次运行发现五个 JEI 专属测试包装未跳过并失败，修正测试隔离后重跑通过。
+- 原生 EMI `runClient` 通过 Quick Play 进入测试世界并完成 recipe reload；日志确认 `Initializing plugin from appliedpackaging`、`Registered native EMI advanced recipe transfer for the Advanced Pattern Encoding Terminal.`，没有 Applied Packaging 插件加载异常。
+- dedicated-server GameTest 不承载 EMI 点击：EMI/GTCEu 该路径使用客户端 API，强行加载会命中 GTCEu client-only tooltip 类型。实际 JEMI wrapper 解包与按钮调用由 Star Technology 新进程点击验证。
+- `.\gradlew.bat build --offline --no-configuration-cache`、`scripts/verify-assets.ps1`、`scripts/verify-docs.ps1`、完整 `scripts/test-docs-audit.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 通过；发布 jar 不含 GameTest class。
+- 清理全部临时追踪日志后的构建 jar 与 Star Technology 已替换 jar 的 SHA-256 均为 `B95E9051B8C2BB31B2D8F90AE6A99575AA34BF22DDDD2E35CC85A50FF00BC87A`。下次启动后点击大型转子配方时，应能把配方填入高级样板编码终端，且不再显示“当前工作方块不支持该配方”。
+
+### 2026-07-20 包裹卸货总线空目标阻挡验证
+
+包裹卸货总线开启阻挡模式时，普通容器或通用 AEKey 目标存在任意可见内容都必须拒绝包裹接收和最终提交；无关物品也不得放行。目标是序列缓存器端点时，全部成员都必须为空，不能只检查本包裹计划使用的成员或相同 key。
+
+验证结果：
+
+- `.\gradlew.bat compileJava --offline --no-configuration-cache`：通过。
+- 上游 GTCEu 7.5.3：`.\gradlew.bat runGameTestServer --offline --no-configuration-cache`，171/171 required tests 通过。
+- StarT Fork 1.7.0b：`.\gradlew.bat runGameTestServer '-PgtceuRuntimeJar=D:\MyGames\Minecraft\modpacks\stargt3\1.20.1\.minecraft\versions\Star Technology\mods\gtceu-st-1.20.1-1.7.0b.jar' --offline --no-configuration-cache`，171/171 required tests 通过。
+- 新增或修正的 GameTest 覆盖普通 item handler 中的无关物品、通用 MEStorage 中的无关 AEKey、真实 Package Unpacking Bus 相邻箱子，以及序列缓存器未使用成员已有内容四条边界。
+- `.\gradlew.bat build --offline --no-configuration-cache`：通过；发布 jar SHA-256 为 `484D5B99E03BDB1338EFFBC83716D22368BA2BE437A4E66578091629B8042EAC`。
+- Star Technology 的 `mods/appliedpackaging-0.1.0-dev.jar` 已替换，目标 SHA-256 同为 `484D5B99E03BDB1338EFFBC83716D22368BA2BE437A4E66578091629B8042EAC`；旧 jar 已按原哈希备份到 `build/diagnostics/unpacking-blocking-before-empty-target-fix/`。
+
+### 2026-07-20 StarT LayeredRecipe XEI 展示入口补正
+
+此前只用 `setLayeredSteps` 构造服务器 `layered_steps` 的测试不足以覆盖 JEI/JEMI 实际入口。当前 Fork 专属 GameTest 必须经过 `GTRecipeBuilder`、`LayeredRecipeInfo.Builder` 与 `applyLayeredRecipeModifications`，并分别验证预展开 `layered_info`、嵌入 `layered_xei` 展示对象和只保留 XEI 指针的服务器表示。固定夹具包含两个 layer、每层两个材料；三种表示都必须生成恰好两个包裹列，并保留每层的全部材料和数量。
+
+Star Technology 同时启用 GTCEu 原生 EMI 插件；客户端回归还必须覆盖 `GTEmiRecipe` 的非公开 `recipe` 字段能够还原真实 `GTRecipe`。GameTest 用不公开字段的包装夹具固定反射边界，Fork 字节码核对固定实际字段签名；layered 三表示测试继续固定“还原后每层一列”。dedicated GameTest 不直接加载 client-only EMI/GTCEu 显示类，最终点击仍在整合包重启后验收。
+
+本轮运行结果：
+
+- `\.\gradlew.bat runGameTestServer '-PgtceuRuntimeJar=D:\MyGames\Minecraft\modpacks\stargt3\1.20.1\.minecraft\versions\Star Technology\mods\gtceu-st-1.20.1-1.7.0b.jar' --offline --no-configuration-cache`：本次 layered recipe 测试的三条表示全部通过；完整套件 170/171，唯一失败为既有 `package_entity_settles_on_ground_without_hovering`。
+- `\.\gradlew.bat runGameTestServer --offline --no-configuration-cache`：Fork helper 不存在时本测试按可选集成约定跳过；完整套件同为 170/171，唯一失败仍是上述包裹实体落地断言。
+- `\.\gradlew.bat compileJava --offline --no-configuration-cache` 与 `\.\gradlew.bat build --offline --no-configuration-cache`：通过。
+- `scripts/verify-docs.ps1`：通过。`scripts/verify-release.ps1 -RequireAssetContracts` 的机械资源与合同检查通过，但日志门禁因保留上述 GameTest 失败诊断而失败；不得删除诊断日志或改写无关测试来伪造全绿结果。
+- 最终构建与 Star Technology 目标 jar 的 SHA-256 均为 `8341EA538F65D81C490BD0833648F13B3F26260E96181B87F4E131B7F7D33F86`；替换前的 `484D5B99E03BDB1338EFFBC83716D22368BA2BE437A4E66578091629B8042EAC` 已备份到 `build/diagnostics/layered-xei-before-display-fix/`。
+
+### 2026-07-20 GTCEu 原生 EMI 包装入口补正
+
+整合包截图确认同一 layer 的材料仍被依次写入不同列。StarT Fork 字节码核对显示实际展示对象为 `GTEmiRecipe`，真实 `GTRecipe` 位于非公开 `recipe` 字段；此前 `EmiRecipeResolver` 只还原 JEMI wrapper，因此 planner 收到的是包装对象并错误进入标准扁平适配器。当前实现按精确包装类名还原原始配方，再交给唯一的 `RecipeTransferPlanner` 与 `GtceuRecipeTransferAdapter`，JEI 与 EMI 不各自维护 layered 分组算法。
+
+验证结果：
+
+- `compileJava --offline --no-configuration-cache`：通过。
+- StarT Fork 1.7.0b 的 `runGameTestServer`：172/172 required tests 通过，包含非公开包装字段回归和真实 layered 三表示测试。
+- 上游 GTCEu 7.5.3 的 `runGameTestServer`：本次新增包装回归与其它配方导入测试通过；完整套件 171/172，唯一失败为既有 `package_assembler_continuous_auto_export_pulse_count_matches_craft_count` 比较器时序断言。Fork 同轮该项通过，本轮不修改无关行为。
+- `build --offline --no-configuration-cache`：通过；发布 jar SHA-256 为 `A597FF23BA42E2B8B976B3EB345A0C2E86A420DDEA4DF3A813A3133AB0E5F1DB`。
+- `scripts/verify-docs.ps1` 与 `git diff --check`：通过。`scripts/verify-release.ps1 -RequireAssetContracts` 的 jar、337 个发布资源、143 个 JSON、144 张 PNG、6 个资产合同和 192 个双语 key/占位符检查均通过；最终日志门禁因保留上述上游 GameTest 失败记录而失败。
+- 当前执行环境只允许写入项目工作区，未替换 Star Technology 的 `mods` 目录；整合包重启点击验收必须在目标 jar 更新后进行。
+
+### 2026-07-20 JEI/EMI 双前端领域边界重构验证
+
+本节取代上方“共享 viewer-neutral handler”与私有包装字段反射方案，历史条目仅保留问题演进记录。JEI 继续注册 universal transfer handler，由 `JeiRecipeExtractor` 提取 JEI 槽位；EMI 继续注册菜单原生 `EmiRecipeHandler`，由 `EmiRecipeExtractor` 提取 EMI ingredient，并且只在 `EmiCraftContext.Type.FILL_BUTTON` 计算或写入样板。JEMI display 明确留给 EMI 内置 JEMI 调用 JEI transfer handler，本 Mod 的 EMI handler 不读取 `JemiRecipe.recipe`；GTCEu display 也不读取 `GTEmiRecipe.recipe`。JEMI 让路条件只读取公共 `EmiRecipe#getId()` 的 `jei` namespace，不依赖实现类名或包名。
+
+两条前端只共享领域层的 `RecipeExtraction`、`StandardRecipeData`、`PatternTransferPlanFactory`、候选材料选择、Create/GTCEu 语义编码、容量/随机输出/空位/layer 校验和最终菜单写入计划。`integration.recipe` 不引用 JEI/EMI API。`PatternTransferPlanFactory` 在对应 Mod 已加载时直接构造编译期类型化的 Create/GTCEu encoder，不再用反射发现集成模块；`EmiRecipeResolver` 同样直接调用隔离的公共 GTCEu 注册表查询。标准槽位规划与 Thermal 公共成员兼容拆为 `StandardRecipePlanFactory` 和 `ThermalRecipeSemantics`，不再由一个 viewer adapter 同时承担多个生命周期。StarT `LayeredRecipeHelper` 的固定公开方法桥属于 Fork 专用领域编码，不参与 viewer handler、包装类解包或 recipe recovery。
+
+EMI 语义配方恢复顺序固定为：公开 `EmiRecipe#getBackingRecipe()`；按 `EmiRecipe#getId()` 查询当前 `RecipeManager`；GTCEu 已加载时遍历 `GTRegistries.RECIPE_TYPES`、公开 `getCategories()` 与 `getRecipesInCategory()` 按 ID 查询。相同 ID 同时存在普通与 layered 展示配方时优先保留带 `layered_steps`、`layered_xei` 或 `layered_info` 的公开注册表对象。公开路径均无法恢复时只使用 EMI 标准 item/fluid 数据，不反射未知包装字段；若 StarT 将来存在公开注册表之外的合成型展示，必须新增明确的 StarT 兼容桥。
+
+本轮验证结果：
+
+- `compileJava --offline --no-configuration-cache --stacktrace`：通过。
+- 上游 GTCEu 7.5.3 与 StarT Fork 1.7.0b 的完整 `runGameTestServer` 最终均为 173/173 required tests 通过；新增公共注册表按 ID 恢复测试在两套运行时执行，Fork layered 数据继续按公开对象保留。
+- `runGameTestServer -PrecipeViewerRuntime=none` 为 173/173 required tests 通过，证明领域计划层与服务端样板写入在 JEI、EMI 都缺席时仍可加载并完成全部行为测试。
+- JEI 15.20.0.134 `runClient -PrecipeViewerRuntime=jei` 与原生 EMI 1.1.24 `runClient -PrecipeViewerRuntime=emi` 均完成 Applied Packaging 初始化、资源重载、OpenAL 和全部 texture atlas 创建，没有 Applied Packaging/查看器类加载异常；客户端在标题界面后主动终止。Windows/MDG 的 `runClient --args` 仍会把带空格的 Quick Play 世界名误拆成 Gradle task，因此本轮没有把实机填充按钮点击记为已完成。
+- 源码扫描确认 `integration.recipe` 不引用 `integration.jei`、JEI 或 EMI API；JEI/EMI handler、extractor、EMI resolver 与 `PatternTransferPlanFactory` 不存在 `Class.forName`、反射 API、viewer 内部实现类或包装字段访问。完整配方集成源码不存在 `getDeclaredField`、`trySetAccessible`、`GTEmiRecipe`、`JemiRecipe` 或旧 `OptionalRecipeWrapperUnwrapper`。
+- `build --offline --no-configuration-cache --stacktrace`、`scripts/verify-docs.ps1`、完整 `scripts/test-docs-audit.ps1`、`scripts/verify-assets.ps1`、`scripts/verify-release.ps1 -RequireAssetContracts` 与 `git diff --check` 全部通过。公共 API 收口后的最终发布审计确认 337 个资源、143 个 JSON、144 张发布 PNG、6 个资产合同和 192 个双语 key/占位符有效；构建 jar SHA-256 为 `2110FEDFF08A978B0C9A69E1C6FE7DC85F678836EED22FCDFFB69149DB793C3C`。
+- Star Technology 更新 jar 并重启后的最终人工验收必须覆盖：JEMI 展示只走 JEI transfer handler；GTCEu 原生 EMI layered 展示只在填充按钮上下文写入，并保持每层一个包裹列。

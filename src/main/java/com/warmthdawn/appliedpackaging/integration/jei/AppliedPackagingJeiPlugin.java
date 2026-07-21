@@ -19,6 +19,5 @@ public final class AppliedPackagingJeiPlugin implements IModPlugin {
     public void registerRecipeTransferHandlers(IRecipeTransferRegistration registration) {
         registration.addUniversalRecipeTransferHandler(
                 new AdvancedRecipeTransferHandler(registration.getTransferHelper()));
-        AppliedPackaging.LOGGER.info("Registered JEI advanced recipe transfer for the Advanced Pattern Encoding Terminal.");
     }
 }

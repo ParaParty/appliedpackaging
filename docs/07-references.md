@@ -58,19 +58,21 @@ JEI 15.20.0.134
 
 ```text
 用途：Minecraft 1.20.1 Forge 开发客户端的配方浏览，以及 Advanced Pattern Encoding Terminal 高级/包裹两页的可选 recipe transfer API。通用入口使用 JEI 标准 INPUT、OUTPUT、CATALYST、RENDER_ONLY 角色；Gradle 使用 common-api/forge-api compile-only 和完整 Forge runtime；不属于 Applied Packaging 的发布必需依赖，mods.toml 不声明 JEI。
+AE2 JEI universal handler 参考：https://github.com/AppliedEnergistics/Applied-Energistics-2/blob/b4b08d9941e3faecb520d76be617629bb56661e1/src/main/java/appeng/integration/modules/jei/JEIPlugin.java
 版本核对：https://maven.blamejared.com/mezz/jei/jei-1.20.1-forge/maven-metadata.xml
 官方仓库：https://github.com/mezz/JustEnoughItems/tree/1.20.1
 ```
 
-EMI 1.1.24+1.20.1 与 TooManyRecipeViewers 0.9.0+mc.20.1
+EMI 1.1.24+1.20.1 与 JEMI bridge
 
 ```text
-用途：Minecraft 1.20.1 Forge 的 EMI 查看器验证。Applied Packaging 不编译 EMI API、不声明 @EmiEntrypoint；EMI runtime 同时加入 TMRV，由 TMRV 在没有 JEI 的情况下提供 JEI API replacement，并把唯一 AppliedPackagingJeiPlugin 映射到 EMI。TMRV 0.9.0 的 metadata 要求 EMI、声明与 JEI 不兼容，因此开发矩阵使用 JEI 或 EMI+TMRV 二选一，不再测试 JEI+EMI/JEMI。
-TMRV 官方仓库及设计说明：https://github.com/Nolij/TooManyRecipeViewers
-TMRV 1.20.1 Forge 0.9.0：https://modrinth.com/mod/tmrv/version/PSC3dlCl
+用途：Minecraft 1.20.1 Forge 的 EMI 查看器与 Star Technology 的 JEI+EMI/JEMI 共存验证。Applied Packaging 对 EMI API compile-only 并声明可选 @EmiEntrypoint；原生 EMI handler 只处理 `FILL_BUTTON`，通过公开 backing recipe、ID 与 recipe manager/GTCEu registry 恢复语义配方。EMI 1.1.24 内置 JEMI 已取得 JEI recipe transfer handler 并调用 `transferRecipe()`，且 JEMI bridge recipe 的公开 ID 使用 `jei` namespace，因此 Applied Packaging 原生 EMI handler 可通过公共 API 让出该路径，无需判断 JEMI 实现类或解包 display。EMI 与 JEI 都不写入 mods.toml 硬依赖。
+AE2 EMI handler 参考：https://github.com/AppliedEnergistics/Applied-Energistics-2/blob/b4b08d9941e3faecb520d76be617629bb56661e1/src/main/java/appeng/integration/modules/emi/EmiEncodePatternHandler.java
+AE2 EMI plugin 参考：https://github.com/AppliedEnergistics/Applied-Energistics-2/blob/b4b08d9941e3faecb520d76be617629bb56661e1/src/main/java/appeng/integration/modules/emi/AppEngEmiPlugin.java
+AE2 recipe recovery 参考：https://github.com/AppliedEnergistics/Applied-Energistics-2/blob/b4b08d9941e3faecb520d76be617629bb56661e1/src/main/java/appeng/integration/modules/emi/AbstractRecipeHandler.java
 EMI 官方仓库 1.20 分支固定提交：23d251ea8ea3a5fd7d760948f36014b185eac69f
 EMI Maven：https://maven.terraformersmc.com/releases/dev/emi/emi-forge/1.1.24%2B1.20.1/
-核对日期：2026-07-18
+核对日期：2026-07-20
 ```
 
 Create 6.0.8-291（Minecraft 1.20.1）
@@ -96,7 +98,7 @@ Maven metadata：https://maven.gtceu.com/releases/com/gregtechceu/gtceu/gtceu-1.
 GregTech Modern - StarT Fork 1.7.0b（Minecraft 1.20.1）
 
 ```text
-用途：验证 GTCEu 可选适配器可在 StarT Fork 上运行。正常 compile API 固定为上游 GTCEu 7.5.3；PowerShell 命令使用 & .\gradlew.bat 'runGameTestServer' '-PgtceuRuntimeJar=<versioned-jar>'，把全部 ModDevGradle run 切换到独立 run-gtceu-fork 目录，不把 Fork 写成发布硬依赖。属性参数必须整体加引号，避免 .bat 调用把带版本号的路径拆开。本轮对照 Fork 与上游 jar，确认适配器使用的 GTRecipe、Content、ItemRecipeCapability、FluidRecipeCapability 公共成员保持兼容。
+用途：验证 GTCEu 可选语义编码器可在 StarT Fork 上运行。正常 compile API 固定为上游 GTCEu 7.5.3；PowerShell 命令使用 & .\gradlew.bat 'runGameTestServer' '-PgtceuRuntimeJar=<versioned-jar>'，把全部 ModDevGradle run 切换到独立 run-gtceu-fork 目录，不把 Fork 写成发布硬依赖。属性参数必须整体加引号，避免 .bat 调用把带版本号的路径拆开。本轮对照 Fork 与上游 jar，确认编码器使用的 GTRecipe、Content、ItemRecipeCapability、FluidRecipeCapability 以及公开 `GTRegistries.RECIPE_TYPES`、`GTRecipeType#getCategories()` / `getRecipesInCategory()` 保持兼容；Fork 额外提供 `LayeredRecipeHelper.getLayeredSteps`、`getXeiLayeredRecipe`、`calculateRecipeSteps` 及 `layered_steps` / `layered_xei` / `layered_info` 数据键，Applied Packaging 只对这些 Fork layer API 使用反射。原生 EMI recipe recovery 不读取 `GTEmiRecipe.recipe`，而是按公开 ID 从 recipe manager 或 GTCEu category registry 找回配方。
 项目页：https://www.curseforge.com/minecraft/mc-mods/gregtech-modern-start-fork
 核对文件：https://www.curseforge.com/minecraft/mc-mods/gregtech-modern-start-fork/files/8160693
 核对日期：2026-07-17
@@ -105,7 +107,7 @@ GregTech Modern - StarT Fork 1.7.0b（Minecraft 1.20.1）
 Star Technology 星门装配配方
 
 ```text
-用途：确认 `stargate_component_assembly` 的真实来源和是否需要 KubeJS 接口。它由整合包 KubeJS startup script 注册为 GTCEu recipe type，category 为 `gate_construction`，recipe 通过 `event.recipes.gtceu.stargate_component_assembly(...).layeredRecipe(...)` 添加；因此不是独立 Java Mod category，也不能仅靠现有扁平 GTRecipe content 保留 layer 边界。本轮只记录评审结论，不增加直接依赖或实现。
+用途：确认 `stargate_component_assembly` 的真实来源和分组语义。它由整合包 KubeJS startup script 注册为 GTCEu recipe type，category 为 `gate_construction`，recipe 通过 `event.recipes.gtceu.stargate_component_assembly(...).layeredRecipe(...)` 添加；因此不是独立 Java Mod category，也不能仅靠扁平 GTRecipe content 保留 layer 边界。实现读取 Fork 保存的真实 layer step，每个 layer 编成一个包裹列，layer 内全部材料保持同包，不增加直接依赖或泛 KubeJS API。
 官方仓库 main 固定提交：a2527835993e33971a0f0127f94894cbe27b70ad
 recipe type 注册：https://github.com/StarT-Dev-Team/Star-Technology/blob/main/kubejs/startup_scripts/machines/multiblocks/stargate_related_multiblocks/stargate_component_assembly.js
 layered recipe 示例：https://github.com/StarT-Dev-Team/Star-Technology/blob/main/kubejs/server_scripts/systems/gate_based/dsg.js
@@ -150,7 +152,7 @@ AE2 15.4.10 Formation Plane / Pattern Provider / Storage Bus 源码
              src/main/java/appeng/menu/implementations/StorageBusMenu.java
              src/main/java/appeng/me/storage/NetworkStorage.java
              src/main/java/appeng/api/storage/MEStorage.java
-用途：Formation Plane 的默认优先级为 0，并把玩家配置的原始数值直接用于挂载；它通过只实现 insert 的 MEStorage 成为网络输出端点而不提供库存/抽取。Package Unpacking Bus 保留该受限输入与 preferred-storage 路由语义，但按本 Mod 明确需求额外把本机唯一 held 工作包裹作为数量 1 的可抽取整包报告，不开放其它一般存储。Pattern Provider blocking 在目标包含任一 pattern input 时拒绝 push；Storage Bus Partition Storage 从目标可用 key 重建配置槽。NetworkStorage 先按挂载优先级从高到低遍历，并在每个相同优先级组内先调用 `isPreferredStorageFor` 为真的存储，再尝试其余端点；Package Unpacking Bus 与 Package Storage Bus 的同值决胜以卸货端点的该正式扩展点实现，不修改玩家数值，也不依赖 part 挂载顺序。
+用途：Formation Plane 的默认优先级为 0，并把玩家配置的原始数值直接用于挂载；它通过只实现 insert 的 MEStorage 成为网络输出端点而不提供库存/抽取。Package Unpacking Bus 保留该受限输入与 preferred-storage 路由语义，但按本 Mod 明确需求额外把本机唯一 held 工作包裹作为数量 1 的可抽取整包报告，不开放其它一般存储。Pattern Provider blocking 只在目标包含任一 pattern input 时拒绝 push；Package Unpacking Bus 仅复用其外部存储解析与 check-then-push 边界，阻挡模式按本 Mod 契约要求整个目标为空，不能直接复用 `containsPatternInput`。Storage Bus Partition Storage 从目标可用 key 重建配置槽。NetworkStorage 先按挂载优先级从高到低遍历，并在每个相同优先级组内先调用 `isPreferredStorageFor` 为真的存储，再尝试其余端点；Package Unpacking Bus 与 Package Storage Bus 的同值决胜以卸货端点的该正式扩展点实现，不修改玩家数值，也不依赖 part 挂载顺序。
 ```
 
 AE2 Pattern Encoding Terminal runtime and newer UI references
@@ -254,4 +256,16 @@ AE2 1.20.1 Storage Cells 指南
 ```text
 用途：16k / 64k / 256k 容量层级、63 类型心智。
 地址：https://guide.appliedenergistics.org/1.20.1/items-blocks-machines/storage_cells
+```
+
+AE2 15.4.10 ME Interface 通用 capability 与容量元件源码
+
+```text
+本地源码：build/reference/ae2-v15.4.10
+主要文件：src/main/java/appeng/blockentity/misc/InterfaceBlockEntity.java
+          src/main/java/appeng/helpers/InterfaceLogic.java
+          src/main/java/appeng/api/behaviors/GenericInternalInventory.java
+          src/main/java/appeng/init/InitCapabilities.java
+          src/main/java/appeng/items/storage/StorageTier.java
+用途：Package Assembler 只复用 ME Interface 的 `GenericInternalInventory` + `Capabilities.STORAGE` 暴露方式，不自行实现 `IItemHandler`；item/fluid 和附属类型 capability 由 AE2 generic wrapper 派生。`StorageTier` 给出 1k/16k/64k/256k 名义容量，空槽采用 1k 档，其余容量元件档的包裹单位上限同样按产品规则取四分之一。
 ```

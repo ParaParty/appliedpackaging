@@ -11,7 +11,7 @@ navigation:
 在样板供应器内放入一个包含四列的高级样板，四列分别记录四个步骤需要接收的原料，并设置为红、蓝、绿、黄。用扳手将供应器的选定输出面转向包裹装配室；装配室按列生成四个包裹，再由四个对应颜色的包裹存储总线送入各自的步骤输入箱。
 
 <GameScene zoom="3.25" background="transparent">
-  <ImportStructure src="../../../assets/assemblies/advanced_multistep_crafting.snbt" />
+  <ImportStructure src="../../assets/assemblies/advanced_multistep_crafting.snbt" />
   <IsometricCamera yaw="205" pitch="35" />
 
   <BoxAnnotation color="#dd88cc" min="0 0 4" max="2 1 6">

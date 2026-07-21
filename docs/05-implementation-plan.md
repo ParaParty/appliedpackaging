@@ -147,7 +147,7 @@ GameTest
   未安装红石卡时默认有红石信号打包；安装红石卡后可切换高信号、低信号、总是、脉冲和关闭，红石只控制打包
   拆包在输入槽存在合法包裹时自动工作，仍受过滤、阻挡和目标容量约束
   持续打包与自动拆包基础每 20 tick 重试一次；加速卡降低间隔
-  容量元件槽只读取 AE2 16k/64k/256k storage component；无元件时使用 9 单位与 9 类型上限
+  容量元件槽只读取 AE2 16k/64k/256k storage component；无元件时使用默认 1k 档的 256 单位与 9 类型上限，三个元件分别提供 4096/16384/65536 单位与 16/63/63 类型上限
   容量卡最多 3 张，每张解锁 1 行过滤槽，默认启用 2 行，最多 5 行
   selectedColor 控制无过滤模板时的输出包裹颜色
   contentFilter 使用 AE2 GenericStack fake slots，不读取隐藏旧过滤槽
@@ -207,13 +207,13 @@ GameTest/客户端验证
   任意输出槽非空时不启动新合成或新 Pattern Provider plan，不消耗输入
   已编码 package_pattern 精确匹配输入计划后生成对应颜色包裹
   两台包裹机器共用 PackageCapacityProfile 的 default/16k/64k/256k 映射与容量计算
-  已编码 package_pattern 走 exact package plan，并在本地执行与 Pattern Provider push 时复验当前容量档；不能绕过空槽 9/9 上限
+  已编码 package_pattern 走 exact package plan，并在本地执行与 Pattern Provider push 时复验当前容量档；不能绕过空槽默认 1k 档的 256/9 上限
   已编码 package_pattern 不消耗，可重复作为本地装配计划
   已编码 advanced_processing_pattern 保存连续列的有序多包裹计划
   package_assembler 可按 advanced_processing_pattern 逐包生成匹配包裹
   本地样板槽接受任意 AE2 可解码已编码样板；普通 crafting/processing/stonecutting/smithing 等样板按非空输入槽顺序生成 Fluix 包裹，主输出归一为 marker
   advanced_processing_pattern 本地输入显示跳过 sparse 空白并保留原列归属，滚动行数按全部非空输入动态计算，超过旧 68 格的输入仍可显示、插入和装配
-  package_assembler 暴露 AE2 ICraftingMachine capability
+  package_assembler 暴露 AE2 ICraftingMachine、GenericInternalInventory 与 MEStorage capability；AEKey 通用输入由 AE2 包装为 item/fluid 及附属类型 capability
   Pattern Provider pushPattern 可按分子装配室语义临时使用本次 pattern 规划配方，把 KeyCounter 中的物品/流体 GenericStack 输入装配为包裹
   空本地样板槽的普通 Pattern Provider pushPattern 直接从 KeyCounter 规划包裹，避免 9 格临时输入缓存限制
   本地三类样板先逐个预计输出包裹做容量预检；超限样板保留显示但槽位标红，GUI/外部输入与装配锁定
@@ -273,12 +273,12 @@ Advanced Pattern Encoding Terminal 使用同一个 part/menu/screen 承载 ADVAN
 package_storage_bus 使用新版 Storage Bus 形态，通过默认优先级 0 的 IStorageProvider 挂载仅接受合法包裹的 PackageItemStorage；Partition Storage 从相邻容器包裹生成过滤
 package_unpacking_bus 使用新版 Pattern Provider 面板形态，通过默认优先级 0 的 Formation Plane 式受限 IStorageProvider 接收网络路由包裹；不扫描或主动抽取其它 ME 存储，但把唯一未拆完的 held 包裹作为数量 1 的整包库存枚举并允许取回
 两个默认值都为 0，且就是右上 Priority 子菜单显示/修改的数值；数值相同时由卸货总线只写入端点的 preferred-storage 语义先尝试拆包，拆包拒绝后再尝试存储总线
-两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle 与右侧 5 格共享升级面板；存储总线保留 Storage Bus 工具栏，卸货总线复用 AE2 基类唯一 Help 入口，并提供清空、Pattern Provider 阻挡模式和默认开启的独立防堵塞模式
+两个总线均为 PartItem，复用同一 176x253 AE2 ScreenStyle 与右侧 5 格共享升级面板；存储总线保留 Storage Bus 工具栏，卸货总线复用 AE2 基类唯一 Help 入口，并提供清空、要求目标完全为空的阻挡模式和默认开启的独立防堵塞模式
 七行过滤每行包含动态模糊/反转按钮、可为空的颜色选择、marker ghost 和 6 个物品 ghost；颜色空模式不过滤，行间 OR、行内 AND；所有颜色入口复用统一触发按钮/弹窗，只有两种总线过滤区启用 None 与右键清空，Fluix/None 固定在分隔线左侧上下排列且隐藏 None 不改变布局
 默认解锁底图最上方两行，每张容量卡额外解锁一行，五张容量卡时达到七行上限；未解锁行使用 OptionalFakeSlot 半透明叠加
 模糊/反转按钮仅在对应升级卡存在时显示并始终紧邻颜色按钮，模糊/反转/颜色三个 8px 按钮在 18px 行内统一使用固定 2px 上边距；卸货总线在同一 5 格升级库存中额外接受最多 4 张加速卡
 存储总线遮掉右上工作区；卸货总线工作槽同步真实 held 包裹并显示 15 级进度条，工作、阻塞和等待期间都可由网络或玩家取回，取回会取消本次拆包且不提交内容
-网络接收与最终提交都校验过滤、整包累计容量和 Pattern Provider 阻挡条件；最终目标变化时保留原 held 包裹并阻塞重试，held 状态写入 Part NBT，拆除 part 时作为额外掉落返还
+网络接收与最终提交都校验过滤、整包累计容量和目标完全为空的阻挡条件；最终目标变化时保留原 held 包裹并阻塞重试，held 状态写入 Part NBT，拆除 part 时作为额外掉落返还
 总线视觉变更按需在 runClient 中放置真实 AE2 part 并人工检查
 ```
 
@@ -411,20 +411,20 @@ verify-docs.ps1 成功
 发布 tag 可追溯且只在最终范围冻结后创建
 ```
 
-## 阶段 9：JEI / EMI 单插件高级/包裹配方导入
+## 阶段 9：JEI / EMI 双前端领域共享高级/包裹配方导入
 
 交付：
 
 ```text
-JEI 15.20.0.134 compile-only API；JEI 或 EMI 1.1.24+TMRV 0.9.0 二选一开发 runtime
+JEI 15.20.0.134 与 EMI 1.1.24 compile-only API；JEI 或原生 EMI 二选一开发 runtime
 Create 6.0.8-291 与 GTCEu 7.5.3 可选 compile/runtime 开发依赖
-Advanced Pattern Encoding Terminal 唯一 JEI transfer handler；TMRV 映射到 EMI
+Advanced Pattern Encoding Terminal 的独立 JEI/EMI transfer handler 与 extractor；共享 PatternTransferPlanFactory
 标准 JEI INPUT/OUTPUT/CATALYST/RENDER_ONLY 角色到高级页与包裹页的通用映射
 AE2 client repository / 玩家物品栏优先的共享替代材料选择器
 Create Sequenced Assembly / ProcessingRecipe 确定性映射，以及 Mechanical Crafting 按行/列自动分包并保留组内 sparse 前导/中间空位
 GTCEu item/fluid、一次性/tick content 逐材料分包和 StarT Fork 独立 runtime 验证
 81×81 稀疏列存储、v1 读取迁移、4 列菜单窗口、转置/长按移动/自动滚动/颜色模式
-Star Technology 星门 layered recipe 只完成来源评审，分组语义确认后另行实现
+Star Technology 星门 layered recipe 通过 Fork helper 读取真实步骤，每个 layer 一个包裹列
 常见科技/魔法模组概率、动态产出和非消耗工具语义的保守门禁
 客户端计划校验、32767 字符 AE2 client-action 上限和服务端重校验
 双语拒绝原因、真实第三方配方 GameTest 与客户端人工验收
@@ -433,9 +433,9 @@ Star Technology 星门 layered recipe 只完成来源评审，分组语义确认
 当前状态：
 
 ```text
-已实现：Gradle 可选依赖、唯一 JEI plugin/handler、TMRV 的 EMI 映射运行时、标准输入适配、Create/GTCEu 专用适配器、逐材料默认分包、81×81 稀疏样板、转置/移动/自动滚动/颜色模式、纯高级/包裹传输计划、菜单 action、原子状态替换和双语错误。
-已验证：compileJava、build、runData 成功；真实 Forge GameTest runtime 分别加载上游 GTCEu 7.5.3 和独立 run-gtceu-fork 中的 StarT Fork 1.7.0b，两套组合当前均为 148/148。JEI 与 EMI+TMRV 两种互斥 runtime 分别进行客户端验证；资产、文档、机械发布审计及发布脚本聚合自测通过。
-GameTest 已覆盖：两种计划 payload 往返与原子替换、高级计划 sparse 空位网络往返、标准 JEI 四种角色、网络现存 item/fluid 候选覆盖查看器显示候选、专用适配器 raw Ingredient 共用选择规则、歧义输出/随机产出拒绝、真实 Create Sequenced Assembly、Mechanical Crafting 行列分组及前导空位和真实 GTCEu 确定性 recipe。
+已实现：Gradle 可选依赖、独立 JEI/EMI plugin/薄 handler/extractor、唯一共享的领域 `PatternTransferPlanFactory`、标准输入计划工厂、Create/GTCEu 语义编码器、GTCEu 公开注册表 recipe recovery、逐材料默认分包、StarT layered recipe 逐层分包、81×81 稀疏样板、转置/移动/自动滚动/颜色模式、纯高级/包裹传输计划、菜单 action、原子状态替换和双语错误。正式 viewer 路径直接使用公共编译 API，不反射发现 handler/encoder、不判断内部包装类且不读取 JEMI/GTEmiRecipe 私有字段；JEMI 配方按公开 `jei` recipe ID namespace 交还内置 JEI transfer 路径。
+已验证：compileJava、build、runData 成功；真实 Forge GameTest runtime 分别加载上游 GTCEu 7.5.3 和独立 run-gtceu-fork 中的 StarT Fork 1.7.0b。JEI 与原生 EMI 两种 runtime 分别验证可选类加载边界，Star Technology 的 JEI+EMI/JEMI 共存组合用于最终交互验证；资产、文档、机械发布审计及发布脚本聚合自测结果记录于验证文档。
+GameTest 已覆盖：两种计划 payload 往返与原子替换、高级计划 sparse 空位网络往返、标准 JEI 四种角色、网络现存 item/fluid 候选覆盖查看器显示候选、语义编码器 raw Ingredient 共用选择规则、歧义输出/随机产出拒绝、真实 Create Sequenced Assembly、Mechanical Crafting 行列分组及前导空位、普通 GTCEu 确定性 recipe、GTCEu 公开 category registry 按 ID 恢复，以及 StarT Fork layered recipe 每层同包。
 JEI “+”按钮、拒绝 tooltip 和导入后页面/列状态没有自动 UI 驱动，仍保留为客户端人工交互验收；其余文档/发布审计结果记录在 docs/06-verification-release.md 和 docs/development-log.md。
 ```
 
@@ -443,7 +443,7 @@ JEI “+”按钮、拒绝 tooltip 和导入后页面/列状态没有自动 UI �
 
 ```text
 三项可选 Mod 未声明为 mods.toml mandatory dependency
-只有 Advanced Pattern Encoding Terminal 获得新的 JEI recipe transfer；handler 按终端当前 ADVANCED/PACKAGE 页面选择目标
+只有 Advanced Pattern Encoding Terminal 获得新的 JEI/EMI recipe transfer；handler 按终端当前 ADVANCED/PACKAGE 页面选择目标
 常规确定性 JEI 配方无需逐模组硬编码即可导入；专用高级结构保持顺序和分组
 随机、区间、动态世界产出、歧义、不可表示或越界配方显示拒绝原因
 服务端拒绝损坏/恶意 payload，任何失败不留下部分菜单状态

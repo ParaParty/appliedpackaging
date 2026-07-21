@@ -1,4 +1,4 @@
-package com.warmthdawn.appliedpackaging.integration.jei;
+package com.warmthdawn.appliedpackaging.integration.recipe;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -25,7 +25,7 @@ public final class RecipeTransferSemantics {
     /** Returns a user-facing rejection key, or {@code null} when the known semantics are deterministic. */
     public static String rejectionKey(Object recipe) {
         if (recipe == null) {
-            return UNSUPPORTED;
+            return null;
         }
         String className = recipe.getClass().getName();
         if (NON_CONSUMING_RECIPE_CLASSES.contains(className)

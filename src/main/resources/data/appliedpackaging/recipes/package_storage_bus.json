@@ -1,16 +1,23 @@
 {
-  "type": "minecraft:crafting_shapeless",
+  "type": "minecraft:crafting_shaped",
   "category": "redstone",
-  "ingredients": [
-    {
+  "key": {
+    "b": {
       "item": "ae2:storage_bus"
     },
-    {
-      "item": "ae2:blank_pattern"
+    "d": {
+      "item": "ae2:sky_dust"
     },
-    {
+    "f": {
       "item": "ae2:fluix_dust"
+    },
+    "p": {
+      "item": "minecraft:dried_kelp"
     }
+  },
+  "pattern": [
+    "bf",
+    "dp"
   ],
   "result": {
     "item": "appliedpackaging:package_storage_bus"

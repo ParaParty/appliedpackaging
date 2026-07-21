@@ -16,7 +16,7 @@ AE2-derived implementation reference:
   -> AE2-derived portions of
      src/main/java/com/warmthdawn/appliedpackaging/client/screen/AdvancedPatternEncodingTermScreen.java
      src/main/java/com/warmthdawn/appliedpackaging/client/screen/AdvancedSetPatternAmountScreen.java
-     src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_encoding_terminal.json
+     src/main/resources/assets/ae2/screens/appliedpackaging/advanced_pattern_terminal.json
 
 Runtime target: Minecraft 1.20.1, Forge, Applied Energistics 2 15.4.10.
 The local implementation does not replace or extend AE2's screen factory.

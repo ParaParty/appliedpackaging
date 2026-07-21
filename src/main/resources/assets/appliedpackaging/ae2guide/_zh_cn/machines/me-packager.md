@@ -19,7 +19,7 @@ ME 打包机从[网络存储](ae2:ae2-mechanics/import-export-storage.md)中提�
 打包机通过底面和背面连接 AE2。正面传送带存放当前包裹。右键传送带表面可放入或取出包裹；右键其他面打开配置 GUI。传送带槽与 GUI 显示同一存储。
 
 <GameScene zoom="6" background="transparent">
-  <ImportStructure src="../../assets/assemblies/me_packager_network.snbt" />
+  <ImportStructure src="../assets/assemblies/me_packager_network.snbt" />
   <IsometricCamera yaw="195" pitch="30" />
 
   <BoxAnnotation color="#dddddd" min="0 0 0" max="2 1 1">
@@ -54,7 +54,7 @@ ME 打包机从[网络存储](ae2:ae2-mechanics/import-export-storage.md)中提�
 
 ## 拆包
 
-通过传送带或 GUI 将包裹放入打包机，其内容物拆包回 ME 存储。阻挡模式在网络已含有匹配物品时阻止拆包。预接收检查（GUI 标注"防堵塞模式"，默认开启）在接受包裹前验证完整内容物能否装入 ME 存储。
+通过传送带或 GUI 将包裹放入打包机，其内容物拆包回 ME 存储。阻挡模式在网络已有任何内容时阻止拆包，无关物品同样会阻挡。预接收检查（GUI 标注"防堵塞模式"，默认开启）在接受包裹前验证完整内容物能否装入 ME 存储。
 
 ## 过滤模式
 
@@ -72,7 +72,7 @@ ME 打包机支持以下[升级](ae2:items-blocks-machines/upgrade_cards.md)：
 *   <ItemLink id="ae2:capacity_card" /> 增加内容过滤行（最多 3 张，共 5 行）
 *   <ItemLink id="ae2:inverter_card" /> 反转内容过滤
 
-打包机也有存储组件槽，接受 16k、64k 和 256k 原始组件以提升包裹容量。
+存储组件槽为空时使用默认 1k 档，按其名义容量四分之一提供 256 包裹单位与 9 类型上限。安装 16k、64k 或 256k 原始组件后，单位上限分别提升为 4,096、16,384 和 65,536。
 
 ## 合成配方
 

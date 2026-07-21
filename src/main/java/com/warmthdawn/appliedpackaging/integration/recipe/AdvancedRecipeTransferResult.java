@@ -1,4 +1,4 @@
-package com.warmthdawn.appliedpackaging.integration.jei;
+package com.warmthdawn.appliedpackaging.integration.recipe;
 
 import com.warmthdawn.appliedpackaging.core.pattern.AdvancedPatternTransferPlan;
 import net.minecraft.network.chat.Component;

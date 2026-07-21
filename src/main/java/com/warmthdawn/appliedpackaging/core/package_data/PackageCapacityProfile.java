@@ -6,10 +6,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 public enum PackageCapacityProfile {
-    DEFAULT(9, 9),
-    STORAGE_16K(16, 16),
-    STORAGE_64K(64, 63),
-    STORAGE_256K(256, 63);
+    DEFAULT(256, 9),
+    STORAGE_16K(4_096, 16),
+    STORAGE_64K(16_384, 63),
+    STORAGE_256K(65_536, 63);
 
     private final long unitLimit;
     private final int typeLimit;
