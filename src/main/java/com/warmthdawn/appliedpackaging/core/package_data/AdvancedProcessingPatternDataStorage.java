@@ -27,7 +27,7 @@ public final class AdvancedProcessingPatternDataStorage {
     public static final int MAX_PACKAGE_COLUMNS = AEProcessingPattern.MAX_INPUT_SLOTS;
     public static final int INPUTS_PER_PACKAGE = AEProcessingPattern.MAX_INPUT_SLOTS;
     public static final int MAX_INPUT_SLOTS = MAX_PACKAGE_COLUMNS * INPUTS_PER_PACKAGE;
-    public static final int MAX_OUTPUT_SLOTS = 4;
+    public static final int MAX_OUTPUT_SLOTS = AEProcessingPattern.MAX_OUTPUT_SLOTS;
 
     private static final String VERSION = "version";
     private static final String COLUMNS = "columns";

@@ -54,6 +54,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
@@ -218,6 +219,8 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     private Direction autoExportBatchDirection;
     private int craftingProgress;
     private PackageColor selectedColor = PackageColor.FLUIX;
+    private boolean syncedCrafting;
+    private ItemStack syncedActivePackage = ItemStack.EMPTY;
 
     public PackageAssemblerBlockEntity(BlockPos pos, BlockState blockState) {
         super(APBlockEntities.PACKAGE_ASSEMBLER.get(), pos, blockState);
@@ -1285,21 +1288,38 @@ public class PackageAssemblerBlockEntity extends AENetworkBlockEntity
     }
 
     public boolean isCrafting() {
-        return !activePackages.isEmpty();
+        return !activePackages.isEmpty() || syncedCrafting;
     }
 
     public ItemStack activePackageDisplayStack() {
-        if (activePackages.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (!activePackages.isEmpty()) {
+            QueuedPackage active = activePackages.get(0);
+            return packageStack(active.color(), active.data());
         }
-        QueuedPackage active = activePackages.get(0);
-        return packageStack(active.color(), active.data());
+        return syncedActivePackage;
     }
 
     private void syncClientVisualState() {
         if (level != null && !level.isClientSide) {
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 2);
         }
+    }
+
+    @Override
+    protected boolean readFromStream(FriendlyByteBuf data) {
+        syncedCrafting = data.readBoolean();
+        syncedActivePackage = data.readItem();
+        if (!syncedCrafting) {
+            syncedActivePackage = ItemStack.EMPTY;
+        }
+        return true;
+    }
+
+    @Override
+    protected void writeToStream(FriendlyByteBuf data) {
+        boolean crafting = !activePackages.isEmpty();
+        data.writeBoolean(crafting);
+        data.writeItem(crafting ? activePackageDisplayStack() : ItemStack.EMPTY);
     }
 
     public boolean exportOutputOnce() {

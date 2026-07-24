@@ -5289,6 +5289,32 @@ public final class PackageDataGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void packageAssemblerVisualStateSyncsActivePackage(GameTestHelper helper) {
+        PackageAssemblerBlockEntity serverView = newPackageAssembler();
+        serverView.setLevel(helper.getLevel());
+        serverView.getItems().setStackInSlot(
+                PackageAssemblerBlockEntity.SLOT_PATTERN,
+                ordinaryStickCraftingPattern(helper));
+        serverView.insertMenuInput(0, new ItemStack(Items.OAK_PLANKS), 1, false);
+        serverView.insertMenuInput(1, new ItemStack(Items.OAK_PLANKS), 1, false);
+        helper.assertTrue(serverView.tryAssemble() == PackageAssemblerBlockEntity.AssemblyResult.ASSEMBLED,
+                "Local crafting should enter the visual working state");
+
+        PackageAssemblerBlockEntity clientView = newPackageAssembler();
+        clientView.load(serverView.getUpdateTag());
+        helper.assertTrue(clientView.isCrafting()
+                        && PackageDataStorage.read(clientView.activePackageDisplayStack()).isPresent(),
+                "The block-entity update stream should start the client animation with its active package");
+
+        serverView.getItems().setStackInSlot(PackageAssemblerBlockEntity.SLOT_PATTERN, ItemStack.EMPTY);
+        serverView.serverTick();
+        clientView.load(serverView.getUpdateTag());
+        helper.assertTrue(!clientView.isCrafting() && clientView.activePackageDisplayStack().isEmpty(),
+                "The block-entity update stream should stop the client animation and clear its package");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void packageAssemblerAdvancedPatternPackagesEachColumnInOrder(GameTestHelper helper) {
         PackageAssemblerBlockEntity assembler = newPackageAssembler();
         GenericStack plank = new GenericStack(AEItemKey.of(Items.OAK_PLANKS), 1);
@@ -5919,7 +5945,9 @@ public final class PackageDataGameTests {
         state.setColor(1, PackageColor.BLUE);
         state.setColor(2, PackageColor.GREEN);
         state.inputs().setStack(4, new GenericStack(AEItemKey.of(Items.COAL), 64));
-        state.outputs().setStack(3, new GenericStack(AEItemKey.of(Items.EMERALD), 4));
+        state.outputs().setStack(
+                AdvancedProcessingPatternDataStorage.MAX_OUTPUT_SLOTS - 1,
+                new GenericStack(AEItemKey.of(Items.EMERALD), 4));
         changes[0] = 0;
 
         AdvancedPatternTransferPlan source = new AdvancedPatternTransferPlan(
@@ -5930,7 +5958,12 @@ public final class PackageDataGameTests {
                                 null,
                                 new GenericStack(AEFluidKey.of(Fluids.WATER), 1000),
                                 new GenericStack(AEItemKey.of(Items.COPPER_INGOT), 3))),
-                List.of(new GenericStack(AEItemKey.of(Items.DIAMOND), 1)));
+                List.of(
+                        new GenericStack(AEItemKey.of(Items.DIAMOND), 1),
+                        new GenericStack(AEItemKey.of(Items.EMERALD), 2),
+                        new GenericStack(AEItemKey.of(Items.REDSTONE), 3),
+                        new GenericStack(AEItemKey.of(Items.LAPIS_LAZULI), 4),
+                        new GenericStack(AEItemKey.of(Items.QUARTZ), 5)));
         AdvancedPatternTransferPlan decoded;
         try {
             decoded = source.toPayload().decode();
@@ -5962,8 +5995,12 @@ public final class PackageDataGameTests {
         helper.assertTrue(state.inputs().getStack(4) == null,
                 "Recipe import should clear stale inputs before applying the new plan");
         helper.assertTrue(state.outputs().getStack(0).what().equals(AEItemKey.of(Items.DIAMOND))
-                        && state.outputs().getStack(3) == null,
-                "Recipe import should replace outputs and clear stale tail slots");
+                        && state.outputs().getStack(4).what().equals(AEItemKey.of(Items.QUARTZ))
+                        && state.outputs().getStack(4).amount() == 5,
+                "Recipe import should preserve all five deterministic outputs");
+        helper.assertTrue(
+                state.outputs().getStack(AdvancedProcessingPatternDataStorage.MAX_OUTPUT_SLOTS - 1) == null,
+                "Recipe import should clear stale output slots beyond the imported recipe");
         helper.succeed();
     }
 

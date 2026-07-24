@@ -617,7 +617,7 @@ public class AdvancedPatternEncodingTermScreen
     @Override
     public void renderSlot(GuiGraphics graphics, Slot slot) {
         super.renderSlot(graphics, slot);
-        if (isCraftablePackageInput(slot)) {
+        if (isCraftablePatternInput(slot)) {
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, 100);
             StackSizeRenderer.renderSizeLabel(graphics, font, slot.x - 11, slot.y - 11, "+", false);
@@ -628,7 +628,7 @@ public class AdvancedPatternEncodingTermScreen
     @Override
     protected List<Component> getTooltipFromContainerItem(ItemStack stack) {
         List<Component> lines = super.getTooltipFromContainerItem(stack);
-        if (isCraftablePackageInput(hoveredSlot)) {
+        if (isCraftablePatternInput(hoveredSlot)) {
             lines = new ArrayList<>(lines);
             lines.add(ButtonToolTips.Craftable.text().withStyle(ChatFormatting.DARK_GRAY));
         }
@@ -1178,18 +1178,21 @@ public class AdvancedPatternEncodingTermScreen
                 && mouseY >= y && mouseY < y + PACKAGE_VISIBLE_ROWS * SLOT_STEP;
     }
 
-    private boolean isCraftablePackageInput(Slot slot) {
-        if (menu.getSpecializedMode() != SpecializedPatternMode.PACKAGE || slot == null) {
+    private boolean isCraftablePatternInput(Slot slot) {
+        if (slot == null) {
             return false;
         }
-        boolean packageInput = false;
-        for (Slot input : menu.getPackageInputSlots()) {
+        var patternInputs = menu.getSpecializedMode() == SpecializedPatternMode.ADVANCED
+                ? menu.getAdvancedInputSlots()
+                : menu.getPackageInputSlots();
+        boolean patternInput = false;
+        for (Slot input : patternInputs) {
             if (input == slot) {
-                packageInput = true;
+                patternInput = true;
                 break;
             }
         }
-        if (!packageInput) {
+        if (!patternInput) {
             return false;
         }
         GenericStack content = GenericStack.fromItemStack(slot.getItem());
