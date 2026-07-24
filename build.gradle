@@ -66,17 +66,6 @@ repositories {
     exclusiveContent {
         forRepository {
             maven {
-                name = "TerraformersMC"
-                url = "https://maven.terraformersmc.com/releases"
-            }
-        }
-        filter {
-            includeGroup "dev.emi"
-        }
-    }
-    exclusiveContent {
-        forRepository {
-            maven {
                 name = "Create Maven"
                 url = "https://maven.createmod.net"
             }
@@ -241,12 +230,12 @@ dependencies {
     // Complete viewer mods are development-only and are not published as transitive dependencies.
     modCompileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     modCompileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
-    modCompileOnly "dev.emi:emi-forge:${emi_version}"
+    modCompileOnly "maven.modrinth:emi:${emi_version}+forge"
     if (recipeViewerRuntime == 'jei') {
         modLocalRuntime "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
     }
     if (recipeViewerRuntime == 'emi') {
-        modLocalRuntime "dev.emi:emi-forge:${emi_version}"
+        modLocalRuntime "maven.modrinth:emi:${emi_version}+forge"
     }
     modCompileOnly "com.simibubi.create:create-${minecraft_version}:${create_version}:slim"
     // The Maven slim jar is suitable for compilation; the all jar carries Create's bundled runtime libraries.
